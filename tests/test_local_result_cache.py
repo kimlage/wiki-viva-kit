@@ -454,3 +454,34 @@ def test_shared_capture_keeps_original_context_and_requests_distinguish_contexts
     assert first[1]['source_context'] == 'context-a' and second[1]['source_context'] == 'context-b'
     assert json.loads((root / first[0].manifest_path).read_text())['context'] == 'context-a'
     assert first[1]['folder_request_id'] != second[1]['folder_request_id']
+
+
+def test_duplicate_contextual_events_never_hide_pending_work(approved, monkeypatch, capsys):
+    import hashlib
+    import wiki_core.consolidate as core
+    root, source, _, _ = approved
+    (root / 'area').mkdir()
+    (root / 'area/index.md').write_text('index')
+    (root / 'area/AGENTS.md').write_text('guidance')
+    config = load_config(root)
+    produced = run(str(source), 'system', root, config, entry_folder='area', record_score=False)
+    request = json.loads((root / produced.request_path).read_text())
+    paths = WikiPaths(root, config)
+    paths.ingest_events_dir.mkdir(parents=True, exist_ok=True)
+    source_digest = hashlib.sha256(produced.source_id.encode()).hexdigest()
+    request_id = request['folder_request_id']
+    prefix = f'---\nsource_id: {produced.source_id}\nfolder_request_id: {request_id}\n'
+    older = paths.ingest_events_dir / f'2026-11-01-{source_digest}-{request_id}.md'
+    newer = paths.ingest_events_dir / f'2026-11-02-{source_digest}-{request_id}.md'
+    older.write_text(prefix + 'consolidated_into:\n  - complete-page\n---\n')
+    newer.write_text(prefix + 'consolidated_into: []\n---\n')
+    monkeypatch.setattr(core, 'deep_read_complete', lambda *_a, **_k: True)
+    with pytest.raises(ValueError, match='ambiguous'):
+        core.pending_consolidations(root, config)
+    cli = module('wiki_consolidate')
+    monkeypatch.setattr(cli, 'ROOT', root)
+    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--check'])
+    assert cli.main() == 2
+    output = capsys.readouterr()
+    assert 'ambiguous' in output.err and '"total": 0' not in output.out
+    assert older.is_file() and newer.is_file()

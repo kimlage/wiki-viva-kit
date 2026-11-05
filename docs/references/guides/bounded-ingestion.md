@@ -139,7 +139,10 @@ update the global search index or score event. Filesystem checks do not prevent
 concurrent replacement. Multiple folders may retain distinct requests for the
 same source. A complete, matching source capture is reused; a partial or
 different capture blocks and is preserved. Re-emitting an identical request
-preserves its original bytes. If local persistence fails, `written: false`
+preserves its original bytes. Local requests have a 2,000,000-byte retention
+limit even when a larger request budget is supplied; an oversized request is
+blocked before capture or request files are written, without truncation.
+If local persistence fails, `written: false`
 means persistence did not complete; `partial_effects: unknown` warns that
 partial effects may exist and require inspection before retrying. Folder entry
 does not provide scoped query search.
@@ -186,6 +189,13 @@ unchanged. Earlier prototype local requests and results remain on disk; their
 folder binding is not silently upgraded to the new identity, so consolidation
 reports them as requiring re-emission. Re-prepare and re-read a new request
 when adopting the new binding.
+
+Local events and packets retain each selected Git file's configured identity,
+commit, path, blob and content hashes. The configured identity is not remote
+authentication. Local events link to the source capture manifest for authorized
+consultation, but omit capture and verification dates when those dates are not
+bound to the selected request; the event update date is not evidence that the
+source was captured or verified on that date.
 
 The shared source manifest retains the context recorded for its first capture.
 A global catalog filtered by that field can therefore omit another interpretation

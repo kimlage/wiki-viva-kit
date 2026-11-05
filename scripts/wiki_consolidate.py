@@ -80,6 +80,11 @@ def consolidate_one(
     config = load_config(ROOT)
     paths = WikiPaths(ROOT, config)
     from wiki_core.traversal import require_wiki_boundaries
+    if packet and request_path is None:
+        # The legacy output is selected by source ID; reject an unsafe
+        # destination even when its corresponding request is unavailable.
+        require_wiki_boundaries(ROOT, directories=(paths.extraction_events,),
+                                files=(paths.extraction_events / f'{source_id}{PACKET_SUFFIX}',))
     request = _request_for(paths, source_id, request_path)
     if request is None:
         print('ERROR: no emitted context request for source', file=sys.stderr)
@@ -190,7 +195,7 @@ def main() -> int:
         try:
             pending = pending_consolidations(ROOT, config)
         except (ValueError, OSError):
-            print('wiki_consolidate: derived_path_crosses_repository_boundary', file=sys.stderr)
+            print('wiki_consolidate: pending consolidations unavailable or ambiguous', file=sys.stderr)
             return 2
         print(json.dumps({"pending": pending, "total": len(pending)}, ensure_ascii=False, indent=2))
         if args.check and pending:

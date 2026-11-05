@@ -439,3 +439,58 @@ def test_selected_request_budget_checked_before_read(approved, repo, monkeypatch
     monkeypatch.setattr(Path, 'open', guarded)
     with pytest.raises(ValueError):
         module('wiki_llm_context_pass')._retained_local_request(paths, request['source_id'], 1, str(retained))
+
+
+def test_later_events_preserve_each_git_revision_without_inventing_dates(approved, repo, monkeypatch, tmp_path, capsys):
+    import datetime
+    from tests.test_local_result_cache import module, result_for
+    from wiki_core.frontmatter import parse_frontmatter
+    from wiki_core.paths import WikiPaths
+    root, source, _, _ = approved
+    config = load_config(root)
+    cli = module('wiki_llm_context_pass')
+    consolidate = module('wiki_consolidate')
+    monkeypatch.setattr(consolidate, 'ROOT', root)
+    monkeypatch.chdir(root)
+    chosen_requests = []
+    for index in (1, 2):
+        if index == 2:
+            (repo / 'guide.md').write_text('# Guide\nUpdated evidence.\n')
+            git(repo, 'add', 'guide.md')
+            git(repo, 'commit', '-qm', 'updated selected evidence')
+        chosen = selection(repo)
+        folder = f'context{index}'
+        (root / folder).mkdir()
+        (root / folder / 'index.md').write_text('Index')
+        (root / folder / 'AGENTS.md').write_text('Guidance')
+        result = run(str(source), 'system', root, config, entry_folder=folder, repo_selections=[chosen], record_score=False)
+        assert not result.blocked
+        request = json.loads((root / result.request_path).read_text())
+        payload = tmp_path / f'results{index}.json'
+        payload.write_text(json.dumps(list({row['cache_key']: result_for(request, row) for row in request['chunks']}.values())))
+        monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+            '--context', 'system', '--folder', folder, '--repo', *chosen, '--request', result.request_path,
+            '--record-result', str(payload)])
+        assert cli.main() == 0
+        capsys.readouterr()
+        chosen_requests.append((chosen, result, request))
+    assert chosen_requests[0][0][2] != chosen_requests[1][0][2]
+    paths = WikiPaths(root, config)
+    paths.ingest_events_dir.mkdir(parents=True, exist_ok=True)
+    for chosen, result, request in chosen_requests:
+        assert consolidate.consolidate_one(result.source_id, emit_event=True, packet=True, source_page=None,
+            source_ref='source-test', context='system', date=datetime.date(2030, 1, 2), force=False,
+            request_path=result.request_path, repo_selections=[chosen]) == 0
+        event = next(paths.ingest_events_dir.glob(f"*-{request['folder_request_id']}.md"))
+        fm, _ = parse_frontmatter(event)
+        receipt = next(d['repository_read'] for d in request['block_context_package']['documents'] if d['origin'] == 'independent_git')
+        assert fm['independent_git_sources'] == [{
+            'identity': chosen[1], 'revision': chosen[2], 'path': chosen[3], 'blob': receipt['blob'],
+            'document_sha256': receipt['document_sha256'], 'content_sha256': receipt['content_sha256']}]
+        assert 'captured_at' not in fm and 'verified_at' not in fm
+        assert fm['updated_at'].isoformat() == '2030-01-02'
+        assert fm['manifest_ref'] == result.manifest_path
+        text = event.read_text()
+        assert str(repo) not in text and 'Useful content.' not in text and 'Updated evidence.' not in text
+        packet = next(paths.extraction_events.glob(f"*-{request['folder_request_id']}-integration-packet.json"))
+        assert json.loads(packet.read_text())['independent_git_sources'] == fm['independent_git_sources']

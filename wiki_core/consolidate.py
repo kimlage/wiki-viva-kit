@@ -234,9 +234,40 @@ def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path
             value = result.get(name)
             if isinstance(value, list):
                 lists[name].extend(value)
+    git_sources = []
+    if request.get('folder_request_id'):
+        from wiki_core.repo_read import contains_access_secrets, remote_identity
+        from wiki_core.repository_reader import canonical_path
+        package = request.get('block_context_package') or {}
+        documents = package.get('documents') if isinstance(package, dict) else None
+        if not isinstance(documents, list):
+            raise ValueError('local request provenance unavailable')
+        for document in documents:
+            if not isinstance(document, dict):
+                raise ValueError('local request provenance unavailable')
+            if document.get('origin') != 'independent_git':
+                continue
+            try:
+                receipt = document['repository_read']
+                identity = receipt['repository']['identity']
+                selected = {'identity': identity, **{key: receipt[key] for key in
+                    ('revision', 'path', 'blob', 'document_sha256', 'content_sha256')}}
+                if (any(not isinstance(value, str) or not value for value in selected.values())
+                        or remote_identity('https://' + identity)[0] != identity
+                        or canonical_path(selected['path']) != selected['path']
+                        or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', selected['revision'])
+                        or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', selected['blob'])
+                        or not all(re.fullmatch(r'[0-9a-f]{64}', selected[key]) for key in
+                                   ('document_sha256', 'content_sha256'))
+                        or contains_access_secrets(selected)):
+                    raise ValueError('local request provenance unavailable')
+            except (KeyError, TypeError, AttributeError, ValueError):
+                raise ValueError('local request provenance unavailable') from None
+            git_sources.append(selected)
     return {
         "source_id": request.get("source_id"),
         **({'folder_request_id': request['folder_request_id']} if request.get('folder_request_id') else {}),
+        **({'independent_git_sources': git_sources} if git_sources else {}),
         "prompt_version": request.get("prompt_version"),
         "chunk_count": len(request.get("chunks") or []),
         "root_entity": request.get("root_entity") or {},
@@ -352,6 +383,15 @@ def build_event_markdown(
         source_rows.append(s["row_source_page"].format(label=source_page, href=href))
     source_rows.append(s["row_source_id"].format(source_id=source_id))
     source_rows.append(s["row_generated"].format(script=script_href))
+    manifest_ref = None
+    if request_id and root is not None and event_dir is not None:
+        import os
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', source_id):
+            raise ValueError('invalid source identity')
+        manifest = WikiPaths(root, config).source_manifests / f'{source_id}.json'
+        manifest_ref = manifest.relative_to(root).as_posix()
+        href = os.path.relpath(manifest, event_dir).replace(os.sep, '/')
+        source_rows.append(f'- [Source capture manifest]({href}) (consult only with host authorization).')
     if impact.get('coverage') == 'explicit_candidates_only':
         source_rows.append('- Impact coverage: only explicitly selected candidates; global catalog and FTS were not searched.')
 
@@ -382,13 +422,16 @@ def build_event_markdown(
         fm.append(f"source_ref: {source_ref}")
     if request_id:
         fm.append(f"folder_request_id: {request_id}")
+        if manifest_ref:
+            fm.append('manifest_ref: ' + json.dumps(manifest_ref, ensure_ascii=False))
+        if aggregated.get('independent_git_sources'):
+            fm.append('independent_git_sources: ' + json.dumps(aggregated['independent_git_sources'], ensure_ascii=False, sort_keys=True))
     if impact.get('coverage') == 'explicit_candidates_only':
         fm.append('impact_coverage: explicit_candidates_only')
     fm.extend(
         [
             f"source_type: {source_type}",
-            f"captured_at: {date.isoformat()}",
-            f"verified_at: {date.isoformat()}",
+            *([] if request_id else [f"captured_at: {date.isoformat()}", f"verified_at: {date.isoformat()}"]),
             "status_epistemologico: proposta",
             f"risk_level: {risk_level}",
             "requires_gate: true",
@@ -659,6 +702,8 @@ def build_packet(
         "kind": "wiki_integration_packet",
         "schema_version": PACKET_SCHEMA_VERSION,
         "source_id": aggregated.get("source_id"),
+        **({'independent_git_sources': aggregated['independent_git_sources']}
+           if aggregated.get('independent_git_sources') else {}),
         "root_impact": {
             "root_entity": root_entity,
             "input_channel": input_channel,
@@ -705,6 +750,7 @@ def find_event_for_source(paths: WikiPaths, source_id: str, *, root: Path | None
         candidates = events_dir.glob(f'*-{source_digest}-{request_id}.md')
     else:
         candidates = events_dir.glob("*.md")
+    found = None
     for md in sorted(candidates):
         if md.name == "README.md":
             continue
@@ -712,8 +758,12 @@ def find_event_for_source(paths: WikiPaths, source_id: str, *, root: Path | None
             require_wiki_boundaries(root, files=(md,))
         fm = _read_frontmatter(md)
         if str(fm.get("source_id") or "") == source_id and fm.get('folder_request_id') == request_id:
-            return md
-    return None
+            if request_id is None:
+                return md  # Preserve the historical source-only lookup.
+            if found is not None:
+                raise ValueError('ambiguous contextual ingestion events')
+            found = md
+    return found
 
 
 def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, object]]:
