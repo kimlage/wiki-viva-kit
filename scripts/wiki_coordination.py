@@ -3,12 +3,15 @@
 from __future__ import annotations
 import argparse
 import json
+import sys
 from pathlib import Path
 from _common import ROOT
 from wiki_core.context_selection import strict_json_loads
+from wiki_core.context_policy import revision
 from wiki_core.config import load_config
 from wiki_core.coordination import coordination_index, profile_packet_migration, transition_dialogue_action
-from wiki_core.coordination_context import CoordinationBinding, ProtectedCoordinationError, prepare_packet, blocker_response
+from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordinationError,
+    prepare_packet, protected_source_stage, blocker_response, _policy)
 
 
 def main() -> None:
@@ -17,6 +20,10 @@ def main() -> None:
     parser.add_argument("--context-id", help="Explicit context ID for a policy-approved task packet.")
     parser.add_argument("--approved-revision", help="Current approved commit SHA for protected packet mode.")
     parser.add_argument("--packet-request", type=Path, help="Explicit task selection JSON for protected packet mode.")
+    parser.add_argument("--folder", help="Physical entry folder for a folder-authority task packet.")
+    parser.add_argument("--index", help="Explicit context index for a folder-authority task packet.")
+    parser.add_argument("--source-stage", choices=('prepare', 'record', 'consolidate'),
+        help="Trusted local operator source stage; stage payload is read from stdin.")
     parser.add_argument("--profile")
     parser.add_argument("--action-id")
     parser.add_argument("--action-path", help="Exact canonical page path; required for dialogue events.")
@@ -25,22 +32,62 @@ def main() -> None:
     parser.add_argument("--expected-sha256")
     parser.add_argument("--as-operator", action="store_true", help="Record an operator event rather than a coordinator event.")
     args = parser.parse_args()
+    if args.source_stage:
+        if (not args.context_id or not args.approved_revision or args.packet_request or args.profile or args.folder or args.index
+                or args.action_id or args.event_file or args.expected_sha256 or args.as_operator or args.action_path):
+            parser.error('source stage requires context-id and approved-revision; provide stage JSON on stdin')
+        try:
+            # This adapter trusts the local operator. The arguments it receives
+            # are not a security boundary against that operator or filesystem.
+            binding = CoordinationBinding((args.context_id,), 'refs/remotes/origin/main', 'wiki.config.yaml')
+            root = args.root.resolve()
+            _policy(root, binding, args.context_id, args.approved_revision)
+            raw = sys.stdin.read(2_000_001)
+            if len(raw.encode('utf-8')) > 2_000_000:
+                raise ValueError('request too large')
+            payload = strict_json_loads(raw)
+            if not isinstance(payload, dict) or {'context_id', 'approved_revision'} & set(payload):
+                raise ValueError('invalid source stage payload')
+            result = protected_source_stage(root, binding, args.source_stage,
+                {**payload, 'context_id': args.context_id, 'approved_revision': args.approved_revision})
+        except (ProtectedCoordinationError, ValueError, OSError) as error:
+            safe_error = error if isinstance(error, ProtectedCoordinationError) else ProtectedCoordinationError('coordination_invalid_request')
+            print(json.dumps(blocker_response(safe_error), ensure_ascii=False))
+            raise SystemExit(1)
+        print(json.dumps({**result, 'caller_boundary': 'trusted_local_operator'}, ensure_ascii=False))
+        return
     protected = bool(args.context_id or args.approved_revision or args.packet_request)
     if protected:
         if not (args.context_id and args.approved_revision and args.packet_request) or args.profile or args.action_id or args.event_file or args.expected_sha256 or args.as_operator or args.action_path:
             parser.error("protected mode requires context-id, approved-revision and packet-request; legacy profile/event options are separate")
         try:
+            from wiki_core.traversal import is_protected_artifact
+            if is_protected_artifact(args.packet_request):
+                raise ValueError('protected request requires bound dispatch')
+            binding = CoordinationBinding((args.context_id,), 'refs/remotes/origin/main', 'wiki.config.yaml')
+            root = args.root.resolve()
+            _policy(root, binding, args.context_id, args.approved_revision)
             if args.packet_request.stat().st_size > 1_048_576:
                 raise ValueError("request too large")
             request = strict_json_loads(args.packet_request.read_text(encoding="utf-8"))
-            binding = CoordinationBinding((args.context_id,), "refs/remotes/origin/main")
-            result = prepare_packet(args.root.resolve(), binding, {"context_id": args.context_id, "approved_revision": args.approved_revision, "content_revision": args.revision, "task": request})
+            folder = args.folder
+            if folder is None:
+                try: relative = Path.cwd().resolve().relative_to(root)
+                except ValueError: relative = None
+                folder = relative.as_posix() if relative is not None and relative.parts else args.context_id
+            selection = {'entry_folder': folder}
+            if args.index is not None: selection['entry_index'] = args.index
+            result = prepare_packet(root, binding, {"context_id": args.context_id,
+                "approved_revision": args.approved_revision, "content_revision": revision(root, args.revision),
+                "task": request, **selection})
         except (ProtectedCoordinationError, ValueError, OSError) as error:
             safe_error = error if isinstance(error, ProtectedCoordinationError) else ProtectedCoordinationError("coordination_invalid_request")
             print(json.dumps(blocker_response(safe_error), ensure_ascii=False))
             raise SystemExit(1)
-        print(json.dumps(result, ensure_ascii=False))
+        print(json.dumps({**result, 'caller_boundary': 'trusted_local_operator'}, ensure_ascii=False))
         return
+    if args.folder or args.index:
+        parser.error('folder and index require protected packet mode')
     if args.event_file and (not args.profile or not args.action_id or not args.expected_sha256 or not args.action_path):
         parser.error("--event-file requires --profile, --action-id, --action-path and --expected-sha256")
     if (args.expected_sha256 or args.as_operator or args.action_path) and not args.event_file:

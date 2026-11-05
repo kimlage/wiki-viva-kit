@@ -1,5 +1,8 @@
 import datetime as dt
+import hashlib
 import json
+import subprocess
+import sys
 
 import pytest
 import yaml
@@ -35,7 +38,7 @@ def test_complete_protected_proposal_and_local_search_boundary(prepared_repo):
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
     args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
                 source_ref='source.txt')
-    prepared = prepare(root, binding, **args, source_context='system')
+    prepared = protected_source_stage(root, binding, 'prepare', {**args, 'source_context': 'system'})['result']
     request = prepared['request']
     row = request['chunks'][0]
     sample = json.loads((__import__('pathlib').Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
@@ -43,9 +46,11 @@ def test_complete_protected_proposal_and_local_search_boundary(prepared_repo):
               **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
               'perspectives_required': request['perspectives_required'], 'perspectives': {}}
     ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
-    assert record(root, binding, **args, **ids, results=[result])['recorded'] == 1
-    output = consolidate(root, binding, **args, **ids, source_page='source.txt',
-        event_target='memories/system/ingestion/events/synthetic.md', date=dt.date(2026, 11, 4))
+    assert protected_source_stage(root, binding, 'record', {**args, **ids, 'results': [result]})['result']['recorded'] == 1
+    event = ('memories/system/ingestion/events/2026-11-04-' +
+             hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    output = protected_source_stage(root, binding, 'consolidate', {**args, **ids,
+        'source_page': 'source.txt', 'event_target': event, 'date': '2026-11-04'})['result']
     assert output['integration'] == 'pending review and incorporation'
     assert (root / output['event']).is_file()
     from wiki_core.find import find
@@ -141,12 +146,13 @@ def test_authority_revoked_mid_capture_reports_partial(prepared_repo, monkeypatc
     from wiki_core.ingest import protected
     root, sha = prepared_repo
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
-    original = protected.write_manifest
+    original = protected._write_once
     def revoke_after_manifest(*args, **kwargs):
         result = original(*args, **kwargs)
-        git(root, 'update-ref', '-d', 'refs/remotes/origin/main')
+        if args[3].parent.name == 'source-manifests':
+            git(root, 'update-ref', '-d', 'refs/remotes/origin/main')
         return result
-    monkeypatch.setattr(protected, 'write_manifest', revoke_after_manifest)
+    monkeypatch.setattr(protected, '_write_once', revoke_after_manifest)
     payload = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
                    source_ref='source.txt', source_context='system')
     with pytest.raises(ProtectedCoordinationError) as exc:
@@ -237,3 +243,155 @@ def test_rewritten_request_cannot_forge_source_chunks(prepared_repo):
     with pytest.raises(ValueError, match='request source changed'):
         record(root, binding, **args, source_id=prepared['source_id'],
                request_id=forged['protected_request_id'], results=[])
+
+
+def test_revocation_after_first_source_open_prevents_reopen(prepared_repo, monkeypatch):
+    from pathlib import Path
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    original = Path.open
+    opens = []
+    class RevokeOnClose:
+        def __init__(self, stream): self.stream = stream
+        def __enter__(self): return self.stream
+        def __exit__(self, *args):
+            self.stream.close()
+            git(root, 'update-ref', '-d', 'refs/remotes/origin/main')
+    def tracked(path, *args, **kwargs):
+        if path == root / 'source.txt':
+            opens.append(path)
+            return RevokeOnClose(original(path, *args, **kwargs))
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', tracked)
+    with pytest.raises(ValueError):
+        prepare(root, binding, context_id='.', approved_revision=sha, entry_folder='.',
+                entry_index='index.md', source_ref='source.txt', source_context='system')
+    assert len(opens) == 1
+    assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
+
+
+def test_revocation_after_last_request_write_reports_partial(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    original = protected._write_once
+    def revoke_after_request(*args, **kwargs):
+        result = original(*args, **kwargs)
+        if args[3].parent.name == 'extraction-events':
+            git(root, 'update-ref', '-d', 'refs/remotes/origin/main')
+        return result
+    monkeypatch.setattr(protected, '_write_once', revoke_after_request)
+    payload = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+                   source_ref='source.txt', source_context='system')
+    with pytest.raises(ProtectedCoordinationError) as exc:
+        protected_source_stage(root, binding, 'prepare', payload)
+    assert exc.value.code == 'coordination_partial_effects'
+    assert len(list((root / 'data/derived/wiki/.wiki-viva-protected/extraction-events').glob('*.json'))) == 1
+
+
+def test_event_cannot_be_instruction_file(prepared_repo):
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    with pytest.raises(ValueError, match='event target unavailable'):
+        consolidate(root, binding, **args, source_id=prepared['source_id'], request_id=prepared['request_id'],
+            source_page='source.txt', event_target='memories/AGENTS.md', date=dt.date(2026, 11, 4))
+    assert not (root / 'memories/AGENTS.md').exists()
+
+
+def test_cli_local_operator_prepare_record_consolidate(prepared_repo):
+    from pathlib import Path
+    root, sha = prepared_repo
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
+    def call(stage, payload):
+        completed = subprocess.run([sys.executable, str(script), '--root', str(root),
+            '--context-id', '.', '--approved-revision', sha, '--source-stage', stage],
+            input=json.dumps(payload), text=True, capture_output=True, check=True)
+        return json.loads(completed.stdout)['result']
+    base = {'entry_folder': '.', 'entry_index': 'index.md', 'source_ref': 'source.txt'}
+    prepared = call('prepare', {**base, 'source_context': 'system'})
+    request = prepared['request']; row = request['chunks'][0]
+    sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
+    result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
+              **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
+              'perspectives_required': [], 'perspectives': {}}
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    assert call('record', {**base, **ids, 'results': [result]})['recorded'] == 1
+    event = ('memories/system/ingestion/events/2026-11-04-' +
+             hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    output = call('consolidate', {**base, **ids, 'source_page': 'source.txt', 'event_target': event, 'date': '2026-11-04'})
+    assert output['integration'] == 'pending review and incorporation'
+    assert (root / event).is_file()
+
+
+def test_cli_packet_uses_folder_authority(prepared_repo, tmp_path):
+    from pathlib import Path
+    root, sha = prepared_repo
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
+    request = tmp_path / 'task.json'
+    request.write_text(json.dumps({'task_id': 'synthetic', 'goal': 'read source', 'output': 'proposal',
+        'integrator': 'root', 'max_bytes': 100000, 'evidence': []}))
+    completed = subprocess.run([sys.executable, str(script), '--root', str(root),
+        '--context-id', '.', '--approved-revision', sha, '--packet-request', str(request), '--index', 'index.md'],
+        text=True, capture_output=True, check=True)
+    output = json.loads(completed.stdout)
+    assert output['caller_boundary'] == 'trusted_local_operator'
+    assert output['packet']['authority_format'] == 'folder'
+
+
+def _result_for(request):
+    from pathlib import Path
+    row = request['chunks'][0]
+    sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
+    return {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
+            **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
+            'perspectives_required': [], 'perspectives': {}}
+
+
+def test_revocation_after_last_result_write_reports_partial(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    original = protected._write_once
+    def revoke_after_result(*values, **kwargs):
+        result = original(*values, **kwargs)
+        if values[3].parent.name == 'llm-cache':
+            git(root, 'update-ref', '-d', 'refs/remotes/origin/main')
+        return result
+    monkeypatch.setattr(protected, '_write_once', revoke_after_result)
+    with pytest.raises(protected.ProtectedPartialError):
+        record(root, binding, **args, source_id=prepared['source_id'], request_id=prepared['request_id'],
+               results=[_result_for(prepared['request'])])
+    assert len(list((root / 'data/derived/wiki/.wiki-viva-protected/llm-cache').glob('*.json'))) == 1
+
+
+def test_revocation_after_event_write_reports_partial(prepared_repo, monkeypatch):
+    from pathlib import Path
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
+    record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])
+    event = ('memories/system/ingestion/events/2026-11-04-' +
+             hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    original = Path.open
+    class RevokeOnClose:
+        def __init__(self, stream): self.stream = stream
+        def __enter__(self): return self.stream
+        def __exit__(self, *values):
+            self.stream.close()
+            git(root, 'update-ref', '-d', 'refs/remotes/origin/main')
+    def tracked(path, *values, **kwargs):
+        if path == root / event and values and values[0] == 'x':
+            return RevokeOnClose(original(path, *values, **kwargs))
+        return original(path, *values, **kwargs)
+    monkeypatch.setattr(Path, 'open', tracked)
+    with pytest.raises(protected.ProtectedPartialError):
+        consolidate(root, binding, **args, **ids, source_page='source.txt',
+                    event_target=event, date=dt.date(2026, 11, 4))
+    assert (root / event).is_file()

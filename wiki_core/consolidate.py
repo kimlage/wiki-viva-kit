@@ -408,7 +408,8 @@ def _dedup(items: list[object]) -> list[object]:
     return seen
 
 
-def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path | None = None) -> dict[str, object]:
+def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path | None = None,
+                      result_reader=None) -> dict[str, object]:
     """Merge the per-chunk deep-read results of one source (order = chunk order)."""
     quadrants: dict[str, list[str]] = {key: [] for key in QUADRANT_KEYS}
     confidence: dict[str, str] = {}
@@ -418,7 +419,8 @@ def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path
     }
     rank = {"low": 0, "medium": 1, "high": 2}
     for row in request.get("chunks") or []:
-        result = read_matching_result(cache_dir, request, row, root=root)
+        result = (result_reader(row) if result_reader is not None
+                  else read_matching_result(cache_dir, request, row, root=root))
         if not result:
             raise ValueError('deep read result disappeared or is invalid')
         q = result.get("quadrants")
