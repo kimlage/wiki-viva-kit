@@ -118,8 +118,9 @@ merge is performed automatically.
 
 [wiki_template_sections.py](wiki_template_sections.py) previews an opt-in modular
 section contract on a trusted working tree; it does not prove approval or access.
-[wiki_context_schedule.py](wiki_context_schedule.py) returns finite, disabled-by-default
-schedule advice; it installs nothing and never admits an effect. See
+[wiki_context_schedule.py](wiki_context_schedule.py) currently blocks folder-policy
+requests before opening them because trusted binding and requalification are not
+yet connected. It installs nothing and never admits an effect. See
 [modular sections](../docs/references/guides/modular-template-sections.md) and
 [context schedule advice](../docs/references/context-schedules.md).
 
