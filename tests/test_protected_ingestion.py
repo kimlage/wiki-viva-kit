@@ -190,7 +190,7 @@ def test_same_source_two_contexts_preserves_capture(prepared_repo):
 
 def test_compatibility_readers_do_not_open_protected_artifacts(prepared_repo, monkeypatch):
     from pathlib import Path
-    from scripts import wiki_consolidate, wiki_gc, wiki_llm_context_pass, wiki_audit, wiki_new_ingest
+    from scripts import wiki_consolidate, wiki_gc, wiki_llm_context_pass, wiki_audit, wiki_new_ingest, wiki_export_batch
     from wiki_core.config import load_config
     from wiki_core.find import find
     from wiki_core.paths import WikiPaths
@@ -221,6 +221,8 @@ def test_compatibility_readers_do_not_open_protected_artifacts(prepared_repo, mo
     assert wiki_llm_context_pass._record_results(paths, str(request)) == 2
     with pytest.raises(ValueError, match='protected artifacts'):
         wiki_new_ingest.build_proposal(str(request), 'system', dt.date(2026, 11, 4), 'draft')
+    with pytest.raises(ValueError, match='protected artifacts'):
+        wiki_export_batch.build_batch_requests([request], model='synthetic', max_tokens=100, include_cached=True)
     assert _chunk_payloads(paths) == []
     assert wiki_gc.find_orphans(paths, set(), wiki_root=root) == {}
     monkeypatch.setattr(wiki_audit, 'ROOT', root)
