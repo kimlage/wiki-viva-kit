@@ -195,6 +195,79 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
     return reader, inspection_order
 
 
+def _check_trusted_binding(root, policy, context_id, trusted_binding, additional_readers=()):
+    """Validate an optional host binding before opening any context body."""
+    if trusted_binding is None: return
+    from wiki_core.coordination_context import CoordinationBinding
+    binding = getattr(policy, '_binding', None)
+    if (not isinstance(trusted_binding, CoordinationBinding) or not binding or
+            Path(binding[0]) != Path(root).resolve() or binding[2] != 'wiki.config.yaml' or
+            trusted_binding.manifest != binding[2] or trusted_binding.trusted_ref != binding[1] or
+            context_id not in trusted_binding.contexts or
+            not isinstance(additional_readers, (tuple, list)) or
+            any(reader not in trusted_binding.contexts for reader in additional_readers)):
+        raise PolicyError('host binding requires authorized requalification')
+
+
+def _qualify_trusted_producers(root, policy, context_id, evidence, max_bytes, *, trusted_binding=None, additional_readers=()):
+    """Qualify selected foreign producers under a host binding, not packet claims.
+
+    Callers must obtain ``trusted_binding`` out of band from their trusted host.
+    This helper is an in-process policy check, not a filesystem security boundary.
+    """
+    if getattr(policy, 'format_version', None) != 'folder' or not getattr(policy, '_binding', None):
+        raise PolicyError('folder authority required')
+    if not isinstance(evidence, list) or len(evidence) > 128:
+        raise PolicyError('invalid evidence')
+    if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
+        raise PolicyError('invalid byte budget')
+    _check_trusted_binding(root, policy, context_id, trusted_binding, additional_readers)
+    policy.fresh()
+    producers = []
+    for item in evidence:
+        allowed = {'ref', 'producer', 'reason', 'use', 'classification', 'section', 'field'}
+        if (not isinstance(item, dict) or set(item) - allowed or
+                not all(isinstance(item.get(key), str) and item[key] for key in ('ref', 'producer', 'reason', 'use', 'classification'))):
+            raise PolicyError('invalid evidence')
+        for value in item.values():
+            if isinstance(value, str): _reject_secrets(value)
+        ref = safe_path(item['ref'])
+        if any(key in item and (not isinstance(item[key], str) or not item[key]) for key in ('section', 'field')) or ('section' in item and 'field' in item):
+            raise PolicyError('invalid evidence selector')
+        producer = item['producer']
+        if policy.owner_of(ref) != producer: raise PolicyError('connection denied')
+        if producer != context_id:
+            if producer not in producers: producers.append(producer)
+            if policy._connection(producer, context_id, ref, item['use'], item['classification'],
+                                  section=item.get('section'), field=item.get('field'), qualified=False) != 'approved':
+                raise PolicyError('connection not approved')
+            for reader in additional_readers:
+                if policy._connection(producer, reader, ref, item['use'], item['classification'],
+                                      section=item.get('section'), field=item.get('field'), qualified=False) != 'approved':
+                    raise PolicyError('additional reader not authorized for selected body')
+    if not producers: return
+    from wiki_core.coordination_context import CoordinationBinding
+    root_binding, trusted_ref, manifest = policy._binding
+    if (not isinstance(trusted_binding, CoordinationBinding) or
+            Path(root_binding) != Path(root).resolve() or manifest != 'wiki.config.yaml' or
+            trusted_binding.manifest != manifest or trusted_binding.trusted_ref != trusted_ref or
+            context_id not in trusted_binding.contexts or
+            any(context not in trusted_binding.contexts for context in (*producers, *additional_readers))):
+        raise PolicyError('producer context requires authorized requalification')
+    if len(producers) > 8: raise PolicyError('producer qualification exceeds limit')
+    remaining = max_bytes
+    for producer in producers:
+        index = policy._context_indexes.get(producer)
+        if index is None: raise PolicyError('producer context requires authorized requalification')
+        reader, refs = qualify_folder_context(root, policy, producer, producer, index, remaining)
+        for ref in refs:
+            guard_folder_blob(root, policy, ref)
+            remaining -= reader.blob_size(ref)
+            guard_folder_blob(root, policy, ref)
+            if remaining < 0: raise PolicyError('producer qualification exceeds byte budget')
+    policy.fresh()
+
+
 def _finalize_packet(packet, max_bytes):
     _reject_secrets(packet)
     packet['packet_digest'] = '0' * 64
@@ -229,7 +302,7 @@ def _packet_with_omissions(packet, omissions, policy):
 
 def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
                  required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None, queries=(),
-                 entry_folder=None, entry_index=None, additional_readers=()):
+                 entry_folder=None, entry_index=None, additional_readers=(), trusted_binding=None):
     if getattr(policy, 'format_version', None) not in (None, 'folder'):
         raise PolicyError('v2 policy requires a v2 packet; v1 receipts require explicit migration')
     if not all(isinstance(x, str) and x.strip() for x in (task_id, goal, output, integrator)): raise PolicyError('task identity, goal, output and integrator required')
@@ -268,6 +341,8 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
     lineage = policy.lineage(context_id)
     if folder_mode:
+        _qualify_trusted_producers(root, policy, context_id, evidence, max_bytes,
+                                   trusted_binding=trusted_binding, additional_readers=additional_readers)
         policy_reader, qualification_refs = qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes,
                                                                     additional_readers=additional_readers)
     else:

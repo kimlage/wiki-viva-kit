@@ -227,33 +227,34 @@ def test_untrusted_data_and_ambiguity_fail_closed(collection,bad):
     assert secret not in str(error.value)
 
 
-def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impact(collection):
-    root=collection;base=git(root,'rev-parse','HEAD');p=packet(root);r=requirement(p)
+def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impact(audit_collection):
+    root=audit_collection;base=git(root,'rev-parse','HEAD');p=folder_packet(root);r=folder_requirement(p)
     git(root,'checkout','-qb','wiki/query-task');declare(root,r);git(root,'add','.');git(root,'commit','-qm','query interpretation');head=git(root,'rev-parse','HEAD')
-    done=result(p,[{'path':'finance/costs/result.md','action':'modified'}])
-    assert preflight(root,policy(root),context_id='costs',base=base,head=head,branch='wiki/query-task',packet=p,result=done)['state']=='independent_review_required'
+    done=folder_result(p,[{'path':'finance/costs/result.md','action':'modified'}])
+    assert preflight(root,folder_policy(root),context_id=AUDIT_CONTEXT,base=base,head=head,branch='wiki/query-task',packet=p,result=done)['state']=='independent_review_required'
     forged=deepcopy(r);forged['query']['filters']={'status':'inactive'};declare(root,forged);git(root,'add','.');git(root,'commit','-qm','forged dependency')
-    with pytest.raises(IntegrationError,match='query requirement'): preflight(root,policy(root),context_id='costs',base=base,head=git(root,'rev-parse','HEAD'),branch='wiki/query-task',packet=p,result=done)
+    with pytest.raises(IntegrationError,match='query requirement'): preflight(root,folder_policy(root),context_id=AUDIT_CONTEXT,base=base,head=git(root,'rev-parse','HEAD'),branch='wiki/query-task',packet=p,result=done)
     git(root,'reset','--hard',head);approve(root)  # Synthetic approval/merge simulation only.
-    proposed=requirements_from_result(root,policy(root),packet=p,result=done,output_path='finance/costs/result.md',proposal_head=head,temporal='current',max_age_days=30)
-    assert proposed['information_requirements']==[r]
+    proposed=requirements_from_result(root,folder_policy(root),packet=p,result=done,output_path='finance/costs/result.md',proposal_head=head,temporal='current',max_age_days=30)
+    assert [item for item in proposed['information_requirements'] if 'query' in item]==[r]
+    assert {item['target'] for item in proposed['information_requirements']} == {item['ref'] for item in p['inputs'] if 'query_id' not in item}
     validate(proposed,json.loads((BASE/'docs/references/schemas/wiki-context-requirements-v1.schema.json').read_text()))
     inventory=authored_graph(root,load_config(root));edges,_=dependency_edges(inventory)
     edge=next(e for e in edges if 'query' in e.get('requirement',{}))
     assert edge['requirement']['query']==r['query'] and edge['prerequisite']==ANCHOR
     readiness=assess_information_use(inventory,'finance/costs/result.md',now=dt.datetime.now(dt.timezone.utc))
     assert not readiness['ready'] and 'information_query_requires_authorized_revalidation' in str(readiness)
-    current_check=revalidate_approved_queries(root,policy(root),consumer='finance/costs/result.md',context_id='costs')
+    current_check=revalidate_approved_queries(root,folder_policy(root),consumer='finance/costs/result.md',context_id=AUDIT_CONTEXT)
     validate(current_check,json.loads((BASE/'docs/references/schemas/wiki-context-query-revalidation-v1.schema.json').read_text()))
     assert current_check['equivalent']
     page(root,'new.md');after=commit(root)
-    impact=assess_approved_impact(root,policy(root),consumers=['finance/costs/result.md'],before=head,after=after,destination_context='costs')
+    impact=assess_approved_impact(root,folder_policy(root),consumers=['finance/costs/result.md'],before=head,after=after,destination_context=AUDIT_CONTEXT)
     assert len(impact['candidates'])==1 and impact['candidates'][0]['source']==ANCHOR
     assert impact['candidates'][0]['members_digest_before']!=impact['candidates'][0]['members_digest_after']
     validate(impact,json.loads((BASE/'docs/references/schemas/wiki-context-impact-v1.schema.json').read_text()))
-    assert not revalidate_approved_queries(root,policy(root),consumer='finance/costs/result.md',context_id='costs')['equivalent']
+    assert not revalidate_approved_queries(root,folder_policy(root),consumer='finance/costs/result.md',context_id=AUDIT_CONTEXT)['equivalent']
     from wiki_core.context_impact import report_review
-    report=report_review(root,policy(root),impact['candidates'][0],disposition='still_valid',reason='Synthetic reported review',evidence_revision=after)
+    report=report_review(root,folder_policy(root),impact['candidates'][0],disposition='still_valid',reason='Synthetic reported review',evidence_revision=after)
     assert report['verification']=='reported_not_verified' and not report['next_impact_allowed']
 
 @pytest.mark.parametrize('change',['addition','removal','entry','exit','selected','identity','outside','irrelevant_body'])

@@ -188,7 +188,7 @@ def prepare_packet(root, binding, payload):
         if expected is not None and (not isinstance(expected,str) or not re.fullmatch(r'[0-9a-f]{64}',expected)): raise ProtectedCoordinationError('coordination_invalid_request')
         evidence.append(entry); expectations.append(expected)
     try:
-        packet=build_packet(root,policy,payload['context_id'],content,evidence,task['max_bytes'],task_id=task['task_id'],goal=task['goal'],output=task['output'],integrator=task['integrator'],omissions=task.get('omissions',[]),queries=task.get('queries',[]),**folder_options)
+        packet=build_packet(root,policy,payload['context_id'],content,evidence,task['max_bytes'],task_id=task['task_id'],goal=task['goal'],output=task['output'],integrator=task['integrator'],omissions=task.get('omissions',[]),queries=task.get('queries',[]),trusted_binding=binding,**folder_options)
         selected=[x for x in packet['inputs'] if x['kind']=='evidence' and 'query_id' not in x]
         # Folder qualification may add authorized evidence before the explicit
         # selection. The builder appends explicit evidence in input order.
@@ -223,7 +223,7 @@ def prepare_preflight(root,binding,payload):
     expected_format = 'folder' if binding.manifest == 'wiki.config.yaml' else None
     if packet.get('authority_format') != expected_format:
         raise ProtectedCoordinationError('coordination_preflight_unavailable')
-    try: out=preflight(root,policy,context_id=payload['context_id'],base=payload['base'],head=payload['head'],branch=payload['branch'],packet=payload['packet'],result=payload['result'],trusted_additional_readers=tuple(readers))
+    try: out=preflight(root,policy,context_id=payload['context_id'],base=payload['base'],head=payload['head'],branch=payload['branch'],packet=payload['packet'],result=payload['result'],trusted_additional_readers=tuple(readers),trusted_binding=binding)
     except (ValueError,KeyError,TypeError,OSError) as exc: raise ProtectedCoordinationError('coordination_preflight_unavailable') from exc
     return {'ok':True,'mode':'approved','preflight':out}
 

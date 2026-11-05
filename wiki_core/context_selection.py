@@ -102,7 +102,7 @@ def authority_digest(policy, context_id, entry):
     return digest(authority)
 
 
-def _equivalent_folder_chain(policy, context_id, policy_revision, entry_folder, entry_index):
+def _equivalent_folder_chain(policy, context_id, policy_revision, entry_folder, entry_index, *, changed_ref=None):
     """Compare the authorized physical chain without granting historical access.
 
     Only metadata and Git object IDs for the already authorized physical
@@ -123,9 +123,14 @@ def _equivalent_folder_chain(policy, context_id, policy_revision, entry_folder, 
     old_reader = RepositoryReader(root, policy_revision)
     refs = qualification.get('refs', ())
     if not isinstance(refs, tuple) or not refs: raise PolicyError('historical query authority requires requalification')
+    if changed_ref is not None:
+        from wiki_core.context_policy import is_context_instruction
+        if changed_ref not in refs or not is_context_instruction(changed_ref):
+            raise PolicyError('historical query authority requires requalification')
     for ref in refs:
         if (ref not in current_reader._entries or ref not in old_reader._entries or
-                current_reader._entries[ref] != old_reader._entries[ref]):
+                (ref != changed_ref and current_reader._entries[ref] != old_reader._entries[ref]) or
+                (ref == changed_ref and current_reader._entries[ref] == old_reader._entries[ref])):
             raise PolicyError('historical query authority requires requalification')
         try:
             require_wiki_boundaries(root, files=(root / ref,))
