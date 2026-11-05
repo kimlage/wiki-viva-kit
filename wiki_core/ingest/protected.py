@@ -841,6 +841,45 @@ def compare_repositories(root, binding, *, context_id, approved_revision, entry_
         'effect': 'manual_suggestion_only; no_gate_effect', 'review': 'not_performed', 'write': 'not_performed'}
 
 
+def _approved_candidate_documents(root, policy, context_id, actor, revision, refs):
+    """Open only selected, authorized candidates at the pinned approved commit."""
+    if not refs:
+        policy.fresh()
+        return {}
+    from wiki_core.context_packet import guard_folder_blob, guarded_context_read
+    from wiki_core.repository_reader import RepositoryReader
+    reader = RepositoryReader(root, revision)
+    remaining = 1_000_000
+    for ref in refs:
+        if not ref.endswith('.md'):
+            raise ValueError('candidate unavailable')
+        _allowed(root, policy, context_id, root / ref, 'read')
+        _allowed(root, policy, actor, root / ref, 'read')
+        guard_folder_blob(root, policy, ref)
+        size = reader.blob_size(ref)
+        policy.fresh()
+        if size > remaining:
+            raise ValueError('candidate budget exceeded')
+        remaining -= size
+    documents = {}
+    for ref in refs:
+        _allowed(root, policy, context_id, root / ref, 'read')
+        _allowed(root, policy, actor, root / ref, 'read')
+        document = guarded_context_read(reader, policy, ref)
+        if document['revision'] != revision or contains_access_secrets(document['text']):
+            raise ValueError('candidate unavailable')
+        documents[ref] = document
+    policy.fresh()
+    return documents
+
+
+def _revalidate_candidate_scopes(root, policy, context_id, actor, refs):
+    for ref in refs:
+        _allowed(root, policy, context_id, root / ref, 'read')
+        _allowed(root, policy, actor, root / ref, 'read')
+    policy.fresh()
+
+
 def consolidate(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
                 source_ref, source_id, request_id, source_page, event_target, date,
                 candidates=(), context_max_bytes=100_000, request_max_bytes=1_000_000,
@@ -915,7 +954,8 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         aggregated['independent_git_sources'] = [{key: row[key] for key in
             ('selection_id', 'repository_identity', 'host_binding_digest', 'revision', 'path', 'blob',
              'document_sha256', 'content_sha256')} for row in rows]
-    packet = build_packet(aggregated, root, config, paths, candidates=refs)
+    candidate_documents = _approved_candidate_documents(root, policy, context_id, actor, approved_revision, refs)
+    packet = build_packet(aggregated, root, config, paths, candidates=refs, candidate_documents=candidate_documents)
     markdown = build_event_markdown(aggregated, config=config, context=request['source_context'],
         date=date, source_page=source_page, source_type=classify_source(source_ref),
         event_dir=target.parent, root=root, yaml_safe=True,
@@ -931,6 +971,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
     if current != request or current_digest != digest:
         raise ValueError('request authority changed')
+    _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
     authorize_repository_event(binding, policy, context_id, actor, repository_selection, event_target)
     _allowed(root, policy, context_id, root / source_page, 'read')
     if _source_page(root, policy, actor, config, source_page, selected_digest=selected_digest) != source_page_digest:
@@ -944,6 +985,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
         if current != request or current_digest != digest:
             raise ValueError('request authority changed')
+        _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
         authorize_repository_event(binding, policy, context_id, actor, repository_selection, event_target)
         _allowed(root, policy, context_id, root / source_page, 'read')
         if _source_page(root, policy, actor, config, source_page, selected_digest=selected_digest) != source_page_digest:
@@ -959,6 +1001,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
         if current != request or current_digest != digest:
             raise ValueError('request authority changed')
+        _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
         authorize_repository_event(binding, policy, context_id, actor, repository_selection, event_target)
         _allowed(root, policy, context_id, root / source_page, 'read')
         if _source_page(root, policy, actor, config, source_page, selected_digest=selected_digest) != source_page_digest:
@@ -972,6 +1015,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
             raise ValueError('event differs after write')
         if _read_json(root, policy, actor, packet_path) != packet:
             raise ValueError('packet differs after write')
+        _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
     return {'event': event_target, 'request_id': request_id,
