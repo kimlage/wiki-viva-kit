@@ -340,6 +340,8 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         if kind=='query':
             entry={'target':source,'query':candidate['query'],'reason':'canonical collection requirement','use':candidate['use'],'classification':candidate['classification']}
             if getattr(policy, 'format_version', None) == 'folder':
+                if candidate.get('query_policy_revision') != candidate['after_revision']:
+                    raise ImpactError('query candidate policy revision differs')
                 from wiki_core.context_packet import qualify_folder_context
                 from wiki_core.context_selection import _equivalent_folder_authority
                 qualify_folder_context(root, policy, context, candidate['entry_folder'], candidate['entry_index'], 2_000_000)
