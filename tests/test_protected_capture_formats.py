@@ -235,6 +235,39 @@ def test_protected_semicolon_selection_is_bound_and_revalidated(prepared_repo):
     assert all(path.read_bytes() == content for path, content in original.items())
 
 
+@pytest.mark.parametrize('suffix', ['.csv', '.tsv', '.pdf'])
+def test_previous_capture_with_less_coverage_is_preserved_and_requalified(prepared_repo, monkeypatch, suffix):
+    from wiki_core.ingest import protected
+
+    if suffix == '.pdf' and not shutil.which('pdftotext'):
+        pytest.skip('optional pdftotext unavailable')
+    root, sha = prepared_repo
+    source = root / ('previous' + suffix)
+    source.write_bytes(source_bytes(suffix))
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    options = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+                   source_ref=source.name)
+    old_pdf_limit = 'PDF images and scanned text were not inspected; OCR was not performed.'
+    with monkeypatch.context() as previous:
+        previous.setattr(protected, '_format_omissions',
+            lambda source_ref, csv_delimiter=None: [old_pdf_limit] if source_ref.lower().endswith('.pdf') else [])
+        prepared = prepare(root, binding, **options, source_context='system')
+    request = prepared['request']
+    chunk = request['chunks'][0]
+    sample = json.loads((__import__('pathlib').Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
+    result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
+              **{key: chunk[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
+              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    derived = root / 'data/derived/wiki/.wiki-viva-protected'
+    original = {path.relative_to(derived): path.read_bytes() for path in derived.rglob('*.json')}
+    with pytest.raises(ValueError, match='request authority changed'):
+        record(root, binding, **options, **ids, results=[result])
+    with pytest.raises(ValueError, match='existing source capture differs'):
+        prepare(root, binding, **options, source_context='system')
+    assert {path.relative_to(derived): path.read_bytes() for path in derived.rglob('*.json')} == original
+
+
 @pytest.mark.parametrize('suffix,delimiter', [('.csv', ','), ('.tsv', '\t')])
 @pytest.mark.parametrize('malformed', ['unterminated', 'after_quote'])
 def test_protected_tabular_capture_rejects_malformed_quoting_before_writes(prepared_repo, suffix, delimiter, malformed):
