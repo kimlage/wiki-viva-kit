@@ -102,14 +102,16 @@ class RepositoryReader:
             raise RepositoryReadError('repository revision or object unavailable')
         return result.stdout
 
-    def _document(self, path: str) -> dict:
+    def _document(self, path: str, before_blob=None) -> dict:
         path = canonical_path(path)
         if path not in self._entries:
             raise RepositoryReadError(f'repository file missing or unsupported: {path}')
+        if before_blob is not None: before_blob(path)
         blob = self._entries[path]
         if blob not in self._documents:
             if self.blob_size(path) > 2_000_000:
                 raise RepositoryReadError('repository file too large')
+            if before_blob is not None: before_blob(path)
             raw = self._git('cat-file', 'blob', blob)
             if len(raw) > 2_000_000:
                 raise RepositoryReadError('repository file too large')
@@ -120,6 +122,7 @@ class RepositoryReader:
             fm, body = parse_frontmatter(text)
             self._documents[blob] = {'content': raw, 'text': text,
                 'body': body, 'frontmatter': fm, 'content_sha256': hashlib.sha256(raw).hexdigest()}
+        if before_blob is not None: before_blob(path)
         return deepcopy(self._documents[blob])
 
     def catalogue(self, *, allowed_paths: Iterable[str] | None = None,
@@ -156,7 +159,7 @@ class RepositoryReader:
         return {'revision': self.revision, 'pages': rows,
             'selection_fingerprint': _digest({'filters': filters or {}, 'pages': rows})}
 
-    def read(self, ref: str, section: str | None = None, field: str | None = None) -> dict[str, Any]:
+    def read(self, ref: str, section: str | None = None, field: str | None = None, *, before_blob=None) -> dict[str, Any]:
         if section is not None and field is not None:
             raise RepositoryReadError('section and field selectors are mutually exclusive')
         if ref in self._entries:
@@ -169,7 +172,7 @@ class RepositoryReader:
             if len(matches) != 1:
                 raise RepositoryReadError(f'page identity missing or ambiguous: {ref}')
             path = matches[0]
-        document = self._document(path)
+        document = self._document(path, before_blob=before_blob)
         result = {**document, 'path': path, 'page_id': document['frontmatter'].get('page_id'),
             'revision': self.revision, 'blob': self._entries[path],
             'content_digest': document['content_sha256'],

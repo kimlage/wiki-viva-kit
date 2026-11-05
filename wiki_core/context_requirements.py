@@ -9,7 +9,7 @@ import re
 import subprocess
 from pathlib import Path
 from wiki_core.context_policy import PolicyError, safe_path, within
-from wiki_core.context_packet import validate_result, _context_view
+from wiki_core.context_packet import validate_result, _context_view, guarded_context_read
 from wiki_core.context_impact import assess_impact, ImpactError
 from wiki_core.detectors import scan_text
 from wiki_core.information_relations import operational_consumption_edges
@@ -38,7 +38,7 @@ def assess_approved_impact(root,policy,*,consumers,before,after,destination_cont
         if policy.owner_of(path)!=destination_context or not policy.permits(destination_context,'read',path): raise RequirementError('consumer not authorized')
         try: _folder_ref(root, policy, path)
         except ImpactError as exc: raise RequirementError('consumer unavailable') from exc
-        try: page=reader.read(path)
+        try: page=guarded_context_read(reader,policy,path)
         except ValueError as exc: raise RequirementError('approved consumer unavailable') from exc
         if any(f.category=='secret' for f in scan_text(page['text'])): raise RequirementError('secret detected in consumer')
         # Requirements use explicit repo paths. No global page-ID lookup or
@@ -118,7 +118,7 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
         raise RequirementError('proposal is not incorporated in approved revision')
     current=RepositoryReader(root,policy.policy_revision); proposed=RepositoryReader(root,proposal_head)
     try:
-        approved_output=current.read(output_path); proposal_output=proposed.read(output_path)
+        approved_output=guarded_context_read(current,policy,output_path); proposal_output=guarded_context_read(proposed,policy,output_path)
     except ValueError as exc: raise RequirementError('approved output unavailable') from exc
     if approved_output['content_sha256']!=proposal_output['content_sha256']: raise RequirementError('approved output differs from proposal')
     if any(x.category=='secret' for x in scan_text(approved_output['text'])): raise RequirementError('secret detected in output')
@@ -160,8 +160,8 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
             try: _folder_ref(root, policy, item['ref'])
             except ImpactError as exc: raise RequirementError('reported input unavailable') from exc
         try:
-            historical=RepositoryReader(root,item['revision']).read(item['ref'],section=item['section'],field=item['field'])
-            now=current.read(item['ref'],section=item['section'],field=item['field'])
+            historical=guarded_context_read(RepositoryReader(root,item['revision']),policy,item['ref'],section=item['section'],field=item['field'])
+            now=guarded_context_read(current,policy,item['ref'],section=item['section'],field=item['field'])
         except ValueError as exc: raise RequirementError('reported input unavailable') from exc
         self_input = item['kind']=='evidence' and item['ref']==output_path
         raw=item['text'].encode('utf-8')
@@ -195,7 +195,7 @@ def revalidate_approved_queries(root, policy, *, consumer, context_id):
     if policy.owner_of(consumer) != context_id or not policy.permits(context_id, 'read', consumer):
         raise RequirementError('consumer not authorized')
     current = RepositoryReader(root, policy.policy_revision)
-    page = current.read(consumer)
+    page = guarded_context_read(current,policy,consumer)
     if any(f.category == 'secret' for f in scan_text(page['text'])): raise RequirementError('secret detected in consumer')
     requirements = information_requirements(page['frontmatter'], lambda p: [p] if isinstance(p,str) and p in current.paths else [])
     rows = []; query_read_budget = [32_000_000]
@@ -206,7 +206,7 @@ def revalidate_approved_queries(root, policy, *, consumer, context_id):
         if any(prior[k] != req[k] for k in ('members_digest', 'selected_digest')):
             raise RequirementError('canonical query receipt differs from consumed selection')
         if consumer in {m['ref'] for m in prior['members']}: raise RequirementError('query consumer cannot be a member')
-        now, _, _ = select_query(policy, context_id, current, requirement_query(req), read_budget=query_read_budget)
+        now, _, _ = select_query(policy, context_id, current, requirement_query(req), read_budget=query_read_budget, entry_folder=req.get('entry_folder'), entry_index=req.get('entry_index'))
         if consumer in {m['ref'] for m in now['members']}: raise RequirementError('query consumer cannot be a member')
         rows.append({'target':req['target'],'query_id':prior['query_id'],
             'members_equivalent':prior['members_digest']==now['members_digest'],

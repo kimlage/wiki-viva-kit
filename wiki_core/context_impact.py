@@ -31,11 +31,12 @@ def _selector(value):
     raise ImpactError('invalid selector')
 
 
-def _selected_digest(reader, path, selector):
+def _selected_digest(reader, path, selector, *, policy=None):
     kind, name = _selector(selector)
+    from wiki_core.context_packet import guarded_context_read
     try:
         if kind == 'section':
-            item=reader.read(path, section=name)
+            item=guarded_context_read(reader, policy, path, section=name)
             if any(f.category=='secret' for f in scan_text(item['text'])): raise ImpactError('secret detected in selected content')
             # The selector means section contents, not the heading label. Version
             # remains part of the contract; title is read as a separate field.
@@ -46,10 +47,10 @@ def _selected_digest(reader, path, selector):
             value=json.dumps([item['section_version'], ''.join(lines[heading.map[1]:])],ensure_ascii=False,separators=(',',':'))
             return hashlib.sha256(value.encode()).hexdigest()
         if kind == 'field':
-            item=reader.read(path, field=name)
+            item=guarded_context_read(reader, policy, path, field=name)
             if any(f.category=='secret' for f in scan_text(item['text'])): raise ImpactError('secret detected in selected content')
             return item['content_digest']
-        item=reader.read(path)
+        item=guarded_context_read(reader, policy, path)
         selected=item['body'] if kind == 'body' else item['text']
         if any(f.category=='secret' for f in scan_text(selected)): raise ImpactError('secret detected in selected content')
         if kind == 'body': return hashlib.sha256(item['body'].encode()).hexdigest()
@@ -138,7 +139,7 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             try:
                 req=e['requirement']
                 query_before,_,_=reproduce_query(policy,destination_context,edge_old,requirement_query(req),policy_revision=req.get('query_policy_revision'),expected_authority=req.get('authority_digest'),read_budget=query_read_budget,authority_format=req.get('authority_format'),entry_folder=req.get('entry_folder'),entry_index=req.get('entry_index'))
-                query_after,_,_=select_query(policy,destination_context,new,requirement_query(req),read_budget=query_read_budget)
+                query_after,_,_=select_query(policy,destination_context,new,requirement_query(req),read_budget=query_read_budget,entry_folder=req.get('entry_folder'),entry_index=req.get('entry_index'))
                 if target in {m['ref'] for m in [*query_before['members'],*query_after['members']]}: raise ImpactError('query consumer cannot be a member')
                 if any(query_before[k]!=req.get(k) for k in ('members_digest','selected_digest')):
                     raise ImpactError('canonical query receipt differs from consumed selection')
@@ -157,12 +158,12 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             if grant!='approved': continue
             _folder_ref(root, policy, source)
             _folder_ref(root, policy, target)
-            before_digest=query_before['selected_digest'] if query is not None else _selected_digest(edge_old,source,selector)
-            after_digest=query_after['selected_digest'] if query is not None else _selected_digest(new,source,selector)
+            before_digest=query_before['selected_digest'] if query is not None else _selected_digest(edge_old,source,selector,policy=policy)
+            after_digest=query_after['selected_digest'] if query is not None else _selected_digest(new,source,selector,policy=policy)
             if (before_digest==after_digest and before_digest is not None and consumed_revision is not None
                     and (query is None or query_before['members_digest']==query_after['members_digest'])): continue
             rule=str(e.get('type','untyped_reference'))
-            target_digest=_selected_digest(new,target,'*')
+            target_digest=_selected_digest(new,target,'*',policy=policy)
             key=(target,edge_old.revision,new.revision,rule,source,selector,use,classification,target_digest)
             if normative: key += ('mandatory',)
             if query is not None and query_before.get('authority_format'): key += tuple(query_before[k] for k in ('authority_format','entry_folder','entry_index'))
@@ -226,10 +227,10 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
             if selector!='query:'+receipt['query_id'] or candidate['members_digest_after']!=receipt['members_digest']:
                 raise ImpactError('query candidate selection differs')
             digest=receipt['selected_digest']
-        else: digest=_selected_digest(reader,source,selector)
+        else: digest=_selected_digest(reader,source,selector,policy=policy)
         if digest!=candidate['after_digest']: raise ImpactError('source changed since candidate')
         prior=RepositoryReader(root,candidate['after_revision'])
-        before=_selected_digest(prior,target,'*'); after=_selected_digest(reader,target,'*')
+        before=_selected_digest(prior,target,'*',policy=policy); after=_selected_digest(reader,target,'*',policy=policy)
         if before!=candidate['target_digest']: raise ImpactError('candidate target digest mismatch')
     except (KeyError,TypeError,PolicyError) as exc:
         raise ImpactError('invalid or unauthorized candidate') from exc

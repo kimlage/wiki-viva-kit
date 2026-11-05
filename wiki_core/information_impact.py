@@ -29,13 +29,23 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
     """Select query declarations touched by paths or dependency closure, without reading members."""
     from wiki_core.context_policy import within, is_context_instruction
     found = {}
-    policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
+    legacy_policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
     for origin, graph in (('base', base), ('current', current)):
         for edge in dependency_edges(graph, origin=origin)[0]:
             req = edge.get('requirement', {})
             if 'query' not in req:
                 continue
             consumer, anchor, scope = edge['dependent'], req['target'], req['query']['scope']
+            if req.get('authority_format') == 'folder':
+                entry_folder = req['entry_folder']
+                def affects_folder_policy(path):
+                    if path == 'wiki.config.yaml': return True
+                    directory = path.rsplit('/', 1)[0] if '/' in path else '.'
+                    return ((is_context_instruction(path) or path.rsplit('/', 1)[-1] == 'index.md')
+                            and within(entry_folder, directory))
+                policy_changed = any(affects_folder_policy(path) for path in changed)
+            else:
+                policy_changed = legacy_policy_changed
             if not (policy_changed or consumer in reached or consumer in changed or anchor in changed or anchor in reached
                     or any(within(p, scope) for p in changed | reached)):
                 continue

@@ -74,6 +74,30 @@ def test_folder_query_requires_prequalified_binding_and_matching_repo(query_repo
         select_query(policy, 'alpha', RepositoryReader(other, 'HEAD'), query())
 
 
+def test_qualifications_bind_context_and_exact_folder(query_repo):
+    root, _ = query_repo
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    grant = {'from_context': '.', 'to_context': 'beta', 'selector': 'AGENTS.md',
+             'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
+    config['context_access']['.']['exports'].append(grant)
+    config['context_access']['beta'] = {'owner': 'beta operator', 'imports': [grant],
+        'policy': {'read': ['.'], 'write': ['self'], 'capabilities': [], 'deny': {}, 'publication': []}}
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'authorize beta')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    policy = folder_policy(root)
+    qualify_folder_context(root, policy, 'alpha', 'alpha/aux', 'alpha/index.md', 100000)
+    qualify_folder_context(root, policy, 'beta', 'beta', 'beta/index.md', 100000)
+    receipt, _, _ = select_query(policy, 'alpha', RepositoryReader(root, 'HEAD'), query())
+    assert (receipt['entry_folder'], receipt['entry_index']) == ('alpha/aux', 'alpha/index.md')
+    qualify_folder_context(root, policy, 'alpha', 'alpha', 'alpha/index.md', 100000)
+    with pytest.raises(PolicyError, match='ambiguous'):
+        select_query(policy, 'alpha', RepositoryReader(root, 'HEAD'), query())
+    selected, _, _ = select_query(policy, 'alpha', RepositoryReader(root, 'HEAD'), query(),
+                                   entry_folder='alpha/aux', entry_index='alpha/index.md')
+    assert selected['entry_folder'] == 'alpha/aux'
+
+
 def test_folder_query_rechecks_trusted_ref_before_each_body(query_repo, monkeypatch):
     root, policy = query_repo
     reader = RepositoryReader(root, 'HEAD')
@@ -187,6 +211,20 @@ def test_unrelated_context_owner_does_not_invalidate_folder_query(query_repo):
         policy_revision=old, expected_authority=receipt['authority_digest'], authority_format='folder',
         entry_folder=receipt['entry_folder'], entry_index=receipt['entry_index'])
     assert replay == receipt
+
+
+def test_folder_query_policy_change_selection_is_scoped_to_its_chain():
+    from wiki_core.information_impact import affected_dynamic_queries
+    requirement = {'target': 'alpha/collection.md', 'query': {'scope': 'alpha/items'},
+                   'authority_format': 'folder', 'entry_folder': 'alpha/aux',
+                   'entry_index': 'alpha/index.md'}
+    graph = {'edges': [{'type': 'operational_prerequisite', 'source': 'alpha/result.md',
+                        'target': requirement['target'], 'requirement': requirement}]}
+    assert affected_dynamic_queries(graph, graph, {'beta/AGENTS.md'}, set()) == []
+    assert affected_dynamic_queries(graph, graph, {'beta/index.md'}, set()) == []
+    assert affected_dynamic_queries(graph, graph, {'alpha/aux/AGENTS.md'}, set())
+    assert affected_dynamic_queries(graph, graph, {'alpha/index.md'}, set())
+    assert affected_dynamic_queries(graph, graph, {'wiki.config.yaml'}, set())
 
 
 def test_changed_query_member_is_detected_across_policy_sha(query_repo):
