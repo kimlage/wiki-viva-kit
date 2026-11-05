@@ -23,6 +23,7 @@ def _find_selected(root: Path, query: str, selections, limit: int) -> dict:
         raise ValueError('invalid selected search')
     if contains_access_secrets(query) or contains_access_secrets(selections):
         raise ValueError('selected search unavailable')
+    from wiki_core.traversal import is_protected_artifact
     root = Path(root).resolve()
     files = set()
     for value in selections:
@@ -30,6 +31,8 @@ def _find_selected(root: Path, query: str, selections, limit: int) -> dict:
                 or any(part in ('..', '.git') for part in Path(value).parts)):
             raise ValueError('invalid selected path')
         path = Path(value)
+        if is_protected_artifact(path):
+            raise ValueError('protected selection requires bound dispatch')
         path = path if path.is_absolute() else root / path
         try:
             path.relative_to(root)

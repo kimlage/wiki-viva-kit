@@ -134,6 +134,43 @@ def prepare_preflight(root,binding,payload):
     return {'ok':True,'mode':'approved','preflight':out}
 
 
+def protected_source_stage(root, binding, stage, payload):
+    """Dispatch an in-process host-bound source operation without a new service.
+
+    Host binding is supplied out-of-band, never selected by the payload. Results
+    are supplied as objects by the calling host rather than as unchecked paths.
+    """
+    common = {'context_id', 'approved_revision', 'entry_folder', 'entry_index', 'source_ref'}
+    optional = {'context_max_bytes', 'request_max_bytes'}
+    if stage == 'prepare':
+        required, permitted = common | {'source_context'}, common | {'source_context'} | optional
+    elif stage == 'record':
+        required = common | {'source_id', 'request_id', 'results'}
+        permitted = required | optional
+    elif stage == 'consolidate':
+        required = common | {'source_id', 'request_id', 'source_page', 'event_target', 'date'}
+        permitted = required | optional | {'candidates'}
+    else:
+        raise ProtectedCoordinationError('coordination_invalid_request')
+    if not isinstance(payload, dict) or not required <= set(payload) or set(payload) - permitted:
+        raise ProtectedCoordinationError('coordination_invalid_request')
+    _policy(root, binding, payload['context_id'], payload['approved_revision'])
+    try:
+        from wiki_core.ingest import protected
+        args = dict(payload)
+        if stage == 'consolidate':
+            from datetime import date
+            args['date'] = date.fromisoformat(args['date'])
+        operation = {'prepare': protected.prepare, 'record': protected.record,
+                     'consolidate': protected.consolidate}[stage]
+        return {'ok': True, 'mode': 'approved', 'stage': stage,
+                'result': operation(root, binding, **args)}
+    except protected.ProtectedPartialError as exc:
+        raise ProtectedCoordinationError('coordination_partial_effects') from exc
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        raise ProtectedCoordinationError() from exc
+
+
 def blocker_response(error: ProtectedCoordinationError):
     messages={
         'coordination_session_required': ('A valid local operator session is required.', 'Unlock the local operator in its supported interface.', 'A valid operator session is available.'),
@@ -144,6 +181,7 @@ def blocker_response(error: ProtectedCoordinationError):
         'coordination_content_not_approved': ('The selected content revision is not in approved history.', 'Choose a revision in the approved history.', 'The content revision is approved and still authorized.'),
         'coordination_budget_exceeded': ('The selected task packet exceeds its byte budget.', 'Reduce the authorized selection or revise the packet limit, then retry.', 'The complete packet fits the chosen byte limit.'),
         'coordination_preflight_unavailable': ('The proposal did not satisfy the current preflight.', 'Revalidate the packet, result, branch and current base.', 'The exact proposal satisfies the current preflight.'),
+        'coordination_partial_effects': ('Some artifacts may have been retained before the operation stopped.', 'Inspect and reconcile the selected artifacts before retrying.', 'Possible partial effects have been inspected and resolved.'),
     }
     reason, action, resume=messages.get(error.code,('The selected input is unavailable or unauthorized.','Verify the selected inputs and current policy.','All required inputs are authorized and available.'))
     interfaces={'coordination_session_required':'Local operator / current cockpit session',

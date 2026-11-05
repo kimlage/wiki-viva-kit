@@ -218,6 +218,9 @@ def authorize_ingestion_source(root: Path, source: str, approved_revision: str |
         ref = canonical_path(candidate.relative_to(root).as_posix())
     except ValueError as exc:
         raise ContextRequestBlocked("source_staging_required", "Stage the source inside an explicitly approved repository read scope before ingestion.") from exc
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(Path(ref)):
+        raise ContextRequestBlocked('source_read_denied', 'Protected artifacts require bound dispatch.')
     producer = policy.owner_of(ref)
     if policy.connection(producer, policy_context, ref, "interpretation", "source") != "approved":
         raise ContextRequestBlocked("source_read_denied", "The requested source has no current exact read authorization; no source content or catalog was read.")

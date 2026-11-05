@@ -168,7 +168,8 @@ def require_capture_not_regressed(path: Path, payload: dict) -> None:
         raise ValueError("source_capture_incomplete: complete capture retained; retry extraction")
 
 
-def reusable_capture(paths, manifest: dict, extracted, chunks: list[dict], warnings: list[str], *, max_bytes: int) -> bool:
+def reusable_capture(paths, manifest: dict, extracted, chunks: list[dict], warnings: list[str], *, max_bytes: int,
+                     allow_protected: bool = False) -> bool:
     """Reuse only a complete matching capture, preserving divergent or partial work."""
     from wiki_core.context_selection import strict_json_loads
     from wiki_core.traversal import require_wiki_path
@@ -176,7 +177,7 @@ def reusable_capture(paths, manifest: dict, extracted, chunks: list[dict], warni
     files = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
              paths.chunks / f'{source_id}.json']
     for path in files:
-        require_wiki_path(paths.root, path.relative_to(paths.root).as_posix())
+        require_wiki_path(paths.root, path.relative_to(paths.root).as_posix(), allow_protected=allow_protected)
     present = [path.exists() for path in files]
     if not any(present):
         return False
