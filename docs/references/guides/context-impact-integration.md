@@ -9,6 +9,8 @@ An approved consumer page may declare its dependencies in the existing `informat
 For dynamic queries, the data revision and the policy revision under which it
 was read can differ. Review uses the policy recorded by the approved consumer;
 historical and current read restrictions still apply before opening members.
+Older folder candidates whose impact policy differs from their `after` revision
+must be requalified; retaining their history does not make them current reviews.
 
 Existing inventory edges supply `source`, `target`, `type`, and optionally `consumed_fields`, `consumed_revision`, `owner_context`, `producer_context`, `use` and `classification`. A consumed selector is `section:<stable-id>`, `field:<name>`, `body`, `*`, or a legacy bare frontmatter field. For `source_ref` edges the existing inventory treats `target` as the prerequisite and `source` as the consumer. Preserve the actual source relationship in the canonical page or its existing task receipt; do not make a separate persistent edge file solely for this command. A consumer must retain the revision it actually consumed, not claim the latest revision. If a selector was removed, the result reports a missing digest; malformed or duplicate section markers fail closed. Section content compares its stable ID and version and body, excluding the heading label; use a field or whole document when the title itself is consumed.
 

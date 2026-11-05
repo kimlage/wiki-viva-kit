@@ -311,9 +311,12 @@ def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impac
         reason='Synthetic reported review',evidence_revision=reviewed)
     assert updated['next_impact_allowed'] and updated['verification']=='reported_not_verified'
     forged_policy=deepcopy(impact['candidates'][0]); forged_policy['query_policy_revision']=reviewed
-    with pytest.raises(ValueError,match='query candidate policy revision differs'):
-        report_review(root,folder_policy(root),forged_policy,disposition='updated',
-            reason='Synthetic reported review',evidence_revision=reviewed)
+    current_policy=folder_policy(root)
+    with monkeypatch.context() as guard:
+        guard.setattr(RepositoryReader,'read',lambda *_args,**_kwargs: pytest.fail('invalid candidate opened a body'))
+        with pytest.raises(ValueError,match='query candidate policy revision differs'):
+            report_review(root,current_policy,forged_policy,disposition='updated',
+                reason='Synthetic reported review',evidence_revision=reviewed)
 
 @pytest.mark.parametrize('change',['addition','removal','entry','exit','selected','identity','outside','irrelevant_body'])
 def test_canonical_query_impact_does_not_depend_on_hub_edits(collection,change):

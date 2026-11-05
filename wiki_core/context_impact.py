@@ -291,6 +291,8 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         revisions = (candidate.get('before_revision'), candidate.get('after_revision'))
         if any(not isinstance(value, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', value) for value in revisions):
             raise ImpactError('candidate revisions unavailable')
+        if 'query' in candidate and candidate.get('query_policy_revision') != revisions[1]:
+            raise ImpactError('query candidate policy revision differs')
         for older, newer in ((revisions[0], revisions[1]), (revisions[1], policy.policy_revision)):
             if subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(root), 'merge-base', '--is-ancestor', older, newer],
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=local_git_environment()).returncode:
@@ -340,8 +342,6 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         if kind=='query':
             entry={'target':source,'query':candidate['query'],'reason':'canonical collection requirement','use':candidate['use'],'classification':candidate['classification']}
             if getattr(policy, 'format_version', None) == 'folder':
-                if candidate.get('query_policy_revision') != candidate['after_revision']:
-                    raise ImpactError('query candidate policy revision differs')
                 from wiki_core.context_packet import qualify_folder_context
                 from wiki_core.context_selection import _equivalent_folder_authority
                 qualify_folder_context(root, policy, context, candidate['entry_folder'], candidate['entry_index'], 2_000_000)
