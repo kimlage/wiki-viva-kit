@@ -89,17 +89,14 @@ existing collection contract, with explicit read/enumeration/match limits; see
 
 ## Bounded canonical ingestion
 
-[wiki_ingest.py](wiki_ingest.py) accepts `--approved-revision`, `--policy-context`,
-`--context-max-bytes` (100000) and `--request-max-bytes` (256000). Context is
-included once with every extracted chunk; the complete canonical UTF-8 request
-must fit before persistence, indexing, scoring or cursor advancement. Approved
-failures return structured blockers and never choose compatibility. Record or
-check through [wiki_llm_context_pass.py](wiki_llm_context_pass.py) using the same
-explicit source, approval, context and limits. Those approval flags still use
-the `context.yaml` v1 authority for new operations; they are a migration gap,
-not the folder-policy path. For an approved folder-policy source use the
-existing [wiki_coordination.py](wiki_coordination.py) `--source-stage` interface
-or the in-process host-bound stages; see [bounded ingestion](../docs/references/guides/bounded-ingestion.md)
+[wiki_ingest.py](wiki_ingest.py) and [wiki_llm_context_pass.py](wiki_llm_context_pass.py)
+retain the working-tree compatibility route. Their approved-v1 flags are refused
+for new operations, including recording and checks; existing artifacts are
+preserved. For an approved folder-policy source use the existing
+[wiki_coordination.py](wiki_coordination.py) `--source-stage` interface or the
+in-process host-bound stages. Those stages use v5, include context with the
+source chunks and check the full canonical request budget before persistence.
+Approved failures do not fall back to compatibility. See [bounded ingestion](../docs/references/guides/bounded-ingestion.md)
 for payloads, trusted caller boundary, formats and coverage.
 
 For a separately authorized local entry, `--folder` selects the physical

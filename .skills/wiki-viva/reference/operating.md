@@ -1,7 +1,7 @@
 # Operating — the daily loop
 
-The loop is: **input stage → ingest → deep read → consolidate + integrate →
-cockpit → gates → PR**. All commands are deterministic and re-runnable; the
+The loop is: **select inputs → ingest → deep read → consolidate + integrate →
+gates → PR**. The commands have their own effect and retry boundaries; the
 model steps — the deep read and the integration it feeds — are yours. The full per-CLI catalog is the
 command-reference page in the meta-wiki (linked from [AGENTS.md](../../../AGENTS.md)).
 
@@ -21,8 +21,8 @@ flowchart LR
 
 The input stage is a deterministic catalog compiled from the configured root
 entity, input channels, source pages and source configs. It does not fetch
-external systems; it makes source routing explicit before the LLM package is
-emitted.
+external systems. An authorized coordinator may use it for global routing; a
+scoped executor does not need to open it or expand beyond its selected packet.
 
 ```sh
 python3 scripts/wiki_input_stage.py --check
@@ -32,93 +32,49 @@ python3 scripts/wiki_input_stage.py --ready
 
 ## 2. Ingest a source
 
-End-to-end orchestrator (manifest → text/chunks → index → secret pre-scan → LLM
-context package → score event):
+For a new approved folder-policy request, use the existing host-bound
+`prepare` source stage via [wiki_coordination.py](../../../scripts/wiki_coordination.py).
+Select the authorized context, current approved revision, physical entry and
+index, source and explicit context inputs. When the executor cannot own the
+derived artifacts, select an already authorized ancestor integrator. Exact
+payloads, formats, budgets and limits are in [bounded ingestion](../../../docs/references/guides/bounded-ingestion.md).
+An independently authorized Git file can be included as evidence only through
+the host-pinned [repository selection](../../../docs/references/guides/protected-independent-git.md).
 
-```sh
-python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT \
-  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
-# Add --dry-run to compute without writing artifacts.
-```
-
-Exit `2` blocks the attempt for a secret, a context or budget blocker, or an
-incomplete retry. Resolve the reported cause before proceeding; remove secrets
-upstream and never version them. PII is only reported (it is welcome on a private
-page). The [bounded ingestion guide](../../../docs/references/guides/bounded-ingestion.md)
-describes approved mode and the explicitly labelled working-tree compatibility
-mode. To create just the PR-ready proposal Markdown, use
-[wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py); for individual stages
-(manifest, text, index) see the command reference.
+The old `--approved-revision` and `--policy-context` flags on
+[wiki_ingest.py](../../../scripts/wiki_ingest.py) are refused for new v1
+operations. The separately authorized working-tree folder route remains
+available without those flags, but does not apply approved folder policy.
 
 ## 3. Deep read (delegated LLM pass)
 
-The pipeline emits a `*-llm-context-request.json` package; **you** read each
-chunk and produce the structured result, then record it. For repo-local source
-pages, the package includes root entity, input channel, inherited perspectives
-and target pages from the input stage.
+Read the complete prepared request, selected context, v5 prompt and source
+chunks. Produce result objects bound to each chunk and submit them using
+`wiki_coordination.py --source-stage record` with the same selectors, limits
+and authorization. The agent performs the reading; the scripts do not call a
+model. Missing coverage, unsupported formats and denied inputs remain explicit
+blockers or limitations. See [wiki-llm-context-agent](../../wiki-llm-context-agent/SKILL.md).
 
-```sh
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
-  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
-# ... you read the package and produce the result object/array ...
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
-  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
-  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --check
-```
+The old approved-v1 flags on [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py)
+are refused for new recording and checks. The compatibility route has its own
+local cache and selectors; do not use its result as an approved folder result.
+Generic audit, cache and batch-export commands do not inspect protected
+artifacts and cannot establish that the protected request was read.
 
-Use the same source, current approval, policy context and limits throughout.
-Provenance is enforced: the gate (`--check`) fails while any chunk lacks a
-recorded result and `required_context_pass` is on. A mere *plan* is never accepted
-as proof of an executed pass. Detail: [wiki-llm-context-agent](../../wiki-llm-context-agent/SKILL.md).
-For batch/cheap processing, export pending requests with
-[wiki_export_batch.py](../../../scripts/wiki_export_batch.py) (Anthropic Message
-Batches format).
+## 4. Consolidate and integrate
 
-## 4. Consolidate and INTEGRATE (the missing half)
+Use the host-bound `consolidate` source stage with the same selections, a
+permitted source page, canonical event path and explicit candidates. Repository
+evidence needs the separate host-pinned publication grant for a derived event.
+The stage produces event and packet proposal material; it does not review or
+incorporate the information. The source-page association is operator-selected
+and not automatically proven. Inspect any partial effects before retrying.
 
-Recording the deep read is **not** ingesting — ingesting = integrating. A source
-is only done when the wiki's concepts reflect the new information. Generate the
-normalized event and the integration packet from the recorded deep read with
-[wiki_consolidate.py](../../../scripts/wiki_consolidate.py):
-
-```sh
-python3 scripts/wiki_consolidate.py --source <source_id> --emit-event --packet
-# optional: --source-page <path> / --source-ref <page_id> of the canonical source page
-```
-
-`--emit-event` generates the normalized event from the llm-cache (quadrants
-filled — never placeholders —, claims/decisions/actions candidates, and
-`consolidated_into: []` for you to close); `--packet` emits the integration
-packet (gitignored) with the related pages, overlapping claims and potential
-conflicts per claim/entity, so you integrate with context instead of re-reading
-the whole wiki.
-
-Then **you integrate**, guided by the packet:
-
-- update the target hubs/concept pages incrementally before creating parallel
-  relation pages;
-- create/update load-bearing claim pages, using the conflict fields
-  (`supersedes` / `superseded_by` / `conflicts_with` / `conflict_resolution`)
-  when claims collide, and declare the target hub in `moc_parent`;
-- resolve or record **every** conflict and ambiguity the packet surfaces;
-- fill the event's `consolidated_into` — each non-source target page must
-  reference the source back in `source_refs`; source identity targets use the
-  event/lifecycle closure and never self-reference. At least one non-source
-  target is required, because cataloging a source is not integration.
-
-Close the loop with the gates:
-
-```sh
-python3 scripts/wiki_audit.py --check          # audit_consolidation: closed events, reverse refs, claims
-python3 scripts/wiki_consolidate.py --check    # fails while a deep-read-complete source is unintegrated (CI)
-python3 scripts/wiki_quality_report.py --check # fails configured quality/hierarchy thresholds
-python3 scripts/wiki_consolidate.py --all-pending   # list what is still waiting
-```
-
-Only then does the source page get `ingestion_state: ingested` +
-`last_ingested_at` + a row in its ingestion log, and the source registry is
-regenerated.
+An authorized integrator reviews the packet, updates the affected pages and
+closes `consolidated_into` according to the applicable repository policy. Run
+the required gates on the final proposal and obtain independent review before
+an authorized integration and readback. Do not mark the source ingested merely
+because a request, result, event or packet exists.
 
 ## 5. Move the proposal through the gate
 
@@ -152,7 +108,7 @@ python3 scripts/wiki_operational_pass.py --check     # CI: fails if stale
 
 ```sh
 python3 scripts/wiki_audit.py --check
-python3 scripts/wiki_consolidate.py --check                  # every deep-read source integrated
+python3 scripts/wiki_consolidate.py --check                  # shared-cache coverage only
 python3 scripts/wiki_quality_report.py --check               # quality/hierarchy thresholds
 python3 scripts/wiki_check_methodology_coverage.py --check   # when methodology files changed
 python3 scripts/wiki_operation_compile.py --check
@@ -164,6 +120,8 @@ python3 scripts/wiki_pr_summary.py                           # paste into the PR
 
 Canonical memory changes go on a `wiki/<theme>` branch; the PR review follows
 [AGENTS.md](../../../AGENTS.md). Consumers retain their own review policy.
+Generic checks do not inspect protected source caches; inspect the bound
+request, results and event through the applicable protected stages as well.
 Gate semantics and privacy: [gates-and-privacy.md](gates-and-privacy.md).
 
 ## Optional layers

@@ -45,9 +45,9 @@ trusted-local-operator `--source-stage` interface of
 source, index, approval and any explicitly authorized integrator. Separately
 authorized working-tree preparation uses [wiki_ingest.py](../../scripts/wiki_ingest.py)
 with `--folder FOLDER` or a nested working directory; it is not an approved
-packet and cannot be combined with those approval flags. The older approved
-`wiki_ingest.py` flags remain an operational v1 `context.yaml` route: their
-retirement is not yet complete. Failures do not fall back between routes. See
+packet and cannot be combined with those approval flags. The older approved-v1
+`wiki_ingest.py` flags are refused for new operations; historical artifacts
+remain separate. Failures do not fall back between routes. See
 [bounded ingestion](../../docs/references/guides/bounded-ingestion.md) for the
 recording, consolidation, format and coverage limits.
 Inspect the generated context request, perform the deep read, persist the

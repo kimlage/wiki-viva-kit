@@ -1,129 +1,32 @@
 # Bounded ingestion requests
 
-[wiki_ingest.py](../../../scripts/wiki_ingest.py) is the existing source entry
-point for its working-tree and v1 approved routes. Its v1 approval flags below
-still load `context.yaml` for new operations; this is a migration gap, not a
-historical-only path. For a folder-policy source request, use the separate
-[host-bound source stages](#host-bound-protected-source-preparation) below.
-Do not mix either route with local-folder arguments or silently fall back.
+Use the [host-bound source stages](#host-bound-protected-source-preparation) for
+new approved folder-policy ingestion. They validate the selected source,
+context, policy and budget before retaining a request. An authorized agent
+must read the request, record its own results and arrange review and
+incorporation; those outcomes are not produced automatically.
 
-The v1 ingestion route extracts and scans in memory, prepares the complete LLM
-request and checks its budgets before writing artifacts, indexing, scoring or
-advancing a stream cursor. A blocked attempt preserves prior artifacts and never
-emits a partial request or a successful-reading receipt.
+[wiki_ingest.py](../../../scripts/wiki_ingest.py) remains available for the
+separately authorized working-tree compatibility route. Its old
+`--approved-revision` and `--policy-context` flags, and the matching flags on
+[wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py), are
+refused for new v1 operations, including recording and checking results. They do
+not fall back to compatibility. Historical v1 artifacts and their prompt remain
+preserved; reading a mixed historical cache under current authority needs a
+separately qualified route, not a new use of the retired flags.
 
-```sh
-python3 scripts/wiki_ingest.py --root . --source SOURCE --context SOURCE_CONTEXT \
-  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID \
-  --context-max-bytes 100000 --request-max-bytes 256000
-```
+The context and full-request budgets measure canonical UTF-8 bytes, not model
+tokens. They bound the complete selection without truncating mandatory content
+or chunks. When a source is too large, select a smaller authorized scope or
+change the budget under the task's policy. A failure before persistence does not
+imply that a later failed write was atomic: the host-bound route reports
+possible partial effects that require inspection.
 
-Replace the placeholders with the authorized source, source classification,
-current trusted approval SHA and explicit policy context. The approval loader
-revalidates the configured trusted Git reference. Choosing a SHA or context
-name does not grant account access or enforce a harness sandbox. See
-[revision-bound context reading](context-reader.md) for that trust boundary.
-
-| Limit | Default | What it measures |
-| --- | --- | --- |
-| `--context-max-bytes` | 100,000 | Complete canonical JSON of the context package, including mandatory bodies, selected evidence, provenance and its digest. |
-| `--request-max-bytes` | 256,000 | Complete canonical UTF-8 request: prompt, context, every chunk, identities, limits, accounting and final newline. |
-
-Both limits must be positive integers. They are byte limits, not a token-window
-estimate. Each harness must choose an authorized ceiling compatible with its
-actual model window and other instructions. No quota or provider capacity is
-queried automatically. The emitted JSON uses the same canonical serialization
-as the measured bytes; `byte_accounting.request_bytes` is the actual file size.
-
-Required context appears once per request, shared by all chunk rows. The source
-text is delivered intact through its extracted chunks, including intentional
-chunk overlap. Mandatory rules, evidence and source chunks are never silently
-truncated to fit. An oversized source requires an explicit smaller source or
-stage, or a separately authorized budget change. This version does not invent
-a minibatch scheduler or claim that a selected subset covers the original
-source.
-
-## Source admission and task-local routing
-
-Approved mode authorizes a literal regular repository-local source before stat,
-hashing, extraction or source catalog lookup. Symlinks, escapes and excluded
-credential paths fail. The current source owner and effective read scope must
-permit it; an imported source also needs the exact bilateral connection with
-`use: interpretation` and `classification: source`. These values appear in the
-request's `source_authorization`; they are not wildcard grants. A URI or file
-outside the repository needs previously authorized staging/adapter evidence;
-this CLI currently accepts staged local files and returns a blocker for the
-unsupported external path instead of copying it or inventing a login need.
-
-The caller revalidates current authority and captured source hash before the
-next persistence/delivery boundary and before recording, including captures
-with no extracted chunks. A changed or revoked
-input cannot create chunks, cache results, score or a cursor update through a
-new blocked attempt. Prior complete artifacts remain intact.
-
-Approved routing selects the configured root and explicit `config_ref` and
-`input_channel_ref` from pinned, authorized context inputs. Perspective and
-channel IDs resolve only inside permitted owned paths. It does not run the
-global input-stage compiler, reverse-discover all other fronts or include the
-generated input-stage body as a mandatory rule. Routing coverage is explicitly
-limited to these references; the coordinator must resolve missing required
-routing or connections. The context manifest's selected instruction, skill and
-template files are delivered as actual text, alongside the applicable root,
-channel, source configuration and required perspective bodies.
-
-`--root-entity-ref PATH` selects an explicitly authorized business-root page
-for this context, without inheriting another business root's lens bundle.
-Alternatively `--omit-root-entity` explicitly omits only the business root and
-records missing coverage in the packet. Neither flag grants access or waives
-mandatory instructions, skills or templates from the approved lineage. An
-explicit external root, channel or source configuration still needs its exact
-current authorization. If the task's objective needs an omitted root, the
-caller must return a blocker before making that decision. No omitted packet
-claims complete context.
-
-These guards constrain this wrapper's declared reads at its validation fences.
-They are not a sandbox for arbitrary process I/O and do not grant permission
-to operational caches. The trusted caller/harness must independently authorize
-its artifact/cache locations and any external adapter or tool effects.
-
-A coordinator with global authority may route using the full map. A scoped
-executor uses the validated packet/local map and selectors it received. Links
-do not grant additional scope, and a packet hash does not prove approval or
-coverage completeness. See the [router](../../../.skills/wiki-memory-router/SKILL.md).
-
-## Recording and revalidation
-
-Use the same source, policy context, current approval and limits when recording
-an approved result:
-
-```sh
-python3 scripts/wiki_llm_context_pass.py --root . --source SOURCE \
-  --context SOURCE_CONTEXT --approved-revision APPROVED_SHA \
-  --policy-context CONTEXT_ID --context-max-bytes 100000 \
-  --request-max-bytes 256000 --record-result RESULT.json
-```
-
-Copy each row's exact cache key, source/chunk identities and contextual hashes.
-The caller rebuilds the current request before accepting an approved recording
-and opens only that source's exact origin-qualified capture and request paths.
-Compatibility capture discovery and global request inspection remain separate
-trusted legacy paths; this does not isolate all operational-cache I/O.
-Changed context or limits requires a newly emitted and read request; a retained
-request above a smaller current ceiling cannot satisfy it. Approved query mode
-and unrequested-result bypass are refused. Absence, revocation and budget
-failure never select a compatibility fallback.
-
-Approved ingestion requires the installed `context_deep_read.v4` prompt. Older
-v1–v3 prompts retain their historical unbound recording commands and remain
-available only in working-tree compatibility mode. A consumer explicitly pinned
-to an older prompt must configure v4 as a consumer-owned migration. Re-emit and
-read a fresh request: v4 has a distinct prompt version and context identity, so
-prior results remain inspectable but cannot satisfy the new request. A missing
-v4 prompt or an unknown version blocks approved preparation without fallback.
+## Working-tree folder entry
 
 Without approved-context flags, the existing working-tree adapter remains
-explicitly labelled compatibility. Historical envelopes remain inspectable;
-new requests bind the explicit limits as well as the delivered interpretation
+explicitly labelled compatibility. Previously retained envelopes are preserved;
+their availability depends on current authorization. New requests bind the explicit limits as well as the delivered interpretation
 context. Compatibility is not evidence of approved policy or source freshness.
 
 For a local folder entry, start in the nested directory or select it explicitly
@@ -134,8 +37,8 @@ instructions and an index; an auxiliary folder still contributes any physical
 instructions along the way. A child with only an index does not become a new
 context. Use `--index PATH` to select an index in a qualified context folder;
 the root requires an explicit index. Missing instructions or index, symlinks and
-nested Git roots block preparation. A selected folder cannot be mixed with
-approved-policy arguments. Automatic discovery does not select the root index;
+nested Git roots block local preparation. In `wiki_ingest.py`, `--folder`
+cannot be mixed with approved-policy arguments. Automatic discovery does not select the root index;
 choose it explicitly when the root is the intended context. The physical entry
 folder and selected index are retained and revalidated before writes.
 
@@ -148,9 +51,9 @@ The selected index is not an access grant.
 ### Host-bound protected source preparation
 
 The existing in-process host binding can call
-`wiki_core.coordination_context.protected_source_stage` for `prepare`, `record`
-and `consolidate`, with an explicitly authorized folder, approved revision,
-source and artifact owner. The binding is fixed by the host and is not selected
+`wiki_core.coordination_context.protected_source_stage` for `prepare`, `record`,
+`consolidate` and read-only `compare`, with an explicitly authorized folder,
+approved revision, source and artifact owner. The binding is fixed by the host and is not selected
 by the payload. Result objects arrive from that host; these operations do not
 call a model. They use the existing `WikiPaths` layout under the reserved
 `.wiki-viva-protected` component within the configured Git-ignored derived root.
@@ -186,6 +89,27 @@ For independent Git evidence, `repository_source_pages` may explicitly map
 each host selection ID to its own authorized source page; the page locator
 must match the sanitized configured identity. This association does not grant
 access or prove remote identity or file consumption.
+
+An authorized host may pin up to 32 exact independent Git grants, each binding
+a local root, sanitized configured identity, commit, literal path, executor,
+integrator and byte limit. A stage selects one ID or a list of up to eight IDs
+using `repository_selection`; every selected grant is checked before opening
+any selected repository, and the same selection must be repeated on later
+stages. Both actors need the current `independent_git.read` capability.
+The separately authorized `independent_git.derived_proposal` publication
+capability and an exact host-pinned `event_target` are required to consolidate
+a Git-derived event. A selected path, configured origin, receipt or source-page
+association is not a grant or proof of remote identity. The primary
+`source_ref` remains a separately authorized wiki-local source.
+
+The trusted local operator can inspect the configured IDs and actors, without
+displaying roots or identities, using `wiki_coordination.py --show-host-binding`.
+The `compare` source stage compares an originally selected file to a separately
+host-pinned current selection for the same repository identity and path. It
+examines only explicitly selected authorized candidates, returning a manual
+review suggestion and unknown file consumption; it does not write a page or
+perform a review. See [protected independent Git](protected-independent-git.md)
+for configuration, filesystem limits, exact stage inputs and provenance.
 
 Protected folder ingestion requires the v5 prompt, which points to
 `wiki_coordination.py --source-stage`. A configuration explicitly selecting
@@ -241,9 +165,9 @@ request is also capped at 2 MB, which may require a smaller source, particularly
 when text needs JSON escaping. Candidates must be explicitly selected.
 The default `context_max_bytes` is 100,000 and `request_max_bytes` is 1,000,000;
 both are configurable and must be repeated consistently for the same request.
-It does not yet inspect linked sources, read independent Git repositories, expose
-an HTTP transport, or incorporate the event in memory. The existing
-`wiki_coordination.py` offers the three `--source-stage` operations to a trusted
+Linked sources are not automatically inspected, and the route does not expose
+an HTTP transport or incorporate the event in memory. The existing
+`wiki_coordination.py` offers the four `--source-stage` operations to a trusted
 local operator, with stage JSON on stdin and an explicit context and approved
 revision. Its flags are selected by that operator and are not a security boundary
 against the operator; a separately configured host binding is the protected
@@ -260,13 +184,15 @@ using the existing CLI (replace all placeholders with authorized values):
 ```sh
 python3 scripts/wiki_coordination.py --root REPO --context-id . \
   --approved-revision APPROVED_SHA --source-stage prepare <<'JSON'
-{"entry_folder":".","entry_index":"index.md","source_ref":"source.txt","source_context":"example"}
+{"entry_folder":".","entry_index":"index.md","source_ref":"source.txt","source_context":"example","context_selection":{"omit_root_entity":true}}
 JSON
 ```
 
 The selected context, source, index, artifact paths and event destination must
 already be permitted under the current policy; the example does not create
-those grants. `prepare` returns a request plus `source_id` and `request_id`.
+those grants. It explicitly omits the business root; the resulting coverage
+gap must be resolved before a task that needs that context can be decided.
+`prepare` returns a request plus `source_id` and `request_id`.
 Read the complete request and supply the results explicitly. For `record`,
 the JSON repeats `entry_folder`, `entry_index`, `source_ref`, `source_id` and
 `request_id`, and adds a `results` array bound to the request. For `consolidate`,
@@ -276,7 +202,8 @@ directory and the canonical name `<date>-<sha256(source_id)>-<request_id>.md`.
 The source page must exist, be authorized and have `page_type: source`. Its
 association with the selected file is operator-supplied, not verified by the
 route. Both `record` and `consolidate` must use the same limits and authorized
-integrator as `prepare`. See the [stage dispatch](../../../wiki_core/coordination_context.py)
+integrator and `context_selection` as `prepare`. Repeat any selected
+`perspective_refs` and `repository_selection` as well. See the [stage dispatch](../../../wiki_core/coordination_context.py)
 and [synthetic tests](../../../tests/test_protected_ingestion.py) for the exact
 JSON fields. A result, event or integration packet is not a reviewed or
 incorporated memory update.
