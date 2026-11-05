@@ -132,7 +132,10 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             raise ImpactError('impact revisions are not approved ancestors')
         approved_pairs.add((older, newer))
     if getattr(policy, 'format_version', None) == 'folder':
-        require_ancestor(new.revision, policy.policy_revision)
+        # A past after-revision can have different read denies. Evaluate the
+        # current approved result; historical inputs are checked separately.
+        if new.revision != policy.policy_revision:
+            raise ImpactError('impact after revision must be current approval')
         require_ancestor(old.revision, new.revision)
     try: edges,_=dependency_edges(graph)
     except (KeyError,TypeError,AttributeError) as exc: raise ImpactError('malformed relation inventory') from exc
@@ -281,7 +284,7 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         from wiki_core.context_packet import _check_trusted_binding
         _check_trusted_binding(root, policy, candidate.get('destination_context'), trusted_binding)
     folder_normative = getattr(policy, 'format_version', None) == 'folder' and candidate.get('source_kind') == 'mandatory'
-    if folder_normative:
+    if getattr(policy, 'format_version', None) == 'folder':
         revisions = (candidate.get('before_revision'), candidate.get('after_revision'))
         if any(not isinstance(value, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', value) for value in revisions):
             raise ImpactError('candidate revisions unavailable')
@@ -340,6 +343,13 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         else: digest=_selected_digest(reader,source,selector,policy=policy)
         if digest!=candidate['after_digest']: raise ImpactError('source changed since candidate')
         prior=RepositoryReader(root,candidate['after_revision'])
+        if getattr(policy, 'format_version', None) == 'folder' and prior.revision != policy.policy_revision:
+            from wiki_core.context_policy import historical_policy
+            old_policy = historical_policy(policy, prior.revision, authority_format='folder')
+            if (old_policy.owner_of(target) != context or
+                    old_policy.contexts[context]['owner'] != policy.contexts[context]['owner'] or
+                    not old_policy._permits_unqualified(context, 'read', target)):
+                raise ImpactError('historical target requires authorized requalification')
         if folder_normative:
             prior_source_digest = _selected_digest(prior,source,selector,policy=policy)
             consumed_source_digest = _selected_digest(RepositoryReader(root,candidate['before_revision']),source,selector,policy=policy)

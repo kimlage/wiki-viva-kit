@@ -1,5 +1,7 @@
 import copy
+import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -84,6 +86,85 @@ def test_folder_approved_markdown_requirement_is_selected(repo):
     assert result['candidates'][0]['state'] == 'review_pending'
 
 
+def test_folder_impact_rejects_historical_after_before_read(repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    before = git(repo, 'rev-parse', 'HEAD')
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    config['context_access']['alpha']['policy']['deny'] = {
+        'read': ['alpha/source.md', 'alpha/result.md']}
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    write(repo, 'alpha/source.md', '# Changed while denied\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'deny source and target')
+    denied = git(repo, 'rev-parse', 'HEAD')
+    config['context_access']['alpha']['policy'].pop('deny')
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'restore access')
+    current = git(repo, 'rev-parse', 'HEAD')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', current)
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision == denied and ref in ('alpha/source.md', 'alpha/result.md'))
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    with pytest.raises(ImpactError, match='after revision must be current approval'):
+        assess_impact(repo, load_policy(repo, current, 'wiki.config.yaml'), edge(consumed=before),
+            before=before, after=denied, destination_context='alpha')
+
+
+def test_review_does_not_read_historically_denied_target(repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    before, after = change(repo)
+    candidate = assess_impact(repo, load_policy(repo, after, 'wiki.config.yaml'),
+        edge(consumed=before), before=before, after=after, destination_context='alpha')['candidates'][0]
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    config['context_access']['alpha']['policy']['deny'] = {'read': ['alpha/result.md']}
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'deny target')
+    denied = git(repo, 'rev-parse', 'HEAD')
+    config['context_access']['alpha']['policy'].pop('deny')
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'restore target access')
+    current = git(repo, 'rev-parse', 'HEAD'); git(repo, 'update-ref', 'refs/remotes/origin/main', current)
+    forged = dict(candidate, after_revision=denied)
+    key = tuple(forged[name] for name in ('target', 'before_revision', 'after_revision', 'rule',
+        'source', 'selector', 'use', 'classification', 'target_digest'))
+    forged['event_id'] = hashlib.sha256(json.dumps(key, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision == denied and ref == 'alpha/result.md')
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    with pytest.raises(ImpactError, match='historical target requires authorized requalification'):
+        report_review(repo, load_policy(repo, current, 'wiki.config.yaml'), forged,
+            disposition='still_valid', reason='synthetic review', evidence_revision=current)
+
+
+@pytest.mark.parametrize('revision_field', ['before_revision', 'after_revision'])
+def test_review_rejects_unapproved_revision(repo, monkeypatch, revision_field):
+    from wiki_core.repository_reader import RepositoryReader
+    before, after = change(repo)
+    candidate = assess_impact(repo, load_policy(repo, after, 'wiki.config.yaml'),
+        edge(consumed=before), before=before, after=after, destination_context='alpha')['candidates'][0]
+    branch = git(repo, 'branch', '--show-current')
+    git(repo, 'checkout', '-qb', 'wiki/unapproved-review')
+    write(repo, 'unapproved.md', '# Unapproved\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'unapproved branch')
+    unapproved = git(repo, 'rev-parse', 'HEAD')
+    git(repo, 'checkout', '-q', branch)
+    forged = dict(candidate, **{revision_field: unapproved})
+    key = tuple(forged[name] for name in ('target', 'before_revision', 'after_revision', 'rule',
+        'source', 'selector', 'use', 'classification', 'target_digest'))
+    forged['event_id'] = hashlib.sha256(json.dumps(key, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision == unapproved and ref == 'alpha/result.md')
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    with pytest.raises(ImpactError, match='candidate revisions not approved ancestors'):
+        report_review(repo, load_policy(repo, after, 'wiki.config.yaml'), forged,
+            disposition='still_valid', reason='synthetic review', evidence_revision=after)
+
+
 def test_normative_requirement_ignores_unrelated_change_and_queues_changed_rule(repo):
     write(repo, 'alpha/aux/AGENTS.md', '# Local rule\n')
     git(repo, 'add', 'alpha/aux/AGENTS.md'); git(repo, 'commit', '-qm', 'local rule'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
@@ -115,10 +196,16 @@ def test_folder_impact_cli_from_context_directory(repo, tmp_path):
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_context_flow.py'
     command = [sys.executable, str(script), '--approved-revision', after, 'impact',
                '--graph', str(graph), '--before', before, '--after', after, '--context', 'alpha']
-    completed = subprocess.run(command, cwd=repo / 'alpha', capture_output=True, text=True, check=True)
+    clean_env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
+    unbound = subprocess.run(command, cwd=repo / 'alpha', capture_output=True, text=True, env=clean_env)
+    assert unbound.returncode != 0
+    env = {**clean_env, 'WIKI_COORDINATION_ALLOWED_CONTEXTS': '.,alpha',
+           'WIKI_COORDINATION_CONTEXT_MODE': 'folder',
+           'WIKI_COORDINATION_TRUSTED_REF': 'refs/remotes/origin/main'}
+    completed = subprocess.run(command, cwd=repo / 'alpha', capture_output=True, text=True, check=True, env=env)
     assert json.loads(completed.stdout)['candidates'][0]['state'] == 'review_pending'
     git(repo / 'alpha', 'init', '-q')
-    nested = subprocess.run(command, cwd=repo / 'alpha', capture_output=True, text=True)
+    nested = subprocess.run(command, cwd=repo / 'alpha', capture_output=True, text=True, env=env)
     assert nested.returncode != 0  # Never fall back to the outer wiki.
 
 
