@@ -745,6 +745,31 @@ moc_parent: memories/index.md
     }
 
 
+def test_root_snapshot_source_identity_uses_merge_commit(tmp_path: Path) -> None:
+    config = _sample_repo(tmp_path)
+    subprocess.run(
+        ["git", "checkout", "-b", "wiki/topic"], cwd=tmp_path, check=True, capture_output=True
+    )
+    page = tmp_path / "memories/example/index.md"
+    page.write_text(page.read_text(encoding="utf-8") + "\nTopic edit.\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "topic"], cwd=tmp_path, check=True, capture_output=True)
+    topic = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+    subprocess.run(["git", "checkout", "main"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "merge", "--no-ff", "wiki/topic", "-m", "merge topic"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+
+    manifest = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")["manifest.json"]
+    assert head != topic
+    assert manifest["source_sha"] == head
+    assert manifest["source_commit"] == head
+
+
 def test_dirty_snapshot_source_identity_is_honest_deterministic_and_content_bound(
     tmp_path: Path,
 ) -> None:
