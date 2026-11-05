@@ -152,6 +152,34 @@ stage revalidates the source, selected context and revision. A failed write may
 leave partial effects and explicitly reports that inspection is needed before
 retry.
 
+When the configured root perspective bundle has required perspective IDs, the
+host must supply `perspective_refs` as an explicit ID-to-repository-path map on
+every source stage when using that root bundle. A nested executor does not
+automatically select the global bundle; it may request it explicitly. Optional
+configured IDs may also be selected. Each selected
+page must be an authorized `perspective` with the matching ID; the paths do not
+grant access. Missing required selections fail before source capture. The
+request includes the qualified page bodies and selected IDs, and result
+recording checks them again. Channel and source-config perspective selection is
+not yet covered by this operation; linked sources remain uninspected. Source
+frontmatter or the selected source page declaring a configuration, channel or
+required perspectives is blocked until that chain can be qualified.
+
+Protected folder ingestion requires the v5 prompt, which points to
+`wiki_coordination.py --source-stage`. A configuration explicitly selecting
+v4 must be updated through its approved policy process before preparing a new
+folder request. When no version is configured, this route defaults to v5.
+Version and prompt text participate in the request fingerprint: requests using
+v4 must be prepared and read again, while retained historical artifacts and the
+v4 prompt remain unchanged.
+
+The legacy `wiki_ingest.py` and `wiki_llm_context_pass.py` approved-v1 flags
+are retired for new operations, including result recording and checks through
+those flags; they refuse before opening the selected source or result. Local
+working-tree compatibility without those flags remains available. Existing
+v1 and mixed-cache artifacts are preserved, but examining the mixed artifacts
+under current authority requires a separately qualified historical route.
+
 This route supports local Markdown and text files up to 16 MB and explicitly
 selected candidates. The complete serialized request is also capped at 2 MB,
 which may require a smaller source, particularly when text needs JSON escaping.

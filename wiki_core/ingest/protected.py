@@ -18,7 +18,7 @@ from pathlib import Path
 import yaml
 
 from wiki_core.chunking import chunk_text
-from wiki_core.config import config_from_mapping, DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION
+from wiki_core.config import config_from_mapping
 from wiki_core.context_packet import build_packet as context_packet, qualify_folder_context
 from wiki_core.context_policy import git_file, safe_path
 from wiki_core.coordination_context import _policy, ProtectedCoordinationError
@@ -26,7 +26,7 @@ from wiki_core.detectors import scan_text
 from wiki_core.extractors.text import ExtractedDocument
 from wiki_core.llm import build_context_request
 from wiki_core.llm.context_pass import (CONTEXT_PASS_SCHEMA_VERSION, canonical_request_text,
-    enforce_request_budget, result_matches_request, request_limits)
+    enforce_request_budget, result_matches_request, request_limits, require_approved_prompt_version)
 from wiki_core.paths import WikiPaths
 from wiki_core.repo_read import contains_access_secrets
 from wiki_core.source_manifest import classify_source, source_id_for, source_origin, chunk_document
@@ -37,6 +37,11 @@ from wiki_core.git_env import local_git_environment, local_git_executable
 
 class ProtectedPartialError(ValueError):
     """A failed operation may have retained some artifacts; inspect before retry."""
+
+
+FOLDER_PROMPT_VERSION = 'v5'
+SOURCE_OMISSIONS = ['business root not selected', 'source configuration and input channel not selected',
+                    'linked sources not inspected']
 
 
 def _authority(root, binding, context_id, approved_revision, entry_folder, entry_index, budget,
@@ -55,6 +60,10 @@ def _authority(root, binding, context_id, approved_revision, entry_folder, entry
                            additional_readers=readers)
     raw = yaml.safe_load(git_file(root, policy.policy_revision, 'wiki.config.yaml'))
     config = config_from_mapping(raw)
+    configured_prompts = (raw.get('llm') or {}).get('prompt_versions') or {}
+    if 'context_deep_read' not in configured_prompts:
+        config = replace(config, llm={**config.llm, 'prompt_versions': {
+            **config.llm.get('prompt_versions', {}), 'context_deep_read': FOLDER_PROMPT_VERSION}})
     configured = safe_path(config.paths['derived_root'])
     from wiki_core.traversal import is_protected_artifact
     if is_protected_artifact(Path(configured)):
@@ -171,6 +180,14 @@ def _request_identity(request):
     return hashlib.sha256(canonical_request_text(envelope).encode()).hexdigest()
 
 
+def _validate_source_context(extracted):
+    if extracted.text.startswith('---\n') or extracted.text.startswith('---\r\n'):
+        from wiki_core.context_selection import _metadata
+        source_meta = _metadata({'text': extracted.text})
+        if any(source_meta.get(key) for key in ('config_ref', 'input_channel_ref', 'perspectives_required')):
+            raise ValueError('source configuration requires explicit qualification')
+
+
 def _request_path(paths, source_id, request_id):
     if not isinstance(source_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', source_id):
         raise ValueError('request unavailable')
@@ -178,6 +195,42 @@ def _request_path(paths, source_id, request_id):
         raise ValueError('request unavailable')
     source = hashlib.sha256(source_id.encode()).hexdigest()
     return paths.extraction_events / f'protected-{source}-{request_id}-llm-context-request.json'
+
+
+def _perspectives(config, policy, refs, context_id):
+    """Resolve explicit paths for configured lenses; paths alone grant nothing."""
+    bundle = (config.root_entity or {}).get('perspective_bundle') or {}
+    required, optional = bundle.get('required', []), bundle.get('optional', [])
+    if (not isinstance(required, list) or not isinstance(optional, list)
+            or any(not isinstance(item, str) or not item for item in required + optional)
+            or len(set(required + optional)) != len(required + optional)):
+        raise ValueError('perspective configuration unavailable')
+    # A nested executor does not automatically inherit global business lenses.
+    # It may explicitly select configured lenses, which still require grants.
+    if context_id != '.' and refs is None:
+        return [], [], {}, []
+    refs = {} if refs is None else refs
+    if (not isinstance(refs, dict) or len(refs) > 128
+            or set(refs) - set(required + optional) or set(required) - set(refs)):
+        raise ValueError('perspective selection unavailable')
+    paths = {name: safe_path(refs[name]) for name in sorted(refs)}
+    if len(set(paths.values())) != len(paths) or contains_access_secrets(paths):
+        raise ValueError('perspective selection unavailable')
+    evidence = [{'ref': path, 'producer': policy.owner_of(path),
+        'reason': 'Configured interpretation perspective', 'use': 'interpretation',
+        'classification': 'context'} for path in paths.values()]
+    return required, [name for name in optional if name in paths], paths, evidence
+
+
+def _check_perspective_packet(packet, paths):
+    from wiki_core.frontmatter import parse_frontmatter
+    for name, path in paths.items():
+        selected = [row for row in packet['inputs'] if row['ref'] == path]
+        if not selected:
+            raise ValueError('perspective unavailable')
+        frontmatter, _ = parse_frontmatter(selected[-1]['text'])
+        if frontmatter.get('page_id') != name or frontmatter.get('page_type') != 'perspective':
+            raise ValueError('perspective unavailable')
 
 
 def _read_json(root, policy, context_id, path, *, max_bytes=2_000_000):
@@ -214,6 +267,8 @@ def _source_page(root, policy, context_id, config, ref):
     if (meta.get('page_type') != 'source' or not isinstance(meta.get('page_id'), str)
             or not meta['page_id'].strip()):
         raise ValueError('source page unavailable')
+    if any(meta.get(key) for key in ('config_ref', 'input_channel_ref', 'perspectives_required')):
+        raise ValueError('source configuration requires explicit qualification')
     return hashlib.sha256(raw).hexdigest()
 
 
@@ -267,30 +322,45 @@ def _write_once(root, policy, context_id, path, value, *, compact=False):
 
 def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
             source_ref, source_context, context_max_bytes=100_000, request_max_bytes=1_000_000,
-            artifact_context=None):
+            artifact_context=None, perspective_refs=None):
     """Capture one authorized source and emit its bound contextual request."""
     request_limits(context_max_bytes, request_max_bytes)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
         entry_folder, entry_index, context_max_bytes, actor)
+    prompt = str(config.llm.get('prompt_versions', {}).get('context_deep_read', FOLDER_PROMPT_VERSION))
+    require_approved_prompt_version(prompt, folder=True)
+    required, optional, selected_perspectives, evidence = _perspectives(config, policy, perspective_refs, context_id)
+    if evidence:
+        preflight = context_packet(root, policy, context_id, approved_revision, evidence, context_max_bytes,
+            task_id='source-selection-preflight', goal='Qualify the selected interpretation perspectives',
+            output='Selected perspective qualification', integrator=actor,
+            entry_folder=entry_folder, entry_index=entry_index,
+            additional_readers=() if actor == context_id else (actor,),
+            omissions=SOURCE_OMISSIONS)
+        _check_perspective_packet(preflight, selected_perspectives)
     source, source_digest, manifest, extracted, chunks = _capture(root, policy, context_id,
         source_ref, source_context, config, actor)
-    packet = context_packet(root, policy, context_id, approved_revision, [], context_max_bytes,
+    _validate_source_context(extracted)
+    packet = context_packet(root, policy, context_id, approved_revision, evidence, context_max_bytes,
         task_id=str(manifest['source_id']), goal='Interpret the authorized selected source',
         output='Contextual source interpretation', integrator=actor,
         entry_folder=entry_folder, entry_index=entry_index,
         additional_readers=() if actor == context_id else (actor,),
-        omissions=['linked sources not inspected'])
+        omissions=SOURCE_OMISSIONS)
+    _check_perspective_packet(packet, selected_perspectives)
     auth = {'ref': source_ref, 'producer': policy.owner_of(source_ref), 'context_id': context_id,
         'policy_revision': approved_revision, 'use': 'interpretation', 'classification': 'source',
         'artifact_context': actor}
-    prompt = str(config.llm.get('prompt_versions', {}).get('context_deep_read', DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION))
+    if selected_perspectives:
+        auth['perspective_refs'] = selected_perspectives
     profile = str(config.llm.get('default_model_profile', 'deep_context'))
     # An empty temporary cache avoids opening any stored cache before the exact
     # keys have been checked against the policy.
     with tempfile.TemporaryDirectory(prefix='wiki-protected-empty-') as empty:
         request = build_context_request(manifest, chunks, Path(empty), prompt,
             CONTEXT_PASS_SCHEMA_VERSION, profile, block_context_package=packet,
+            perspectives_required=required, perspectives_optional=optional,
             context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
             source_authorization=auth)
     request_id = _request_identity(request)
@@ -348,16 +418,17 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
     return {'source_id': source_id, 'request_id': request_id, 'request': request,
-            'coverage': 'selected source only; linked sources not inspected',
+            'coverage': 'selected source and explicit perspectives only; business root, source configuration, input channel and linked sources not inspected',
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
 
 def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
                 source_ref, source_id, request_id, context_max_bytes, request_max_bytes,
-                artifact_context=None):
+                artifact_context=None, perspective_refs=None):
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
         entry_folder, entry_index, context_max_bytes, actor)
+    required, optional, selected_perspectives, evidence = _perspectives(config, policy, perspective_refs, context_id)
     source = _source(root, policy, context_id, source_ref, actor)
     digest = _hash(source, policy)
     path = _request_path(paths, source_id, request_id)
@@ -374,32 +445,38 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
             or len(canonical_request_text(request).encode('utf-8')) > 2_000_000):
         raise ValueError('request unavailable')
     auth = request.get('source_authorization')
-    if auth != {'ref': source_ref, 'producer': policy.owner_of(source_ref), 'context_id': context_id,
+    expected_auth = {'ref': source_ref, 'producer': policy.owner_of(source_ref), 'context_id': context_id,
                 'policy_revision': approved_revision, 'use': 'interpretation', 'classification': 'source',
-                'artifact_context': actor}:
+                'artifact_context': actor}
+    if selected_perspectives:
+        expected_auth['perspective_refs'] = selected_perspectives
+    if auth != expected_auth:
         raise ValueError('request unavailable')
     packet = request.get('block_context_package')
     if not isinstance(packet, dict):
         raise ValueError('request unavailable')
-    current = context_packet(root, policy, context_id, approved_revision, [], context_max_bytes,
+    current = context_packet(root, policy, context_id, approved_revision, evidence, context_max_bytes,
         task_id=source_id, goal='Interpret the authorized selected source',
         output='Contextual source interpretation', integrator=actor,
         entry_folder=entry_folder, entry_index=entry_index,
         additional_readers=() if actor == context_id else (actor,),
-        omissions=['linked sources not inspected'])
+        omissions=SOURCE_OMISSIONS)
+    _check_perspective_packet(current, selected_perspectives)
     if current != packet:
         raise ValueError('request authority changed')
     # A request filename and digest bind bytes; they do not prove that those
     # chunks came from the selected source. Reconstruct the selected capture.
-    _source_path, observed_hash, manifest, _extracted, chunks = _capture(root, policy, context_id,
+    _source_path, observed_hash, manifest, extracted, chunks = _capture(root, policy, context_id,
         source_ref, request.get('source_context'), config, actor)
+    _validate_source_context(extracted)
     if observed_hash != digest or manifest.get('source_id') != source_id:
         raise ValueError('request source changed')
-    prompt = str(config.llm.get('prompt_versions', {}).get('context_deep_read', DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION))
+    prompt = str(config.llm.get('prompt_versions', {}).get('context_deep_read', FOLDER_PROMPT_VERSION))
     profile = str(config.llm.get('default_model_profile', 'deep_context'))
     with tempfile.TemporaryDirectory(prefix='wiki-protected-empty-') as empty:
         rebuilt = build_context_request(manifest, chunks, Path(empty), prompt,
             CONTEXT_PASS_SCHEMA_VERSION, profile, block_context_package=current,
+            perspectives_required=required, perspectives_optional=optional,
             context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
             source_authorization=auth)
     if _request_identity(rebuilt) != request_id:
@@ -409,12 +486,12 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
 
 def record(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
            source_ref, source_id, request_id, results,
-           context_max_bytes=100_000, request_max_bytes=1_000_000, artifact_context=None):
+           context_max_bytes=100_000, request_max_bytes=1_000_000, artifact_context=None, perspective_refs=None):
     """Record host-supplied result objects against the exact retained request."""
     options = dict(context_id=context_id, approved_revision=approved_revision,
         entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
         source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
-        request_max_bytes=request_max_bytes, artifact_context=artifact_context)
+        request_max_bytes=request_max_bytes, artifact_context=artifact_context, perspective_refs=perspective_refs)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     if (not isinstance(results, list) or not results or len(results) > 1000
@@ -461,13 +538,13 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
 def consolidate(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
                 source_ref, source_id, request_id, source_page, event_target, date,
                 candidates=(), context_max_bytes=100_000, request_max_bytes=1_000_000,
-                artifact_context=None):
+                artifact_context=None, perspective_refs=None):
     """Prepare an event and packet; incorporation and review remain separate."""
     from wiki_core.consolidate import aggregate_results, build_event_markdown, build_packet
     options = dict(context_id=context_id, approved_revision=approved_revision,
         entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
         source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
-        request_max_bytes=request_max_bytes, artifact_context=artifact_context)
+        request_max_bytes=request_max_bytes, artifact_context=artifact_context, perspective_refs=perspective_refs)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     if (not isinstance(candidates, (list, tuple)) or len(candidates) > 128
