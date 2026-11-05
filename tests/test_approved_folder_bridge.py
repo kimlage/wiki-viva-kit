@@ -1,6 +1,8 @@
 """Approved folder selection retains the existing policy's boundaries."""
 from __future__ import annotations
 
+import datetime
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -217,3 +219,119 @@ def test_approved_folder_record_and_consolidate_require_current_authority(approv
     assert consolidate.main() == 0
     capsys.readouterr()
     assert len(list(paths.ingest_events_dir.glob('*.md'))) == 1
+
+
+def test_approved_ingest_does_not_write_when_policy_denies_destinations(approved):
+    root, source, _, _ = approve_folder(approved)
+    policy = yaml.safe_load((root / 'context.yaml').read_text())
+    policy['policy']['write'] = []
+    (root / 'context.yaml').write_text(yaml.safe_dump(policy))
+    git(root, 'add', 'context.yaml')
+    git(root, 'commit', '-qm', 'Remove write grant')
+    sha = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', sha)
+    result = run(str(source), 'system', root, load_config(root), entry_folder='area/aux',
+                 approved_revision=sha, policy_context='root', record_score=False)
+    assert result.blocked and not result.written
+    paths = WikiPaths(root, load_config(root))
+    assert not list(paths.derived_root.rglob('*.json'))
+
+
+def test_approved_retry_never_opens_denied_derived_artifacts(approved, monkeypatch):
+    root, source, _, sha = approve_folder(approved)
+    config = load_config(root)
+    first = run(str(source), 'system', root, config, entry_folder='area/aux',
+                approved_revision=sha, policy_context='root', record_score=False)
+    assert not first.blocked
+    policy = yaml.safe_load((root / 'context.yaml').read_text())
+    policy['policy']['deny'] = {'read': ['data/derived']}
+    (root / 'context.yaml').write_text(yaml.safe_dump(policy))
+    git(root, 'add', 'context.yaml')
+    git(root, 'commit', '-qm', 'Deny derived reads')
+    sha = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', sha)
+    forbidden = root / 'data/derived'
+    original_open = Path.open
+    def guarded_open(path, *args, **kwargs):
+        mode = args[0] if args else kwargs.get('mode', 'r')
+        if (path == forbidden or forbidden in path.parents) and 'r' in mode:
+            pytest.fail('opened denied derived artifact')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded_open)
+    result = run(str(source), 'system', root, config, entry_folder='area/aux',
+                 approved_revision=sha, policy_context='root', record_score=False)
+    assert result.blocked and not result.written
+
+
+def test_consolidation_rejects_wrong_context_before_request_body(approved, monkeypatch):
+    from tests.test_local_result_cache import module
+    root, source, _, sha = approve_folder(approved)
+    prepared = run(str(source), 'system', root, load_config(root), entry_folder='area/aux',
+                   approved_revision=sha, policy_context='root', record_score=False)
+    assert not prepared.blocked
+    request_path = root / prepared.request_path
+    cli = module('wiki_consolidate')
+    monkeypatch.setattr(cli, 'ROOT', root)
+    original_open = Path.open
+    def guarded_open(path, *args, **kwargs):
+        if path == request_path:
+            pytest.fail('opened request before checking approved context')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded_open)
+    try:
+        outcome = cli.consolidate_one(prepared.source_id, emit_event=False, packet=True,
+            source_page=None, source_ref='source-test', context='system', date=datetime.date(2026, 11, 4),
+            force=False, request_path=prepared.request_path, approved_revision=sha,
+            policy_context='unapproved', source_file=str(source))
+    except ValueError:
+        return
+    assert outcome != 0
+
+
+def test_consolidation_does_not_read_denied_existing_event(approved, monkeypatch, tmp_path, capsys):
+    from tests.test_local_result_cache import module, result_for
+    root, source, _, _ = approve_folder(approved)
+    policy = yaml.safe_load((root / 'context.yaml').read_text())
+    policy['policy']['deny'] = {'read': ['memories/system/ingestion/events']}
+    (root / 'context.yaml').write_text(yaml.safe_dump(policy))
+    git(root, 'add', 'context.yaml')
+    git(root, 'commit', '-qm', 'Deny existing event reads')
+    sha = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', sha)
+    config = load_config(root)
+    prepared = run(str(source), 'system', root, config, entry_folder='area/aux',
+                   approved_revision=sha, policy_context='root', record_score=False)
+    assert not prepared.blocked
+    request = json.loads((root / prepared.request_path).read_text())
+    payload = tmp_path / 'result.json'
+    payload.write_text(json.dumps(list({row['cache_key']: result_for(request, row)
+                                       for row in request['chunks']}.values())))
+    cli = module('wiki_llm_context_pass')
+    monkeypatch.chdir(root)
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root),
+        '--source', str(source), '--context', 'system', '--folder', 'area/aux',
+        '--request', prepared.request_path, '--record-result', str(payload),
+        '--approved-revision', sha, '--policy-context', 'root'])
+    assert cli.main() == 0
+    capsys.readouterr()
+    paths = WikiPaths(root, config)
+    paths.ingest_events_dir.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256(prepared.source_id.encode()).hexdigest()
+    event = paths.ingest_events_dir / f'2026-11-04-{digest}-{request["folder_request_id"]}.md'
+    event.write_text('---\nsource_id: fixture\n---\n')
+    consolidate = module('wiki_consolidate')
+    monkeypatch.setattr(consolidate, 'ROOT', root)
+    original_open = Path.open
+    def guarded_open(path, *args, **kwargs):
+        if path == event:
+            pytest.fail('opened event forbidden by current policy')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded_open)
+    try:
+        outcome = consolidate.consolidate_one(prepared.source_id, emit_event=True, packet=False,
+            source_page='source.md', source_ref=None, context='system', date=datetime.date(2026, 11, 4),
+            force=False, request_path=prepared.request_path, approved_revision=sha,
+            policy_context='root', source_file=str(source))
+    except ValueError:
+        return
+    assert outcome != 0
