@@ -470,7 +470,10 @@ def test_cli_approved_context_activation_fails_closed_and_delivers_mandatory_bod
             input=json.dumps(payload), text=True, capture_output=True, env=env)
 
     blocked = cli('0' * 40)
-    assert blocked.returncode == 1 and json.loads(blocked.stdout)['ok'] is False
+    assert blocked.returncode == 1
+    report = json.loads(blocked.stdout)
+    assert report['ok'] is False and report['error_code'] == 'coordination_policy_unavailable'
+    assert report['blocker']['interface'] and report['blocker']['resume_condition']
     assert not (root / 'data/derived').exists()
     first = cli(sha)
     assert first.returncode == 0, first.stderr + first.stdout
