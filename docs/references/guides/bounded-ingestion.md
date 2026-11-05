@@ -262,74 +262,12 @@ reconciliation. It reads selected cache entries and can be expensive for many
 chunks or repositories. Consolidation enforces the combined limit before
 writing a packet or event; the separate inspection output limit also applies.
 
-An operator may explicitly supply `previous_request_id` and a list of one to
-32 `candidate_chunk_ids` to `prepare` to inspect historical candidates after the
-trusted approval advances. First prepare the current request to obtain its chunk
-IDs. Use the original request ID and current approved revision, with the same
-source locator and context. If source bytes changed, also pass the original
-`previous_source_id`; when omitted, it defaults to the current source ID.
-Before the old request can be opened, the trusted host must pin an exact
-`PreviousRequestGrant` in `CoordinationBinding`, naming the executor, integrator,
-source ref, source ID, previous request ID and previous policy revision. The
-host may set `WIKI_COORDINATION_PREVIOUS_REQUEST_GRANTS` to a JSON array of
-objects with those six keys: `executor`, `integrator`, `source_ref`, `source_id`,
-`request_id` and `policy_revision`. The payload's ID alone is never a grant.
-The trusted local CLI uses its process environment as host configuration and
-is not a security boundary against that local operator.
-There is no cache or request directory discovery. The host first authorizes the
-current request, then opens only the named prior request and its exact result
-keys. Candidate selection requires the same source locator, selected bodies and selectors, matching
-effective read scopes and bilateral grants for every selected reader, and an
-approved ancestor revision. Changed selected context inputs, unavailable evidence,
-ambiguous matching chunks and previously reused results stay pending. Selected
-independent Git context and its host binding must also remain unchanged. For a
-changed source, the selected current chunk must have one historical match with
-identical text, hash and origin. The previous manifest and chunk capture are
-checked against the prior request. The prior raw source bytes are not retained,
-so the candidate reports `source_proof: retained_capture_not_raw_source`; this
-is not an independent replay of the old extraction.
-
-Returned candidates contain the unchanged historical result, its prior request,
-policy revision and digests, and `status: review_needed`. The origin also reports
-`authority_metadata_changed` when the policy scopes or imports shown to the
-earlier reader differ from those in the current request. Effective read and
-connection decisions are checked separately for each selected path and reader;
-expired connections and redundant read scopes do not alone hide a candidate.
-The validity horizon of a selected live bilateral connection remains part of
-the comparison. No candidate is copied
-to the current cache, marked as a current result or incorporated into memory.
-Reviewing a candidate does not itself satisfy the current contextual-read gate;
-the current request still needs its own result bound to that request.
-An instruction may have required the old revision itself, so matching selected
-bodies and grants does not prove that its conclusions remain current. Missing
-candidates are reported, and a response over the 2 MB candidate budget omits
-candidate bodies rather than returning a partial set. This check does not block
-unrelated requests or decide whether a candidate may be reused. The surrounding
-`prepare` operation can still retain current capture and request artifacts and
-may report partial effects. The checks do not make the filesystem atomic or
-authenticate content against an operator who can alter protected files.
-
-To record an explicit review, submit a new result bound to the current request
-using `record`, and add `historical_reviews` as a list with one object per
-reviewed current chunk. Each object supplies `chunk_id`, `previous_request_id`,
-`previous_source_id`, `previous_result_sha256` from the selected candidate,
-`decision: "reviewed"`, `reviewer_label` and a nonempty `note`. The submitted
-current result is required: the route never copies a candidate or its claims.
-The host checks the exact historical grant and recomputes the candidate before
-writing, then retains a review annotation inside the current result and carries
-it to the event and integration packet. `reviewed_by_caller` records the
-caller's assertion; the reviewer label is not identity verification and the
-route does not assert factual verification. The old request and result must
-remain available and authorized under the host binding when an annotated result
-is later read; otherwise that annotated result is unavailable. On `prepare`,
-the affected chunk reports `result_exists: false` and
-`result_blocked_reason: historical_review_unavailable_preserved`; other chunks
-remain available. The original result is preserved and the pending count includes
-that chunk, but another result cannot replace it automatically: restore the exact
-historical authorization and evidence before attempting to use it. Inspection
-of the affected result and consolidation requiring it remain blocked. The result
-budget counts available results only, and does not include blocked results or
-future work. These checks do not apply to unrelated sources or unannotated results.
+Results previously stored with `protected_historical_review` are preserved but
+cannot be inspected or reused through this route. Preparation reports the
+affected chunk as unavailable; other results remain available. An existing
+annotated result also prevents recording a replacement under the same cache key.
+No historical request or result is removed or overwritten, and this route provides
+no recovery or migration for the affected result.
 
 To review retained data, use `--source-stage inspect` with the same selectors,
 limits, context selection, repository selection and integrator as the original
