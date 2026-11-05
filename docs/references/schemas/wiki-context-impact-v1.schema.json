@@ -241,6 +241,9 @@
             "type": "string",
             "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
           },
+          "authority_format": {"const": "folder"},
+          "entry_folder": {"type": "string", "minLength": 1},
+          "entry_index": {"type": "string", "minLength": 1},
           "authority_digest": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
@@ -250,6 +253,9 @@
           }
         },
         "dependentRequired": {
+          "authority_format": ["query", "query_policy_revision", "authority_digest", "members_digest_before", "members_digest_after", "entry_folder", "entry_index"],
+          "entry_folder": ["authority_format", "entry_index"],
+          "entry_index": ["authority_format", "entry_folder"],
           "query": [
             "query_policy_revision",
             "authority_digest",
