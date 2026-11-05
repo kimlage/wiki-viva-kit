@@ -1,0 +1,55 @@
+# Independent Git evidence in protected source stages
+
+A trusted in-process host may add immutable `RepositoryGrant` entries to its
+existing `CoordinationBinding`. Each entry pins one physical local repository
+root, configured identity, immutable commit, literal Git path, executor,
+integrator and byte limit. It has a host-selected opaque ID. Both actors must
+also have the `independent_git.read` capability in their current qualified
+folder policy. An untrusted stage payload may select only the ID of one such
+entry; it cannot define or widen a grant. The selection must be supplied again
+for prepare, record and consolidate. A missing or changed grant cannot open an
+existing request. CLI flags and the configured Git origin do not grant access.
+
+The route uses local Git only, disables lazy fetching, reads an exact literal
+path from the pinned commit and never adds unselected paths to the request. It
+rechecks policy/ref, both actors and physical root identity before each Git
+metadata, tree or blob command. The selected bytes and provenance participate
+in the context fingerprint and both context and request budgets. Artifacts
+bind an opaque digest of the host grant, not the local repository root or
+configured origin; an event contains only the selected ID, revision, path and
+hashes. The receipt is provenance, not authorization.
+
+Reading is not authorization to disclose a derivative. Once prepare returns
+the source and request IDs, the trusted host may create a new immutable binding
+with exactly the same read-grant attributes and an explicit `event_target` for
+the canonical event of that request. The integrator is already fixed in the
+grant. Both actors must also have `independent_git.derived_proposal` in their
+qualified publication policy. Consolidate checks this exact target before
+opening the retained request or result, then checks again around effects. A
+different read grant cannot open the original request, even when reusing the
+same selection ID. Without this separate output authorization, consolidation
+is denied. Selecting an event in the payload or having a write scope is not
+publication permission. The host's output grant explicitly permits disclosure
+of the resulting proposal to readers under the wiki's existing access rules;
+it does not itself prove remote permission or complete review/incorporation.
+
+The existing `--source-stage` CLI can execute protected stages as a trusted
+local operator, but it does not accept or construct repository grants. A host
+must install them in process outside the request payload. The binding controls
+this application route only; it is not an operating-system ACL, process
+sandbox, remote authentication or evidence of external business permission.
+The host remains responsible for separately qualifying local filesystem access
+and the Git installation. A configured origin only checks local routing; it is
+not proof of the remote repository's identity. Other links and files are not
+inspected by this selection.
+
+This adapter requires an ordinary `.git` directory inside the selected root.
+It rejects gitfiles/worktrees, `commondir`, object alternates, symlinked or
+hard-linked Git object storage, and object stores with more than 100,000
+metadata entries. It checks the root and storage identities again before each
+Git command. Filesystem checks cannot prevent concurrent hostile replacement;
+the trusted host must protect the repository and storage while operating.
+Local Git configuration is read with a 100 KB cap and a conservative lexical
+check; includes, worktree redirects, backslash escapes and external alternate
+ref commands are refused, including incidental matching text. Such repositories
+need a separately qualified adapter.
