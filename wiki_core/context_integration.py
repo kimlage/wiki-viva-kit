@@ -134,11 +134,14 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
         if is_context_instruction(path): raise IntegrationError('folder instruction change requires separate policy review')
         folder = str(Path(path).parent).replace('\\', '/')
         prefix = '' if folder == '.' else folder + '/'
-        context_index = (folder_mode and Path(path).name == 'index.md' and
+        context_index = (folder_mode and Path(path).name in ('index.md', 'README.md') and
                          any(prefix + name in base_reader.paths or prefix + name in proposal.paths
                              for name in ('AGENTS.override.md', 'AGENTS.md')))
         if context_index and status in ('A', 'D'):
-            raise IntegrationError('context boundary change requires separate policy review')
+            selected_before = next((prefix + name for name in ('index.md', 'README.md') if prefix + name in base_reader.paths), None)
+            selected_after = next((prefix + name for name in ('index.md', 'README.md') if prefix + name in proposal.paths), None)
+            if selected_before != selected_after or path == packet.get('entry_index'):
+                raise IntegrationError('context boundary change requires separate policy review')
         if path in normative: raise IntegrationError('normative input requires separate policy review')
         if policy.owner_of(path)!=context_id or not policy.permits(context_id,'write',path): raise IntegrationError('write outside context')
         if not policy.permits(context_id,'read',path): raise IntegrationError('proposal read denied')
@@ -152,10 +155,13 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
             try: proposed_file=guarded_context_read(proposal,policy,path); text=proposed_file['text']
             except ValueError as exc: raise IntegrationError('unsupported or unsafe proposed file') from exc
             if any(x.category=='secret' for x in scan_text(text)): raise IntegrationError('secret detected in proposal')
-            if folder_mode and Path(path).name == 'index.md':
+            if folder_mode and Path(path).name in ('index.md', 'README.md'):
                 folder = str(Path(path).parent).replace('\\', '/')
                 prefix = '' if folder == '.' else folder + '/'
-                if (status == 'M' and any(prefix + name in base_reader.paths or prefix + name in proposal.paths
+                selected_before = next((prefix + name for name in ('index.md', 'README.md') if prefix + name in base_reader.paths), None)
+                selected_after = next((prefix + name for name in ('index.md', 'README.md') if prefix + name in proposal.paths), None)
+                if (status == 'M' and path in (selected_before, selected_after, packet.get('entry_index'))
+                        and any(prefix + name in base_reader.paths or prefix + name in proposal.paths
                                           for name in ('AGENTS.override.md', 'AGENTS.md'))
                         and bool(guarded_context_read(base_reader,policy,path)['text'].strip()) != bool(text.strip())):
                     raise IntegrationError('context boundary change requires separate policy review')
@@ -178,7 +184,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                             if requirement.get('source_kind') == 'mandatory':
                                 from wiki_core.context_normative import normative_history
                                 ref=requirement['target']; consumed=requirement['consumed_revision']
-                                if not normative_history(policy,context_id,ref,consumed):
+                                if not normative_history(policy,context_id,ref,consumed,authority_format=requirement.get('authority_format'),entry_folder=requirement.get('entry_folder'),entry_index=requirement.get('entry_index')):
                                     raise IntegrationError('existing normative requirement requires requalification')
                                 item=next((x for x in packet['inputs'] if x['kind']=='mandatory' and x['ref']==ref),None)
                                 observed={k:item[k] for k in ('ref','section','field','revision')} if item else None

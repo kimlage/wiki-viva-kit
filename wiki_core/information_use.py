@@ -346,7 +346,7 @@ def bind_normative_coverage(root, graph, policy, context_id, *, head):
         try:
             if policy.owner_of(target)!=context_id or not policy.permits(context_id,'read',target): continue
             if req.get('target')!=source or req.get('fields')!=['*'] or req.get('temporal')!='current' or req.get('use')!='normative': continue
-            if not normative_history(policy,context_id,source,req['consumed_revision']): continue
+            if not normative_history(policy,context_id,source,req['consumed_revision'],authority_format=req.get('authority_format'),entry_folder=req.get('entry_folder'),entry_index=req.get('entry_index')): continue
             metadata=_normative_metadata_unchanged(root,source,policy.policy_revision,head)
             if metadata=='changed': coverage[key]='changed'; continue
             if metadata!='equivalent': continue

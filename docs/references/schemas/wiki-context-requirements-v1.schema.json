@@ -195,7 +195,7 @@
           }
         },
         "dependentRequired": {
-          "authority_format": ["query", "members_digest", "selected_digest", "query_policy_revision", "authority_digest", "entry_folder", "entry_index"],
+          "authority_format": ["entry_folder", "entry_index"],
           "entry_folder": ["authority_format", "entry_index"],
           "entry_index": ["authority_format", "entry_folder"],
           "query": [
@@ -230,6 +230,7 @@
           ]
         },
         "allOf": [
+          {"if": {"required": ["authority_format"]}, "then": {"anyOf": [{"required": ["query"]}, {"required": ["source_kind"]}]}},
           {
             "if": {
               "required": [

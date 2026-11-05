@@ -249,7 +249,7 @@ def _folder_policy_at(root, sha):
             path = name.decode('utf-8')
         except (ValueError, UnicodeError) as exc:
             raise PolicyError('invalid Git tree entry') from exc
-        if PurePosixPath(path).name not in ('AGENTS.md', 'AGENTS.override.md', 'index.md'):
+        if PurePosixPath(path).name not in ('AGENTS.md', 'AGENTS.override.md', 'index.md', 'README.md'):
             continue
         safe_path(path)
         if mode not in (b'100644', b'100755') or kind != b'blob':
@@ -261,10 +261,14 @@ def _folder_policy_at(root, sha):
         return next((prefix + n for n in ('AGENTS.override.md', 'AGENTS.md')
                      if prefix + n in names), None)
 
+    def selected_index(folder):
+        prefix = '' if folder == '.' else folder + '/'
+        return next((prefix + n for n in ('index.md', 'README.md') if prefix + n in names), None)
+
     if selected_instruction('.') is None: raise PolicyError('root instructions unavailable')
     folders = {'.'}
     for path in names:
-        if PurePosixPath(path).name != 'index.md': continue
+        if PurePosixPath(path).name not in ('index.md', 'README.md'): continue
         folder = str(PurePosixPath(path).parent)
         if folder != '.' and selected_instruction(folder): folders.add(folder)
     for folder in access:
@@ -295,6 +299,7 @@ def _folder_policy_at(root, sha):
     # A caller must use the folder-aware versioned interfaces when available.
     result.format_version = 'folder'
     result._folder_names = frozenset(names)
+    result._context_indexes = {folder: selected_index(folder) for folder in folders}
     # Metadata alone is not a qualified context. Callers must authorize and
     # inspect the selected instruction/index bodies before receiving grants.
     result._qualified_contexts = set()

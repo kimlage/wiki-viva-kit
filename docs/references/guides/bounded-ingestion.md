@@ -123,7 +123,7 @@ context. Compatibility is not evidence of approved policy or source freshness.
 For a local folder entry, start in the nested directory or select it explicitly
 with `--folder FOLDER`; paths are relative to the wiki root. The request includes
 the physical ancestor `AGENTS.override.md`/`AGENTS.md` chain and the selected
-nearest context's `index.md`. An implicit context has both its own nonempty
+nearest context's `index.md`, or `README.md` when no `index.md` exists. An implicit context has both its own nonempty
 instructions and an index; an auxiliary folder still contributes any physical
 instructions along the way. A child with only an index does not become a new
 context. Use `--index PATH` to select an index in a qualified context folder;
@@ -168,6 +168,11 @@ their coverage does not include them. The older shared caches are not migrated
 or classified by this route. Their compatibility readers still require separate
 review before treating historical approved material as protected. A reserved
 name is a routing convention, not an access grant or a filesystem ACL.
+Approved folder ownership recognizes `index.md` and `README.md` as stable
+conventions, with `index.md` taking precedence. An explicitly named custom
+index is usable within an already recognized context; a folder containing only
+a custom index does not define approved ownership and requires requalification.
+The selected index is not an access grant.
 
 For example, from the wiki root, enter the chosen context and prepare a source
 using paths anchored to that root (replace the example paths and context):
