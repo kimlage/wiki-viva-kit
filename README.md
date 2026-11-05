@@ -12,12 +12,11 @@ The wiki is one navigable world rather than a set of dashboard islands. Pages
 remain canonical Markdown; registered views project the same world as spatial
 quadrants, timelines, graph relations, source provenance and operational work.
 
-Release and migration notes: [Wiki Viva v9.1.0](docs/references/releases/wiki-viva-v9.1.0.md);
-major-version migration history: [v9.0.0](docs/references/releases/wiki-viva-v9.0.0.md).
-The preserved v9.0.0 tag predates the reader/catalog secret-output correction.
-For new adoption, use the approved corrected commit
-[`7769aee73a166ac7fd7b4ab7f35be64576e451ca`](https://github.com/kimlage/wiki-viva-kit/commit/7769aee73a166ac7fd7b4ab7f35be64576e451ca),
-or the reviewed v9.1.0 tag after publication. See the release notes for scope and limits.
+Release and migration notes: [Wiki Viva v9.2.0](docs/references/releases/wiki-viva-v9.2.0.md);
+previous releases: [v9.1.0](docs/references/releases/wiki-viva-v9.1.0.md) and
+[v9.0.0](docs/references/releases/wiki-viva-v9.0.0.md). For new adoption, use the
+reviewed v9.2.0 tag after publication and follow its migration notes. The
+preserved v9.0.0 tag predates the reader/catalog secret-output correction.
 
 ```mermaid
 flowchart LR
