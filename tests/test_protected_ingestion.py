@@ -684,6 +684,33 @@ def test_inspection_revalidates_authority_after_result_read(prepared_repo, monke
     assert observed == [True]
 
 
+def test_inspection_rechecks_result_boundary_after_read(prepared_repo, monkeypatch):
+    import wiki_core.ingest.protected as protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    result = _result_for(prepared['request'])
+    ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
+    record(root, binding, **args, **ids, results=[result])
+    original = protected._read_json
+    moved = []
+    def replace_boundary(*a, **kw):
+        value = original(*a, **kw)
+        path = a[3]
+        if path.name == result['cache_key'] + '.json':
+            backup = path.parent.with_name(path.parent.name + '-moved')
+            path.parent.rename(backup)
+            path.parent.symlink_to(backup, target_is_directory=True)
+            moved.append(True)
+        return value
+    monkeypatch.setattr(protected, '_read_json', replace_boundary)
+    with pytest.raises(ProtectedCoordinationError):
+        protected_source_stage(root, binding, 'inspect', {**args, **ids, 'view': 'results',
+            'chunk_ids': [result['chunk_id']]})
+    assert moved == [True]
+
+
 def test_inspection_requires_host_and_exact_selected_result(prepared_repo, monkeypatch):
     root, sha = prepared_repo
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')

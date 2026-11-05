@@ -626,6 +626,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
             if current != request or current_digest != source_digest:
                 raise ValueError('request authority changed')
+            _allowed(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'), 'read')
             if result is not missing:
                 if (contains_access_secrets(result) or validate_result(result)
                         or not result_matches_request(result, request, row)):
@@ -639,6 +640,12 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
                                request_max_bytes=request_max_bytes)
         if len(canonical_request_text(response_request).encode('utf-8')) > 2_000_000:
             raise ValueError('request exceeds protected response limit')
+        root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
+        if current != request or current_digest != source_digest:
+            raise ValueError('request authority changed')
+        for row in response_request['chunks']:
+            _allowed(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'), 'read')
+        policy.fresh()
     except (ValueError, OSError, UnicodeError) as exc:
         raise ProtectedPartialError('cache readback unavailable; partial effects may exist; inspect before retry') from exc
     return {'source_id': source_id, 'request_id': request_id, 'request': response_request,
@@ -1130,7 +1137,9 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         total += len(_json_text(result).encode('utf-8'))
         if total > 2_000_000:
             raise ValueError('inspection budget exceeded')
-        refresh()
+        current_root, current_policy, _, current_paths, _, _ = refresh()
+        _allowed(current_root, current_policy, actor,
+                 current_paths.llm_cache / (row['cache_key'] + '.json'), 'read')
         return result
 
     if view == 'results':
@@ -1159,8 +1168,13 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
                   'event_status': 'not checked', 'integration': 'pending review and incorporation'}
     if len(canonical_request_text(output).encode('utf-8')) > max_output_bytes:
         raise ValueError('inspection output budget exceeded')
-    root, policy, _, _, _, _ = refresh()
+    root, policy, _, paths, _, _ = refresh()
     _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
+    for row in selected:
+        _allowed(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'), 'read')
+    if view == 'integration':
+        _allowed(root, policy, actor, packet_path, 'read')
+    policy.fresh()
     return output
 
 

@@ -228,6 +228,8 @@ a mismatch. It does not check whether an event was written or a proposal was
 reviewed or incorporated. Results are limited to 2 MB combined; the serialized
 returned object is limited by `max_output_bytes` (default 1 MB, at most 2 MB).
 An unavailable, invalid or over-budget selection fails without partial output.
+These checks bind the result to the request but do not authenticate its author
+or protect its semantic contents against an actor able to edit protected files.
 
 ## Working-tree folder entry
 
