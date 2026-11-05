@@ -240,8 +240,6 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             _folder_ref(root, policy, target)
             before_digest=query_before['selected_digest'] if query is not None else _selected_digest(edge_old,source,selector,policy=policy)
             after_digest=query_after['selected_digest'] if query is not None else _selected_digest(new,source,selector,policy=policy)
-            if e.get('type') == 'source_ref' and before_digest == after_digest and before_digest is not None:
-                continue
             if (before_digest==after_digest and before_digest is not None and consumed_revision is not None
                     and (query is None or query_before['members_digest']==query_after['members_digest'])): continue
             rule=str(e.get('type','untyped_reference'))
