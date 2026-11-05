@@ -390,6 +390,10 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                     more = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
                         affected=affected, changed=impact_changed, current=current, pending_sources=query_sources, read_budget=closure_budget, _selection_cache=selection_cache, policy=closure_policy)
                     for row in more:
+                        if (deferred and row['state'] == 'unknown' and
+                                current['nodes'].get(row['path'], {}).get('action_state') not in {'open', 'in_progress'}):
+                            row.update(state='review_pending', priority='on_demand', fields=['*'], causes=[], chain=[],
+                                       verification_performed=False)
                         if deferred and row['state'] == 'review_pending' and row['reason'] == 'dynamic_query_upstream_pending':
                             row['priority'] = ('immediate' if current['nodes'].get(row['path'], {}).get('action_state') in {'open', 'in_progress'} else 'on_demand')
                         key = (row['path'], row['reason'], row.get('requirement_id'))

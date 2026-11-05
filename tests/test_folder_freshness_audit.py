@@ -192,17 +192,24 @@ def test_query_outside_authorized_owner_has_generic_limited_coverage(query_repo)
                    for row in output['blockers'] + output['pending_reviews'])
 
 
-def test_folder_dynamic_change_propagates_through_ordinary_and_query_consumers(query_repo):
+@pytest.mark.parametrize('case', ['selected', 'legacy_deferred', 'legacy_active', 'legacy_direct'])
+def test_folder_dynamic_change_propagates_through_ordinary_and_query_consumers(query_repo, case):
     root, _ = query_repo
     prepare_consumer(root)
     path = root / 'alpha/consumer.md'
     raw = path.read_text().split('---\n', 2)
     data = yaml.safe_load(raw[1]); data['amount'] = 5
+    if case != 'selected':
+        for key in ('authority_format', 'entry_folder', 'entry_index'):
+            data['information_requirements'][0].pop(key)
+        write(root, 'rules.md', '# Historical rule\n')
     path.write_text('---\n' + yaml.safe_dump(data) + '---\n' + raw[2])
     dependent = {'page_id': 'ordinary', 'page_type': 'claim', 'information_requirements': [
         {'target': 'alpha/consumer.md', 'fields': ['*'], 'temporal': 'current', 'max_age_days': 30}]}
     write(root, 'alpha/ordinary.md', '---\n' + yaml.safe_dump(dependent) + '---\nDependent.\n')
-    git(root, 'add', 'alpha/consumer.md', 'alpha/ordinary.md'); git(root, 'commit', '-qm', 'ordinary dependent')
+    git(root, 'add', 'alpha/consumer.md', 'alpha/ordinary.md')
+    if case != 'selected': git(root, 'add', 'rules.md')
+    git(root, 'commit', '-qm', 'ordinary dependent')
     git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     policy = folder_policy(root)
     from wiki_core.context_packet import qualify_folder_context
@@ -216,18 +223,32 @@ def test_folder_dynamic_change_propagates_through_ordinary_and_query_consumers(q
            'query': entry['query'], 'members_digest': row['members_digest'], 'selected_digest': row['selected_digest'],
            'query_policy_revision': row['policy_revision'], 'authority_digest': row['authority_digest'],
            'authority_format': 'folder', 'entry_folder': row['entry_folder'], 'entry_index': row['entry_index']}
+    if case != 'selected': req['selected_digest'] = '0' * 64
     query_consumer = {'page_id': 'downstream-query', 'page_type': 'claim', 'information_requirements': [req]}
+    if case == 'legacy_active': query_consumer['action_state'] = 'open'
     write(root, 'alpha/downstream-query.md', '---\n' + yaml.safe_dump(query_consumer) + '---\nQuery consumer.\n')
     git(root, 'add', 'alpha/downstream-query.md'); git(root, 'commit', '-qm', 'query dependent')
     git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     base = git(root, 'rev-parse', 'HEAD')
     git(root, 'checkout', '-qb', 'wiki/folder-closure')
-    item = root / 'alpha/items/a.md'; item.write_text(item.read_text().replace('amount: 5', 'amount: 9'))
-    git(root, 'add', 'alpha/items/a.md'); git(root, 'commit', '-qm', 'selected value changed')
+    if case in ('selected', 'legacy_direct'):
+        item = root / 'alpha/items/a.md'; item.write_text(item.read_text().replace('amount: 5', 'amount: 9'))
+        git(root, 'add', 'alpha/items/a.md')
+    if case != 'selected':
+        write(root, 'rules.md', '# Changed historical rule\n'); git(root, 'add', 'rules.md')
+    git(root, 'commit', '-qm', 'selected input changed')
     head = git(root, 'rev-parse', 'HEAD')
     output = repository_report(root, load_config(root), base, query_context='alpha',
                                query_policy_revision=base, query_head=head)
     reasons = {(row['path'], row['reason']) for row in output['pending_reviews']}
-    assert ('alpha/consumer.md', 'dynamic_query_changed') in reasons
-    assert ('alpha/ordinary.md', 'upstream_interpretation_pending') in reasons
-    assert ('alpha/downstream-query.md', 'dynamic_query_upstream_pending') in reasons
+    if case == 'selected':
+        assert ('alpha/consumer.md', 'dynamic_query_changed') in reasons
+        assert ('alpha/ordinary.md', 'upstream_interpretation_pending') in reasons
+        assert ('alpha/downstream-query.md', 'dynamic_query_upstream_pending') in reasons
+    elif case == 'legacy_deferred':
+        assert any(row['path'] == 'alpha/downstream-query.md' and row['priority'] == 'on_demand'
+                   and row['reason'] == 'dynamic_query_requires_authorized_revalidation' for row in output['pending_reviews'])
+        assert not any(row['path'] == 'alpha/downstream-query.md' for row in output['blockers'])
+    else:
+        assert any(row['path'] == 'alpha/downstream-query.md' and row['reason'] == 'dynamic_query_requires_authorized_revalidation'
+                   for row in output['blockers'])
