@@ -165,6 +165,45 @@ def test_review_rejects_unapproved_revision(repo, monkeypatch, revision_field):
             disposition='still_valid', reason='synthetic review', evidence_revision=after)
 
 
+def test_review_rejects_historically_denied_source(repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    before = git(repo, 'rev-parse', 'HEAD')
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    config['context_access']['alpha']['policy']['deny'] = {'read': ['alpha/source.md']}
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'deny historical source')
+    denied = git(repo, 'rev-parse', 'HEAD')
+    config['context_access']['alpha']['policy'].pop('deny')
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    write(repo, 'alpha/source.md', '# Changed source\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'restore and change source')
+    after = git(repo, 'rev-parse', 'HEAD'); git(repo, 'update-ref', 'refs/remotes/origin/main', after)
+    candidate = assess_impact(repo, load_policy(repo, after, 'wiki.config.yaml'),
+        edge(consumed=before), before=before, after=after, destination_context='alpha')['candidates'][0]
+    forged = dict(candidate, before_revision=denied)
+    key = tuple(forged[name] for name in ('target', 'before_revision', 'after_revision', 'rule',
+        'source', 'selector', 'use', 'classification', 'target_digest'))
+    forged['event_id'] = hashlib.sha256(json.dumps(key, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision == denied and ref == 'alpha/source.md')
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    with pytest.raises(ImpactError, match='historical source requires authorized requalification'):
+        report_review(repo, load_policy(repo, after, 'wiki.config.yaml'), forged,
+            disposition='still_valid', reason='synthetic review', evidence_revision=after)
+
+
+def test_review_rejects_forged_source_digest(repo):
+    before, after = change(repo)
+    candidate = assess_impact(repo, load_policy(repo, after, 'wiki.config.yaml'),
+        edge(consumed=before), before=before, after=after, destination_context='alpha')['candidates'][0]
+    candidate['before_digest'] = '0' * 64
+    with pytest.raises(ImpactError, match='candidate source digest mismatch'):
+        report_review(repo, load_policy(repo, after, 'wiki.config.yaml'), candidate,
+            disposition='still_valid', reason='synthetic review', evidence_revision=after)
+
+
 def test_normative_requirement_ignores_unrelated_change_and_queues_changed_rule(repo):
     write(repo, 'alpha/aux/AGENTS.md', '# Local rule\n')
     git(repo, 'add', 'alpha/aux/AGENTS.md'); git(repo, 'commit', '-qm', 'local rule'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')

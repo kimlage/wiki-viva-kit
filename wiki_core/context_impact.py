@@ -97,6 +97,14 @@ def _folder_ref(root, policy, path):
     except (ValueError, OSError) as exc: raise ImpactError('selected content unavailable') from exc
 
 
+def _historical_edge_allowed(prior, current, source_owner, context, source, target, use, classification, kind, name):
+    return (prior.owner_of(source) == source_owner and prior.owner_of(target) == context
+            and all(prior.contexts[c]['owner'] == current.contexts[c]['owner'] for c in (source_owner, context))
+            and prior._connection(source_owner, context, source, use, classification,
+                section=name if kind == 'section' else None, field=name if kind == 'field' else None,
+                qualified=False) == 'approved')
+
+
 @policy_stage_cache()
 def assess_impact(root, policy, graph, *, before, after, destination_context, max_fanout=100, offset=0, expected_selection=None, trace=(), max_generation=8, trusted_binding=None):
     """Compare exact consumed slices and return immediate review candidates.
@@ -220,13 +228,8 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
                         historical_policies[edge_old.revision] = historical_policy(
                             policy, edge_old.revision, authority_format='folder')
                     prior_policy = historical_policies[edge_old.revision]
-                    if (prior_policy.owner_of(source) != source_owner or
-                            prior_policy.owner_of(target) != destination_context or
-                            any(prior_policy.contexts[c]['owner'] != policy.contexts[c]['owner']
-                                for c in (source_owner, destination_context)) or
-                            prior_policy._connection(source_owner, destination_context, source, use,
-                                classification, section=name if kind == 'section' else None,
-                                field=name if kind == 'field' else None, qualified=False) != 'approved'):
+                    if not _historical_edge_allowed(prior_policy, policy, source_owner, destination_context,
+                            source, target, use, classification, kind, name):
                         raise PolicyError('historical connection unavailable')
                 except (ValueError, KeyError, OSError):
                     blocked_connection = True
@@ -342,6 +345,32 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
             digest=receipt['selected_digest']
         else: digest=_selected_digest(reader,source,selector,policy=policy)
         if digest!=candidate['after_digest']: raise ImpactError('source changed since candidate')
+        if getattr(policy, 'format_version', None) == 'folder' and not folder_normative:
+            from wiki_core.context_policy import historical_policy
+            historical = historical_policy(policy, candidate['before_revision'], authority_format='folder')
+            if not _historical_edge_allowed(historical, policy, candidate['producer_context'], context,
+                    source, target, candidate['use'], candidate['classification'], kind, name):
+                raise ImpactError('historical source requires authorized requalification')
+            consumed = RepositoryReader(root, candidate['before_revision'])
+            if kind == 'query':
+                from wiki_core.context_packet import qualify_folder_context
+                from wiki_core.context_selection import _equivalent_folder_authority
+                qualify_folder_context(root, policy, context, candidate['entry_folder'], candidate['entry_index'], 2_000_000)
+                _equivalent_folder_authority(policy, context, consumed.revision, entry,
+                                             candidate['entry_folder'], candidate['entry_index'])
+                old_receipt,_,_ = reproduce_query(policy, context, consumed, entry,
+                    policy_revision=consumed.revision, expected_authority=candidate['authority_digest'],
+                    authority_format=candidate['authority_format'], entry_folder=candidate['entry_folder'],
+                    entry_index=candidate['entry_index'])
+                old_digest = old_receipt['selected_digest']
+                if old_receipt['members_digest'] != candidate['members_digest_before']:
+                    raise ImpactError('historical query candidate selection differs')
+            else:
+                old_digest = _selected_digest(consumed, source, selector, policy=policy)
+            if old_digest != candidate['before_digest']:
+                raise ImpactError('candidate source digest mismatch')
+            if old_digest == digest and (kind != 'query' or candidate['members_digest_before'] == candidate['members_digest_after']):
+                raise ImpactError('candidate source has no approved change')
         prior=RepositoryReader(root,candidate['after_revision'])
         if getattr(policy, 'format_version', None) == 'folder' and prior.revision != policy.policy_revision:
             from wiki_core.context_policy import historical_policy

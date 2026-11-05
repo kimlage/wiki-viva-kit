@@ -1,6 +1,7 @@
 """Owner-authorized dynamic sets through real packet/result/canonical callers."""
 from copy import deepcopy
 import datetime as dt
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -228,7 +229,7 @@ def test_untrusted_data_and_ambiguity_fail_closed(collection,bad):
     assert secret not in str(error.value)
 
 
-def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impact(audit_collection):
+def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impact(audit_collection, monkeypatch):
     root=audit_collection;base=git(root,'rev-parse','HEAD');p=folder_packet(root);r=folder_requirement(p)
     git(root,'checkout','-qb','wiki/query-task');declare(root,r);git(root,'add','.');git(root,'commit','-qm','query interpretation');head=git(root,'rev-parse','HEAD')
     done=folder_result(p,[{'path':'finance/costs/result.md','action':'modified'}])
@@ -248,6 +249,11 @@ def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impac
     current_check=revalidate_approved_queries(root,folder_policy(root),consumer='finance/costs/result.md',context_id=AUDIT_CONTEXT)
     validate(current_check,json.loads((BASE/'docs/references/schemas/wiki-context-query-revalidation-v1.schema.json').read_text()))
     assert current_check['equivalent']
+    config=yaml.safe_load((root/'wiki.config.yaml').read_text())
+    config['context_access'][AUDIT_CONTEXT]['policy']['deny']={'read':[SCOPE+'/first.md']}
+    (root/'wiki.config.yaml').write_text(yaml.safe_dump(config)); denied=commit(root)
+    config['context_access'][AUDIT_CONTEXT]['policy'].pop('deny')
+    (root/'wiki.config.yaml').write_text(yaml.safe_dump(config))
     page(root,'new.md');after=commit(root)
     impact=assess_approved_impact(root,folder_policy(root),consumers=['finance/costs/result.md'],before=head,after=after,destination_context=AUDIT_CONTEXT)
     assert len(impact['candidates'])==1 and impact['candidates'][0]['source']==ANCHOR
@@ -257,6 +263,16 @@ def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impac
     from wiki_core.context_impact import report_review
     report=report_review(root,folder_policy(root),impact['candidates'][0],disposition='still_valid',reason='Synthetic reported review',evidence_revision=after)
     assert report['verification']=='reported_not_verified' and not report['next_impact_allowed']
+    forged=deepcopy(impact['candidates'][0]); forged['before_revision']=denied
+    key=tuple(forged[name] for name in ('target','before_revision','after_revision','rule','source','selector','use','classification','target_digest','authority_format','entry_folder','entry_index'))
+    forged['event_id']=hashlib.sha256(json.dumps(key,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+    original=RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision==denied and ref.startswith(SCOPE+'/')), 'historical query body opened despite deny'
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader,'read',guarded)
+    with pytest.raises(ValueError):
+        report_review(root,folder_policy(root),forged,disposition='still_valid',reason='Synthetic reported review',evidence_revision=after)
 
 @pytest.mark.parametrize('change',['addition','removal','entry','exit','selected','identity','outside','irrelevant_body'])
 def test_canonical_query_impact_does_not_depend_on_hub_edits(collection,change):
