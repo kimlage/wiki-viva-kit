@@ -1,0 +1,11 @@
+schema_version: wiki_template_sections.v1
+template_id: context-instructions
+template_version: '1'
+sections:
+  - {id: purpose, title: Purpose, role: facts, required: true}
+  - {id: navigation, title: Navigation, role: evidence, required: true}
+  - {id: sources-repositories, title: Sources and repositories, role: evidence, required: true}
+  - {id: limits, title: Limits, role: constraints, required: true}
+  - {id: procedure, title: Procedure, role: next_step, required: true}
+  - {id: verification, title: Review and verification, role: next_step, required: true}
+allowed_slots: ['after:navigation', 'after:limits']

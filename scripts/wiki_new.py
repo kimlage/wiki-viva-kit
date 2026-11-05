@@ -22,7 +22,7 @@ def main() -> int:
     parser.add_argument("--context")
     parser.add_argument(
         "--output",
-        help="repo-relative destination; defaults to first allowed_dir/<slug>.md",
+        help="repo-relative destination; defaults to first allowed_dir/<slug>.md; required for context instructions",
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="print the page without writing"
