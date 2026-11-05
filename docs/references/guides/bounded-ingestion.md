@@ -321,8 +321,15 @@ it to the event and integration packet. `reviewed_by_caller` records the
 caller's assertion; the reviewer label is not identity verification and the
 route does not assert factual verification. The old request and result must
 remain available and authorized under the host binding when an annotated result
-is later read; otherwise that annotated result is unavailable. These checks do
-not apply to unrelated sources or unannotated results.
+is later read; otherwise that annotated result is unavailable. On `prepare`,
+the affected chunk reports `result_exists: false` and
+`result_blocked_reason: historical_review_unavailable_preserved`; other chunks
+remain available. The original result is preserved and the pending count includes
+that chunk, but another result cannot replace it automatically: restore the exact
+historical authorization and evidence before attempting to use it. Inspection
+of the affected result and consolidation requiring it remain blocked. The result
+budget counts available results only, and does not include blocked results or
+future work. These checks do not apply to unrelated sources or unannotated results.
 
 To review retained data, use `--source-stage inspect` with the same selectors,
 limits, context selection, repository selection and integrator as the original
