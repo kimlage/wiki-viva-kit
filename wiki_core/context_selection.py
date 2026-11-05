@@ -102,8 +102,8 @@ def authority_digest(policy, context_id, entry):
     return digest(authority)
 
 
-def _equivalent_folder_authority(policy, context_id, policy_revision, entry, entry_folder, entry_index):
-    """Prove relevant historical authority without granting historical access.
+def _equivalent_folder_chain(policy, context_id, policy_revision, entry_folder, entry_index):
+    """Compare the authorized physical chain without granting historical access.
 
     Only metadata and Git object IDs for the already authorized physical
     instruction/index chain are compared. Current grants still govern every
@@ -151,6 +151,12 @@ def _equivalent_folder_authority(policy, context_id, policy_revision, entry, ent
         if override not in refs or not qualification.get('nonempty', {}).get(override):
             if (ordinary in current_reader._entries) != (ordinary in old_reader._entries):
                 raise PolicyError('historical query authority requires requalification')
+    policy.fresh()
+    return old
+
+
+def _equivalent_folder_authority(policy, context_id, policy_revision, entry, entry_folder, entry_index):
+    old = _equivalent_folder_chain(policy, context_id, policy_revision, entry_folder, entry_index)
     # This marking is internal to the metadata comparison. It does not escape
     # as a bound policy and is never used to authorize historical blob reads.
     old._qualified_contexts.add(context_id)

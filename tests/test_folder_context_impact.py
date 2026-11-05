@@ -84,6 +84,28 @@ def test_folder_approved_markdown_requirement_is_selected(repo):
     assert result['candidates'][0]['state'] == 'review_pending'
 
 
+def test_normative_requirement_ignores_unrelated_change_but_blocks_changed_rule(repo):
+    write(repo, 'alpha/aux/AGENTS.md', '# Local rule\n')
+    git(repo, 'add', 'alpha/aux/AGENTS.md'); git(repo, 'commit', '-qm', 'local rule'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    old = git(repo, 'rev-parse', 'HEAD')
+    req = {'target': 'alpha/aux/AGENTS.md', 'fields': ['*'], 'temporal': 'current',
+           'max_age_days': 30, 'consumed_revision': old, 'use': 'normative',
+           'classification': 'context', 'source_kind': 'mandatory', 'authority_format': 'folder',
+           'entry_folder': 'alpha/aux', 'entry_index': 'alpha/index.md'}
+    graph = {'edges': [{'type': 'operational_prerequisite', 'field': 'information_requirements',
+                        'source': 'alpha/result.md', 'target': req['target'], 'requirement': req}]}
+    write(repo, 'beta/unrelated.md', '# unrelated\n'); git(repo, 'add', 'beta/unrelated.md'); git(repo, 'commit', '-qm', 'unrelated'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    current = git(repo, 'rev-parse', 'HEAD')
+    output = assess_impact(repo, load_policy(repo, current, 'wiki.config.yaml'), graph,
+                           before=old, after=current, destination_context='alpha')
+    assert output['candidates'] == []
+    write(repo, req['target'], '# Changed local rule\n'); git(repo, 'add', req['target']); git(repo, 'commit', '-qm', 'rule changed'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    current = git(repo, 'rev-parse', 'HEAD')
+    with pytest.raises(ImpactError, match='review pending'):
+        assess_impact(repo, load_policy(repo, current, 'wiki.config.yaml'), graph,
+                      before=old, after=current, destination_context='alpha')
+
+
 def test_folder_impact_cli_from_context_directory(repo, tmp_path):
     before, after = change(repo)
     graph = tmp_path / 'graph.json'

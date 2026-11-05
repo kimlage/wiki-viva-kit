@@ -702,12 +702,13 @@ def _folder_documents(root: Path, folder: str, index_path: str | None, max_bytes
         for directory_ref in reversed(instruction_dirs):
             if directory_ref == '.':
                 continue  # Root entry needs an explicitly selected index.
-            ref = directory_ref + '/index.md'
-            path = require_wiki_path(root, ref)
-            if path.exists():
-                if not path.is_file():
-                    raise ValueError('selected context index unavailable')
-                return ref
+            for name in ('index.md', 'README.md'):
+                ref = directory_ref + '/' + name
+                path = require_wiki_path(root, ref)
+                if path.exists():
+                    if not path.is_file():
+                        raise ValueError('selected context index unavailable')
+                    return ref
         raise ValueError('selected context index unavailable')
 
     if index_path is None:

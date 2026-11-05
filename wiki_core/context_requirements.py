@@ -174,6 +174,12 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
             selector=('section:'+item['section'].removeprefix('section:') if item['section'] is not None else 'field:'+item['field'] if item['field'] is not None else '*')
             entry={'target':item['ref'],'fields':[selector],'temporal':temporal,'max_age_days':max_age_days,'consumed_revision':item['revision'],'use':item['use'],'classification':item['classification']}
             if entry not in requirements: requirements.append(entry)
+        elif folder_mode and item['kind']=='mandatory':
+            entry={'target':item['ref'],'fields':['*'],'temporal':'current','max_age_days':max_age_days,
+                   'consumed_revision':item['revision'],'use':'normative','classification':'context',
+                   'source_kind':'mandatory','authority_format':'folder',
+                   'entry_folder':packet['entry_folder'],'entry_index':packet['entry_index']}
+            if entry not in requirements: requirements.append(entry)
     if any(x.category=='secret' for x in scan_text(json.dumps(requirements,ensure_ascii=False))): raise RequirementError('secret detected in requirement metadata')
     policy.fresh()
     output={'schema_version':'wiki.context-requirements/v1','output_path':output_path,'approved_revision':policy.policy_revision,'proposal_head':proposal_head,'task_id':packet['task_id'],'packet_digest':packet['packet_digest'],'information_requirements':requirements,'self_input_read':self_input_read,'read_claim':'reported_not_verified','write':'not_performed'}

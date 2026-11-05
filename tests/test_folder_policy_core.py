@@ -191,6 +191,26 @@ def test_empty_index_cannot_qualify_context(repo):
         packet(repo)
 
 
+def test_readme_is_stable_index_convention(repo):
+    from wiki_core.llm.context_pass import _folder_documents
+    enable_alpha(repo)
+    (repo / 'alpha/index.md').rename(repo / 'alpha/README.md')
+    git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'use readme as index'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    policy = folder_policy(repo)
+    assert policy.owner_of('alpha/aux/file.md') == 'alpha'
+    assert policy._context_indexes['alpha'] == 'alpha/README.md'
+    assert _folder_documents(repo, 'alpha/aux', None, 100000)[-1]['path'] == 'alpha/README.md'
+    assert packet(repo)['entry_index'] == 'alpha/README.md'
+
+
+def test_custom_index_without_stable_convention_requires_requalification(repo):
+    enable_alpha(repo)
+    (repo / 'alpha/index.md').rename(repo / 'alpha/CUSTOM.md')
+    git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'nonstandard index'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    with pytest.raises(PolicyError, match='no context folder'):
+        folder_policy(repo)
+
+
 def test_nested_git_boundary_refused_before_body_reads(repo, monkeypatch):
     from wiki_core.repository_reader import RepositoryReader
     enable_alpha(repo)
@@ -516,9 +536,27 @@ def test_folder_requirements_revalidate_after_approved_proposal(repo):
     assert output['read_claim'] == 'reported_not_verified' and output['write'] == 'not_performed'
     assert output['coverage_missing'] == ['linked sources not inspected']
     assert any(row['target'] == 'alpha/index.md' for row in output['information_requirements'])
+    assert any(row.get('source_kind') == 'mandatory' and row['target'] == 'alpha/aux/AGENTS.md'
+               and row['entry_folder'] == 'alpha/aux' for row in output['information_requirements'])
     schema = json.loads((Path(__file__).resolve().parents[1] /
                          'docs/references/schemas/wiki-context-requirements-v1.schema.json').read_text())
     validate(output, schema)
+
+
+def test_folder_normative_history_requalifies_only_relevant_change(repo):
+    from wiki_core.context_normative import normative_history
+    enable_alpha(repo)
+    old = git(repo, 'rev-parse', 'HEAD')
+    ref = 'alpha/aux/AGENTS.md'
+    params = {'authority_format': 'folder', 'entry_folder': 'alpha/aux', 'entry_index': 'alpha/index.md'}
+    assert normative_history(folder_policy(repo), 'alpha', ref, old, **params)
+    assert not normative_history(folder_policy(repo), 'alpha', ref, old)  # v1 receipt has no selector.
+    write(repo, 'beta/unrelated.md', '# Unrelated\n')
+    git(repo, 'add', 'beta/unrelated.md'); git(repo, 'commit', '-qm', 'unrelated'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    assert normative_history(folder_policy(repo), 'alpha', ref, old, **params)
+    write(repo, ref, '# Material change\n')
+    git(repo, 'add', ref); git(repo, 'commit', '-qm', 'change rule'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    assert not normative_history(folder_policy(repo), 'alpha', ref, old, **params)
 
 
 def test_folder_requirements_refuse_changed_authority_inputs(repo):

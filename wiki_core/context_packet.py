@@ -147,7 +147,7 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
         if not instructions or not any(inspect_authorized(ref).strip() for ref in instructions):
             raise PolicyError('context instruction empty or unavailable')
         if folder != '.' or context_id == '.':
-            index = entry_index if folder == context_id else prefix + 'index.md'
+            index = entry_index if folder == context_id else policy._context_indexes.get(folder)
             if index not in reader.paths or not inspect_authorized(index).strip():
                 raise PolicyError('context index empty or unavailable')
     # AGENTS files in auxiliary folders still participate in native physical
@@ -196,7 +196,8 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         if entry_folder != '.' and policy.owner_of(entry_folder) != context_id:
             raise PolicyError('entry context unavailable')
         if entry_index is None:
-            entry_index = 'index.md' if context_id == '.' else context_id + '/index.md'
+            entry_index = policy._context_indexes.get(context_id)
+            if entry_index is None: raise PolicyError('entry index unavailable')
         entry_index = safe_path(entry_index)
         if str(PurePosixPath(entry_index).parent) != policy.contexts[context_id]['root']:
             raise PolicyError('entry index unavailable')

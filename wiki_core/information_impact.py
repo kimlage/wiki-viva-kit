@@ -41,7 +41,7 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                 def affects_folder_policy(path):
                     if path == 'wiki.config.yaml': return True
                     directory = path.rsplit('/', 1)[0] if '/' in path else '.'
-                    return ((is_context_instruction(path) or path.rsplit('/', 1)[-1] == 'index.md')
+                    return ((is_context_instruction(path) or path.rsplit('/', 1)[-1] in ('index.md', 'README.md'))
                             and within(entry_folder, directory))
                 policy_changed = any(affects_folder_policy(path) for path in changed)
             else:
@@ -89,7 +89,8 @@ def authorized_pending_edge(edge, policy, context_id):
                 and requirement.get('target') == source
                 and requirement.get('use') == 'normative' and requirement.get('fields') == ['*'] and requirement.get('temporal') == 'current'
                 and policy.owner_of(target) == context_id and policy.permits(context_id, 'read', target)
-                and normative_history(policy, context_id, source, requirement.get('consumed_revision')))
+                and normative_history(policy, context_id, source, requirement.get('consumed_revision'),
+                    authority_format=requirement.get('authority_format'), entry_folder=requirement.get('entry_folder'), entry_index=requirement.get('entry_index')))
         if (policy.owner_of(source) != context_id or policy.owner_of(target) != context_id
                 or not policy.permits(context_id, 'read', source) or not policy.permits(context_id, 'read', target)):
             return False
