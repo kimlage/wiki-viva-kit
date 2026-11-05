@@ -14,7 +14,7 @@ from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
 from wiki_core.graph import build_page_graph
 from wiki_core.graph.page_graph import DEFAULT_ORPHAN_EXEMPT_TYPES, PageGraph
-from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION, read_matching_result, is_local_folder_request
+from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION, read_matching_result
 from wiki_core.paths import WikiPaths
 
 QUALITY_REPORT_SCHEMA_VERSION = "wiki_quality_report.v1"
@@ -125,12 +125,12 @@ def _read_json(path: Path) -> dict[str, Any] | None:
 
 def _chunk_payloads(paths: WikiPaths) -> list[dict[str, Any]]:
     payloads: list[dict[str, Any]] = []
-    from wiki_core.traversal import is_protected_artifact
+    from wiki_core.traversal import is_protected_artifact, wiki_files
     if is_protected_artifact(paths.chunks):
         raise ValueError('protected artifacts require bound dispatch')
     if not paths.chunks.exists():
         return payloads
-    for path in sorted(paths.chunks.rglob("*.json")):
+    for path in wiki_files(paths.chunks, wiki_root=paths.root, suffix='.json'):
         data = _read_json(path)
         if not isinstance(data, dict):
             continue
@@ -361,7 +361,14 @@ def build_quality_report(
     schema_version = CONTEXT_PASS_SCHEMA_VERSION
     model_profile = str(config.llm.get("default_model_profile", "deep_context"))
     requests = {}
-    for request_path in sorted(paths.extraction_events.glob("*-llm-context-request.json")):
+    from wiki_core.traversal import require_wiki_boundaries
+    try:
+        require_wiki_boundaries(paths.root, directories=(paths.extraction_events,))
+        request_paths = [p for p in paths.extraction_events.glob('*-llm-context-request.json')
+                         if not p.is_symlink() and p.is_file()]
+    except (ValueError, OSError):
+        request_paths = []
+    for request_path in sorted(request_paths):
         try:
             if re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', request_path.name):
                 from wiki_core.llm.context_pass import load_local_request
@@ -404,7 +411,7 @@ def build_quality_report(
                 if (row is not None
                         and row.get("chunk_hash_sha256", chunk.get("hash_sha256")) == chunk.get("hash_sha256")
                         and read_matching_result(paths.llm_cache, request, row,
-                            root=paths.root if is_local_folder_request(request) else None) is not None):
+                            root=paths.root) is not None):
                     source_cached += 1
                 else:
                     source_pending += 1
