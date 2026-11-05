@@ -172,7 +172,8 @@ class RepositoryReader:
             if len(matches) != 1:
                 raise RepositoryReadError(f'page identity missing or ambiguous: {ref}')
             path = matches[0]
-        document = self._document(path, before_blob=before_blob)
+        document = (self._document(path) if before_blob is None else
+                    self._document(path, before_blob=before_blob))
         result = {**document, 'path': path, 'page_id': document['frontmatter'].get('page_id'),
             'revision': self.revision, 'blob': self._entries[path],
             'content_digest': document['content_sha256'],
