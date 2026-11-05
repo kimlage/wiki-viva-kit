@@ -190,3 +190,44 @@ def test_query_outside_authorized_owner_has_generic_limited_coverage(query_repo)
     assert output['query_revalidation']['affected'] == 1
     assert not any(row.get('path') == 'alpha/other/private-consumer.md' and row['reason'].startswith('dynamic_query')
                    for row in output['blockers'] + output['pending_reviews'])
+
+
+def test_folder_dynamic_change_propagates_through_ordinary_and_query_consumers(query_repo):
+    root, _ = query_repo
+    prepare_consumer(root)
+    path = root / 'alpha/consumer.md'
+    raw = path.read_text().split('---\n', 2)
+    data = yaml.safe_load(raw[1]); data['amount'] = 5
+    path.write_text('---\n' + yaml.safe_dump(data) + '---\n' + raw[2])
+    dependent = {'page_id': 'ordinary', 'page_type': 'claim', 'information_requirements': [
+        {'target': 'alpha/consumer.md', 'fields': ['*'], 'temporal': 'current', 'max_age_days': 30}]}
+    write(root, 'alpha/ordinary.md', '---\n' + yaml.safe_dump(dependent) + '---\nDependent.\n')
+    git(root, 'add', 'alpha/consumer.md', 'alpha/ordinary.md'); git(root, 'commit', '-qm', 'ordinary dependent')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    policy = folder_policy(root)
+    from wiki_core.context_packet import qualify_folder_context
+    qualify_folder_context(root, policy, 'alpha', 'alpha/aux', 'alpha/index.md', 100000)
+    entry = {'target': 'alpha/collection.md', 'reason': 'interpret upstream', 'use': 'interpretation',
+             'classification': 'context', 'query': {'scope': 'alpha', 'filters': {'page_id': 'consumer'},
+             'field': 'amount', 'max_enumerated': 100, 'max_matches': 20, 'max_scan_bytes': 100000}}
+    row, _, _ = select_query(policy, 'alpha', RepositoryReader(root, 'HEAD'), entry)
+    req = {'target': entry['target'], 'fields': ['*'], 'temporal': 'current', 'max_age_days': 30,
+           'consumed_revision': row['revision'], 'use': entry['use'], 'classification': entry['classification'],
+           'query': entry['query'], 'members_digest': row['members_digest'], 'selected_digest': row['selected_digest'],
+           'query_policy_revision': row['policy_revision'], 'authority_digest': row['authority_digest'],
+           'authority_format': 'folder', 'entry_folder': row['entry_folder'], 'entry_index': row['entry_index']}
+    query_consumer = {'page_id': 'downstream-query', 'page_type': 'claim', 'information_requirements': [req]}
+    write(root, 'alpha/downstream-query.md', '---\n' + yaml.safe_dump(query_consumer) + '---\nQuery consumer.\n')
+    git(root, 'add', 'alpha/downstream-query.md'); git(root, 'commit', '-qm', 'query dependent')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    base = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-qb', 'wiki/folder-closure')
+    item = root / 'alpha/items/a.md'; item.write_text(item.read_text().replace('amount: 5', 'amount: 9'))
+    git(root, 'add', 'alpha/items/a.md'); git(root, 'commit', '-qm', 'selected value changed')
+    head = git(root, 'rev-parse', 'HEAD')
+    output = repository_report(root, load_config(root), base, query_context='alpha',
+                               query_policy_revision=base, query_head=head)
+    reasons = {(row['path'], row['reason']) for row in output['pending_reviews']}
+    assert ('alpha/consumer.md', 'dynamic_query_changed') in reasons
+    assert ('alpha/ordinary.md', 'upstream_interpretation_pending') in reasons
+    assert ('alpha/downstream-query.md', 'dynamic_query_upstream_pending') in reasons
