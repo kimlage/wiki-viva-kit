@@ -14,6 +14,13 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-05] Align source workflow references with folder authority
+
+The [ingestion flow](wiki/ingestion-flow.md), [gates](wiki/gates-and-audit.md)
+and [command reference](wiki/command-reference.md) distinguish host-bound
+folder stages from the shared-cache compatibility route and retired v1 flags.
+This update does not verify or renew any source date.
+
 ## [2026-11-04] Make local folder entry discoverable
 
 The [ingestion process](ingestion-process.md) and [meta-wiki](wiki/index.md)

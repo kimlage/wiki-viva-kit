@@ -34,15 +34,19 @@ non-deterministic step, the deep read, is delegated to the agent that runs the r
 corresponding high-level operational process is in
 [ingestion process](../ingestion-process.md); the blocking criteria and the
 gate mechanics are in [gates and auditing](gates-and-audit.md).
-Before a source is interpreted, the repo's configured root entity and generated
-input stage define the default perspective bundle, channels, processes and
-target pages; in this kit those pages are [Wiki Viva Kit](../wiki-viva-kit.md)
-and [Input stage](../input-stage.md).
-The separately selected local folder route does not automatically load that
-bundle or update the global index. Its physical instructions, selected index,
-unresolved inputs and distinct recording and consolidation selectors are covered
-in [bounded ingestion](../../../docs/references/guides/bounded-ingestion.md).
-It does not establish approved-policy authority or native session loading.
+For a new approved folder-policy source, the existing
+[wiki_coordination.py](../../../scripts/wiki_coordination.py) source stages
+select the physical folder, index, source and explicit context under the host
+binding. A business root is selected or explicitly omitted; the global input
+stage and its perspectives are not automatically loaded. `prepare`, `record`,
+`inspect` and `consolidate` have distinct selectors and return bounded artifacts,
+not proof of reading, review or integration. See [bounded ingestion](../../../docs/references/guides/bounded-ingestion.md).
+Generic shared-cache checks do not inspect the reserved protected cache.
+
+The separately authorized working-tree route does not enforce folder policy or
+prove native session loading. The pipeline diagram and manual stages below
+describe that compatibility path and historical shared-cache behavior; they are
+not a substitute for the host-bound stages or a mandate to index every source.
 
 ## Overview of the path
 
@@ -201,36 +205,21 @@ via skill) reads the package, executes the deep read of each chunk with
 `claims`, `decisions`, `actions`, `risks`, `uncertainties`, `relationships` and
 `sensitivity` (with `has_pii`), using the same `cache_key` of the chunk.
 
-The result is written to the cache via
-[wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) with
-`--record-result`, which validates the object in
-[validate_result](../../../wiki_core/llm/context_pass.py) (rejects a missing key,
-an empty quadrant or `sensitivity` without `has_pii`) before persisting it in
-[data/derived/wiki/llm-cache/](../../../data/derived/wiki/). The agent NEVER writes
-canonical memory directly: it only feeds the cache. It is the consolidation step
-that turns the cache into integration: [wiki_consolidate.py](../../../scripts/wiki_consolidate.py)
-generates the normalized event and the integration packet from the cache, the agent
-integrates what it read into the target pages, and the canonical change lands via
-PR (step 8). [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py)
-with `--check` serves as a gate: it returns a non-zero exit while there is a pending chunk and
-`required_context_pass` (turned on in [wiki.config.yaml](../../../wiki.config.yaml))
-is active.
+For the approved folder-policy route, submit result objects through
+`wiki_coordination.py --source-stage record`, keeping the same source, folder,
+index, current approval, context selection, repository selections and limits.
+Use `--source-stage inspect` for an authorized readback of explicit chunk
+results or a retained integration proposal. The request, result and event do
+not prove that the agent read or integrated the source. The protected stages
+use their own cache and revalidate the binding; generic shared-cache
+`--check` does not inspect it. See the [bounded ingestion guide](../../../docs/references/guides/bounded-ingestion.md).
 
-Approved mode selects authorized routing from pinned inputs and explicit references,
-then merges the applicable perspectives. It requires the same source, current
-approval, policy context and limits throughout; see the
-[bounded ingestion guide](../../../docs/references/guides/bounded-ingestion.md).
-The working-tree compatibility adapter also supports source-config discovery by
-matching `source_refs`; it does not establish approved policy or freshness.
-
-```sh
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
-  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
-  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
-  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --check
-```
+For separately authorized working-tree compatibility,
+[wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) provides
+its own recording and `--check` selectors; the result is not an approved
+folder-policy result. The former approved-v1 flags are refused for new
+preparation, recording and checks. Existing artifacts are retained and require
+separate qualification for historical access.
 
 ## Step 7 - Normalized event (quadrants)
 
@@ -241,18 +230,22 @@ collective), following the template
 When a quadrant does not appear in the source, the absence is filled in explicitly
 as an operational finding, never left blank. The event lives in the ingestion
 events folder, referenced by the proposal. Since v6.1 it is generated directly
-from the cache by [wiki_consolidate.py](../../../scripts/wiki_consolidate.py)
-`--emit-event` (quadrants filled — never a placeholder — and
+from the shared cache by [wiki_consolidate.py](../../../scripts/wiki_consolidate.py)
+`--emit-event` in the compatibility flow (quadrants filled — never a placeholder — and
 `consolidated_into: []` for the agent to close during integration). The proposal created by
 [wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py) already includes the
 quadrants table to be filled and points to the manifest, the chunks and the expected event.
+The approved folder route instead uses `wiki_coordination.py --source-stage
+consolidate` with its bound request, source page, canonical event target and
+explicit candidates; any Git-derived event also requires its separate host
+publication grant.
 
 ## Step 8 - Consolidation, integration and PR
 
 Consolidation transforms the synthesis into context memory - not just a link
 to the source. Ingesting = integrating, and the stage has its own tool:
 [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) with
-`--source <source_id> --emit-event --packet` generates the normalized event
+`--source <source_id> --emit-event --packet` generates the compatibility event
 (step 7) and the integration packet (gitignored) with related pages, overlapping
 claims, `root_impact`, target pages and potential conflicts per claim/entity.
 Guided by the packet, the agent
@@ -260,8 +253,9 @@ updates the target hubs/concepts incrementally, creates/updates load-bearing
 claim pages (fields `supersedes`/`superseded_by`/`conflicts_with`/
 `conflict_resolution` when claims collide), resolves or records every conflict
 and ambiguity and fills in the event's `consolidated_into` — each target page
-references the source in `source_refs`. The `--check` (in CI) fails while there
-is a source with a complete deep read but no closed event; only then does the
+references the source in `source_refs`. The shared-cache `--check` fails within
+its own coverage when a read source has no closed event; it does not inspect the
+protected cache. Only after the applicable review and integration does the
 source page receive `ingestion_state: ingested` + `last_ingested_at` + a line in
 the ingestion log, and the source registry is regenerated.
 
@@ -326,14 +320,12 @@ of the pipeline tied to gamification; it does not touch canonical memory.
 
 ## Orchestrator vs manual steps
 
-The orchestrator [wiki_ingest.py](../../../scripts/wiki_ingest.py) exists precisely
-because the deterministic steps used to be standalone CLIs, one per module. Today a
-single command chains manifest, text/chunks, index, pre-scan, context
-package and score-event:
+For separately authorized working-tree compatibility,
+[wiki_ingest.py](../../../scripts/wiki_ingest.py) can prepare a local source.
+For a folder selection it does not update the global index or score event:
 
 ```sh
-python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT \
-  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
+python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT --folder CONTEXT_FOLDER
 # Add --dry-run to compute without writing artifacts.
 ```
 
@@ -347,6 +339,8 @@ are the detailing of this flow, useful when running piece by piece:
 [wiki_build_index.py](../../../scripts/wiki_build_index.py) and
 [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py). The LLM
 pass is always the step that the orchestrator prepares but does not execute: it belongs to the agent.
+For new approved folder work, use the host-bound `prepare`, `record`, `inspect`
+and `consolidate` stages as described above; the old approved-v1 flags are refused.
 
 ## Cross-references
 
