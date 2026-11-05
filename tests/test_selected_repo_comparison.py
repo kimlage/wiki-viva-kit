@@ -200,3 +200,42 @@ def test_invalid_candidate_blocks_before_any_selected_body(approved, repo, monke
         '--repo-compare', kwargs['repo_root'], kwargs['identity'], kwargs['revision'], kwargs['repo_path']])
     assert cli.main() == 2
     assert not capsys.readouterr().out
+
+
+def test_retargeted_repo_alias_is_refused_before_any_git_command(approved, repo, monkeypatch, tmp_path, capsys):
+    import sys
+    from tests.test_local_result_cache import module
+    from wiki_core import repo_read
+    from wiki_core.llm.context_pass import local_request_path
+
+    root, request, kwargs = setup_case(approved, repo, monkeypatch, tmp_path, capsys)
+    other = tmp_path / 'unselected-git-root'
+    other.mkdir()
+    alias = tmp_path / 'repo-alias'
+    alias.symlink_to(other, target_is_directory=True)
+    kwargs['repo_root'] = str(alias)
+    original_git = repo_read._git
+    def guarded_git(path, *args):
+        if Path(path).resolve() == other.resolve():
+            pytest.fail('Git command reached the retargeted repository')
+        return original_git(path, *args)
+    monkeypatch.setattr(repo_read, '_git', guarded_git)
+    original_reader_git = repo_read._LocalRepositoryReader._git
+    def guarded_reader_git(reader, *args):
+        if reader.root.resolve() == other.resolve():
+            pytest.fail('Git object command reached the retargeted repository')
+        return original_reader_git(reader, *args)
+    monkeypatch.setattr(repo_read._LocalRepositoryReader, '_git', guarded_reader_git)
+    paths = WikiPaths(root, load_config(root))
+    with pytest.raises(ValueError):
+        compare_selected_repo(root, paths, request, **kwargs)
+
+    cli = module('wiki_consolidate')
+    monkeypatch.setattr(cli, 'ROOT', root)
+    retained = local_request_path(paths, request)
+    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--source', request['source_id'],
+        '--request', str(retained), '--source-page', kwargs['source_page'], '--source-file', kwargs['source_file'],
+        '--folder', kwargs['entry_folder'], '--candidate', kwargs['candidates'][0],
+        '--repo-compare', str(alias), kwargs['identity'], kwargs['revision'], kwargs['repo_path']])
+    assert cli.main() == 2
+    assert not capsys.readouterr().out

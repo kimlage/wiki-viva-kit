@@ -46,7 +46,7 @@ def _compare_selected_inputs(root, *, source_page, candidates, repo_root, identi
     """Validate the complete explicit selection before opening any body."""
     from wiki_core.context_policy import safe_path, within
     from wiki_core.llm.context_pass import validate_local_entry_source
-    from wiki_core.repo_read import contains_access_secrets, remote_identity, _prepare_repo_read
+    from wiki_core.repo_read import contains_access_secrets, remote_identity
     from wiki_core.repository_reader import canonical_path
     from wiki_core.traversal import require_wiki_path
 
@@ -87,7 +87,6 @@ def _compare_selected_inputs(root, *, source_page, candidates, repo_root, identi
         raise ValueError('comparison unavailable')
     if sum(item.stat().st_size for item in selected) > 1_000_000:
         raise ValueError('comparison unavailable')
-    _prepare_repo_read(selected_root, identity, revision, repo_path, max_bytes=2_000_000)
     return refs, selected, selected_source, str(selected_root)
 
 
