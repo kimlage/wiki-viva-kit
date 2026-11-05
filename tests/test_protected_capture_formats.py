@@ -135,6 +135,29 @@ def test_protected_stage_with_captured_formats(prepared_repo, suffix, kind):
         assert any('OCR was not performed' in item for item in manifest['extraction_limitations'])
 
 
+@pytest.mark.parametrize('suffix,delimiter', [('.csv', ','), ('.tsv', '\t')])
+@pytest.mark.parametrize('malformed', ['unterminated', 'after_quote'])
+def test_protected_tabular_capture_rejects_malformed_quoting_before_writes(prepared_repo, suffix, delimiter, malformed):
+    root, sha = prepared_repo
+    source = root / ('source' + suffix)
+    body = (f'first{delimiter}"open\nsecond{delimiter}value\n' if malformed == 'unterminated'
+            else f'first{delimiter}"closed"unexpected\n')
+    source.write_text(body, encoding='utf-8')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    with pytest.raises(ValueError, match='source extraction unavailable'):
+        prepare(root, binding, context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+                source_ref=source.name, source_context='system')
+    assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
+
+
+@pytest.mark.parametrize('suffix,delimiter', [('.csv', ','), ('.tsv', '\t')])
+def test_legacy_tabular_reader_preserves_permissive_quote_handling(tmp_path, suffix, delimiter):
+    source = tmp_path / ('legacy' + suffix)
+    source.write_text(f'first{delimiter}"open\nsecond{delimiter}value\n', encoding='utf-8')
+    extracted = extract_source(str(source), 'table')
+    assert extracted.text and not extracted.warnings
+
+
 def test_strict_encoding_and_archive_limit():
     for filename, kind, data in [('x.csv', 'table', b'bad\xff'),
             ('x.eml', 'email', b'Content-Type: text/plain; charset=utf-8\n\ninvalid\xff')]:
