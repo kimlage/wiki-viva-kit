@@ -133,6 +133,20 @@ approved-policy arguments. Automatic discovery does not select the root index;
 choose it explicitly when the root is the intended context. The physical entry
 folder and selected index are retained and revalidated before writes.
 
+For example, from the wiki root, enter the chosen context and prepare a source
+using paths anchored to that root (replace the example paths and context):
+
+```sh
+wiki_root="$(git rev-parse --show-toplevel)"
+cd "$wiki_root/path/to/context"
+python3 "$wiki_root/scripts/wiki_ingest.py" --root "$wiki_root" \
+  --source "$wiki_root/path/to/source.md" --context SOURCE_CONTEXT
+```
+
+The source must exist and be authorized, and the context must have the required
+instructions and index. This command prepares a local request; it does not prove
+native session instruction loading or grant access.
+
 This is local context preparation, not proof of native instruction discovery,
 an ACL or a sandbox. The selected entry reads its instructions and index without
 opening the global source catalog or block world. Source configuration, linked
@@ -159,7 +173,10 @@ commit SHA, and `PATH` is an exact tracked file. The request retains the root,
 origin, commit, path, blob and hashes with the selected text. The caller must
 provide the same authorized selections again when recording; each is checked
 again before the result is written. When recording, also pass `--request`
-with the exact retained request; repeat `--repo` for local consolidation.
+with the exact retained request; repeat `--repo` for local consolidation. For
+`--check`, repeat the same source, context, folder, index, limits, profile and
+every repository selection used for the result, as applicable. The check uses
+the recomposed request; it does not select a retained `--request`.
 The configured origin and the receipt are
 not authorization or proof of remote identity. Reads use the chosen Git commit,
 without fetching or including working-tree edits; reading an old commit does

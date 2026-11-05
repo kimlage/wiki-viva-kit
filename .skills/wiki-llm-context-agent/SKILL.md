@@ -74,8 +74,11 @@ ingesting = integrating.
    ```bash
    python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000 --check
    ```
-   It should return `ok: true` / exit 0. For the local route, use its own
-   source, folder, index and limits instead of the approved-policy arguments.
+   It should return `ok: true` / exit 0. For the local route, repeat the same
+   source, context, folder, index, limits, profile and each `--repo` selection
+   used for the result, as applicable, instead of approved-policy arguments.
+   This checks the recomposed request; it does not select the retained
+   `--request`, which is used for recording.
 7. Consolidate and INTEGRATE — the work does NOT end at `--record-result`.
    Generate the normalized event and the integration packet with
    [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
