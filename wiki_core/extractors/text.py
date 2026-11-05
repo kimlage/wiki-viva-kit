@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import csv
+import datetime as dt
+import decimal
 import email
 import io
 import itertools
 import json
+import math
 import os
 import selectors
 import subprocess
@@ -79,18 +82,46 @@ def _extract_csv_stream(handle, suffix: str, *, bounded: bool = False):
     dialect = "excel-tab" if suffix.lower() == ".tsv" else "excel"
     size = 0
     for index, row in enumerate(csv.reader(handle, dialect=dialect), start=1):
-        line = (_tabular_json_line({'row': index, 'cells': row}) if bounded
+        line = (_tabular_json_line({'record': index, 'cells': row}) if bounded
                 else " | ".join(row))
         size += len(line.encode('utf-8')) + 1
         if bounded and (index > 100_000 or size > 2_000_000):
             raise ValueError('extracted content exceeds protected limit')
         rows.append(line)
-        units.append({"unit_id": f"row-{index}", "kind": "table_row", "row": index, "text": line})
+        if bounded:
+            units.append({'unit_id': f'record-{index}', 'kind': 'table_record', 'record': index, 'text': line})
+        else:
+            units.append({"unit_id": f"row-{index}", "kind": "table_row", "row": index, "text": line})
     return "\n".join(rows), units, []
 
 
 def _extract_xlsx(path: Path) -> tuple[str, list[dict[str, object]], list[str]]:
     return _extract_xlsx_input(path)
+
+
+def _spreadsheet_value(value, data_type=None):
+    """Preserve scalar types and explicitly tag types not native to JSON."""
+    if data_type == 'e':
+        return {'type': 'error', 'value': str(value)}
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError('spreadsheet non-finite value requires explicit review')
+        return value
+    if isinstance(value, dt.datetime):
+        return {'type': 'datetime', 'value': value.isoformat()}
+    if isinstance(value, dt.date):
+        return {'type': 'date', 'value': value.isoformat()}
+    if isinstance(value, dt.time):
+        return {'type': 'time', 'value': value.isoformat()}
+    if isinstance(value, dt.timedelta):
+        return {'type': 'duration', 'value': str(value)}
+    if isinstance(value, decimal.Decimal):
+        if not value.is_finite():
+            raise ValueError('spreadsheet non-finite value requires explicit review')
+        return {'type': 'decimal', 'value': str(value)}
+    raise ValueError('spreadsheet cell type requires explicit review')
 
 
 def _extract_xlsx_captured(data: bytes):
@@ -128,10 +159,11 @@ def _extract_xlsx_captured(data: bytes):
                         expression = formula_cell.value
                         if not isinstance(expression, str):
                             raise ValueError('spreadsheet formula requires explicit review')
-                        cells.append({'formula': expression, 'cached_value': None if value is None else str(value)})
+                        cells.append({'formula': expression,
+                                      'cached_value': _spreadsheet_value(value, value_cell.data_type)})
                     else:
-                        cells.append('' if value is None else str(value))
-                if not any(cells):
+                        cells.append(_spreadsheet_value(value, value_cell.data_type))
+                if all(value is None or value == '' for value in cells):
                     continue
                 line = _tabular_json_line({'sheet': sheet.title, 'row': row_index, 'cells': cells})
                 size += len(line.encode('utf-8')) + 1
@@ -197,7 +229,9 @@ def _extract_docx_captured(data: bytes):
     size = 0
     paragraph_index = table_index = 0
     unsupported_inline = {qn('w:ins'), qn('w:del'), qn('w:moveFrom'), qn('w:moveTo'),
-        qn('w:sdt'), qn('w:customXml'), qn('w:smartTag'), qn('w:fldSimple')}
+        qn('w:sdt'), qn('w:customXml'), qn('w:smartTag'), qn('w:fldSimple'),
+        qn('w:sym'), qn('w:instrText'), qn('w:delText')}
+    math_namespace = qn('m:oMath').split('}')[0] + '}'
 
     def append(text, unit):
         nonlocal size
@@ -208,8 +242,19 @@ def _extract_docx_captured(data: bytes):
         units.append({**unit, 'text': text})
 
     for element in doc.element.body.iterchildren():
-        if any(descendant.tag in unsupported_inline for descendant in element.iter()):
+        if any(isinstance(descendant.tag, str) and (descendant.tag in unsupported_inline
+                or descendant.tag.startswith(math_namespace)) for descendant in element.iter()):
             raise ValueError('document revision or unsupported inline content requires explicit review')
+        # Paragraph.text includes direct runs and hyperlink runs. Refuse text
+        # under any other wrapper rather than silently dropping it.
+        for paragraph in element.iter(qn('w:p')):
+            for text_node in paragraph.iter(qn('w:t')):
+                run = text_node.getparent()
+                parent = run.getparent() if run is not None else None
+                if (run is None or run.tag != qn('w:r') or parent is None or
+                        (parent is not paragraph and not (parent.tag == qn('w:hyperlink')
+                         and parent.getparent() is paragraph))):
+                    raise ValueError('document revision or unsupported inline content requires explicit review')
         if element.tag == qn('w:p'):
             text = Paragraph(element, doc).text
             if text.strip():
