@@ -39,11 +39,17 @@ digests on the same canonical requirement/edge; authorized `revalidate` compares
 sets and selected bytes without asserting factual verification. Its `--graph` argument is an already authorized JSON representation of the existing relation inventory, not a new canonical graph. Its `--packet` and `--result` inputs are the existing task contracts. The current CLI uses the approved `wiki.config.yaml` folder policy; pass the trusted approved revision and use `--help` for arguments. Historical v1 receipts without a verifiable original manifest require requalification. This guide and the synthetic tests do not authorize new credentials, a public export, an external transmission or a scheduler.
 
 
-## Synthetic pilot preparation
+## Historical synthetic pilot
 
-Run `python3 tests/context_pilot_setup.py` from this checkout to create a fresh local-only synthetic Git repository and two short branches in a temporary directory. It writes packets, candidates, task results and preflights as synthetic proof files; it does not perform independent review or merge. Run `python3 tests/context_pilot_checks.py PILOT_DIRECTORY` once using the printed temporary pilot directory to test the cycle limit, revoked grant and parent write denial. The new bilateral connection is simulated only in an unbound in-memory policy; the real approved policy stays pending. The setup creates two example draft interpretations in one process; this is not evidence that independent agents or two harness products ran. Separate context threads may replace those drafts after reading their own packets, then the resulting HEADs must be revalidated and independently reviewed. To complete a pilot, a separate reviewer must review the exact branch HEADs; the authorized integrator then serializes merges in the synthetic repository and refreshes packets and preflight after the base advances.
-
-After independently reviewing and serially merging both synthetic proposals, prepare a separate, unmerged source-change preview commit. Run `python3 tests/context_pilot_verify.py PILOT_DIRECTORY REVIEWED_COST_HEAD PREVIEW_HEAD` to rederive the requirement from the approved output, read that page through the existing inventory, and compare its consumed selector with the preview. The command does not merge, alter a branch, or verify an external fact.
+The scripts `tests/context_pilot_setup.py`, `tests/context_pilot_checks.py` and
+`tests/context_pilot_verify.py` document an earlier synthetic v1 pilot. They do
+not demonstrate the current folder-based flow: its verification step attempts
+to create new v1 requirements, which the migrated interface refuses. Preserve
+the scripts as historical context, not as an executable acceptance procedure.
+For current operation use the folder-based packet and requirement flow described
+above and in [context reader](context-reader.md) and
+[dynamic collections](context-dynamic-selection.md). A synthetic packet or
+event alone does not establish independent review or incorporation.
 
 ## Explicit inherited normative consumption
 
