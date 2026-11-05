@@ -348,7 +348,8 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
     return {'source_id': source_id, 'request_id': request_id, 'request': request,
-            'coverage': 'selected source only; linked sources not inspected'}
+            'coverage': 'selected source only; linked sources not inspected',
+            'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
 
 def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
@@ -452,7 +453,8 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
             written.append(target)
         except (ValueError, OSError) as exc:
             raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
-    return {'recorded': len(written), 'request_id': request_id}
+    return {'recorded': len(written), 'request_id': request_id,
+            'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
 
 def consolidate(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
@@ -561,4 +563,5 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
     return {'event': event_target, 'request_id': request_id,
             'coverage': 'explicit candidates only; linked sources not inspected',
-            'integration': 'pending review and incorporation'}
+            'integration': 'pending review and incorporation',
+            'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}

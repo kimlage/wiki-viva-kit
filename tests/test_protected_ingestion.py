@@ -33,6 +33,7 @@ def test_prepare_in_authorized_partition(prepared_repo):
     assert result['request']['block_context_package']['authority_format'] == 'folder'
     assert result['request']['source_authorization']['ref'] == 'source.txt'
     assert len(result['request']['chunks']) == 1
+    assert result['legacy_coverage'].startswith('shared legacy artifacts not inspected')
 
 
 def test_complete_protected_proposal_and_local_search_boundary(prepared_repo):
