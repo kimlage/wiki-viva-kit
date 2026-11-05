@@ -5,6 +5,35 @@ from wiki_core.freshness_impact import evaluate_impact
 
 TODAY = dt.date(2026, 10, 30)
 
+def test_only_superseded_inactive_legacy_history_can_be_retired():
+    from copy import deepcopy
+    from wiki_core.information_impact import affected_dynamic_queries, evaluate_information_impact
+    req = {'target':'archive/index.md', 'fields':['*'], 'temporal':'historical', 'max_age_days':30,
+           'consumed_revision':'a'*40, 'query_policy_revision':'b'*40, 'authority_digest':'c'*64,
+           'members_digest':'d'*64, 'selected_digest':'e'*64, 'use':'interpret', 'classification':'synthetic',
+           'query':{'scope':'archive/items', 'filters':{'status':'active'}, 'max_enumerated':20,
+                    'max_matches':10, 'max_scan_bytes':100000}}
+    edge = {'type':'operational_prerequisite', 'source':'consumer.md', 'target':req['target'], 'requirement':req}
+    before = {'nodes':{'consumer.md':{'status':'active'}, 'archive/index.md':{}},
+              'documents':{'consumer.md':'Old interpretation.', 'archive/index.md':'Catalog.'},
+              'edges':[edge], 'errors':[]}
+    after = deepcopy(before)
+    after['nodes']['consumer.md']['status'] = 'superseded'
+    after['documents']['consumer.md'] = 'Historical reference.'
+    after['edges'] = []
+    result = evaluate_information_impact(after, before, {'consumer.md', 'AGENTS.md'}, today=TODAY)
+    assert not result['integrity_blockers']
+    assert any(row['reason']=='legacy_query_retired' and not row['verification_performed'] for row in result['pending_reviews'])
+    for mutation in ('active', 'open', 'current', 'folder', 'still_live'):
+        old, new = deepcopy(before), deepcopy(after)
+        if mutation == 'active': new['nodes']['consumer.md']['status'] = 'active'
+        if mutation == 'open': new['nodes']['consumer.md']['action_state'] = 'open'
+        if mutation == 'current': old['edges'][0]['requirement']['temporal'] = 'current'
+        if mutation == 'folder': old['edges'][0]['requirement'].update(authority_format='folder',entry_folder='archive',entry_index='archive/index.md')
+        if mutation == 'still_live': new['edges'] = deepcopy(old['edges'])
+        assert affected_dynamic_queries(new, old, {'consumer.md','AGENTS.md'}, set()), mutation
+
+
 def graph():
     nodes = {p: {'updated_at': '2026-01-01', 'stale_after_days': 10}
              for p in ['action', 'queue', 'panel', 'review', *[f'source{i}' for i in range(12)]]}

@@ -90,6 +90,9 @@ def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> d
         elif not requirement:
             reasons.append('information_use_scope_unspecified')
         else:
+            if (requirement['temporal'] == 'current' and values.get('status') in {'superseded', 'archived'}
+                    and not set(requirement['fields']) <= {'status', 'field:status'}):
+                reasons.append('information_superseded')
             if requirement['temporal'] == 'current' and graph.get('verification_coverage', {}).get(coverage_key(path, requirement['fields']),
                     graph.get('verification_coverage', {}).get(path)) is not True:
                 reasons.append('information_changed_since_verification')

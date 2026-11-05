@@ -1186,6 +1186,9 @@ def audit_freshness_budget(
         for row in report["blockers"]:
             errors.append(f"{row['path']}: {row['state']} in freshness impact ({row['reason']}; seed={row['seed']})")
         errors.extend(f"freshness relation integrity: {error}" for error in report["relation_errors"])
+        for row in report.get("pending_reviews", []):
+            if row.get("reason") == "legacy_query_retired":
+                warnings.append(f"{row['path']}: obsolete historical query retired; no revalidation performed")
         for row in report.get("reviewed_findings", []):
             message = (f"{row['path']}: stale; reviewed {row['disposition']} for this proposal "
                        f"(evidence={row['evidence']}; date unchanged)")

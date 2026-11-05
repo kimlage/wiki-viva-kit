@@ -343,6 +343,13 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                                                 initial_reached,
                                                 legacy_authority_unavailable=True)
             affected = filter_equivalent_config(affected, initial_reached)
+            # An unbound legacy query that was removed without retirement is
+            # not revalidated merely because the folder audit queued review.
+            live_queries = {(edge['source'], json.dumps(edge['requirement'], sort_keys=True, ensure_ascii=False))
+                            for edge in current['edges'] if 'query' in edge.get('requirement', {})}
+            unretired_removals = {row['path'] for row in affected
+                if row['origin'] == 'base' and row['requirement'].get('authority_format') != 'folder'
+                and (row['path'], json.dumps(row['requirement'], sort_keys=True, ensure_ascii=False)) not in live_queries}
             authorized_affected = set()
             def record_authorized_affected(rows):
                 for row in rows:
@@ -438,7 +445,12 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                 return ('immediate' if path in urgent_derived or
                         current['nodes'].get(path, {}).get('action_state') in {'open', 'in_progress'} else 'on_demand')
             closure_policy.fresh()
-            result['integrity_blockers'] = [r for r in result['integrity_blockers'] if r['reason'] != 'dynamic_query_requires_authorized_revalidation']
+            result['integrity_blockers'] = [r for r in result['integrity_blockers']
+                if r['reason'] != 'dynamic_query_requires_authorized_revalidation' or r['path'] in unretired_removals]
+            existing = {row['path'] for row in result['integrity_blockers']
+                        if row['reason'] == 'dynamic_query_requires_authorized_revalidation'}
+            result['integrity_blockers'].extend({'path': path, 'reason': 'dynamic_query_requires_authorized_revalidation'}
+                                                for path in sorted(unretired_removals - existing))
             result['integrity_blockers'].extend(r for r in all_outcomes.values() if r['state'] == 'unknown')
             result['integrity_blockers'].extend({'path': p, 'reason': 'dynamic_impact_authority_boundary'} for p in sorted(denied))
             result['pending_reviews'].extend(r for r in all_outcomes.values() if r['state'] == 'review_pending')
@@ -487,11 +499,14 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                 usage.append(assessment)
                 for requirement in assessment['requirements']:
                     if not requirement['ready']:
+                        if 'information_superseded' in requirement['blockers']:
+                            result['integrity_blockers'].append({'path':path,'reason':'superseded_information_in_active_use'})
                         result['pending_reviews'].append({'path':path,'seed':requirement['target'],
                             'fields':requirement['fields'],'causes':[],'chain':[],
                             'state':'review_pending','priority':'immediate','reason':'current_information_unusable',
                             'blockers':requirement['blockers'],'verification_performed':False})
         result['information_use'] = usage
+        result['ok'] = not result['integrity_blockers'] and not result['relation_errors']
         result['blockers'] = [{**r, 'state': 'unknown', 'seed': r['path']} for r in result['integrity_blockers']]
         result['unrelated_debt'] = []  # ordinary age diagnostics remain in the frontmatter audit
         result['removed_pages'] = sorted(set(base['nodes']) - set(current['nodes']))

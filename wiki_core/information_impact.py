@@ -25,10 +25,37 @@ def changed_fields(previous: str | None, current: str | None) -> set[str]:
     return fields
 
 
+def retired_legacy_queries(current: dict, base: dict, changed: set[str]) -> set[tuple[str, str]]:
+    """A superseded page may drop its old historical query, kept in Git history."""
+    if not changed:
+        return set()
+    candidates = [edge for edge in dependency_edges(base, origin='base')[0]
+                  if 'query' in edge.get('requirement', {})
+                  and edge['requirement'].get('authority_format') != 'folder'
+                  and edge['requirement'].get('temporal') == 'historical'
+                  and edge['dependent'] in changed]
+    if not candidates:
+        return set()
+    current_edges = dependency_edges(current)[0]
+    live = {(edge['dependent'], json.dumps(edge['requirement'], sort_keys=True, ensure_ascii=False))
+            for edge in current_edges if 'query' in edge.get('requirement', {})}
+    retired = set()
+    for edge in candidates:
+        req, path = edge.get('requirement', {}), edge['dependent']
+        key = (path, json.dumps(req, sort_keys=True, ensure_ascii=False))
+        before = base.get('nodes', {}).get(path, {})
+        after = current.get('nodes', {}).get(path, {})
+        if (before.get('status') != 'superseded' and after.get('status') == 'superseded'
+                and after.get('action_state') not in {'open', 'in_progress'} and key not in live):
+            retired.add(key)
+    return retired
+
+
 def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str], *, legacy_authority_unavailable: bool = False) -> list[dict]:
     """Select query declarations touched by paths or dependency closure, without reading members."""
     from wiki_core.context_policy import within, is_context_instruction
     found = {}
+    retired = retired_legacy_queries(current, base, changed)
     legacy_policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
     for origin, graph in (('base', base), ('current', current)):
         for edge in dependency_edges(graph, origin=origin)[0]:
@@ -36,6 +63,9 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
             if 'query' not in req:
                 continue
             consumer, anchor, scope = edge['dependent'], req['target'], req['query']['scope']
+            key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
+            if origin == 'base' and key in retired:
+                continue
             if req.get('authority_format') == 'folder':
                 entry_folder = req['entry_folder']
                 def affects_folder_policy(path):
@@ -52,7 +82,6 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
             if not (policy_changed or consumer in reached or consumer in changed or anchor in changed or anchor in reached
                     or any(within(p, scope) for p in changed | reached)):
                 continue
-            key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
             found[key] = {'path': consumer, 'requirement': req, 'origin': origin}
     return [found[key] for key in sorted(found)]
 
@@ -242,6 +271,10 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     # enumerate dynamic members. It must not certify only the anchor edge.
     affected = affected_dynamic_queries(current, base, changed, set(_typed_reasons))
     dynamic_blockers = [{'path':row['path'],'reason':'dynamic_query_requires_authorized_revalidation'} for row in affected]
+    for path in sorted({path for path, _query in retired_legacy_queries(current, base, changed)}):
+        pending.append({'path': path, 'seed': path, 'fields': ['*'], 'causes': [], 'chain': [],
+                        'state': 'review_pending', 'reason': 'legacy_query_retired', 'priority': 'on_demand',
+                        'verification_performed': False})
     # A manifest change can revoke or remove an inherited normative input even
     # when neither its body nor its consumer changed. The global caller-trust
     # audit cannot prove the new authority; preserve a visible review obligation.

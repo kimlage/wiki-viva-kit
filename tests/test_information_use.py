@@ -22,13 +22,14 @@ def test_discovery_timestamp_is_not_claim_verification():
 
 def test_future_expired_missing_unconfirmed_and_catalogue_are_not_usable():
     for delta in [{'verified_at':'2026-10-31'},{'verified_at':'2026-01-01'}, {'confidence':'inferred'},
+                  {'status':'superseded'},
                   {'evidence_refs':['absent']},{'page_type':'source'},{'valid_to':'2026-10-29'},
                   {'verified_at':'2026-10'},{'valid_from':'2026-11-01'}]:
         g=graph();g['nodes']['claim'].update(delta)
         assert not assess_information_use(g,'action',now=NOW)['ready'],delta
 
 def test_historical_use_can_inspect_an_old_observation_without_freshening_it():
-    g=graph();g['nodes']['claim']['verified_at']='2026-01-01';g['edges'][0]['requirement']['temporal']='historical'
+    g=graph();g['nodes']['claim']['verified_at']='2026-01-01';g['nodes']['claim']['status']='superseded';g['edges'][0]['requirement']['temporal']='historical'
     assert assess_information_use(g,'action',now=NOW)['ready']
     assert g['nodes']['claim']['verified_at']=='2026-01-01'
 
