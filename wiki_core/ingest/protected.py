@@ -144,15 +144,17 @@ def _capture(root, policy, context_id, source_ref, source_context, config, artif
         'privacy_policy': 'extract_private_operational_context_without_access_secrets',
         'absolute_path': str(source), 'exists': True, 'mime_type': mimetypes.guess_type(str(source))[0],
         'source_id': source_id_for(str(source), digest, root=root), 'hash_sha256': digest, 'size_bytes': len(data)}
-    if any(f.category == 'secret' for f in scan_text(extracted.text)) \
-            or contains_access_secrets([extracted.text, extracted.units]):
-        raise ValueError('source unavailable')
+    # Enforce bounded atomic rows before scanning: a long unbroken row must
+    # not spend unbounded time in text detectors and cannot be split safely.
     chunks = [{'chunk_id': c.chunk_id, 'ordinal': c.ordinal, 'hash_sha256': c.hash_sha256,
                'token_estimate': c.token_estimate, 'text': c.text}
               for c in chunk_text(str(manifest['source_id']), extracted.text,
                   int(config.llm.get('chunk_target_tokens', 1200)),
                   int(config.llm.get('chunk_overlap_tokens', 150)),
                   preserve_lines=source_type in {'table', 'spreadsheet'})]
+    if any(f.category == 'secret' for f in scan_text(extracted.text)) \
+            or contains_access_secrets([extracted.text, extracted.units]):
+        raise ValueError('source unavailable')
     if not chunks:
         raise ValueError('empty source requires explicit review')
     return source, digest, manifest, extracted, chunks
