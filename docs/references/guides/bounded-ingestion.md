@@ -164,18 +164,19 @@ stage revalidates the source, selected context and revision. A failed write may
 leave partial effects and explicitly reports that inspection is needed before
 retry.
 
-When the configured root perspective bundle has required perspective IDs, the
-host must supply `perspective_refs` as an explicit ID-to-repository-path map on
-every source stage when using that root bundle. A nested executor does not
-automatically select the global bundle; it may request it explicitly. Optional
-configured IDs may also be selected. Each selected
-page must be an authorized `perspective` with the matching ID; the paths do not
-grant access. Missing required selections fail before source capture. The
-request includes the qualified page bodies and selected IDs, and result
-recording checks them again. Channel and source-config perspective selection is
-not yet covered by this operation; linked sources remain uninspected. Source
-frontmatter or the selected source page declaring a configuration, channel or
-required perspectives is blocked until that chain can be qualified.
+Each stage must receive the same `context_selection`, with either an explicit
+`root_entity` path or `omit_root_entity: true`. It may also select exact
+`source_page`, `source_config`, `input_channel`, `templates` and `target_pages`
+paths. The packet authorizes each selected body for both actors before source
+capture, checks declared config and channel links, and retains omission coverage.
+The source-page association is operator-selected and is not proved by the link.
+A nested executor does not automatically receive a global business root or
+its bundle. Required perspectives from the selected context require an exact
+`perspective_refs` ID-to-path map, repeated at each stage. Each page must have
+the matching ID and type and pass current policy; the paths grant no access.
+Skipped perspectives, unselected optional perspectives, linked sources and
+other gaps remain visible in packet coverage. Source frontmatter declaring a
+configuration or channel must match the selected context.
 
 Protected folder ingestion requires the v5 prompt, which points to
 `wiki_coordination.py --source-stage`. A configuration explicitly selecting

@@ -8,8 +8,24 @@ import pytest
 import yaml
 
 from tests.test_folder_policy_core import repo, write, git
-from wiki_core.coordination_context import CoordinationBinding, ProtectedCoordinationError, protected_source_stage
-from wiki_core.ingest.protected import prepare, record, consolidate
+from wiki_core.coordination_context import CoordinationBinding, ProtectedCoordinationError, protected_source_stage as _stage
+from wiki_core.ingest.protected import prepare as _prepare, record as _record, consolidate as _consolidate
+
+
+def prepare(*args, **kwargs):
+    return _prepare(*args, **{'context_selection': {'omit_root_entity': True}, **kwargs})
+
+
+def record(*args, **kwargs):
+    return _record(*args, **{'context_selection': {'omit_root_entity': True}, **kwargs})
+
+
+def consolidate(*args, **kwargs):
+    return _consolidate(*args, **{'context_selection': {'omit_root_entity': True}, **kwargs})
+
+
+def protected_source_stage(root, binding, stage, payload):
+    return _stage(root, binding, stage, {'context_selection': {'omit_root_entity': True}, **payload})
 
 
 @pytest.fixture
@@ -347,7 +363,8 @@ def test_cli_local_operator_prepare_record_consolidate(prepared_repo):
             '--context-id', 'alpha', '--integrator-context', '.', '--approved-revision', sha, '--source-stage', stage],
             input=json.dumps(payload), text=True, capture_output=True, check=True)
         return json.loads(completed.stdout)['result']
-    base = {'entry_folder': 'alpha', 'entry_index': 'alpha/index.md', 'source_ref': 'alpha/source.txt'}
+    base = {'entry_folder': 'alpha', 'entry_index': 'alpha/index.md', 'source_ref': 'alpha/source.txt',
+            'context_selection': {'omit_root_entity': True}}
     prepared = call('prepare', {**base, 'source_context': 'alpha'})
     request = prepared['request']; row = request['chunks'][0]
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
