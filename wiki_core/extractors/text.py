@@ -81,7 +81,11 @@ def _extract_csv_stream(handle, suffix: str, *, bounded: bool = False):
     units: list[dict[str, object]] = []
     dialect = "excel-tab" if suffix.lower() == ".tsv" else "excel"
     size = 0
-    for index, row in enumerate(csv.reader(handle, dialect=dialect), start=1):
+    # The protected byte-capture path must reject malformed quoting rather
+    # than silently joining logical records. Legacy extraction keeps its
+    # existing permissive dialect for historical compatibility.
+    options = {'strict': True} if bounded else {}
+    for index, row in enumerate(csv.reader(handle, dialect=dialect, **options), start=1):
         line = (_tabular_json_line({'record': index, 'cells': row}) if bounded
                 else " | ".join(row))
         size += len(line.encode('utf-8')) + 1
