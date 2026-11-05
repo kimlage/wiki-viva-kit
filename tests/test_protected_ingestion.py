@@ -392,11 +392,18 @@ def test_cli_local_operator_prepare_record_consolidate(prepared_repo):
               'perspectives_required': [], 'perspectives': {}}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     assert call('record', {**base, **ids, 'results': [result]})['recorded'] == 1
+    inspected = call('inspect', {**base, **ids, 'view': 'results', 'chunk_ids': [row['chunk_id']]})
+    assert inspected['results'] == [{'chunk_id': row['chunk_id'], 'result': result}]
     event = ('memories/system/ingestion/events/2026-11-04-' +
              hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
     output = call('consolidate', {**base, **ids, 'source_page': 'memories/sources/synthetic.md', 'event_target': event, 'date': '2026-11-04'})
     assert output['integration'] == 'pending review and incorporation'
     assert (root / event).is_file()
+    inspected = call('inspect', {**base, **ids, 'view': 'integration', 'candidates': []})
+    assert inspected['packet']['source_id'] == prepared['source_id']
+    assert inspected['packet']['source_hash_sha256'] == request['source_hash_sha256']
+    assert inspected['event_status'] == 'not checked'
+    assert inspected['integration'] == 'pending review and incorporation'
 
 
 def test_cli_packet_uses_folder_authority(prepared_repo, tmp_path):
@@ -636,6 +643,70 @@ def test_consolidation_candidates_use_approved_git_content_not_working_tree(prep
         'blob': git(root, 'rev-parse', sha + ':memories/candidates/approved.md'),
         'sha256': hashlib.sha256(approved_text.encode()).hexdigest()}]
     assert any(page['page_id'] == 'approved-topic' for item in packet['entities'] for page in item['pages'])
+    inspected = protected_source_stage(root, binding, 'inspect', {**args, **ids, 'view': 'integration',
+        'candidates': ['memories/candidates/approved.md']})['result']
+    assert inspected['packet'] == packet
+    with pytest.raises(ProtectedCoordinationError):
+        protected_source_stage(root, binding, 'inspect', {**args, **ids, 'view': 'integration', 'candidates': []})
+    packet['source_hash_sha256'] = '0' * 64
+    stored.write_text(json.dumps(packet))
+    with pytest.raises(ProtectedCoordinationError):
+        protected_source_stage(root, binding, 'inspect', {**args, **ids, 'view': 'integration',
+            'candidates': ['memories/candidates/approved.md']})
+
+
+def test_inspection_revalidates_authority_after_result_read(prepared_repo, monkeypatch):
+    import wiki_core.ingest.protected as protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    result = _result_for(prepared['request'])
+    ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
+    record(root, binding, **args, **ids, results=[result])
+    git(root, 'commit', '--allow-empty', '-qm', 'synthetic revoked ref')
+    next_sha = git(root, 'rev-parse', 'HEAD')
+    original = protected._read_json
+    observed = []
+    def revoke_after_result(*a, **kw):
+        value = original(*a, **kw)
+        if a[3].name == result['cache_key'] + '.json':
+            observed.append(True)
+            git(root, 'update-ref', 'refs/remotes/origin/main', next_sha)
+        return value
+    monkeypatch.setattr(protected, '_read_json', revoke_after_result)
+    with pytest.raises(ProtectedCoordinationError):
+        protected_source_stage(root, binding, 'inspect', {**args, **ids, 'view': 'results',
+            'chunk_ids': [result['chunk_id']]})
+    assert observed == [True]
+
+
+def test_inspection_requires_host_and_exact_selected_result(prepared_repo, monkeypatch):
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    result = _result_for(prepared['request'])
+    ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
+    record(root, binding, **args, **ids, results=[result])
+    payload = {**args, **ids, 'view': 'results', 'chunk_ids': [result['chunk_id']]}
+    with pytest.raises(ProtectedCoordinationError):
+        protected_source_stage(root, binding, 'inspect', {**payload, 'max_output_bytes': 1})
+    result_file = next((root / 'data/derived/wiki/.wiki-viva-protected').rglob(result['cache_key'] + '.json'))
+    result_file.write_text(json.dumps({**result, 'chunk_hash_sha256': '0' * 64}))
+    with pytest.raises(ProtectedCoordinationError):
+        protected_source_stage(root, binding, 'inspect', payload)
+    result_file.write_text(json.dumps(result))
+    original = Path.open
+    def forbid_result(path, *a, **kw):
+        if path.name == result['cache_key'] + '.json':
+            pytest.fail('unauthorized or unselected result opened')
+        return original(path, *a, **kw)
+    monkeypatch.setattr(Path, 'open', forbid_result)
+    with pytest.raises(ProtectedCoordinationError):
+        protected_source_stage(root, None, 'inspect', payload)
+    with pytest.raises(ProtectedCoordinationError):
+        protected_source_stage(root, binding, 'inspect', {**payload, 'chunk_ids': ['missing']})
 
 
 def test_consolidation_rechecks_candidate_boundary_before_writing(prepared_repo, monkeypatch):

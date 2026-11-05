@@ -165,9 +165,10 @@ request is also capped at 2 MB, which may require a smaller source, particularly
 when text needs JSON escaping. Candidates must be explicitly selected.
 The default `context_max_bytes` is 100,000 and `request_max_bytes` is 1,000,000;
 both are configurable and must be repeated consistently for the same request.
-Linked sources are not automatically inspected, and the route does not expose
-an HTTP transport or incorporate the event in memory. The existing
-`wiki_coordination.py` offers the four `--source-stage` operations to a trusted
+It does not automatically inspect linked sources, expose an HTTP transport,
+or incorporate the event in memory. Explicitly selected independent Git
+evidence has the separate [host binding](protected-independent-git.md). The existing
+`wiki_coordination.py` offers `--source-stage` operations to a trusted
 local operator, with stage JSON on stdin and an explicit context and approved
 revision. Its flags are selected by that operator and are not a security boundary
 against the operator; a separately configured host binding is the protected
@@ -207,6 +208,19 @@ integrator and `context_selection` as `prepare`. Repeat any selected
 and [synthetic tests](../../../tests/test_protected_ingestion.py) for the exact
 JSON fields. A result, event or integration packet is not a reviewed or
 incorporated memory update.
+
+To review retained data, use `--source-stage inspect` with the same selectors,
+limits, context selection, repository selection and integrator as the original
+request. Supply `view: "results"` and an explicit `chunk_ids` array of one to
+32 IDs from that request to retrieve matching recorded results. To inspect the
+retained proposal, supply `view: "integration"` and the exact `candidates` array
+used at consolidation, including `[]` when none were selected. The operation
+revalidates the binding, current policy, source and selected data, reconstructs
+the packet from authorized results and approved candidate revisions, and refuses
+a mismatch. It does not check whether an event was written or a proposal was
+reviewed or incorporated. Results are limited to 2 MB combined; the serialized
+returned object is limited by `max_output_bytes` (default 1 MB, at most 2 MB).
+An unavailable, invalid or over-budget selection fails without partial output.
 
 ## Working-tree folder entry
 
