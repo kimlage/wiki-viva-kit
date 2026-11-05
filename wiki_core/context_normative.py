@@ -29,7 +29,7 @@ def normative_history(policy, context, ref, revision, *, authority_format=None, 
                 qualified = policy._folder_qualifications[key]
             else:
                 from wiki_core.traversal import require_wiki_path
-                require_wiki_path(policy._binding[0], entry_folder)
+                if not require_wiki_path(policy._binding[0], entry_folder).is_dir(): return False
                 for selected in qualified['refs']: guard_folder_blob(policy._binding[0], policy, selected)
             if ref not in qualified.get('refs', ()) or not qualified.get('nonempty', {}).get(ref): return False
             producer = policy.owner_of(ref)

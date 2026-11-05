@@ -563,6 +563,18 @@ def test_folder_normative_history_requalifies_only_relevant_change(repo):
     assert not normative_history(folder_policy(repo), 'alpha', ref, old, **params)
 
 
+def test_cached_normative_qualification_requires_entry_directory(repo):
+    from wiki_core.context_normative import normative_history
+    enable_alpha(repo)
+    policy = folder_policy(repo)
+    rev = git(repo, 'rev-parse', 'HEAD')
+    params = {'authority_format': 'folder', 'entry_folder': 'alpha/aux', 'entry_index': 'alpha/index.md'}
+    assert normative_history(policy, 'alpha', 'alpha/aux/AGENTS.md', rev, **params)
+    (repo / 'alpha/aux/AGENTS.md').unlink()
+    (repo / 'alpha/aux').rmdir()
+    assert not normative_history(policy, 'alpha', 'alpha/aux/AGENTS.md', rev, **params)
+
+
 def test_folder_requirements_refuse_changed_authority_inputs(repo):
     enable_alpha(repo)
     selected = packet(repo)
