@@ -401,6 +401,24 @@ def test_record_without_reselected_grant_never_opens_selected_request(configured
                request_id=prepared['request_id'], results=[_result_for(prepared['request'])])
 
 
+def test_record_revalidates_repository_storage_after_result_write(configured, monkeypatch):
+    from wiki_core.ingest import protected
+    root, external, binding, args = configured
+    prepared = prepare(root, binding, **args, source_context='system')
+    result = _result_for(prepared['request'])
+    original = protected._write_once
+    def move_repository(*values, **kwargs):
+        value = original(*values, **kwargs)
+        if values[3].parent.name == 'llm-cache':
+            external.rename(external.parent / (external.name + '-moved'))
+        return value
+    monkeypatch.setattr(protected, '_write_once', move_repository)
+    with pytest.raises(protected.ProtectedPartialError):
+        record(root, binding, **args, source_id=prepared['source_id'], request_id=prepared['request_id'],
+               results=[result])
+    assert (root / 'data/derived/wiki/.wiki-viva-protected/llm-cache' / (result['cache_key'] + '.json')).is_file()
+
+
 def test_consolidation_needs_exact_publication_grant_before_opening_request(configured, monkeypatch):
     root, _, binding, args = configured
     prepared = prepare(root, binding, **args, source_context='system')
