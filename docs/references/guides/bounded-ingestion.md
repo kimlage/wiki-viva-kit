@@ -216,6 +216,13 @@ and [synthetic tests](../../../tests/test_protected_ingestion.py) for the exact
 JSON fields. A result, event or integration packet is not a reviewed or
 incorporated memory update.
 
+For a `record` batch, the request and source are fully reconstructed before
+and after the batch. Each result write and its readback are surrounded by
+checks of the binding, physical boundaries, selected repository grants, and
+the source and request identities. Existing differing results are preserved.
+These checks are not an atomic filesystem transaction: if a change is detected
+after a write, the operation reports possible partial effects for inspection.
+
 To review retained data, use `--source-stage inspect` with the same selectors,
 limits, context selection, repository selection and integrator as the original
 request. Supply `view: "results"` and an explicit `chunk_ids` array of one to
