@@ -174,6 +174,21 @@ def test_replay_ignores_unused_ordinary_agents_behind_override(query_repo):
     assert replay == receipt
 
 
+def test_unrelated_context_owner_does_not_invalidate_folder_query(query_repo):
+    root, old_policy = query_repo
+    old = git(root, 'rev-parse', 'HEAD')
+    receipt, _, _ = select_query(old_policy, 'alpha', RepositoryReader(root, old), query())
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    config['context_access']['beta'] = {'owner': 'beta operator'}
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'unrelated context owner')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    replay, _, _ = reproduce_query(folder_policy(root), 'alpha', RepositoryReader(root, old), query(),
+        policy_revision=old, expected_authority=receipt['authority_digest'], authority_format='folder',
+        entry_folder=receipt['entry_folder'], entry_index=receipt['entry_index'])
+    assert replay == receipt
+
+
 def test_changed_query_member_is_detected_across_policy_sha(query_repo):
     root, old_policy = query_repo
     old = git(root, 'rev-parse', 'HEAD')
@@ -198,6 +213,28 @@ def test_changed_auxiliary_instruction_requires_requalification(query_repo, monk
     receipt, _, _ = select_query(old_policy, 'alpha', RepositoryReader(root, old), query())
     write(root, 'alpha/aux/AGENTS.md', '# Changed auxiliary instruction\n')
     git(root, 'add', 'alpha/aux/AGENTS.md'); git(root, 'commit', '-qm', 'change local instruction')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    opened = []
+    original = RepositoryReader.read
+    def spy(self, path, **kwargs):
+        opened.append(path)
+        return original(self, path, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', spy)
+    with pytest.raises(PolicyError, match='requires requalification'):
+        reproduce_query(folder_policy(root), 'alpha', RepositoryReader(root, old), query(),
+            policy_revision=old, expected_authority=receipt['authority_digest'], authority_format='folder',
+            entry_folder=receipt['entry_folder'], entry_index=receipt['entry_index'])
+    assert 'alpha/collection.md' not in opened and 'alpha/items/a.md' not in opened
+
+
+def test_changed_ancestor_instruction_owner_requires_requalification(query_repo, monkeypatch):
+    root, old_policy = query_repo
+    old = git(root, 'rev-parse', 'HEAD')
+    receipt, _, _ = select_query(old_policy, 'alpha', RepositoryReader(root, old), query())
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    config['context_access']['.']['owner'] = 'different synthetic operator'
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'change ancestor owner')
     git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     opened = []
     original = RepositoryReader.read
