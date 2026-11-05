@@ -165,6 +165,8 @@ def protected_source_stage(root, binding, stage, payload):
                      'consolidate': protected.consolidate}[stage]
         return {'ok': True, 'mode': 'approved', 'stage': stage,
                 'result': operation(root, binding, **args)}
+    except ProtectedCoordinationError:
+        raise
     except protected.ProtectedPartialError as exc:
         raise ProtectedCoordinationError('coordination_partial_effects') from exc
     except (ValueError, OSError, KeyError, TypeError) as exc:

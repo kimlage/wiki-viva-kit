@@ -556,9 +556,11 @@ def test_integrator_not_in_host_binding_fails_before_any_context_body(prepared_r
     sha = _nested_integrator_repo(root)
     binding = CoordinationBinding(('alpha',), 'refs/remotes/origin/main', 'wiki.config.yaml')
     monkeypatch.setattr(RepositoryReader, 'read', lambda *_args, **_kwargs: pytest.fail('body opened without host binding'))
-    with pytest.raises(ValueError):
-        prepare(root, binding, context_id='alpha', approved_revision=sha, entry_folder='alpha',
-            entry_index='alpha/index.md', source_ref='alpha/source.txt', source_context='alpha', artifact_context='.')
+    with pytest.raises(ProtectedCoordinationError) as exc:
+        protected_source_stage(root, binding, 'prepare', dict(context_id='alpha', approved_revision=sha,
+            entry_folder='alpha', entry_index='alpha/index.md', source_ref='alpha/source.txt',
+            source_context='alpha', artifact_context='.'))
+    assert exc.value.status == 'denied'
 
 
 def test_one_source_two_authorized_folder_interpretations(prepared_repo):
