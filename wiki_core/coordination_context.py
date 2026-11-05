@@ -22,7 +22,7 @@ class ProtectedCoordinationError(ValueError):
 class CoordinationBinding:
     contexts: tuple[str,...]
     trusted_ref: str
-    manifest: str='context.yaml'
+    manifest: str='wiki.config.yaml'
     repository_grants: tuple[RepositoryGrant,...]=()
 
     def __post_init__(self):
@@ -72,7 +72,7 @@ class CoordinationBinding:
             except (TypeError, ValueError, OSError) as exc:
                 raise ValueError('invalid host repository grants') from exc
         return cls(tuple(c.strip() for c in contexts.split(',')),trusted or 'refs/remotes/origin/main',
-                   'wiki.config.yaml' if mode == 'folder' else 'context.yaml', tuple(grants))
+                   'context.yaml' if mode == 'v1' else 'wiki.config.yaml', tuple(grants))
 
 
 def capability(root: Path, binding: CoordinationBinding | None) -> dict:

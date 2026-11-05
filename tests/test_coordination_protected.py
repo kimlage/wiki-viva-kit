@@ -152,11 +152,10 @@ def test_binding_disabled_default_and_startup_validation(monkeypatch):
     with pytest.raises(ValueError): CoordinationBinding.from_environment()
 
 
-@pytest.mark.parametrize('mode', ['', 'v1'])
-def test_v1_host_binding_refuses_new_packet_before_policy_read(repo, monkeypatch, mode):
+def test_v1_host_binding_refuses_new_packet_before_policy_read(repo, monkeypatch):
     from wiki_core import coordination_context as coordination
     binding = CoordinationBinding.from_environment({'WIKI_COORDINATION_ALLOWED_CONTEXTS': 'costs',
-                                                     'WIKI_COORDINATION_CONTEXT_MODE': mode})
+                                                     'WIKI_COORDINATION_CONTEXT_MODE': 'v1'})
     monkeypatch.setattr(coordination, 'load_policy', lambda *a, **k: pytest.fail('v1 policy opened'))
     monkeypatch.setattr(coordination, 'build_packet', lambda *a, **k: pytest.fail('v1 packet built'))
     with pytest.raises(coordination.ProtectedCoordinationError) as error:
