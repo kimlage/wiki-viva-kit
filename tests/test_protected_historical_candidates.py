@@ -70,6 +70,7 @@ def test_old_revision_claim_is_only_historical_review_candidate(prepared_repo):
     assert review['status'] == 'review_needed' and review['unavailable_chunk_ids'] == []
     candidate = review['candidates'][0]
     assert candidate['status'] == 'review_needed' and candidate['origin']['policy_revision'] == sha
+    assert candidate['origin']['authority_metadata_changed'] is False
     assert candidate['origin']['request_id'] == before['request_id']
     assert candidate['result'] == result and sha in candidate['result']['claims'][0]
     assert new_sha not in candidate['result']['claims'][0]
@@ -81,7 +82,7 @@ def test_old_revision_claim_is_only_historical_review_candidate(prepared_repo):
 
 
 @pytest.mark.parametrize('change', ['instruction', 'source', 'read_grant'])
-def test_changed_selected_input_or_grant_is_not_a_candidate(prepared_repo, change):
+def test_changed_selected_input_or_redundant_scope_candidate(prepared_repo, change):
     root, sha = prepared_repo
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
     args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
@@ -103,7 +104,9 @@ def test_changed_selected_input_or_grant_is_not_a_candidate(prepared_repo, chang
     row = pending['request']['chunks'][0]
     current = prepare(root, binding, **{**args, 'approved_revision': new_sha}, source_context='system',
         previous_request_id=before['request_id'], candidate_chunk_ids=[row['chunk_id']])
-    assert current['historical_review']['status'] == 'unavailable'
+    assert current['historical_review']['status'] == ('review_needed' if change == 'read_grant' else 'unavailable')
+    if change == 'read_grant':
+        assert current['historical_review']['candidates'][0]['origin']['authority_metadata_changed'] is True
     assert current['request']['chunks'][0]['result_exists'] is False
 
 
