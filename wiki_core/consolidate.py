@@ -89,6 +89,21 @@ def _compare_selected_inputs(root, *, source_page, candidates, repo_root, identi
     return refs, selected, selected_source, str(selected_root)
 
 
+def compare_repository_candidates(source_page, candidates, metadata, changed):
+    """Classify only selected page declarations; file consumption remains unknown."""
+    from wiki_core.information_relations import information_requirements
+    result = []
+    for ref, values in zip(candidates, metadata):
+        requirements = information_requirements(values, lambda target: [target])
+        declared = any(item['target'] == source_page and item['temporal'] == 'current' for item in requirements)
+        result.append({'path': ref, 'state': 'review_pending' if changed and declared else 'unknown',
+            'source_page_requirement': 'declared' if declared else 'unknown',
+            'reason': ('operator_selected_page_requirement_file_consumption_unknown'
+                       if changed and declared else 'insufficient_file_consumption_evidence'),
+            'blocking': False, 'file_consumption': 'unknown', 'verification_performed': False})
+    return result
+
+
 def compare_selected_repo(root: Path, paths: WikiPaths, request: dict, *, source_page: str,
                           candidates: list[str], repo_root: str, identity: str,
                           revision: str, repo_path: str, entry_folder: str,
@@ -99,7 +114,6 @@ def compare_selected_repo(root: Path, paths: WikiPaths, request: dict, *, source
     that an interpretation consumed the selected file or grant host access.
     """
     from wiki_core.context_selection import _metadata, strict_json_loads
-    from wiki_core.information_relations import information_requirements
     from wiki_core.llm.context_pass import is_local_folder_request, _folder_documents, validate_local_entry_source
     from wiki_core.repo_read import (contains_access_secrets, remote_identity,
                                     _prepare_repo_read, _read_prepared_repo)
@@ -222,19 +236,7 @@ def compare_selected_repo(root: Path, paths: WikiPaths, request: dict, *, source
     if before != receipt or matching[0].get('text') != before_text:
         raise ValueError('retained repository receipt differs')
     changed = before['content_sha256'] != after['content_sha256']
-    result = []
-    for ref, values in zip(candidates, metadata[1:]):
-        # An unscoped page ID may be duplicated elsewhere. Only an exact path
-        # proves this declaration names the selected source without a scan.
-        def resolve(target):
-            return [target]
-        requirements = information_requirements(values, resolve)
-        declared = any(item['target'] == source_page and item['temporal'] == 'current' for item in requirements)
-        result.append({'path': ref, 'state': 'review_pending' if changed and declared else 'unknown',
-                       'source_page_requirement': 'declared' if declared else 'unknown',
-                       'reason': ('operator_selected_page_requirement_file_consumption_unknown'
-                                  if changed and declared else 'insufficient_file_consumption_evidence'),
-                       'blocking': False, 'file_consumption': 'unknown', 'verification_performed': False})
+    result = compare_repository_candidates(source_page, candidates, metadata[1:], changed)
     return {'repository_comparison': {'identity': identity, 'path': repo_path,
                 'before_revision': old_revision, 'after_revision': revision,
                 'before_digest': before['content_sha256'], 'after_digest': after['content_sha256'],

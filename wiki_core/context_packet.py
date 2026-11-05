@@ -2,6 +2,7 @@
 from __future__ import annotations
 import hashlib
 import json
+import copy
 import datetime as dt
 from pathlib import Path, PurePosixPath
 from .context_policy import PolicyError, capability_status, safe_path, within, valid_adapter_report
@@ -182,6 +183,38 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
     return reader, inspection_order
 
 
+def _finalize_packet(packet, max_bytes):
+    _reject_secrets(packet)
+    packet['packet_digest'] = '0' * 64
+    while True:
+        length = len(json.dumps(packet, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8'))
+        if packet['bytes_used'] == length: break
+        packet['bytes_used'] = length
+    if packet['bytes_used'] > max_bytes: raise PolicyError('complete packet exceeds byte budget')
+    payload = {k: v for k, v in packet.items() if k != 'packet_digest'}
+    packet['packet_digest'] = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+    return packet
+
+
+def _packet_with_omissions(packet, omissions, policy):
+    """Reframe an already qualified packet; this helper does not authorize it."""
+    if (not isinstance(packet, dict) or packet.get('authority_format') != 'folder'
+            or packet.get('policy_revision') != policy.policy_revision or not getattr(policy, '_binding', None)
+            or not isinstance(omissions, list) or any(not isinstance(x, str) or not x for x in omissions)):
+        raise PolicyError('packet unavailable')
+    original = {k: v for k, v in packet.items() if k != 'packet_digest'}
+    expected = hashlib.sha256(json.dumps(original, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+    if packet.get('packet_digest') != expected: raise PolicyError('packet unavailable')
+    policy.fresh()
+    updated = copy.deepcopy(packet)
+    updated['coverage']['missing'] = list(omissions)
+    if 'linked sources not inspected' not in updated['coverage']['missing']:
+        updated['coverage']['missing'].append('linked sources not inspected')
+    result = _finalize_packet(updated, updated['max_bytes'])
+    policy.fresh()
+    return result
+
+
 def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
                  required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None, queries=(),
                  entry_folder=None, entry_index=None, additional_readers=()):
@@ -357,17 +390,8 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         packet['query_selections'] = query_selections
         packet['query_fingerprint'] = digest(query_selections)
         packet['coverage']['mode'] = 'authorized_owner_queries_and_explicit_read_set'
-    _reject_secrets(packet)
     # A fixed-width digest lets the reported byte count include the digest itself.
-    packet['packet_digest'] = '0' * 64
-    while True:
-        length = len(json.dumps(packet, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8'))
-        if packet['bytes_used'] == length: break
-        packet['bytes_used'] = length
-    if packet['bytes_used'] > max_bytes: raise PolicyError('complete packet exceeds byte budget')
-    payload = {k: v for k, v in packet.items() if k != 'packet_digest'}
-    packet['packet_digest'] = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
-    return packet
+    return _finalize_packet(packet, max_bytes)
 
 
 def validate_result(result, packet):

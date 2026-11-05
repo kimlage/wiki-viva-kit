@@ -63,7 +63,7 @@ def _storage_identity(root, *, before_read=None):
     if os.path.lexists(objects / 'info' / 'alternates'):
         raise ValueError('repository storage requires an explicit adapter')
     return (git_stat.st_dev, git_stat.st_ino, objects_stat.st_dev, objects_stat.st_ino,
-            config_stat.st_dev, config_stat.st_ino)
+            config_stat.st_dev, config_stat.st_ino, hashlib.sha256(raw).hexdigest())
 
 
 @dataclass(frozen=True)
@@ -136,29 +136,28 @@ def authorize_repository_event(binding, policy, context_id, actor, selection_id,
             raise ValueError('repository publication unavailable')
 
 
+def check_repository_storage(binding, policy, context_id, actor, selection_id):
+    grant = authorize_repository_grant(binding, policy, context_id, actor, selection_id)
+    try:
+        stat = grant.root.stat()
+        if grant.root.resolve(strict=True) != grant.root or (stat.st_dev, stat.st_ino) != grant._physical_root:
+            raise ValueError('repository selection unavailable')
+        if _storage_identity(grant.root, before_read=policy.fresh) != grant._physical_storage:
+            raise ValueError('repository selection unavailable')
+    except OSError as exc:
+        raise ValueError('repository selection unavailable') from exc
+    return grant
+
+
 def selected_repository(binding, policy, context_id, actor, selection_id):
     """Revalidate binding, policy and physical root before every local Git I/O."""
     grant = authorize_repository_grant(binding, policy, context_id, actor, selection_id)
     def check():
-        policy.fresh()
-        if (grant not in binding.repository_grants or grant.executor != context_id
-                or grant.integrator != actor or context_id not in binding.contexts or actor not in binding.contexts
-                or not all(policy.permits_effect(reader, 'capabilities', REPOSITORY_CAPABILITY)
-                           for reader in {context_id, actor})):
+        if check_repository_storage(binding, policy, context_id, actor, selection_id) != grant:
             raise ValueError('repository selection unavailable')
-        try:
-            stat = grant.root.stat()
-            if grant.root.resolve(strict=True) != grant.root or (stat.st_dev, stat.st_ino) != grant._physical_root:
-                raise ValueError('repository selection unavailable')
-            if _storage_identity(grant.root, before_read=policy.fresh) != grant._physical_storage:
-                raise ValueError('repository selection unavailable')
-        except OSError as exc:
-            raise ValueError('repository selection unavailable') from exc
-    check()
     prepared = _prepare_repo_read(grant.root, grant.identity, grant.revision, grant.path,
                                   max_bytes=grant.max_bytes, before_access=check)
     result = _read_prepared_repo(prepared)
-    check()
     if result['revision'] != grant.revision or result['path'] != grant.path:
         raise ValueError('repository selection unavailable')
     # Do not expose root or the locally configured origin. A receipt binds bytes

@@ -50,8 +50,9 @@ def chunk_text(source_id: str, text: str, target_tokens: int = 1200, overlap_tok
     units are rejoined with the separator that matches their granularity (blank
     line for paragraphs, single newline for table/CSV lines). Units much larger
     than the target are subdivided by a word window with `overlap_tokens`.
-    With `preserve_lines`, serialized table rows stay intact; rows exceeding the
-    configured chunk budget or 32,000 UTF-8 bytes are rejected instead.
+    With `preserve_lines`, serialized table rows stay intact; rows over 32,000
+    bytes or 1.5 times the estimated word target (minimum 80) are rejected.
+    The estimate is not a hard model-token limit.
     """
     target_words = max(80, int(target_tokens / 1.35))
     overlap_words = max(0, int(overlap_tokens / 1.35))
@@ -73,7 +74,7 @@ def chunk_text(source_id: str, text: str, target_tokens: int = 1200, overlap_tok
             byte_count = len(unit.encode('utf-8'))
             estimated_words = max(len(unit_words), (byte_count + 4) // 5)
             if byte_count > 32_000 or estimated_words > int(target_words * 1.5):
-                raise ValueError('tabular row exceeds chunk budget; select a smaller source scope')
+                raise ValueError('tabular row exceeds estimated limit; select a smaller source scope')
             expanded.append(unit)
             continue
         if len(unit_words) > int(target_words * 1.5):

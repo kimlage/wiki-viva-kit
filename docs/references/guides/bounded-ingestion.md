@@ -194,9 +194,11 @@ separate review. Inline revisions and wrappers that the reader cannot preserve
 also require review. Headers, footers, images and embedded objects are not
 interpreted. CSV, TSV and XLSX are represented as JSON lines with row numbers,
 cell boundaries, and sheet names for XLSX; line breaks and separators inside a
-cell stay escaped. Each tabular row remains whole in its chunk: a row exceeding
-the configured chunk budget or 32,000 UTF-8 bytes is blocked and needs a smaller
-source scope. XLSX formulas are retained with their cached values where present;
+cell stay escaped. Each tabular row remains whole in its chunk: a row above
+32,000 bytes or 1.5 times the estimated word target (minimum 80) is blocked and
+needs a smaller source scope. The estimate uses the larger of the space-split
+word count and UTF-8 bytes divided by five, rounded up; it is not a hard model
+token limit. XLSX formulas are retained with their cached values where present;
 the extractor does not recalculate them and explicitly marks missing caches.
 Workbook dimensions are limited to 100,000 rows, 1,024 columns and 2,000,000
 cells per sheet. EML text and HTML bodies are included; attachments or other

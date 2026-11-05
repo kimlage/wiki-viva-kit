@@ -23,7 +23,7 @@ def main() -> None:
     parser.add_argument("--folder", help="Physical entry folder for a folder-authority task packet.")
     parser.add_argument("--index", help="Explicit context index for a folder-authority task packet.")
     parser.add_argument("--integrator-context", help="Explicit authorized ancestor that owns protected artifacts.")
-    parser.add_argument("--source-stage", choices=('prepare', 'record', 'consolidate'),
+    parser.add_argument("--source-stage", choices=('prepare', 'record', 'consolidate', 'compare'),
         help="Trusted local operator source stage; stage payload is read from stdin.")
     parser.add_argument('--show-host-binding', action='store_true',
         help='Read back the host-configured binding without repository roots or identities.')

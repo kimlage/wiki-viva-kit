@@ -182,6 +182,10 @@ def protected_source_stage(root, binding, stage, payload):
     elif stage == 'consolidate':
         required = common | {'source_id', 'request_id', 'source_page', 'event_target', 'date'}
         permitted = required | optional | {'candidates'}
+    elif stage == 'compare':
+        required = common | {'source_id', 'request_id', 'repository_selection',
+            'previous_repository_selection', 'current_repository_selection', 'source_page', 'candidates'}
+        permitted = required | optional
     else:
         raise ProtectedCoordinationError('coordination_invalid_request')
     if not isinstance(payload, dict) or not required <= set(payload) or set(payload) - permitted:
@@ -194,7 +198,7 @@ def protected_source_stage(root, binding, stage, payload):
             from datetime import date
             args['date'] = date.fromisoformat(args['date'])
         operation = {'prepare': protected.prepare, 'record': protected.record,
-                     'consolidate': protected.consolidate}[stage]
+                     'consolidate': protected.consolidate, 'compare': protected.compare_repositories}[stage]
         return {'ok': True, 'mode': 'approved', 'stage': stage,
                 'result': operation(root, binding, **args)}
     except ProtectedCoordinationError:

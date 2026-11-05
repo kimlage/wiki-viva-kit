@@ -5,8 +5,9 @@ existing `CoordinationBinding`. Each entry pins one physical local repository
 root, configured identity, immutable commit, literal Git path, executor,
 integrator and byte limit. It has a host-selected opaque ID. Both actors must
 also have the `independent_git.read` capability in their current qualified
-folder policy. An untrusted stage payload may select only the ID of one such
-entry; it cannot define or widen a grant. The selection must be supplied again
+folder policy. An untrusted stage payload may select one ID or a list of up to
+eight IDs; it cannot define or widen a grant. All selected grants are checked
+before any selected Git repository is opened. The selection must be supplied again
 for prepare, record and consolidate. A missing or changed grant cannot open an
 existing request. CLI flags and the configured Git origin do not grant access.
 
@@ -15,9 +16,10 @@ path from the pinned commit and never adds unselected paths to the request. It
 rechecks policy/ref, both actors and physical root identity before each Git
 metadata, tree or blob command. The selected bytes and provenance participate
 in the context fingerprint and both context and request budgets. Artifacts
-bind an opaque digest of the host grant, not the local repository root or
-configured origin; an event contains only the selected ID, revision, path and
-hashes. The receipt is provenance, not authorization.
+bind an opaque digest of the host grant, not the local repository root. Request
+and event also record the sanitized configured repository identity, revision,
+path and hashes as provenance. The identity and receipt are not authorization
+or evidence of remote identity.
 
 Reading is not authorization to disclose a derivative. Once prepare returns
 the source and request IDs, the trusted host may create a new immutable binding
@@ -33,9 +35,16 @@ publication permission. The host's output grant explicitly permits disclosure
 of the resulting proposal to readers under the wiki's existing access rules;
 it does not itself prove remote permission or complete review/incorporation.
 
-The existing `--source-stage` CLI can execute protected stages as a trusted
-local operator, but it does not accept or construct repository grants. A host
-must install them in process outside the request payload. The binding controls
+The trusted host may install grants in process or set
+`WIKI_COORDINATION_REPOSITORY_GRANTS` at startup to a JSON list with the exact
+`selection_id`, `root`, `identity`, `revision`, `path`, `executor`, `integrator`,
+and optional `max_bytes` and `event_target`. The existing environment settings
+still fix the allowed contexts, trusted ref and folder mode. The local CLI
+reads the host binding at startup; flags and stage JSON cannot add grants.
+`wiki_coordination.py --show-host-binding` reports the selected IDs, actors and
+whether publication is configured, without printing roots or identities. The
+operator must protect the startup environment. The CLI is an interface for a
+trusted local operator, not a boundary against that operator. The binding controls
 this application route only; it is not an operating-system ACL, process
 sandbox, remote authentication or evidence of external business permission.
 The host remains responsible for separately qualifying local filesystem access
@@ -53,3 +62,12 @@ Local Git configuration is read with a 100 KB cap and a conservative lexical
 check; includes, worktree redirects, backslash escapes and external alternate
 ref commands are refused, including incidental matching text. Such repositories
 need a separately qualified adapter.
+
+The read-only `compare` source stage requires the same original request and
+selection, plus a separately host-pinned current selection for the same
+repository identity and path. The explicitly selected source page must declare
+that repository; each candidate must be authorized independently. It compares
+only that file and returns an on-demand review suggestion for declared current
+requirements. It does not write pages, prove file consumption or assert that a
+proposal was reviewed. Missing grants, stale policy or unavailable results
+stop the comparison.
