@@ -25,6 +25,15 @@ The [preflight module](../../../wiki_core/context_integration.py) revalidates th
 After preflight, an authorized integrator must independently review the exact proposal HEAD and semantic relationships, run applicable gates tied to that HEAD and configuration, revalidate the approved base, and follow the repository's existing PR/merge policy. If the base or branch advances, rebuild the packet against the current approved base, reconcile every actual read (including an existing output read while editing), rerun preflight and review the new HEAD. Plan work in progress so one context does not repeatedly rebase while other changes land; an undeclared read makes that attempt ineligible rather than being silently omitted. Use one integrator per target until a provider-enforced current-base queue is qualified; worktrees alone are not a merge lock. The external integrator performs any authorized merge and readback; these commands never do so. A self-reported completed result or this preflight alone is not approval.
 
 The [CLI](../../../scripts/wiki_context_flow.py) offers finite `impact`, `requirements`, `review`, `revalidate` and `preflight` commands.
+For a packet containing evidence from another owner, the trusted local
+operator repeats `--trusted-context PRODUCER_CONTEXT` after `preflight` or
+`requirements`; repeat it for each selected producer. `requirements` also
+needs `--context EXECUTOR_CONTEXT` when `--trusted-context` is used. If the
+packet has retained additional readers, repeat each with
+`--additional-reader READER_CONTEXT` in the same subcommand. These local
+selections do not grant access: the current policy's path scopes and exact
+bilateral connections still apply, and a separately bound host retains its
+own fixed allowlist.
 [Dynamic collections](context-dynamic-selection.md) retain their predicate and
 digests on the same canonical requirement/edge; authorized `revalidate` compares
 sets and selected bytes without asserting factual verification. Its `--graph` argument is an already authorized JSON representation of the existing relation inventory, not a new canonical graph. Its `--packet` and `--result` inputs are the existing task contracts. The current CLI uses the approved `wiki.config.yaml` folder policy; pass the trusted approved revision and use `--help` for arguments. Historical v1 receipts without a verifiable original manifest require requalification. This guide and the synthetic tests do not authorize new credentials, a public export, an external transmission or a scheduler.

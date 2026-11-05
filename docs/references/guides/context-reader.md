@@ -72,6 +72,14 @@ python3 scripts/wiki_context.py --repo REPO --approved-revision APPROVED_SHA \
   --content-revision CONTENT_SHA --request REQUEST.json
 ```
 
+For selected evidence owned by another context, a trusted local operator
+appends `--trusted-context PRODUCER_CONTEXT` to `pack`; repeat it for each
+explicitly selected producer. Current path scopes and exact bilateral
+connections are still required. The flag records the operator's selection; a
+folder, link or packet does not grant access. See the
+[preflight and requirements CLI](context-impact-integration.md) for repeating
+the selection during validation.
+
 `resolve` reports the discovered structure with `authorized: false`; it does
 not qualify the context or read its instruction bodies. `pack` checks the
 physical entry, policy and explicit selection and includes the qualified
