@@ -238,7 +238,7 @@ def protected_source_stage(root, binding, stage, payload):
         required, permitted = common | {'source_context'}, common | {'source_context', 'previous_request_id', 'previous_source_id', 'candidate_chunk_ids'} | optional
     elif stage == 'record':
         required = common | {'source_id', 'request_id', 'results'}
-        permitted = required | optional
+        permitted = required | optional | {'historical_reviews'}
     elif stage == 'consolidate':
         required = common | {'source_id', 'request_id', 'source_page', 'event_target', 'date'}
         permitted = required | optional | {'candidates'}

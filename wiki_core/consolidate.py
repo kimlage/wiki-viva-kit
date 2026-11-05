@@ -420,11 +420,17 @@ def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path
         "uncertainties": [], "relationships": [], "entities": [],
     }
     rank = {"low": 0, "medium": 1, "high": 2}
+    historical_reviews = []
     for row in request.get("chunks") or []:
         result = (result_reader(row) if result_reader is not None
                   else read_matching_result(cache_dir, request, row, root=root))
         if not result:
             raise ValueError('deep read result disappeared or is invalid')
+        review = result.get('protected_historical_review') if request.get('protected_request_id') else None
+        if review is not None:
+            if not isinstance(review, dict):
+                raise ValueError('historical review unavailable')
+            historical_reviews.append({'chunk_id': row['chunk_id'], 'review': review})
         q = result.get("quadrants")
         if isinstance(q, dict):
             for key in QUADRANT_KEYS:
@@ -479,6 +485,7 @@ def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path
         **({'folder_request_id': request['folder_request_id']} if request.get('folder_request_id') else {}),
         **({'source_hash_sha256': source_hash} if request.get('folder_request_id') else {}),
         **({'independent_git_sources': git_sources} if git_sources else {}),
+        **({'historical_reviews': historical_reviews} if historical_reviews else {}),
         "prompt_version": request.get("prompt_version"),
         "chunk_count": len(request.get("chunks") or []),
         "root_entity": request.get("root_entity") or {},
@@ -663,6 +670,10 @@ def build_event_markdown(
             fm.append('manifest_ref: ' + json.dumps(manifest_ref, ensure_ascii=False))
         if aggregated.get('independent_git_sources'):
             fm.append('independent_git_sources: ' + json.dumps(aggregated['independent_git_sources'], ensure_ascii=False, sort_keys=True))
+        if aggregated.get('historical_reviews'):
+            if not yaml_safe:
+                raise ValueError('historical review unavailable')
+            fm.append('historical_reviews: ' + json.dumps(aggregated['historical_reviews'], ensure_ascii=False, sort_keys=True))
     if impact.get('coverage') == 'explicit_candidates_only':
         fm.append('impact_coverage: explicit_candidates_only')
     fm.extend(
@@ -963,6 +974,8 @@ def build_packet(
            if aggregated.get('source_hash_sha256') else {}),
         **({'independent_git_sources': aggregated['independent_git_sources']}
            if aggregated.get('independent_git_sources') else {}),
+        **({'historical_reviews': aggregated['historical_reviews']}
+           if aggregated.get('historical_reviews') else {}),
         **({'candidate_provenance': [{'path': ref, 'revision': candidate_documents[ref]['revision'],
               'blob': candidate_documents[ref]['blob'], 'sha256': candidate_documents[ref]['content_sha256']}
               for ref in candidates]} if candidate_documents is not None else {}),
