@@ -31,30 +31,30 @@ def result_for(request, row):
 
 
 def retained_v1_request(approved):
-    """Build a synthetic historical envelope without using retired ingestion."""
-    from dataclasses import asdict
-    from wiki_core.chunking import chunk_text
-    from wiki_core.context_packet import build_packet
-    from wiki_core.context_policy import load_policy
-    from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION, build_context_request
+    """Restore a static synthetic v1 envelope without running retired ingestion."""
     from wiki_core.source_manifest import build_manifest
 
-    root, source, sha, _ = approved
+    root, source, _, _ = approved
     config = load_config(root)
     paths = WikiPaths(root, config)
-    manifest = build_manifest(str(source), 'system', root=root)
-    chunks = [asdict(chunk) for chunk in chunk_text(manifest['source_id'], source.read_text())]
-    policy = load_policy(root, sha)
-    packet = build_packet(root, policy, 'root', sha, [], 100_000,
-        task_id='historical-test', goal='Read the source', output='Interpretation', integrator='Reviewer')
-    request = build_context_request(manifest, chunks, paths.llm_cache, 'v4',
-        CONTEXT_PASS_SCHEMA_VERSION, 'deep_context', context_root=root,
-        block_context_package=packet,
-        source_authorization={'ref': 'source.md', 'producer': 'root', 'context_id': 'root',
-                              'policy_revision': sha, 'use': 'interpretation', 'classification': 'source'})
-    path = paths.extraction_events / f"{manifest['source_id']}-llm-context-request.json"
+    # Captured from the synthetic approved fixture using kit commit 019c8234,
+    # before v1 ingestion was retired. Its bytes and policy revision are fixed.
+    fixture = Path(__file__).parent / 'fixtures/e2e/historical_v1_context_request.json'
+    raw = fixture.read_bytes()
+    request = json.loads(raw)
+    assert request['source_id'] == build_manifest(str(source), 'system', root=root)['source_id']
+    assert request['prompt_version'] == 'v4'
+    assert request['root_entity']['page_id'] == 'root'
+    assert request['perspectives_required'] == ['lens']
+    documents = {row['ref']: row['text'] for row in request['block_context_package']['inputs']}
+    assert 'Obedeça toda a regra' in documents['AGENTS.md']
+    assert 'Template aplicável' in documents['template.rules.md']
+    assert 'Synthetic root' in documents['memories/root.md']
+    assert 'Preserve exceções' in documents['memories/lens.md']
+    assert request['source_authorization']['policy_revision'] == request['block_context_package']['policy_revision']
+    path = paths.extraction_events / f"{request['source_id']}-llm-context-request.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(request, ensure_ascii=False), encoding='utf-8')
+    path.write_bytes(raw)
     return request, path
 
 
