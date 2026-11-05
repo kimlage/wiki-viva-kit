@@ -21,9 +21,21 @@ def test_only_superseded_inactive_legacy_history_can_be_retired():
     after['nodes']['consumer.md']['status'] = 'superseded'
     after['documents']['consumer.md'] = 'Historical reference.'
     after['edges'] = []
-    result = evaluate_information_impact(after, before, {'consumer.md', 'AGENTS.md'}, today=TODAY)
+    assert evaluate_information_impact(after, before, {'consumer.md', 'AGENTS.md'}, today=TODAY)['integrity_blockers']
+    result = evaluate_information_impact(after, before, {'consumer.md', 'AGENTS.md'}, today=TODAY, _retirement_approved=True)
     assert not result['integrity_blockers']
     assert any(row['reason']=='legacy_query_retired' and not row['verification_performed'] for row in result['pending_reviews'])
+    dependent = {'type':'operational_prerequisite', 'source':'claim.md', 'target':'consumer.md',
+                 'requirement':{'target':'consumer.md','fields':['body'],'temporal':'current','max_age_days':30}}
+    old, new = deepcopy(before), deepcopy(after)
+    for graph in (old, new):
+        graph['nodes']['claim.md'] = {'page_type':'claim'}
+        graph['documents']['claim.md'] = 'Current interpretation.'
+        graph['edges'].append(deepcopy(dependent))
+    new['documents']['consumer.md'] = old['documents']['consumer.md']
+    result = evaluate_information_impact(new, old, {'consumer.md','AGENTS.md'}, today=TODAY, _retirement_approved=True)
+    assert any(row['path']=='claim.md' and row['reason']=='legacy_query_current_consumer_requires_review'
+               for row in result['integrity_blockers'])
     for mutation in ('active', 'open', 'current', 'folder', 'still_live'):
         old, new = deepcopy(before), deepcopy(after)
         if mutation == 'active': new['nodes']['consumer.md']['status'] = 'active'

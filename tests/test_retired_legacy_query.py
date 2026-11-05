@@ -13,9 +13,12 @@ def test_superseded_legacy_query_remains_in_git_and_does_not_claim_revalidation(
     req = requirement(packet(root))
     req['temporal'] = 'historical'
     declare(root, req)
+    path = root / TASK['output']
+    parts = path.read_text().split('---\n', 2)
+    values = yaml.safe_load(parts[1]); values['status'] = 'active'
+    path.write_text('---\n' + yaml.safe_dump(values) + '---\n' + parts[2])
     base = commit(root)
     git(root, 'checkout', '-qb', 'wiki/retire-old-query')
-    path = root / TASK['output']
     parts = path.read_text().split('---\n', 2)
     values = yaml.safe_load(parts[1])
     values['status'] = 'superseded'
@@ -42,3 +45,57 @@ def test_superseded_legacy_query_remains_in_git_and_does_not_claim_revalidation(
     assert not report['ok']
     assert any(row['path'] == 'finance/costs/action.md' and row['reason'] == 'superseded_information_in_active_use'
                for row in report['blockers'])
+
+
+def test_proposal_commit_cannot_be_used_as_approved_retirement_base(collection):
+    root = collection
+    configure_audit(root)
+    req = requirement(packet(root)); req['temporal'] = 'historical'
+    declare(root, req)
+    path = root / TASK['output']
+    parts = path.read_text().split('---\n', 2)
+    values = yaml.safe_load(parts[1]); values['status'] = 'active'
+    path.write_text('---\n' + yaml.safe_dump(values) + '---\n' + parts[2])
+    git(root, 'checkout', '-qb', 'wiki/unapproved-base')
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'unapproved requirement')
+    base = git(root, 'rev-parse', 'HEAD')
+    assert base != git(root, 'rev-parse', 'refs/remotes/origin/main')
+    values['status'] = 'superseded'; values.pop('information_requirements')
+    path.write_text('---\n' + yaml.safe_dump(values) + '---\nHistorical reference.\n')
+    git(root, 'add', TASK['output']); git(root, 'commit', '-qm', 'retire')
+    report = repository_report(root, load_config(root), base)
+    assert not report['ok']
+    assert any(row['path'] == TASK['output'] and 'revalidation' in row['reason'] for row in report['blockers'])
+
+
+def test_retirement_marks_excluded_query_candidate_for_review(repo):
+    from tests import test_context_dynamic_selection as legacy
+    from tests import test_dynamic_impact_closure as scoped
+    root = legacy.collection.__wrapped__(repo)
+    old = legacy.requirement(legacy.packet(root)); old['temporal'] = 'historical'
+    legacy.declare(root, old)
+    path = root / TASK['output']
+    parts = path.read_text().split('---\n', 2)
+    values = yaml.safe_load(parts[1]); values.update(status='active', flag='no', amount=5)
+    path.write_text('---\n' + yaml.safe_dump(values) + '---\n' + parts[2])
+    scoped.collection.__wrapped__(root)
+    query = {'target':scoped.ANCHOR, 'reason':'synthetic filter', 'use':'interpret', 'classification':'synthetic',
+             'query':{'scope':scoped.CONTEXT, 'filters':{'flag':'eligible'}, 'field':'amount',
+                      'max_enumerated':30, 'max_matches':10, 'max_scan_bytes':100000}}
+    pkt = scoped.build_packet(root, scoped.policy(root), scoped.CONTEXT, git(root,'rev-parse','HEAD'), [], 50000,
+                              queries=[query], task_id='query-task', goal='review',
+                              output='finance/costs/query.md', integrator='reviewer')
+    qpath = root / 'finance/costs/query.md'
+    qpath.write_text('---\n' + yaml.safe_dump({'page_id':'query', 'page_type':'claim',
+                     'information_requirements':[scoped.requirement(pkt)]}) + '---\nQuery.\n')
+    base = commit(root)
+    git(root, 'checkout', '-qb', 'wiki/retire-filter-candidate')
+    parts = path.read_text().split('---\n', 2)
+    values = yaml.safe_load(parts[1]); values['status'] = 'superseded'; values.pop('information_requirements')
+    path.write_text('---\n' + yaml.safe_dump(values) + '---\n' + parts[2])
+    git(root, 'add', TASK['output']); git(root, 'commit', '-qm', 'retire old query')
+    head = git(root, 'rev-parse', 'HEAD')
+    report = repository_report(root, load_config(root), base, query_context=scoped.CONTEXT,
+                               query_policy_revision=base, query_head=head)
+    assert any(row['path']=='finance/costs/query.md' and row['reason']=='dynamic_query_upstream_pending'
+               and not row['verification_performed'] for row in report['pending_reviews'])

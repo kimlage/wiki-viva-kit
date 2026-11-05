@@ -33,6 +33,14 @@ def test_historical_use_can_inspect_an_old_observation_without_freshening_it():
     assert assess_information_use(g,'action',now=NOW)['ready']
     assert g['nodes']['claim']['verified_at']=='2026-01-01'
 
+
+def test_current_use_cannot_rely_on_superseded_evidence():
+    g=graph();g['nodes']['evidence']={'page_type':'source','status':'superseded'}
+    result=assess_information_use(g,'action',now=NOW)
+    assert 'information_superseded_evidence' in result['requirements'][0]['blockers']
+    g['edges'][0]['requirement']['temporal']='historical'
+    assert assess_information_use(g,'action',now=NOW)['ready']
+
 def test_validity_is_rechecked_when_time_advances():
     g=graph();g['nodes']['claim']['valid_to']='2026-10-30T12:00:05Z'
     assert assess_information_use(g,'action',now=NOW)['ready']
