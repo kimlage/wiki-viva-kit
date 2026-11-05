@@ -91,6 +91,29 @@ def test_config_change_requalifies_only_affected_folder_authority(query_repo, re
         assert not rows, rows
 
 
+def test_unrelated_config_does_not_replay_unavailable_idle_receipt(query_repo, monkeypatch):
+    root, _ = query_repo
+    prepare_consumer(root)
+    path = root / 'alpha/consumer.md'
+    raw = path.read_text().split('---\n', 2)
+    data = yaml.safe_load(raw[1]); data['information_requirements'][0]['selected_digest'] = '0' * 64
+    path.write_text('---\n' + yaml.safe_dump(data) + '---\n' + raw[2])
+    git(root, 'add', 'alpha/consumer.md'); git(root, 'commit', '-qm', 'unavailable receipt')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    base = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-qb', 'wiki/unrelated-config')
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text()); config['presentation'] = {'theme': 'synthetic'}
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'unrelated config')
+    head = git(root, 'rev-parse', 'HEAD')
+    import wiki_core.dynamic_query_audit as qa
+    monkeypatch.setattr(qa, 'reproduce_query', lambda *args, **kwargs: pytest.fail('unaffected query replayed'))
+    output = repository_report(root, load_config(root), base, query_context='alpha',
+                               query_policy_revision=base, query_head=head)
+    assert not any(row.get('path') == 'alpha/consumer.md' and row['reason'].startswith('dynamic_query')
+                   for row in output['blockers'] + output['pending_reviews'])
+
+
 def test_legacy_query_receipt_stays_unqualified_in_folder_audit(query_repo, monkeypatch):
     root, _ = query_repo
     prepare_consumer(root)
