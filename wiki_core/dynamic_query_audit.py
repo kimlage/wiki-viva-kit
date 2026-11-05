@@ -102,7 +102,8 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
                     from wiki_core.traversal import require_wiki_boundaries
                     policy.fresh()
                     require_wiki_boundaries(Path(root), files=(Path(root) / path,))
-                doc = head_reader.read(path)
+                from wiki_core.context_packet import guarded_context_read
+                doc = guarded_context_read(head_reader,policy,path)
                 declared = information_requirements(doc['frontmatter'], lambda p: [p] if isinstance(p, str) and p in head_reader.paths else [])
                 entry = requirement_query(req)
                 replaced = req not in declared
@@ -117,7 +118,7 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
                         from wiki_core.context_selection import _equivalent_folder_authority
                         qualify_folder_context(root, policy, context_id, req['entry_folder'], req['entry_index'], 2_000_000)
                         historical = (policy if req['query_policy_revision'] == policy.policy_revision else
-                                      _equivalent_folder_authority(policy, context_id, req['query_policy_revision'], entry))
+                                      _equivalent_folder_authority(policy, context_id, req['query_policy_revision'], entry, req['entry_folder'], req['entry_index']))
                     else:
                         historical = historical_policy(policy, req['query_policy_revision'])
                     if authority_digest(historical, context_id, entry) != req['authority_digest']:
@@ -142,13 +143,13 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
                             at_base, base_candidates = prior, prior_candidates
                         else:
                             base_candidates = []
-                            at_base = select_query(policy, context_id, base_reader, entry, read_budget=budget, _candidate_refs=base_candidates)[0]
+                            at_base = select_query(policy, context_id, base_reader, entry, read_budget=budget, _candidate_refs=base_candidates, entry_folder=req.get('entry_folder'), entry_index=req.get('entry_index'))[0]
                         if changed_policy: at_head, head_candidates = None, []
                         elif head_reader.revision == base_reader.revision: at_head, head_candidates = at_base, base_candidates
                         elif head_reader.revision == req['consumed_revision']: at_head, head_candidates = prior, prior_candidates
                         else:
                             head_candidates = []
-                            at_head = select_query(policy, context_id, head_reader, entry, read_budget=budget, _candidate_refs=head_candidates)[0]
+                            at_head = select_query(policy, context_id, head_reader, entry, read_budget=budget, _candidate_refs=head_candidates, entry_folder=req.get('entry_folder'), entry_index=req.get('entry_index'))[0]
                         proof = (prior, at_base, at_head, head_candidates)
                     prior, at_base, at_head, head_candidates = proof
                     checks = (prior, at_base) if at_head is None else (prior, at_base, at_head)
