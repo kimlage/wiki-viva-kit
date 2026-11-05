@@ -88,6 +88,36 @@ def test_approved_repo_without_grant_fails_before_repo_read(approved, monkeypatc
     assert not WikiPaths(root, load_config(root)).derived_root.exists()
 
 
+def test_unapproved_source_is_denied_before_source_or_folder_bodies(approved, monkeypatch):
+    root, _, _, _ = approve_folder(approved)
+    (root / 'other').mkdir()
+    (root / 'other' / 'AGENTS.md').write_text('Other owner instruction\n')
+    forbidden = root / 'other' / 'source.md'
+    forbidden.write_text('Other owner source\n')
+    child = {'schema_version': 'wiki.context/v1', 'id': 'other', 'parent': 'root',
+             'root': 'other', 'purpose': 'Other owner', 'owner': 'Other coordinator',
+             'instructions': ['other/AGENTS.md'], 'skills': [], 'templates': [],
+             'imports': [], 'exports': [], 'policy': {'read': ['self'], 'write': [],
+             'capabilities': [], 'publication': [], 'deny': {}}}
+    (root / 'other' / 'context.yaml').write_text(yaml.safe_dump(child))
+    git(root, 'add', 'other')
+    git(root, 'commit', '-qm', 'Add source owned by another context')
+    sha = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', sha)
+    original_open = Path.open
+    def guarded_open(path, *args, **kwargs):
+        if path == forbidden or path.name in {'AGENTS.md', 'AGENTS.override.md', 'index.md'}:
+            pytest.fail('opened body before checking source authorization')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded_open)
+    from wiki_core.repository_reader import RepositoryReader
+    monkeypatch.setattr(RepositoryReader, 'read', lambda *_args, **_kwargs: pytest.fail('context body read'))
+    result = run(str(forbidden), 'system', root, load_config(root), entry_folder='area/aux',
+                 approved_revision=sha, policy_context='root', record_score=False)
+    assert result.blocked and not result.written
+    assert not WikiPaths(root, load_config(root)).derived_root.exists()
+
+
 def test_approved_folder_revalidates_policy_before_persistence(approved, monkeypatch):
     root, source, previous, sha = approve_folder(approved)
     import wiki_core.ingest.pipeline as pipeline
