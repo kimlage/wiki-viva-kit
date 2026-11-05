@@ -196,6 +196,26 @@ def test_unselected_declared_path_is_not_hidden_by_another_page_id(selected_repo
     assert 'beta/index.md' in connected_ingestion_selection(packet_for(repo, declared), declared)['target_pages']
 
 
+@pytest.mark.parametrize('role', ['source_config', 'input_channel'])
+def test_declared_context_path_cannot_match_another_page_id(selected_repo, role):
+    repo, config = selected_repo
+    if role == 'source_config':
+        write(repo, 'source-page.md', '---\npage_id: source-a\npage_type: source\n'
+              'config_ref: beta/config.md\n---\n# Source\n')
+        write(repo, 'source-config.md', '---\npage_id: beta/config.md\npage_type: source_config\n'
+              'input_channel_ref: channel-a\n---\n# Config\n')
+    else:
+        write(repo, 'source-config.md', '---\npage_id: config-a\npage_type: source_config\n'
+              'input_channel_ref: beta/channel.md\n---\n# Config\n')
+        write(repo, 'channel.md', '---\npage_id: beta/channel.md\npage_type: input_channel\n---\n# Channel\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'ambiguous declared context path')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    selection = {'omit_root_entity': True, 'source_page': 'source-page.md',
+                 'source_config': 'source-config.md', 'input_channel': 'channel.md'}
+    with pytest.raises(ExplicitContextError, match='declared context reference'):
+        resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
+
+
 def test_global_root_only_when_explicit_and_omission_is_recorded(selected_repo):
     repo, config = selected_repo
     selected = {'root_entity': 'global-root.md'}

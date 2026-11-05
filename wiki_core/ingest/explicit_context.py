@@ -224,7 +224,9 @@ def resolve_explicit_ingestion_context(packet, selection, config):
             body(ref, role)
 
     def verify_link(expected_ref, page_):
-        if expected_ref and (page_ is None or expected_ref not in (page_['path'], page_['page_id'])):
+        if expected_ref and (page_ is None or
+                (expected_ref != page_['path'] and
+                 (expected_ref.endswith('.md') or expected_ref != page_['page_id']))):
             raise ExplicitContextError('declared context reference requires explicit matching selection')
 
     values = (source or {}).get('values', {})
