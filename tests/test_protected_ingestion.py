@@ -3,6 +3,7 @@ import hashlib
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 import yaml
@@ -601,6 +602,95 @@ def test_cached_capture_rehashes_after_request_read_before_result_write(prepared
         record(root, binding, **args, source_id=prepared['source_id'], request_id=prepared['request_id'], results=[result])
     assert len(reads) == 2
     assert not list((root / 'data/derived/wiki/.wiki-viva-protected/llm-cache').glob('*.json'))
+
+
+def test_consolidation_candidates_use_approved_git_content_not_working_tree(prepared_repo, monkeypatch):
+    root, _ = prepared_repo
+    candidate = root / 'memories/candidates/approved.md'
+    approved_text = '---\npage_id: approved-topic\npage_type: claim\ntitle: Approved Topic\n---\nApproved body.\n'
+    write(root, 'memories/candidates/approved.md', approved_text)
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'approve candidate')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    result = {**_result_for(prepared['request']), 'entities': [{'name': 'Approved Topic', 'type': 'topic'}]}
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    record(root, binding, **args, **ids, results=[result])
+    candidate.write_text('---\npage_id: unapproved\npage_type: claim\ntitle: WIP Sentinel\n---\nWIP body.\n')
+    original_open = Path.open
+    def guarded(path, *a, **kw):
+        if path == candidate:
+            pytest.fail('unapproved working-tree candidate opened')
+        return original_open(path, *a, **kw)
+    monkeypatch.setattr(Path, 'open', guarded)
+    target = ('memories/system/ingestion/events/2026-11-04-' +
+        hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
+        event_target=target, date=dt.date(2026, 11, 4), candidates=['memories/candidates/approved.md'])
+    stored = next((root / 'data/derived/wiki/.wiki-viva-protected/extraction-events').glob('*integration-packet.json'))
+    packet = json.loads(stored.read_text())
+    assert 'WIP Sentinel' not in json.dumps(packet)
+    assert packet['candidate_provenance'] == [{'path': 'memories/candidates/approved.md', 'revision': sha,
+        'blob': git(root, 'rev-parse', sha + ':memories/candidates/approved.md'),
+        'sha256': hashlib.sha256(approved_text.encode()).hexdigest()}]
+    assert any(page['page_id'] == 'approved-topic' for item in packet['entities'] for page in item['pages'])
+
+
+def test_consolidation_rechecks_candidate_boundary_before_writing(prepared_repo, monkeypatch):
+    import wiki_core.ingest.protected as protected
+    root, _ = prepared_repo
+    write(root, 'memories/candidates/approved.md', '---\npage_id: approved\npage_type: claim\n---\n# Approved\n')
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'approve candidate')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])
+    original = protected._approved_candidate_documents
+    def cross_boundary(*a, **kw):
+        docs = original(*a, **kw)
+        (root / 'memories/candidates/.git').mkdir()
+        return docs
+    monkeypatch.setattr(protected, '_approved_candidate_documents', cross_boundary)
+    target = ('memories/system/ingestion/events/2026-11-04-' +
+        hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    with pytest.raises(ValueError):
+        consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
+            event_target=target, date=dt.date(2026, 11, 4), candidates=['memories/candidates/approved.md'])
+    assert not (root / target).exists()
+    assert not list((root / 'data/derived/wiki/.wiki-viva-protected/extraction-events').glob('*integration-packet.json'))
+
+
+def test_consolidation_reports_partial_if_candidate_boundary_changes_after_write(prepared_repo, monkeypatch):
+    import wiki_core.ingest.protected as protected
+    root, _ = prepared_repo
+    write(root, 'memories/candidates/approved.md', '---\npage_id: approved\npage_type: claim\n---\n# Approved\n')
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'approve candidate')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])
+    original = protected._read_json
+    def cross_after_read(*a, **kw):
+        result = original(*a, **kw)
+        if a[3].name.endswith('-integration-packet.json'):
+            (root / 'memories/candidates/.git').mkdir()
+        return result
+    monkeypatch.setattr(protected, '_read_json', cross_after_read)
+    target = ('memories/system/ingestion/events/2026-11-04-' +
+        hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    with pytest.raises(protected.ProtectedPartialError):
+        consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
+            event_target=target, date=dt.date(2026, 11, 4), candidates=['memories/candidates/approved.md'])
+    assert (root / target).is_file()
+    assert list((root / 'data/derived/wiki/.wiki-viva-protected/extraction-events').glob('*integration-packet.json'))
 
 
 def test_nested_result_cannot_drop_integrator_before_read(prepared_repo, monkeypatch):

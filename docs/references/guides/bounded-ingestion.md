@@ -177,6 +177,11 @@ the matching ID and type and pass current policy; the paths grant no access.
 Skipped perspectives, unselected optional perspectives, linked sources and
 other gaps remain visible in packet coverage. Source frontmatter declaring a
 configuration or channel must match the selected context.
+Explicit candidates for protected consolidation are read from the approved
+commit, with each path, commit, Git blob and SHA-256 recorded in the integration
+packet. Unapproved working-tree edits do not influence candidate matching.
+Selected candidate boundaries and current authority are rechecked before
+effects and after readback; a late failure can leave partial artifacts.
 For independent Git evidence, `repository_source_pages` may explicitly map
 each host selection ID to its own authorized source page; the page locator
 must match the sanitized configured identity. This association does not grant

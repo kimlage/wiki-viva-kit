@@ -745,11 +745,14 @@ def build_event_markdown(
     return "\n".join(body)
 
 
-def _page_catalog(root: Path, config: WikiConfig, candidates: list[str] | None = None) -> dict[str, dict[str, object]]:
+def _page_catalog(root: Path, config: WikiConfig, candidates: list[str] | None = None,
+                  *, candidate_documents: dict | None = None) -> dict[str, dict[str, object]]:
     """Read the legacy catalog or the explicitly selected candidate files."""
     memory_root = root / config.paths["memory_root"]
     catalog: dict[str, dict[str, object]] = {}
     if candidates is None:
+        if candidate_documents is not None:
+            raise ValueError('candidate documents require explicit candidates')
         files = sorted(wiki_markdown_files(memory_root, wiki_root=root)) if memory_root.is_dir() else []
     else:
         from wiki_core.context_policy import safe_path
@@ -760,12 +763,15 @@ def _page_catalog(root: Path, config: WikiConfig, candidates: list[str] | None =
         refs = [safe_path(ref) for ref in candidates]
         if len(refs) != len(set(refs)):
             raise ValueError('duplicate candidate')
+        if candidate_documents is not None and (not isinstance(candidate_documents, dict)
+                or set(candidate_documents) != set(refs)):
+            raise ValueError('candidate documents unavailable')
         for ref in refs:
             require_wiki_path(root, ref)
         files = [root / ref for ref in refs]
-        if any(path.suffix.lower() != '.md' or not path.is_file() for path in files):
+        if any(path.suffix.lower() != '.md' or (candidate_documents is None and not path.is_file()) for path in files):
             raise ValueError('candidate unavailable')
-        if sum(path.stat().st_size for path in files) > 1_000_000:
+        if candidate_documents is None and sum(path.stat().st_size for path in files) > 1_000_000:
             raise ValueError('candidate budget exceeded')
     remaining = 1_000_000
     for md in files:
@@ -775,9 +781,23 @@ def _page_catalog(root: Path, config: WikiConfig, candidates: list[str] | None =
             from wiki_core.context_selection import _metadata
             from wiki_core.repo_read import contains_access_secrets
             from wiki_core.traversal import require_wiki_path
-            require_wiki_path(root, md.relative_to(root).as_posix())
-            with md.open('rb') as stream:
-                raw = stream.read(remaining + 1)
+            ref = md.relative_to(root).as_posix()
+            require_wiki_path(root, ref)
+            if candidate_documents is None:
+                with md.open('rb') as stream:
+                    raw = stream.read(remaining + 1)
+            else:
+                import hashlib
+                document = candidate_documents[ref]
+                if not isinstance(document, dict) or not isinstance(document.get('text'), str):
+                    raise ValueError('candidate unavailable')
+                raw = document['text'].encode('utf-8')
+                if (document.get('path') != ref or document.get('content_sha256') != hashlib.sha256(raw).hexdigest()
+                        or not isinstance(document.get('revision'), str)
+                        or re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', document['revision']) is None
+                        or not isinstance(document.get('blob'), str)
+                        or re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', document['blob']) is None):
+                    raise ValueError('candidate unavailable')
             if len(raw) > remaining:
                 raise ValueError('candidate budget exceeded')
             remaining -= len(raw)
@@ -809,10 +829,10 @@ def _keywords(text: str) -> set[str]:
 
 def build_packet(
     aggregated: dict[str, object], root: Path, config: WikiConfig, paths: WikiPaths,
-    *, candidates: list[str] | None = None,
+    *, candidates: list[str] | None = None, candidate_documents: dict | None = None,
 ) -> dict[str, object]:
-    """Integration packet: candidate targets and overlaps for the agent."""
-    catalog = _page_catalog(root, config, candidates)
+    """Build a packet; supplied candidate documents require caller authorization."""
+    catalog = _page_catalog(root, config, candidates, candidate_documents=candidate_documents)
     db_path = paths.indexes / "wiki.sqlite"
     packet_warnings: list[str] = ([] if candidates is None else
         ['Only explicit candidates were inspected; global catalog and FTS were not searched.'])
@@ -941,6 +961,9 @@ def build_packet(
            if aggregated.get('source_hash_sha256') else {}),
         **({'independent_git_sources': aggregated['independent_git_sources']}
            if aggregated.get('independent_git_sources') else {}),
+        **({'candidate_provenance': [{'path': ref, 'revision': candidate_documents[ref]['revision'],
+              'blob': candidate_documents[ref]['blob'], 'sha256': candidate_documents[ref]['content_sha256']}
+              for ref in candidates]} if candidate_documents is not None else {}),
         "root_impact": {
             "root_entity": root_entity,
             "input_channel": input_channel,
