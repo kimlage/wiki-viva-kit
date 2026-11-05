@@ -379,8 +379,8 @@ def main() -> int:
     parser.add_argument("--query")
     parser.add_argument("--context", required=True)
     parser.add_argument("--profile")
-    parser.add_argument("--approved-revision", help="Trusted local caller supplies current approved policy commit; this is not a remote access grant.")
-    parser.add_argument("--policy-context", help="Explicit manifest context for the approved-policy adapter.")
+    parser.add_argument("--approved-revision", help="Retired v1 option; use the folder source-stage.")
+    parser.add_argument("--policy-context", help="Retired v1 option; use the folder source-stage.")
     parser.add_argument("--folder", help="Local context folder relative to the wiki root; defaults to nested cwd.")
     parser.add_argument("--index", help="Selected context index relative to the wiki root; required for the root.")
     parser.add_argument("--repo", nargs=4, action="append", metavar=("ROOT", "IDENTITY", "REVISION", "PATH"),
@@ -412,6 +412,8 @@ def main() -> int:
     )
     parser.add_argument("--check", action="store_true", help="exit !=0 if there is a pending pass and required_context_pass")
     args = parser.parse_args()
+    if args.approved_revision is not None or args.policy_context is not None:
+        parser.error('new approved v1 ingestion is retired; use wiki_coordination.py --source-stage with a trusted host binding')
     if args.request is not None and (not args.request or not args.record_result or not args.source):
         parser.error('--request requires an exact path, source and result recording')
 
