@@ -10,6 +10,7 @@ from wiki_core.context_policy import load_policy, safe_path, PolicyError, revisi
 from wiki_core.context_packet import build_packet
 from wiki_core.context_integration import preflight
 from wiki_core.git_env import local_git_environment, local_git_executable
+from wiki_core.repo_host import RepositoryGrant
 
 class ProtectedCoordinationError(ValueError):
     def __init__(self, code='coordination_input_unavailable', status='pending'):
@@ -21,6 +22,7 @@ class CoordinationBinding:
     contexts: tuple[str,...]
     trusted_ref: str
     manifest: str='context.yaml'
+    repository_grants: tuple[RepositoryGrant,...]=()
 
     def __post_init__(self):
         if self.manifest not in ('context.yaml', 'wiki.config.yaml'): raise ValueError('invalid coordination manifest')
@@ -31,6 +33,12 @@ class CoordinationBinding:
             elif not re.fullmatch(r'[a-z0-9][a-z0-9/_-]*',context):
                 raise ValueError('invalid coordination host binding')
         if not isinstance(self.trusted_ref,str) or not re.fullmatch(r'refs/(?:heads|remotes)/[A-Za-z0-9][A-Za-z0-9/._-]*',self.trusted_ref) or '..' in self.trusted_ref: raise ValueError('invalid coordination trusted reference')
+        if (not isinstance(self.repository_grants, tuple) or len(self.repository_grants) > 32
+                or any(not isinstance(item, RepositoryGrant) for item in self.repository_grants)
+                or len({item.selection_id for item in self.repository_grants}) != len(self.repository_grants)
+                or any(item.executor not in self.contexts or item.integrator not in self.contexts for item in self.repository_grants)
+                or (self.repository_grants and self.manifest != 'wiki.config.yaml')):
+            raise ValueError('invalid coordination host binding')
 
     @classmethod
     def from_environment(cls, env: Mapping[str,str] | None=None):
@@ -141,7 +149,7 @@ def protected_source_stage(root, binding, stage, payload):
     are supplied as objects by the calling host rather than as unchecked paths.
     """
     common = {'context_id', 'approved_revision', 'entry_folder', 'entry_index', 'source_ref'}
-    optional = {'context_max_bytes', 'request_max_bytes', 'artifact_context'}
+    optional = {'context_max_bytes', 'request_max_bytes', 'artifact_context', 'repository_selection'}
     if stage == 'prepare':
         required, permitted = common | {'source_context'}, common | {'source_context'} | optional
     elif stage == 'record':

@@ -43,13 +43,15 @@ def _digest(value: Any) -> str:
 
 
 class RepositoryReader:
-    def __init__(self, root: Path | str, revision: str = 'HEAD'):
+    def __init__(self, root: Path | str, revision: str = 'HEAD', *, exact_path: str | None = None, before_tree=None):
         self.root = Path(root).resolve()
         if not isinstance(revision, str) or not revision or revision.startswith('-'):
             raise RepositoryReadError('invalid repository revision')
         self.revision = self._git('rev-parse', '--verify', f'{revision}^{{commit}}').decode().strip()
         try:
-            tree = local_git_tree(self.root, 'ls-tree', '-r', '-z', self.revision)
+            if before_tree is not None: before_tree()
+            selection = () if exact_path is None else ('--', ':(literal)' + canonical_path(exact_path))
+            tree = local_git_tree(self.root, 'ls-tree', '-r', '-z', self.revision, *selection)
         except GitSafetyError as exc:
             raise RepositoryReadError('repository tree enumeration unavailable or exceeded limit') from exc
         entries = tree.split(b'\0')

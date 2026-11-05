@@ -33,7 +33,12 @@ def _git(root: Path, *args: str) -> str:
 
 class _LocalRepositoryReader(RepositoryReader):
     """Disable lazy promisor fetches, replacement refs and environment redirection."""
+    def __init__(self, root, revision, *, exact_path=None, before_access=None):
+        self._before_access = before_access
+        super().__init__(root, revision, exact_path=exact_path, before_tree=before_access)
+
     def _git(self, *args: str) -> bytes:
+        if self._before_access is not None: self._before_access()
         result = subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(self.root), *args], capture_output=True,
                                 env=local_git_environment())
         if result.returncode:
@@ -122,21 +127,24 @@ def contains_access_secrets(value: object) -> bool:
     return False
 
 
-def _prepare_repo_read(root: Path, expected_identity: str, revision: str, path: str, *, max_bytes: int):
+def _prepare_repo_read(root: Path, expected_identity: str, revision: str, path: str, *, max_bytes: int, before_access=None):
     """Validate repository metadata and blob size before opening its body."""
     if type(max_bytes) is not int or not 1 <= max_bytes <= _MAX_BLOB_BYTES:
         raise RepoReadError('invalid_repository_byte_limit')
+    if before_access is not None: before_access()
     root = Path(root).expanduser()
     if not root.is_dir():
         raise RepoReadError('repository_missing')
     root = root.resolve()
     try:
+        if before_access is not None: before_access()
         actual_root = Path(_git(root, 'rev-parse', '--show-toplevel')).resolve()
     except RepoReadError as exc:
         raise RepoReadError('git_repository_unavailable') from exc
     if actual_root != root:
         raise RepoReadError('repository_root_mismatch')
     try:
+        if before_access is not None: before_access()
         remotes = _git(root, 'remote', 'get-url', '--all', 'origin').splitlines()
     except RepoReadError as exc:
         raise RepoReadError('origin_remote_unavailable') from exc
@@ -147,7 +155,7 @@ def _prepare_repo_read(root: Path, expected_identity: str, revision: str, path: 
         raise RepoReadError('repository_identity_mismatch')
     try:
         normalized = canonical_path(path)
-        reader = _LocalRepositoryReader(root, revision)
+        reader = _LocalRepositoryReader(root, revision, exact_path=normalized, before_access=before_access)
         if normalized not in reader.paths:
             raise RepoReadError('repository_path_missing_or_unsupported')
         size = reader.blob_size(normalized)
@@ -175,6 +183,7 @@ def _read_prepared_repo(prepared, *, section=None, field=None):
     }
     if contains_access_secrets(result):
         raise RepoReadError('selected_content_contains_access_secrets')
+    if reader._before_access is not None: reader._before_access()
     return result
 
 
