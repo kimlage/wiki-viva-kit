@@ -194,6 +194,13 @@ already be permitted under the current policy; the example does not create
 those grants. It explicitly omits the business root; the resulting coverage
 gap must be resolved before a task that needs that context can be decided.
 `prepare` returns a request plus `source_id` and `request_id`.
+The returned request is a point-in-time projection: each selected cache key is
+read under the current binding and checked against the source and request.
+`result_exists`, source/chunk provenance and call counts reflect that readback;
+the retained request is unchanged and has the same request ID. A malformed or
+inaccessible result stops readback instead of being reported as a cache miss.
+If that happens, previously written artifacts may remain. Cache availability
+is not a review or an incorporation, and can change after the response.
 Read the complete request and supply the results explicitly. For `record`,
 the JSON repeats `entry_folder`, `entry_index`, `source_ref`, `source_id` and
 `request_id`, and adds a `results` array bound to the request. For `consolidate`,

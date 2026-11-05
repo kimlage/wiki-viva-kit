@@ -601,7 +601,48 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             raise ValueError('request differs after write')
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
-    return {'source_id': source_id, 'request_id': request_id, 'request': request,
+    # The retained request is immutable.  Project only exact authorized cache
+    # keys into the response, and revalidate both authority and source around
+    # every attempted open.  A corrupt result is not evidence of a cache miss.
+    options = dict(context_id=context_id, approved_revision=approved_revision,
+        entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
+        source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
+        request_max_bytes=request_max_bytes, artifact_context=artifact_context,
+        perspective_refs=perspective_refs, context_selection=context_selection,
+        repository_selection=repository_selection)
+    response_request = copy.deepcopy(request)
+    try:
+        from wiki_core.llm.context_pass import validate_result
+        missing = object()
+        for row in response_request['chunks']:
+            root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
+            if current != request or current_digest != source_digest:
+                raise ValueError('request authority changed')
+            target = paths.llm_cache / (row['cache_key'] + '.json')
+            try:
+                result = _read_json(root, policy, actor, target)
+            except FileNotFoundError:
+                result = missing
+            root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
+            if current != request or current_digest != source_digest:
+                raise ValueError('request authority changed')
+            if result is not missing:
+                if (contains_access_secrets(result) or validate_result(result)
+                        or not result_matches_request(result, request, row)):
+                    raise ValueError('recorded result unavailable')
+                row['result_exists'] = True
+                row['result_source_id'] = result.get('source_id')
+                row['result_chunk_id'] = result.get('chunk_id')
+                response_request['cached_calls'] += 1
+                response_request['pending_llm_calls'] -= 1
+        enforce_request_budget(response_request, context_max_bytes=context_max_bytes,
+                               request_max_bytes=request_max_bytes)
+        if len(canonical_request_text(response_request).encode('utf-8')) > 2_000_000:
+            raise ValueError('request exceeds protected response limit')
+    except (ValueError, OSError, UnicodeError) as exc:
+        raise ProtectedPartialError('cache readback unavailable; partial effects may exist; inspect before retry') from exc
+    return {'source_id': source_id, 'request_id': request_id, 'request': response_request,
+            'cache_readback': 'exact authorized keys at response time; retained request is unchanged',
             'coverage': projected['context_omissions'],
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
