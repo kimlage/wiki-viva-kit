@@ -67,10 +67,27 @@ def _scoped_stage(operation):
     return invoke
 
 
-def _format_omissions(source_ref):
+def _csv_delimiter(source_ref, selection):
+    if selection is not None and (Path(source_ref).suffix.lower() != '.csv'
+            or not isinstance(selection, str) or selection not in {'comma', 'semicolon', 'tab'}):
+        raise ValueError('CSV delimiter selection unavailable')
+    return selection
+
+
+def _format_omissions(source_ref, csv_delimiter=None):
     suffix = Path(source_ref).suffix.lower()
+    csv_delimiter = _csv_delimiter(source_ref, csv_delimiter)
+    csv_notice = ('CSV is parsed with the comma-delimited Python excel dialect; the source dialect is not inferred or verified. '
+                  'A semicolon-delimited or differently quoted file can be misread; confirm the source format before relying on columns.')
+    if csv_delimiter is not None:
+        csv_notice = (f'CSV uses the explicitly selected {csv_delimiter} delimiter with Python excel quoting; '
+                      'the source dialect is not independently verified. Confirm quoting and format before relying on columns.')
     limitations = {
-        '.pdf': 'PDF images and scanned text were not inspected; OCR was not performed.',
+        '.pdf': ('PDF images and scanned text were not inspected; OCR was not performed. '
+                 'Extracted text and request chunks do not retain page numbers; consult the original PDF for page locations.'),
+        '.csv': csv_notice,
+        '.tsv': ('TSV is parsed with the tab-delimited Python excel-tab dialect; the source dialect is not inferred or verified. '
+                 'A file using other separators or quoting can be misread; confirm the source format before relying on columns.'),
         '.docx': 'Document headers, footers, images, embedded objects, hyperlink destinations and comments were not inspected.',
         '.xlsx': 'Spreadsheet drawings, embedded objects, macro behavior and formula recalculation were not inspected.',
         '.eml': 'Email visual rendering and external resources were not inspected.',
@@ -181,14 +198,16 @@ def _hash(path, policy):
     return digest.hexdigest()
 
 
-def _capture(root, policy, context_id, source_ref, source_context, config, artifact_context=None, *, expected_digest=None):
+def _capture(root, policy, context_id, source_ref, source_context, config, artifact_context=None, *,
+             expected_digest=None, csv_delimiter=None):
     if (not isinstance(source_context, str) or not source_context.strip() or len(source_context) > 1024
             or contains_access_secrets(source_context)):
         raise ValueError('source context unavailable')
+    csv_delimiter = _csv_delimiter(source_ref, csv_delimiter)
     source = _source(root, policy, context_id, source_ref, artifact_context)
     cache = _STAGE_CACHE.get()
     key = ((str(root), policy.policy_revision, context_id, source_ref, source_context, artifact_context,
-            config.llm.get('chunk_target_tokens', 1200), config.llm.get('chunk_overlap_tokens', 150))
+            config.llm.get('chunk_target_tokens', 1200), config.llm.get('chunk_overlap_tokens', 150), csv_delimiter)
            if cache is not None else None)
     if cache is not None and expected_digest is not None and key in cache['captures']:
         captured = cache['captures'][key]
@@ -211,7 +230,8 @@ def _capture(root, policy, context_id, source_ref, source_context, config, artif
     digest = hashlib.sha256(data).hexdigest()
     if expected_digest is not None and digest != expected_digest:
         raise ValueError('source changed')
-    extracted = extract_captured(str(source), source_type, data)
+    extracted = (extract_captured(str(source), source_type, data) if csv_delimiter is None else
+                 extract_captured(str(source), source_type, data, csv_delimiter=csv_delimiter))
     policy.fresh()
     manifest = {'schema_version': 'wiki_source_manifest.v1', 'source_uri': str(source),
         'source_origin': source_origin(str(source), root), 'source_type': source_type,
@@ -220,8 +240,10 @@ def _capture(root, policy, context_id, source_ref, source_context, config, artif
         'privacy_policy': 'extract_private_operational_context_without_access_secrets',
         'absolute_path': str(source), 'exists': True, 'mime_type': mimetypes.guess_type(str(source))[0],
         'source_id': source_id_for(str(source), digest, root=root), 'hash_sha256': digest, 'size_bytes': len(data),
-        'extraction_limitations': _format_omissions(source_ref),
-        'extraction_complete': not bool(_format_omissions(source_ref))}
+        'extraction_limitations': _format_omissions(source_ref, csv_delimiter),
+        'extraction_complete': not bool(_format_omissions(source_ref, csv_delimiter))}
+    if csv_delimiter is not None:
+        manifest['csv_delimiter'] = csv_delimiter
     # Enforce bounded atomic rows before scanning: a long unbroken row must
     # not spend unbounded time in text detectors and cannot be split safely.
     chunks = [{'chunk_id': c.chunk_id, 'ordinal': c.ordinal, 'hash_sha256': c.hash_sha256,
@@ -338,7 +360,8 @@ def _check_perspective_packet(packet, paths):
 
 
 def _selected_packet(root, policy, config, context_id, actor, revision, folder, index,
-                     budget, task_id, selection, perspective_refs, source_ref, repository_selection):
+                     budget, task_id, selection, perspective_refs, source_ref, repository_selection,
+                     csv_delimiter=None):
     from wiki_core.ingest.explicit_context import (explicit_ingestion_evidence,
         resolve_explicit_ingestion_context, _selection)
     selection = _selection(selection)
@@ -349,7 +372,7 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
     key = canonical_request_text({'root': str(root), 'revision': revision, 'context_id': context_id,
         'actor': actor, 'folder': folder, 'index': index, 'budget': budget, 'task_id': task_id,
         'selection': selection, 'perspective_refs': perspective_refs, 'source_ref': source_ref,
-        'repository_selection': repo_ids})
+        'repository_selection': repo_ids, 'csv_delimiter': csv_delimiter})
     if cache is not None and key in cache['packets']:
         policy.fresh()
         _check_physical_context(root, folder, cache['context_paths'].get(str(root), (set(), set())))
@@ -370,7 +393,7 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
                      for item in projected['perspectives_optional'] if item not in paths]
     optional_gaps += ['Repository source page for ' + item + ' not selected; association unverified.'
                       for item in repo_ids if item not in selection['repository_source_pages']]
-    format_gaps = _format_omissions(source_ref)
+    format_gaps = _format_omissions(source_ref, csv_delimiter)
     if lenses:
         packet = build(evidence + lenses, projected['context_omissions'] + optional_gaps + format_gaps)
     else:
@@ -465,12 +488,12 @@ def _capture_matches(root, policy, context_id, paths, manifest, extracted, chunk
     if not all(present):
         raise ValueError('existing source capture incomplete; preserved')
     old_manifest, old_text, old_chunks = [_read_json(root, policy, context_id, p, max_bytes=20_000_000) for p in files]
-    limitations = _format_omissions(manifest['source_uri'])
+    limitations = _format_omissions(manifest['source_uri'], manifest.get('csv_delimiter'))
     expected = chunk_document(manifest, chunks, warnings=limitations)
     expected['extraction_limitations'] = limitations
     if (not all(isinstance(item, dict) for item in (old_manifest, old_text, old_chunks))
             or any(old_manifest.get(k) != manifest.get(k) for k in
-                   ('schema_version', 'source_id', 'source_origin', 'source_type', 'hash_sha256',
+                   ('schema_version', 'source_id', 'source_origin', 'source_type', 'hash_sha256', 'csv_delimiter',
                     'extraction_complete', 'extraction_limitations'))
             or any(old_chunks.get(k) != expected.get(k) for k in
                    ('schema_version', 'source_id', 'source_hash_sha256', 'source_origin_id', 'extraction_complete',
@@ -507,9 +530,11 @@ def _write_once(root, policy, context_id, path, value, *, compact=False):
 
 def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
             source_ref, source_context, context_max_bytes=100_000, request_max_bytes=1_000_000,
-            artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None):
+            artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None,
+            csv_delimiter=None):
     """Capture one authorized source and emit its bound contextual request."""
     request_limits(context_max_bytes, request_max_bytes)
+    csv_delimiter = _csv_delimiter(source_ref, csv_delimiter)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
         entry_folder, entry_index, context_max_bytes, actor)
@@ -517,16 +542,18 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     require_approved_prompt_version(prompt, folder=True)
     _, projected, selection, required, optional, selected_perspectives = _selected_packet(
         root, policy, config, context_id, actor, approved_revision, entry_folder, entry_index,
-        context_max_bytes, 'source-selection-preflight', context_selection, perspective_refs, source_ref, repository_selection)
+        context_max_bytes, 'source-selection-preflight', context_selection, perspective_refs, source_ref, repository_selection,
+        csv_delimiter)
     _check_repository_grant_associations(projected, binding, policy, context_id, actor, repository_selection)
     repository_context = _repository(binding, policy, context_id, actor, repository_selection)
     _check_repository_associations(projected, repository_context)
     source, source_digest, manifest, extracted, chunks = _capture(root, policy, context_id,
-        source_ref, source_context, config, actor)
+        source_ref, source_context, config, actor, csv_delimiter=csv_delimiter)
     _validate_source_context(extracted, projected)
     packet, projected, selection, required, optional, selected_perspectives = _selected_packet(
         root, policy, config, context_id, actor, approved_revision, entry_folder, entry_index,
-        context_max_bytes, str(manifest['source_id']), context_selection, perspective_refs, source_ref, repository_selection)
+        context_max_bytes, str(manifest['source_id']), context_selection, perspective_refs, source_ref, repository_selection,
+        csv_delimiter)
     auth = {'ref': source_ref, 'producer': policy.owner_of(source_ref), 'context_id': context_id,
         'policy_revision': approved_revision, 'use': 'interpretation', 'classification': 'source',
         'artifact_context': actor, 'context_selection': selection,
@@ -534,6 +561,8 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             'source_config_association', 'input_channel_association')}}
     if selected_perspectives:
         auth['perspective_refs'] = selected_perspectives
+    if csv_delimiter is not None:
+        auth['csv_delimiter'] = csv_delimiter
     profile = str(config.llm.get('default_model_profile', 'deep_context'))
     # An empty temporary cache avoids opening any stored cache before the exact
     # keys have been checked against the policy.
@@ -551,7 +580,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     if len(canonical_request_text(request).encode('utf-8')) > 2_000_000:
         raise ValueError('request exceeds protected retention limit')
     source_id = str(manifest['source_id'])
-    limitations = _format_omissions(source_ref)
+    limitations = _format_omissions(source_ref, csv_delimiter)
     text_document = {'schema_version': 'wiki_extracted_text.v1', 'source_id': source_id, 'source_uri': str(source),
         'source_type': manifest['source_type'], 'context': source_context, 'warnings': limitations + list(extracted.warnings),
         'text_characters': len(extracted.text), 'units': extracted.units}
@@ -614,7 +643,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
         request_max_bytes=request_max_bytes, artifact_context=artifact_context,
         perspective_refs=perspective_refs, context_selection=context_selection,
-        repository_selection=repository_selection)
+        repository_selection=repository_selection, csv_delimiter=csv_delimiter)
     response_request = copy.deepcopy(request)
     try:
         from wiki_core.llm.context_pass import validate_result
@@ -727,13 +756,16 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
 
 def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
                 source_ref, source_id, request_id, context_max_bytes, request_max_bytes,
-                artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None):
+                artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None,
+                csv_delimiter=None):
+    csv_delimiter = _csv_delimiter(source_ref, csv_delimiter)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
         entry_folder, entry_index, context_max_bytes, actor)
     current, projected, selection, required, optional, selected_perspectives = _selected_packet(
         root, policy, config, context_id, actor, approved_revision, entry_folder, entry_index,
-        context_max_bytes, source_id, context_selection, perspective_refs, source_ref, repository_selection)
+        context_max_bytes, source_id, context_selection, perspective_refs, source_ref, repository_selection,
+        csv_delimiter)
     _check_repository_grant_associations(projected, binding, policy, context_id, actor, repository_selection)
     repository_context = _repository(binding, policy, context_id, actor, repository_selection)
     _check_repository_associations(projected, repository_context)
@@ -761,6 +793,8 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
                     'source_config_association', 'input_channel_association')}}
     if selected_perspectives:
         expected_auth['perspective_refs'] = selected_perspectives
+    if csv_delimiter is not None:
+        expected_auth['csv_delimiter'] = csv_delimiter
     if auth != expected_auth:
         raise ValueError('request unavailable')
     packet = request.get('block_context_package')
@@ -771,7 +805,8 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
     # A request filename and digest bind bytes; they do not prove that those
     # chunks came from the selected source. Reconstruct the selected capture.
     _source_path, observed_hash, manifest, extracted, chunks = _capture(root, policy, context_id,
-        source_ref, request.get('source_context'), config, actor, expected_digest=digest)
+        source_ref, request.get('source_context'), config, actor, expected_digest=digest,
+        csv_delimiter=csv_delimiter)
     _validate_source_context(extracted, projected)
     if observed_hash != digest or manifest.get('source_id') != source_id:
         raise ValueError('request source changed')
@@ -793,13 +828,13 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
 def record(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
            source_ref, source_id, request_id, results,
            context_max_bytes=100_000, request_max_bytes=1_000_000, artifact_context=None, perspective_refs=None,
-           context_selection=None, repository_selection=None):
+           context_selection=None, repository_selection=None, csv_delimiter=None):
     """Record host-supplied result objects against the exact retained request."""
     options = dict(context_id=context_id, approved_revision=approved_revision,
         entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
         source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
         request_max_bytes=request_max_bytes, artifact_context=artifact_context, perspective_refs=perspective_refs,
-        context_selection=context_selection, repository_selection=repository_selection)
+        context_selection=context_selection, repository_selection=repository_selection, csv_delimiter=csv_delimiter)
     actor = context_id if artifact_context is None else artifact_context
     # Qualify the explicit selection and associations before opening any
     # independent repository; its retained context also determines the path.
@@ -902,7 +937,7 @@ def compare_repositories(root, binding, *, context_id, approved_revision, entry_
                          source_ref, source_id, request_id, repository_selection,
                          previous_repository_selection, current_repository_selection, source_page, candidates,
                          context_selection=None, perspective_refs=None, artifact_context=None,
-                         context_max_bytes=100_000, request_max_bytes=1_000_000):
+                         context_max_bytes=100_000, request_max_bytes=1_000_000, csv_delimiter=None):
     """Compare explicitly authorized revisions; report suggestions, never effects or consumption."""
     from wiki_core.consolidate import compare_repository_candidates
     from wiki_core.context_selection import _metadata
@@ -951,7 +986,8 @@ def compare_repositories(root, binding, *, context_id, approved_revision, entry_
     options = dict(context_id=context_id, approved_revision=approved_revision, entry_folder=entry_folder,
         entry_index=entry_index, source_ref=source_ref, source_id=source_id, request_id=request_id,
         context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes, artifact_context=artifact_context,
-        perspective_refs=perspective_refs, context_selection=context_selection, repository_selection=repository_selection)
+        perspective_refs=perspective_refs, context_selection=context_selection, repository_selection=repository_selection,
+        csv_delimiter=csv_delimiter)
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     retained = request.get('repository_context')
     rows = retained if isinstance(retained, list) else [retained]
@@ -1057,14 +1093,15 @@ def _revalidate_candidate_scopes(root, policy, context_id, actor, refs):
 def consolidate(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
                 source_ref, source_id, request_id, source_page, event_target, date,
                 candidates=(), context_max_bytes=100_000, request_max_bytes=1_000_000,
-                artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None):
+                artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None,
+                csv_delimiter=None):
     """Prepare an event and packet; incorporation and review remain separate."""
     from wiki_core.consolidate import aggregate_results, build_event_markdown, build_packet
     options = dict(context_id=context_id, approved_revision=approved_revision,
         entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
         source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
         request_max_bytes=request_max_bytes, artifact_context=artifact_context, perspective_refs=perspective_refs,
-        context_selection=context_selection, repository_selection=repository_selection)
+        context_selection=context_selection, repository_selection=repository_selection, csv_delimiter=csv_delimiter)
     actor = context_id if artifact_context is None else artifact_context
     if repository_selection is not None:
         _, authority, _, _ = _authority(root, binding, context_id, approved_revision,
@@ -1145,7 +1182,8 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         protected_provenance={'source_locator': source_ref, 'policy_revision': approved_revision,
             'executor_context': context_id, 'integrator_context': actor,
             'source_page_association': 'operator_selected_unverified',
-            'extraction_limitations': _format_omissions(source_ref)},
+            'extraction_limitations': _format_omissions(source_ref, csv_delimiter),
+            **({'csv_delimiter': csv_delimiter} if csv_delimiter is not None else {})},
         impact=dict(packet.get('impact') or {}))
     if contains_access_secrets([packet, markdown]):
         raise ValueError('output unavailable')
@@ -1210,7 +1248,8 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
 def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
             source_ref, source_id, request_id, view, chunk_ids=None, candidates=None,
             max_output_bytes=1_000_000, context_max_bytes=100_000, request_max_bytes=1_000_000,
-            artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None):
+            artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None,
+            csv_delimiter=None):
     """Read explicitly selected, requalified protected results or a retained proposal."""
     from wiki_core.consolidate import aggregate_results, build_packet
     from wiki_core.llm.context_pass import validate_result
@@ -1235,7 +1274,7 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
         source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
         request_max_bytes=request_max_bytes, artifact_context=artifact_context, perspective_refs=perspective_refs,
-        context_selection=context_selection, repository_selection=repository_selection)
+        context_selection=context_selection, repository_selection=repository_selection, csv_delimiter=csv_delimiter)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     repository_context = request.get('repository_context')

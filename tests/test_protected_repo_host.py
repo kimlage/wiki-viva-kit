@@ -288,6 +288,36 @@ def test_two_explicit_repositories_share_one_bound_request(configured):
         assert outcome['candidates'][0]['file_consumption'] == 'unknown'
 
 
+def test_repository_comparison_revalidates_explicit_csv_delimiter(configured):
+    from wiki_core.ingest.protected import compare_repositories
+
+    root, _external, binding, args = configured
+    source_page = 'memories/sources/synthetic.md'
+    write(root, source_page, '---\npage_id: source-synthetic\npage_type: source\nplatform: repo\n'
+        'source_locator: example.test/team/independent\n---\n# Source\n')
+    write(root, 'memories/candidate.md', '---\npage_id: candidate\npage_type: note\n---\n# Candidate\n')
+    git(root, 'add', source_page, 'memories/candidate.md')
+    git(root, 'commit', '-qm', 'select source and candidate')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    write(root, 'source.csv', 'name;value\nitem;3\n')
+    args = {**args, 'approved_revision': git(root, 'rev-parse', 'HEAD'), 'source_ref': 'source.csv',
+            'csv_delimiter': 'semicolon',
+            'context_selection': {'omit_root_entity': True, 'source_page': source_page}}
+    prepared = prepare(root, binding, **args, source_context='system')
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    assert record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])['recorded'] == 1
+    current = replace(binding.repository_grants[0], selection_id='current')
+    host = CoordinationBinding(binding.contexts, binding.trusted_ref, binding.manifest,
+                               (*binding.repository_grants, current))
+    options = {**args, **ids, 'previous_repository_selection': 'guide',
+               'current_repository_selection': 'current', 'source_page': source_page,
+               'candidates': ['memories/candidate.md']}
+    with pytest.raises(ValueError):
+        compare_repositories(root, host, **{**options, 'csv_delimiter': 'comma'})
+    outcome = compare_repositories(root, host, **options)
+    assert not outcome['repository_comparison']['changed']
+
+
 def test_protected_repo_comparison_only_suggests_selected_relevant_changes(configured, monkeypatch):
     from wiki_core.ingest.protected import compare_repositories
     root, external, binding, args = configured

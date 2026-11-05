@@ -76,7 +76,7 @@ def _tabular_json_line(value):
     return text
 
 
-def _extract_csv_stream(handle, suffix: str, *, bounded: bool = False):
+def _extract_csv_stream(handle, suffix: str, *, bounded: bool = False, delimiter: str | None = None):
     rows: list[str] = []
     units: list[dict[str, object]] = []
     dialect = "excel-tab" if suffix.lower() == ".tsv" else "excel"
@@ -85,6 +85,8 @@ def _extract_csv_stream(handle, suffix: str, *, bounded: bool = False):
     # than silently joining logical records. Legacy extraction keeps its
     # existing permissive dialect for historical compatibility.
     options = {'strict': True} if bounded else {}
+    if delimiter is not None:
+        options['delimiter'] = delimiter
     for index, row in enumerate(csv.reader(handle, dialect=dialect, **options), start=1):
         line = (_tabular_json_line({'record': index, 'cells': row}) if bounded
                 else " | ".join(row))
@@ -434,11 +436,15 @@ def _extract_pdf_bytes(data: bytes):
     return output, [{'unit_id': 'pdf-full-text', 'kind': 'pdf_text', 'text': output}], ([] if output.strip() else ['empty_text_extraction'])
 
 
-def extract_captured(source: str, source_type: str, data: bytes) -> ExtractedDocument:
+def extract_captured(source: str, source_type: str, data: bytes, *, csv_delimiter: str | None = None) -> ExtractedDocument:
     """Extract authorized captured bytes; never reopen or stage the source path."""
     if not isinstance(data, bytes) or len(data) > 16_000_000:
         raise ValueError('source unavailable')
     suffix = Path(source).suffix.lower()
+    delimiters = {'comma': ',', 'semicolon': ';', 'tab': '\t'}
+    if csv_delimiter is not None and (source_type != 'table' or suffix != '.csv'
+            or not isinstance(csv_delimiter, str) or csv_delimiter not in delimiters):
+        raise ValueError('CSV delimiter selection unavailable')
     try:
         if source_type == 'markdown' and suffix in {'.md', '.markdown', '.txt'}:
             if b'\x00' in data:
@@ -449,7 +455,8 @@ def extract_captured(source: str, source_type: str, data: bytes) -> ExtractedDoc
             if b'\x00' in data:
                 raise ValueError('source unavailable')
             stream = io.StringIO(data.decode('utf-8', errors='strict'), newline='')
-            text, units, warnings = _extract_csv_stream(stream, suffix, bounded=True)
+            text, units, warnings = _extract_csv_stream(stream, suffix, bounded=True,
+                delimiter=None if csv_delimiter is None else delimiters[csv_delimiter])
         elif source_type == 'spreadsheet' and suffix == '.xlsx':
             _check_office_archive(data)
             text, units, warnings = _extract_xlsx_captured(data)
