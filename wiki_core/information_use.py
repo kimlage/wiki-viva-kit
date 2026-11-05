@@ -316,10 +316,11 @@ def bind_normative_coverage(root, graph, policy, context_id, *, head):
     import subprocess
     import re
     from pathlib import Path
-    from wiki_core.context_normative import normative_history
+    from wiki_core.context_normative import normative_history, folder_normative_changed
     from wiki_core.context_policy import PolicyError, is_context_instruction
     from wiki_core.detectors import scan_text
     from wiki_core.information_relations import information_requirements
+    from wiki_core.context_packet import guarded_context_read
     from wiki_core.repository_reader import RepositoryReader
     policy=policy.fresh()
     folder_mode = getattr(policy, 'format_version', None) == 'folder'
@@ -350,7 +351,15 @@ def bind_normative_coverage(root, graph, policy, context_id, *, head):
         try:
             if policy.owner_of(target)!=context_id or not policy.permits(context_id,'read',target): continue
             if req.get('target')!=source or req.get('fields')!=['*'] or req.get('temporal')!='current' or req.get('use')!='normative': continue
-            if not normative_history(policy,context_id,source,req['consumed_revision'],authority_format=req.get('authority_format'),entry_folder=req.get('entry_folder'),entry_index=req.get('entry_index')): continue
+            if not normative_history(policy,context_id,source,req['consumed_revision'],authority_format=req.get('authority_format'),entry_folder=req.get('entry_folder'),entry_index=req.get('entry_index')):
+                if folder_mode and req.get('authority_format') == 'folder':
+                    approved=guarded_context_read(reader,policy,target)
+                    declared=information_requirements(approved['frontmatter'],lambda ref:[ref])
+                    if (req in declared and folder_normative_changed(policy, context_id, source,
+                            req['consumed_revision'], entry_folder=req.get('entry_folder'),
+                            entry_index=req.get('entry_index'))):
+                        coverage[key]='changed'
+                continue
             if folder_mode:
                 selected = policy._folder_qualifications.get((context_id, req['entry_folder'], req['entry_index']))
                 if not selected: continue
@@ -370,7 +379,6 @@ def bind_normative_coverage(root, graph, policy, context_id, *, head):
             metadata=_normative_metadata_unchanged(root,source,policy.policy_revision,head)
             if metadata=='changed': coverage[key]='changed'; continue
             if metadata!='equivalent': continue
-            from wiki_core.context_packet import guarded_context_read
             approved=guarded_context_read(reader,policy,target)
             declared=information_requirements(approved['frontmatter'],lambda ref:[ref])
             if req not in declared: continue

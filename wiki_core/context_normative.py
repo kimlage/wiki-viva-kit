@@ -42,3 +42,52 @@ def normative_history(policy, context, ref, revision, *, authority_format=None, 
         return normative_allowed(prior, context, ref) and prior.owner_of(ref) == policy.owner_of(ref)
     except (PolicyError, KeyError, ValueError):
         return False
+
+
+def folder_normative_changed(policy, context, ref, revision, *, entry_folder, entry_index):
+    """Identify a changed consumed instruction without granting historical access.
+
+    This reports only a proved change to an instruction that is in the current
+    qualified physical chain and was authorized at both revisions. Ambiguous
+    historical override precedence, changed owners or missing evidence remain
+    unqualified; they do not become a change claim.
+    """
+    from pathlib import Path, PurePosixPath
+    from wiki_core.context_packet import guarded_context_read
+    from wiki_core.detectors import scan_text
+    from wiki_core.repository_reader import RepositoryReader
+    try:
+        if getattr(policy, 'format_version', None) != 'folder' or not getattr(policy, '_binding', None):
+            return False
+        selected = policy._folder_qualifications.get((context, entry_folder, entry_index))
+        if not selected or ref not in selected['refs'] or not selected['nonempty'].get(ref): return False
+        prior = historical_policy(policy, revision, authority_format='folder')
+        if (context not in prior.contexts or
+                [c['id'] for c in prior.lineage(context)] != [c['id'] for c in policy.lineage(context)] or
+                (entry_folder != '.' and prior.owner_of(entry_folder) != context) or
+                entry_index not in prior._folder_names):
+            return False
+        producer = policy.owner_of(ref)
+        if (prior.owner_of(ref) != producer or
+                prior.contexts[producer]['owner'] != policy.contexts[producer]['owner'] or
+                policy.connection(producer, context, ref, 'interpretation', 'context') != 'approved' or
+                prior._connection(producer, context, ref, 'interpretation', 'context', qualified=False) != 'approved'):
+            return False
+        parent = str(PurePosixPath(ref).parent)
+        if parent != '.' and not within(entry_folder, parent): return False
+        # A historical nonempty override could have displaced the ordinary
+        # instruction. Do not guess which text was actually consumed.
+        override = ('AGENTS.override.md' if parent == '.' else parent + '/AGENTS.override.md')
+        if PurePosixPath(ref).name == 'AGENTS.md' and override in prior._folder_names: return False
+        root = Path(policy._binding[0])
+        old_reader = RepositoryReader(root, revision)
+        new_reader = RepositoryReader(root, policy.policy_revision)
+        if ref not in old_reader._entries or ref not in new_reader._entries: return False
+        if old_reader._entries[ref] == new_reader._entries[ref]: return False
+        old_text = guarded_context_read(old_reader, policy, ref)['text']
+        if not old_text.strip() or any(item.category == 'secret' for item in scan_text(old_text)):
+            return False
+        policy.fresh()
+        return True
+    except (PolicyError, KeyError, ValueError, OSError, TypeError):
+        return False
