@@ -19,7 +19,7 @@ from wiki_core.repository_reader import RepositoryReader
 from wiki_core.information_relations import authored_graph, dependency_edges
 from wiki_core.information_use import assess_information_use
 from wiki_core.config import load_config
-from tests.test_coordination_protected import bound_server
+from tests.test_coordination_protected import bound_server, folderize
 from wiki_core.web.admin.sessions import ADMIN_SESSION_HEADER
 
 BASE=Path(__file__).resolve().parents[1]
@@ -60,7 +60,8 @@ def requirement(p):
     r=p['query_selections'][0]; e=r['request']
     return {'target':e['target'],'fields':['*'],'temporal':'current','max_age_days':30,'consumed_revision':r['revision'],
         'use':e['use'],'classification':e['classification'],'query':e['query'],'members_digest':r['members_digest'],'selected_digest':r['selected_digest'],
-        'query_policy_revision':r['policy_revision'],'authority_digest':r['authority_digest']}
+        'query_policy_revision':r['policy_revision'],'authority_digest':r['authority_digest'],
+        **{key: r[key] for key in ('authority_format', 'entry_folder', 'entry_index') if key in r}}
 
 def declare(root, req):
     (root/'finance/costs/result.md').write_text('---\n'+yaml.safe_dump({'page_id':'cost-result','page_type':'claim','information_requirements':[req]})+'---\nInterpretation.\n')
@@ -246,18 +247,22 @@ def test_policy_reference_changes_during_composition_fail_closed(collection,monk
 def test_real_protected_cli_http_preflight_and_canonical_revalidation(collection,bound_server,tmp_path):
     srv,token=bound_server;root=collection;sha=git(root,'rev-parse','HEAD');headers={ADMIN_SESSION_HEADER:token}
     task={**TASK,'max_bytes':50000,'evidence':[],'queries':[query()]}
-    payload={'context_id':'costs','approved_revision':sha,'content_revision':sha,'task':task}
+    payload={'context_id':'finance/costs','approved_revision':sha,'content_revision':sha,
+             'entry_folder':'finance/costs','entry_index':'finance/costs/index.md','task':task}
     assert srv.post('/api/coordination/protected/packet',payload,headers={})[0]==403
     status,response=srv.post('/api/coordination/protected/packet',payload,headers=headers)
     assert status==200;p=response['packet'];taskfile=tmp_path.parent/(tmp_path.name+'-query-request.json');taskfile.write_text(json.dumps(task))
-    cmd=[sys.executable,str(BASE/'scripts/wiki_coordination.py'),'--root',str(root),'--context-id','costs','--approved-revision',sha,'--revision',sha,'--packet-request',str(taskfile)]
+    cmd=[sys.executable,str(BASE/'scripts/wiki_coordination.py'),'--root',str(root),'--context-id','finance/costs','--approved-revision',sha,'--revision',sha,'--packet-request',str(taskfile),'--folder','finance/costs','--index','finance/costs/index.md']
     assert json.loads(subprocess.check_output(cmd))['packet']==p
     empty=deepcopy(payload);empty['task']['queries']=[query(filters={'status':'absent'})]
     status,body=srv.post('/api/coordination/protected/packet',empty,headers=headers)
     assert status==200 and body['packet']['query_selections'][0]['members']==[]
     git(root,'checkout','-qb','wiki/http-query');declare(root,requirement(p));git(root,'add','.');git(root,'commit','-qm','canonical interpretation');head=git(root,'rev-parse','HEAD')
     done=result(p,[{'path':'finance/costs/result.md','action':'modified'}])
-    check={'context_id':'costs','approved_revision':sha,'base':sha,'head':head,'branch':'wiki/http-query','packet':p,'result':done}
+    done['read_coverage']['missing'] = p['coverage']['missing']
+    done['read_coverage']['observed_refs'] = list({json.dumps(row, sort_keys=True): row
+                                                   for row in p['declared_read_set']}.values())
+    check={'context_id':'finance/costs','approved_revision':sha,'base':sha,'head':head,'branch':'wiki/http-query','packet':p,'result':done}
     status,checked=srv.post('/api/coordination/protected/preflight',check,headers=headers)
     assert status==200 and checked['preflight']['state']=='independent_review_required'
     approve(root)
@@ -270,7 +275,9 @@ def test_real_protected_cli_http_preflight_and_canonical_revalidation(collection
 
 def test_protected_limits_secrets_and_denied_scope_are_opaque(collection,bound_server):
     srv,token=bound_server;sha=git(collection,'rev-parse','HEAD');headers={ADMIN_SESSION_HEADER:token}
-    payload={'context_id':'costs','approved_revision':sha,'content_revision':sha,'task':{**TASK,'max_bytes':50000,'evidence':[],'queries':[query()]}}
+    payload={'context_id':'finance/costs','approved_revision':sha,'content_revision':sha,
+             'entry_folder':'finance/costs','entry_index':'finance/costs/index.md',
+             'task':{**TASK,'max_bytes':50000,'evidence':[],'queries':[query()]}}
     secret='AKIA'+'IOSFODNN7EXAMPLE'
     for q in (query(max_scan_bytes=1),query(filters={'key':secret}),query(scope='finance/tax')):
         data=deepcopy(payload);data['task']['queries']=[q]
@@ -310,8 +317,9 @@ def test_strict_json_task_rejects_ambiguity_without_echo(collection,tmp_path):
     from wiki_core.context_selection import strict_json_loads
     with pytest.raises(ValueError,match='duplicate JSON key'): strict_json_loads('{"scope":"a","scope":"b"}')
     taskfile=tmp_path.parent/(tmp_path.name+'-ambiguous-request.json');taskfile.write_text('{"queries":[],"queries":[]}')
+    folderize(collection)
     sha=git(collection,'rev-parse','HEAD')
-    command=[sys.executable,str(BASE/'scripts/wiki_coordination.py'),'--root',str(collection),'--context-id','costs','--approved-revision',sha,'--revision',sha,'--packet-request',str(taskfile)]
+    command=[sys.executable,str(BASE/'scripts/wiki_coordination.py'),'--root',str(collection),'--context-id','finance/costs','--approved-revision',sha,'--revision',sha,'--packet-request',str(taskfile),'--folder','finance/costs','--index','finance/costs/index.md']
     out=subprocess.run(command,capture_output=True,text=True)
     assert out.returncode!=0 and json.loads(out.stdout)['error_code']=='coordination_invalid_request'
 
