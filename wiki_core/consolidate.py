@@ -645,8 +645,10 @@ def build_event_markdown(
         required = {'source_locator', 'policy_revision', 'executor_context', 'integrator_context', 'source_page_association'}
         limitations = protected_provenance.get('extraction_limitations', [])
         if (not yaml_safe or not required <= set(protected_provenance)
-                or set(protected_provenance) - (required | {'extraction_limitations'})
+                or set(protected_provenance) - (required | {'extraction_limitations', 'csv_delimiter'})
                 or any(not isinstance(protected_provenance[k], str) or not protected_provenance[k] for k in required)
+                or ('csv_delimiter' in protected_provenance and
+                    protected_provenance['csv_delimiter'] not in ('comma', 'semicolon', 'tab'))
                 or not isinstance(limitations, list) or len(limitations) > 16
                 or any(not isinstance(item, str) or not item or len(item) > 1024 for item in limitations)):
             raise ValueError('protected provenance unavailable')

@@ -133,6 +133,106 @@ def test_protected_stage_with_captured_formats(prepared_repo, suffix, kind):
             assert any('hyperlink destinations' in item and 'comments' in item for item in block)
     if suffix == '.pdf':
         assert any('OCR was not performed' in item for item in manifest['extraction_limitations'])
+        for block in (manifest['extraction_limitations'], chunks['extraction_limitations'],
+                      request['block_context_package']['coverage']['missing'],
+                      metadata['protected_provenance']['extraction_limitations']):
+            assert any('do not retain page numbers' in item for item in block)
+    if suffix == '.csv':
+        for block in (manifest['extraction_limitations'], chunks['extraction_limitations'],
+                      request['block_context_package']['coverage']['missing'],
+                      metadata['protected_provenance']['extraction_limitations']):
+            assert any('semicolon-delimited' in item and 'not inferred or verified' in item for item in block)
+
+
+def test_captured_csv_exposes_unverified_dialect_without_guessing():
+    from wiki_core.ingest.protected import _format_omissions
+
+    extracted = extract_captured('source.csv', 'table', b'name;value\nitem;3\n')
+    rows = [json.loads(line) for line in extracted.text.splitlines()]
+    assert rows == [{'record': 1, 'cells': ['name;value']},
+                    {'record': 2, 'cells': ['item;3']}]
+    limitations = _format_omissions('source.csv')
+    assert any('comma-delimited' in item and 'semicolon-delimited' in item
+               and 'not inferred or verified' in item for item in limitations)
+    assert any('tab-delimited' in item and 'not inferred or verified' in item
+               for item in _format_omissions('source.tsv'))
+
+
+@pytest.mark.parametrize('selection,delimiter', [('comma', ','), ('semicolon', ';'), ('tab', '\t')])
+def test_captured_csv_uses_only_explicit_delimiter(selection, delimiter):
+    data = f'name{delimiter}value\nitem{delimiter}3\n'.encode()
+    extracted = extract_captured('source.csv', 'table', data, csv_delimiter=selection)
+    assert [json.loads(line)['cells'] for line in extracted.text.splitlines()] == [
+        ['name', 'value'], ['item', '3']]
+
+
+@pytest.mark.parametrize('selection', ['pipe', '', 1, ['semicolon']])
+def test_captured_csv_rejects_unsupported_delimiter(selection):
+    with pytest.raises(ValueError, match='CSV delimiter selection unavailable'):
+        extract_captured('source.csv', 'table', b'name;value\n', csv_delimiter=selection)
+    with pytest.raises(ValueError, match='CSV delimiter selection unavailable'):
+        extract_captured('source.tsv', 'table', b'name\tvalue\n', csv_delimiter='semicolon')
+
+
+def test_protected_semicolon_selection_is_bound_and_revalidated(prepared_repo):
+    from tests.test_protected_ingestion import protected_source_stage
+    from wiki_core.frontmatter import parse_frontmatter
+    from wiki_core.ingest.protected import inspect
+    import datetime
+
+    root, sha = prepared_repo
+    source = root / 'semicolon.csv'
+    source.write_text('name;value\nitem;3\n', encoding='utf-8')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    options = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+                   source_ref=source.name, csv_delimiter='semicolon')
+    prepared = protected_source_stage(root, binding, 'prepare', {**options, 'source_context': 'system'})['result']
+    request = prepared['request']
+    rows = [json.loads(line) for chunk in request['chunks'] for line in chunk['text'].split('\n')]
+    assert [row['cells'] for row in rows] == [['name', 'value'], ['item', '3']]
+    assert request['source_authorization']['csv_delimiter'] == 'semicolon'
+    assert any('explicitly selected semicolon' in item for item in request['block_context_package']['coverage']['missing'])
+    sample = json.loads((__import__('pathlib').Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
+    chunk = request['chunks'][0]
+    result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
+              **{key: chunk[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
+              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    for wrong in (None, 'comma', 'tab'):
+        bad = dict(options)
+        if wrong is None:
+            del bad['csv_delimiter']
+        else:
+            bad['csv_delimiter'] = wrong
+        with pytest.raises(ValueError):
+            record(root, binding, **bad, **ids, results=[result])
+    assert record(root, binding, **options, **ids, results=[result])['recorded'] == 1
+    viewed = inspect(root, binding, **options, **ids, view='results', chunk_ids=[chunk['chunk_id']],
+                     context_selection={'omit_root_entity': True})
+    assert viewed['view'] == 'results'
+    with pytest.raises(ValueError):
+        inspect(root, binding, **{**options, 'csv_delimiter': 'comma'}, **ids, view='results',
+                chunk_ids=[chunk['chunk_id']], context_selection={'omit_root_entity': True})
+    event = ('memories/system/ingestion/events/2026-11-04-' +
+             hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    with pytest.raises(ValueError):
+        consolidate(root, binding, **{**options, 'csv_delimiter': 'comma'}, **ids,
+                    source_page='memories/sources/synthetic.md', event_target=event, date=datetime.date(2026, 11, 4))
+    assert not (root / event).exists()
+    output = consolidate(root, binding, **options, **ids, source_page='memories/sources/synthetic.md',
+                         event_target=event, date=datetime.date(2026, 11, 4))
+    metadata, _ = parse_frontmatter(root / output['event'])
+    assert metadata['protected_provenance']['csv_delimiter'] == 'semicolon'
+    assert any('explicitly selected semicolon' in item
+               for item in metadata['protected_provenance']['extraction_limitations'])
+    derived = root / 'data/derived/wiki/.wiki-viva-protected'
+    paths = [derived / directory / (prepared['source_id'] + '.json')
+             for directory in ('source-manifests', 'source-text', 'chunks')]
+    original = {path: path.read_bytes() for path in paths}
+    assert json.loads(original[paths[0]])['csv_delimiter'] == 'semicolon'
+    with pytest.raises(ValueError, match='existing source capture differs'):
+        prepare(root, binding, **{**options, 'csv_delimiter': 'comma'}, source_context='system')
+    assert all(path.read_bytes() == content for path, content in original.items())
 
 
 @pytest.mark.parametrize('suffix,delimiter', [('.csv', ','), ('.tsv', '\t')])

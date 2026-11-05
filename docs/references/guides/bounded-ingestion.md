@@ -135,7 +135,8 @@ and email bodies require their declared encoding; invalid encoding is rejected.
 Office archives have bounded expanded size and spreadsheet dimensions. Extracted
 content from non-text formats is capped at 2 MB. PDF extraction requires the
 local `pdftotext` executable, runs with a 30-second timeout, and does not perform
-OCR. DOCX extraction includes body paragraphs and simple table rows in their
+OCR. PDF chunks do not retain page numbers; consult the original PDF to locate
+an extracted passage. DOCX extraction includes body paragraphs and simple table rows in their
 document order. Each table row is a JSON line with table/row identifiers and
 escaped cells, and remains whole in its chunk; merged or nested tables require
 separate review. Footnote/endnote references, inline revisions and wrappers
@@ -143,6 +144,17 @@ that the reader cannot preserve also require review. Headers, footers, images,
 embedded objects, hyperlink destinations and comments are not
 interpreted. CSV and TSV are represented as JSON lines with logical record
 ordinals, not physical line numbers; a record can span multiple physical lines.
+The protected reader defaults to Python's comma-delimited `excel` dialect for CSV
+and tab-delimited `excel-tab` for TSV, including doubled quotes. For a `.csv`, the
+operator can supply `"csv_delimiter": "comma"`, `"semicolon"` or `"tab"` in the
+source-stage payload; repeat the same selection for prepare, record, inspect,
+compare and consolidate. The selected delimiter is bound to the request and
+recorded in the manifest and event. No delimiter is inferred or independently
+verified; confirm the source's quoting and format before relying on columns.
+Without a selection, a semicolon-delimited CSV can be misread as one column; the
+unverified comma default is recorded in that source's manifest, request and event.
+An existing capture using a different selection is preserved and requires review
+or migration; it is never silently overwritten. The legacy reader is unchanged.
 XLSX rows are JSON lines with sheet names and row numbers. Cell boundaries, line
 breaks and separators are preserved; XLSX numbers, booleans and strings retain
 their types, while dates, times, durations, decimals and errors are tagged.
