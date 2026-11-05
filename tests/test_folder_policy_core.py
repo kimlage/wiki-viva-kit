@@ -8,6 +8,7 @@ from jsonschema import validate
 
 from wiki_core.context_policy import PolicyError, load_policy
 from wiki_core.context_packet import build_packet
+from wiki_core.context_integration import preflight, IntegrationError
 
 
 def git(root, *args):
@@ -171,9 +172,12 @@ def test_empty_override_falls_back_only_after_authorized_read(repo):
     enable_alpha(repo)
     write(repo, 'alpha/AGENTS.override.md', '  \n')
     git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'empty override'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
-    refs = [item['ref'] for item in packet(repo)['inputs']]
+    result = packet(repo)
+    refs = [item['ref'] for item in result['inputs'] if item['kind'] == 'mandatory']
     assert 'alpha/AGENTS.md' in refs
     assert 'alpha/AGENTS.override.md' not in refs
+    assert any(item['ref'] == 'alpha/AGENTS.override.md' and item['reason'] == 'qualified context boundary'
+               for item in result['inputs'])
 
 
 def test_empty_index_cannot_qualify_context(repo):
@@ -197,3 +201,65 @@ def test_nested_git_boundary_refused_before_body_reads(repo, monkeypatch):
     with pytest.raises(PolicyError, match='entry folder unavailable'):
         packet(repo)
     assert opened == []
+
+
+def test_evidence_under_nested_git_is_not_read(repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    enable_alpha(repo)
+    write(repo, 'alpha/clone/record.md', '# Tracked in parent\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'tracked before clone'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    git(repo / 'alpha/clone', 'init', '-q')
+    opened = []
+    original = RepositoryReader.read
+    def spy(self, path, **kwargs):
+        opened.append(path)
+        return original(self, path, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', spy)
+    evidence = [{'ref': 'alpha/clone/record.md', 'producer': 'alpha',
+                 'reason': 'selected', 'use': 'interpretation', 'classification': 'context'}]
+    with pytest.raises(PolicyError, match='context body unavailable'):
+        build_packet(repo, folder_policy(repo), 'alpha', 'HEAD', evidence, 100000,
+                     task_id='task', goal='goal', output='output', integrator='operator',
+                     entry_folder='alpha/aux')
+    assert 'alpha/clone/record.md' not in opened
+
+
+def test_folder_packet_preflight_requires_exact_current_inputs(repo):
+    enable_alpha(repo)
+    policy = folder_policy(repo)
+    base = git(repo, 'rev-parse', 'HEAD')
+    selected = packet(repo)
+    git(repo, 'checkout', '-qb', 'wiki/folder-task')
+    write(repo, 'alpha/output.md', '# Proposed result\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'proposal')
+    head = git(repo, 'rev-parse', 'HEAD')
+    result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
+              'task_id': 'task', 'context_id': 'alpha', 'packet_digest': selected['packet_digest'],
+              'changes': [{'path': 'alpha/output.md', 'action': 'created'}],
+              'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': []}, 'blockers': []}
+    output = preflight(repo, policy, context_id='alpha', base=base, head=head,
+                       branch='wiki/folder-task', packet=selected, result=result)
+    assert output['state'] == 'independent_review_required'
+    assert output['review'] == output['merge'] == 'not_performed'
+    git(repo, 'update-ref', 'refs/remotes/origin/main', head)
+    with pytest.raises(ValueError, match='not current trusted approval'):
+        preflight(repo, policy, context_id='alpha', base=base, head=head,
+                  branch='wiki/folder-task', packet=selected, result=result)
+
+
+def test_folder_preflight_rejects_config_authority_change(repo):
+    enable_alpha(repo)
+    policy = folder_policy(repo)
+    base = git(repo, 'rev-parse', 'HEAD')
+    selected = packet(repo)
+    git(repo, 'checkout', '-qb', 'wiki/folder-policy-change')
+    with (repo / 'wiki.config.yaml').open('a') as stream: stream.write('\n# policy edit\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'policy proposal')
+    head = git(repo, 'rev-parse', 'HEAD')
+    result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
+              'task_id': 'task', 'context_id': 'alpha', 'packet_digest': selected['packet_digest'],
+              'changes': [{'path': 'wiki.config.yaml', 'action': 'modified'}],
+              'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': []}, 'blockers': []}
+    with pytest.raises(IntegrationError, match='policy change'):
+        preflight(repo, policy, context_id='alpha', base=base, head=head,
+                  branch='wiki/folder-policy-change', packet=selected, result=result)

@@ -73,6 +73,65 @@ def _context_view(policy, context_id):
             'boundary': 'Path scopes are ceilings. Only the canonical owner may write; cross-context reads require exact current bilateral approval. This is not sandbox enforcement.'}
 
 
+def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes):
+    """Qualify only the selected physical lineage, after exact authorization."""
+    if getattr(policy, 'format_version', None) != 'folder' or not getattr(policy, '_binding', None):
+        raise PolicyError('folder authority required')
+    if Path(policy._binding[0]) != Path(root).resolve(): raise PolicyError('mismatched policy root')
+    policy.fresh()
+    entry_folder = safe_path(entry_folder, allow_root=True)
+    from wiki_core.traversal import require_wiki_path
+    try:
+        if not require_wiki_path(Path(root), entry_folder).is_dir(): raise ValueError('entry folder unavailable')
+    except (ValueError, OSError) as exc:
+        raise PolicyError('entry folder unavailable') from exc
+    if context_id not in policy.contexts or (entry_folder == '.' and context_id != '.'):
+        raise PolicyError('entry context unavailable')
+    if entry_folder != '.' and policy.owner_of(entry_folder) != context_id: raise PolicyError('entry context unavailable')
+    entry_index = safe_path(entry_index)
+    if str(PurePosixPath(entry_index).parent) != policy.contexts[context_id]['root']:
+        raise PolicyError('entry index unavailable')
+    if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
+        raise PolicyError('invalid byte budget')
+    reader = RepositoryReader(Path(root), policy.policy_revision)
+    if entry_folder != '.' and not any(ref.startswith(entry_folder + '/') for ref in reader.paths):
+        raise PolicyError('entry folder unavailable in approved tree')
+    lineage = policy.lineage(context_id)
+    qualification_bytes = 0
+    inspected = set()
+    inspection_order = []
+    def inspect_authorized(ref):
+        nonlocal qualification_bytes
+        producer = policy.owner_of(ref)
+        if policy._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved':
+            raise PolicyError('context body not authorized')
+        from wiki_core.traversal import require_wiki_boundaries
+        try: require_wiki_boundaries(Path(root), files=(Path(root) / ref,))
+        except (ValueError, OSError) as exc: raise PolicyError('context body unavailable') from exc
+        if ref not in inspected:
+            qualification_bytes += reader.blob_size(ref)
+            if qualification_bytes > max_bytes: raise PolicyError('context qualification exceeds byte budget')
+            inspected.add(ref)
+            inspection_order.append(ref)
+        item = reader.read(ref)
+        _reject_secrets(item['text'])
+        return item['text']
+    for context in lineage:
+        folder = context['root']
+        prefix = '' if folder == '.' else folder + '/'
+        instructions = [prefix + name for name in ('AGENTS.override.md', 'AGENTS.md')
+                        if prefix + name in policy._folder_names]
+        if not instructions or not any(inspect_authorized(ref).strip() for ref in instructions):
+            raise PolicyError('context instruction empty or unavailable')
+        if folder != '.' or context_id == '.':
+            index = entry_index if folder == context_id else prefix + 'index.md'
+            if index not in reader.paths or not inspect_authorized(index).strip():
+                raise PolicyError('context index empty or unavailable')
+    policy.fresh()
+    policy._qualified_contexts.update(context['id'] for context in lineage)
+    return reader, inspection_order
+
+
 def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
                  required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None, queries=(),
                  entry_folder=None, entry_index=None):
@@ -111,38 +170,10 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     if not isinstance(queries, (list, tuple)) or len(queries) > 8: raise PolicyError('invalid query list')
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
     lineage = policy.lineage(context_id)
-    policy_reader = RepositoryReader(Path(root), policy.policy_revision)
     if folder_mode:
-        # Names in the Git tree are only candidates. Qualify each selected
-        # context's bodies after the exact access rule has been checked.
-        qualification_bytes = 0
-        inspected = set()
-        def inspect_authorized(ref):
-            nonlocal qualification_bytes
-            producer = policy.owner_of(ref)
-            if policy._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved':
-                raise PolicyError('context body not authorized')
-            if ref not in inspected:
-                qualification_bytes += policy_reader.blob_size(ref)
-                if qualification_bytes > max_bytes: raise PolicyError('context qualification exceeds byte budget')
-                inspected.add(ref)
-            item = policy_reader.read(ref)
-            _reject_secrets(item['text'])
-            return item['text']
-        for context in lineage:
-            folder = context['root']
-            prefix = '' if folder == '.' else folder + '/'
-            instructions = [prefix + name for name in ('AGENTS.override.md', 'AGENTS.md')
-                            if prefix + name in policy._folder_names]
-            if not instructions or not any(inspect_authorized(ref).strip() for ref in instructions):
-                raise PolicyError('context instruction empty or unavailable')
-            # Root can have an explicitly chosen index when it is the selected
-            # context. Nested contexts must have their own non-empty index.
-            if folder != '.' or context_id == '.':
-                index = entry_index if folder == context_id else prefix + 'index.md'
-                if index not in policy_reader.paths or not inspect_authorized(index).strip():
-                    raise PolicyError('context index empty or unavailable')
-        policy._qualified_contexts.update(context['id'] for context in lineage)
+        policy_reader, qualification_refs = qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes)
+    else:
+        policy_reader, qualification_refs = RepositoryReader(Path(root), policy.policy_revision), []
     if adapter_report is not None and not valid_adapter_report(adapter_report): raise PolicyError('invalid adapter report')
     if adapter_report is not None: _reject_secrets(adapter_report)
     if not isinstance(required_capabilities, (list, tuple)):
@@ -162,6 +193,10 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         ref = safe_path(ref)
         denied = any(within(ref, scope) for scope in policy.effective[context_id]['deny']['read'])
         if denied or (kind != 'mandatory' and not policy.permits(context_id, 'read', ref)): raise PolicyError('read denied')
+        if folder_mode:
+            from wiki_core.traversal import require_wiki_boundaries
+            try: require_wiki_boundaries(Path(root), files=(Path(root) / ref,))
+            except (ValueError, OSError) as exc: raise PolicyError('context body unavailable') from exc
         item = reader_.read(ref, section=section, field=field)
         text = item['text']
         if not isinstance(text, str): raise PolicyError('reader returned non-text')
@@ -197,6 +232,13 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         add(policy_reader, entry_index, 'selected context index', 'evidence',
             producer=context_id, use='interpretation', classification='context')
         if not selected[-1]['text'].strip(): raise PolicyError('context index empty')
+        for ref in qualification_refs:
+            if ref in {item['ref'] for item in selected}: continue
+            producer = policy.owner_of(ref)
+            if policy.connection(producer, context_id, ref, 'interpretation', 'context') != 'approved':
+                raise PolicyError('context body not authorized')
+            add(policy_reader, ref, 'qualified context boundary', 'evidence',
+                producer=producer, use='interpretation', classification='context')
     else:
         for c in lineage:
             for key in ('instructions', 'skills', 'templates'):
@@ -239,7 +281,8 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
             'capability_evidence': adapter_report, 'required_capabilities': list(required_capabilities), 'enforcement_claim': 'none; adapter report is supplied by the caller'}
     if folder_mode:
         packet.update(authority_format='folder', entry_folder=entry_folder, entry_index=entry_index)
-        packet['coverage']['missing'].append('linked sources not inspected')
+        if 'linked sources not inspected' not in packet['coverage']['missing']:
+            packet['coverage']['missing'].append('linked sources not inspected')
     if query_selections:
         packet['query_selections'] = query_selections
         packet['query_fingerprint'] = digest(query_selections)

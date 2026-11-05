@@ -64,9 +64,13 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     External independent reviewer and final-head gates remain mandatory. The
     caller is responsible for ensuring its trusted ref is independently kept.
     """
-    if getattr(policy, 'format_version', None): raise IntegrationError('v2 integration is unavailable; v1 results require explicit migration')
+    if getattr(policy, 'format_version', None) not in (None, 'folder'): raise IntegrationError('unsupported policy format')
     if not getattr(policy,'_binding',None) or Path(policy._binding[0])!=Path(root).resolve(): raise IntegrationError('unbound policy')
     policy=policy.fresh()
+    folder_mode = getattr(policy, 'format_version', None) == 'folder'
+    if not isinstance(packet, dict): raise IntegrationError('invalid task packet')
+    if folder_mode != (packet.get('authority_format') == 'folder'):
+        raise IntegrationError('packet authority format differs')
     if not isinstance(branch,str) or not re.fullmatch(r'wiki/[A-Za-z0-9][A-Za-z0-9._-]*',branch) or '..' in branch or branch.endswith('.'):
         raise IntegrationError('invalid short branch')
     base_reader=RepositoryReader(root,base); proposal=RepositoryReader(root,head)
@@ -80,14 +84,21 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     evidence=[]
     for item in packet['inputs']:
         if item['kind']!='evidence' or 'query_id' in item: continue
+        if folder_mode and item['reason'] in ('selected context index', 'qualified context boundary'):
+            continue
         entry={k:item[k] for k in ('ref','producer','reason','use','classification')}
         for k in ('section','field'):
             if item[k] is not None: entry[k]=item[k]
         evidence.append(entry)
     try:
-        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet))
+        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet),entry_folder=packet.get('entry_folder'),entry_index=packet.get('entry_index'))
     except (PolicyError, ValueError, KeyError, TypeError) as exc: raise IntegrationError('packet authorization cannot be reproduced') from exc
     if rebuilt!=packet: raise IntegrationError('packet contents cannot be reproduced')
+    if folder_mode:
+        from wiki_core.context_packet import qualify_folder_context
+        try: qualify_folder_context(root, policy, context_id, packet['entry_folder'], packet['entry_index'], packet['max_bytes'])
+        except (PolicyError, ValueError, KeyError, TypeError, OSError) as exc:
+            raise IntegrationError('folder authority cannot be requalified') from exc
     canonical_query_budget=[32_000_000]
     query_reuse = _QueryReuse(root, policy, context_id, canonical_query_budget, base_reader, proposal)
     try: revalidate_packet_queries(policy,packet,RepositoryReader(root,packet['content_revision']),base_reader,read_budget=canonical_query_budget)
@@ -110,7 +121,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     for i in range(0,len(raw),2):
         try: status=raw[i].decode(); path=safe_path(raw[i+1].decode())
         except (UnicodeError,PolicyError) as exc: raise IntegrationError('invalid diff path') from exc
-        if status not in ('A','M','D') or path.endswith('/context.yaml') or path=='context.yaml': raise IntegrationError('unsupported or policy change')
+        if status not in ('A','M','D') or path.endswith('/context.yaml') or path=='context.yaml' or (folder_mode and path == 'wiki.config.yaml'): raise IntegrationError('unsupported or policy change')
         if is_context_instruction(path): raise IntegrationError('folder instruction change requires separate policy review')
         if path in normative: raise IntegrationError('normative input requires separate policy review')
         if policy.owner_of(path)!=context_id or not policy.permits(context_id,'write',path): raise IntegrationError('write outside context')
