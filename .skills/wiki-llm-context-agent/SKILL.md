@@ -39,10 +39,17 @@ ingesting = integrating.
    request respectively; they do not guarantee a model token window. Select a
    ceiling compatible with the actual harness. Approved context failure never
    falls back to working-tree compatibility. See [bounded ingestion](../../docs/references/guides/bounded-ingestion.md).
+   For a separately authorized local folder entry, select `--folder FOLDER` or
+   start in the nested directory, and follow that guide's local route. It reads
+   the physical instruction chain and selected index, reports unresolved source
+   configuration and linked inputs, and cannot be combined with approved-policy
+   flags. It does not establish policy authorization or native session loading.
 3. Read the emitted request from the configured extraction-events directory.
    Mandatory context appears once, followed by every extracted chunk with
-   `chunk_id`, `cache_key`, `text` and `result_exists`. Actual policy and required
-   perspective bodies accompany the root entity, channel and targets.
+   `chunk_id`, `cache_key`, `text` and `result_exists`. In approved v1, actual
+   policy and required perspective bodies accompany the root entity, channel and
+   targets. The local folder request instead reports unresolved inputs as stated
+   above; inspect its selected bodies and coverage.
    [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) can re-emit
    or check the existing extraction using the same source, approval, context
    and limits. Oversize is a recoverable blocker; obtain an explicit smaller
@@ -59,11 +66,16 @@ ingesting = integrating.
    Accepts a single object or an array. The script validates the schema (including
    non-empty quadrants and `sensitivity.has_pii`) and writes the result to the LLM
    pass cache (`llm-cache/`).
+   For the local folder route, use the same source, folder, index and limits;
+   Git-bound recording also requires the exact retained request and the same
+   repository selections. Do not use the approved-route command above as a
+   substitute. The guide describes the separate local cache and revalidation.
 6. Confirm the gate:
    ```bash
    python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000 --check
    ```
-   It should return `ok: true` / exit 0.
+   It should return `ok: true` / exit 0. For the local route, use its own
+   source, folder, index and limits instead of the approved-policy arguments.
 7. Consolidate and INTEGRATE — the work does NOT end at `--record-result`.
    Generate the normalized event and the integration packet with
    [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
@@ -76,6 +88,10 @@ ingesting = integrating.
    `consolidated_into: []` for you to close); `--packet` emits the integration
    packet (gitignored) with related pages, root impact, target pages,
    overlapping claims, and potential conflicts per claim/entity.
+   For a local folder request, select its exact `--request` and explicitly
+   selected `--candidate` pages as described in the guide; packet coverage is
+   limited to those candidates. Recording and packet preparation are not review
+   or integration.
 8. Guided by the packet, INTEGRATE for real: update the target hubs/concepts
    incrementally first; create/update load-bearing relation pages only when the
    detail needs its own page and give each one a `moc_parent` hub (with the conflict

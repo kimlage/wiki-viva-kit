@@ -38,6 +38,11 @@ Before a source is interpreted, the repo's configured root entity and generated
 input stage define the default perspective bundle, channels, processes and
 target pages; in this kit those pages are [Wiki Viva Kit](../wiki-viva-kit.md)
 and [Input stage](../input-stage.md).
+The separately selected local folder route does not automatically load that
+bundle or update the global index. Its physical instructions, selected index,
+unresolved inputs and distinct recording and consolidation selectors are covered
+in [bounded ingestion](../../../docs/references/guides/bounded-ingestion.md).
+It does not establish approved-policy authority or native session loading.
 
 ## Overview of the path
 

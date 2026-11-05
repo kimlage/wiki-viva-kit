@@ -15,8 +15,8 @@ memory index first; retain any stronger consumer context requirement.
 
 | Task | Existing entry | Scope and next step |
 | --- | --- | --- |
-| Find | [wiki_find.py](wiki_find.py) | Search the existing lexical index. Read each result's origin and coverage gaps before treating it as evidence. No index or model is started. |
-| Context | Use [wiki_read.py](wiki_read.py) for a scoped Git read, [wiki_context.py](wiki_context.py) or the approved mode of [wiki_coordination.py](wiki_coordination.py) for an explicit task packet. | Choose explicit paths and revisions; follow original evidence. The profile packet path is retired; the operator index remains `caller_trust`. See [context operation](../docs/references/guides/context-operation.md). |
+| Find | [wiki_find.py](wiki_find.py) | Search the existing lexical index, or use `--path` for explicit local selections. Read origin and coverage gaps before treating results as evidence. No index or model is started. |
+| Context | Use [wiki_read.py](wiki_read.py) for a scoped Git read, [wiki_context.py](wiki_context.py) or the approved mode of [wiki_coordination.py](wiki_coordination.py) for an explicit task packet. | Choose explicit paths and revisions; follow original evidence. Local folder preparation is a separate route described in [bounded ingestion](../docs/references/guides/bounded-ingestion.md), not an approved packet. The profile packet path is retired; the operator index remains `caller_trust`. See [context operation](../docs/references/guides/context-operation.md). |
 | Source | Use the existing source workspace, `GET /api/sources` for identity/location and `GET /api/sources/{source_id}/operations` for receipts, described in [source access](../docs/references/guides/source-access-and-ingestion.md). | Inspect retained identity, location and receipts first. [Refresh preview/run](../docs/references/guides/source-refresh-cadence.md) may contact external systems and requires the existing account and authorized scope; an unavailable original is an explicit gap. |
 | Action | Open the same [board card](../docs/references/guides/native-action-board.md). Use its existing transition/dialogue writer for allowed local changes; reconcile retained agent results through [contributions](../docs/references/guides/agent-contributions.md). | Keep the same action and origin run/effect references; revalidate its current revision before writing. A received-result comment has its own event identity, does not consume the contribution effect, and does not incorporate its factual proposal. Other documents, rules or required generators use the existing normal multipage proposal with review and gates. |
 
@@ -95,6 +95,12 @@ must fit before persistence, indexing, scoring or cursor advancement. Approved
 failures return structured blockers and never choose compatibility. Record or
 check through [wiki_llm_context_pass.py](wiki_llm_context_pass.py) using the same
 explicit source, approval, context and limits. See [bounded ingestion](../docs/references/guides/bounded-ingestion.md).
+
+For a separately authorized local entry, `--folder` selects the physical
+instructions and index instead of an approved-policy packet. The guide documents
+the distinct recording and consolidation selectors, explicit independent Git
+reads and partial coverage. The two routes cannot be combined; an approved-route
+failure never silently falls back to local preparation.
 
 [wiki_context_flow.py](wiki_context_flow.py) reads canonical requirements for
 impact by selected content/revision and independently preflights proposals.

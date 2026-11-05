@@ -14,6 +14,12 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-04] Make local folder entry discoverable
+
+The [ingestion process](ingestion-process.md) and [meta-wiki](wiki/index.md)
+link the local folder route and distinguish its coverage from the approved v1
+packet. This documentation change did not refresh or verify a source.
+
 ## [2026-11-04] Document independent Git reader
 
 The [command reference](wiki/command-reference.md) lists the reader for an

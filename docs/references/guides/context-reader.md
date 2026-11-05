@@ -52,6 +52,11 @@ not turn a raw reader into an operating-system sandbox.
 
 ## Approved packets and historical content
 
+This section documents the currently supported approved v1 manifest route.
+The separate [local folder entry](bounded-ingestion.md) prepares physical
+instructions and an index without an approved-policy packet; it is not a
+replacement or fallback for the checks described here.
+
 See the [synthetic hierarchy](../../../examples/context-hierarchy/README.md) for
 the directory manifests and inheritance rules. The [manifest schema](../schemas/wiki-context-v1.schema.json),
 [packet schema](../schemas/wiki-task-context-v1.schema.json) and
