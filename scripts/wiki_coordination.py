@@ -11,7 +11,7 @@ from wiki_core.context_policy import revision
 from wiki_core.config import load_config
 from wiki_core.coordination import coordination_index, profile_packet_migration, transition_dialogue_action
 from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordinationError,
-    prepare_packet, protected_source_stage, blocker_response, _policy)
+    prepare_packet, protected_source_stage, blocker_response, _policy, capability)
 
 
 def main() -> None:
@@ -25,6 +25,8 @@ def main() -> None:
     parser.add_argument("--integrator-context", help="Explicit authorized ancestor that owns protected artifacts.")
     parser.add_argument("--source-stage", choices=('prepare', 'record', 'consolidate'),
         help="Trusted local operator source stage; stage payload is read from stdin.")
+    parser.add_argument('--show-host-binding', action='store_true',
+        help='Read back the host-configured binding without repository roots or identities.')
     parser.add_argument("--profile")
     parser.add_argument("--action-id")
     parser.add_argument("--action-path", help="Exact canonical page path; required for dialogue events.")
@@ -33,6 +35,17 @@ def main() -> None:
     parser.add_argument("--expected-sha256")
     parser.add_argument("--as-operator", action="store_true", help="Record an operator event rather than a coordinator event.")
     args = parser.parse_args()
+    if args.show_host_binding:
+        if (args.source_stage or args.context_id or args.approved_revision or args.packet_request or args.profile
+                or args.folder or args.index or args.integrator_context or args.action_id or args.event_file
+                or args.expected_sha256 or args.as_operator or args.action_path):
+            parser.error('host binding readback does not accept stage or task options')
+        try:
+            print(json.dumps(capability(args.root.resolve(), CoordinationBinding.from_environment()), ensure_ascii=False))
+        except (ValueError, OSError):
+            print(json.dumps({'ok': False, 'available': False, 'reason': 'host_binding_unavailable'}))
+            raise SystemExit(1)
+        return
     if args.source_stage:
         if (not args.context_id or not args.approved_revision or args.packet_request or args.profile or args.folder or args.index
                 or args.action_id or args.event_file or args.expected_sha256 or args.as_operator or args.action_path):
@@ -41,7 +54,9 @@ def main() -> None:
             # This adapter trusts the local operator. The arguments it receives
             # are not a security boundary against that operator or filesystem.
             contexts = tuple(dict.fromkeys([args.context_id, args.integrator_context or args.context_id]))
-            binding = CoordinationBinding(contexts, 'refs/remotes/origin/main', 'wiki.config.yaml')
+            binding = CoordinationBinding.from_environment()
+            if binding is None:
+                binding = CoordinationBinding(contexts, 'refs/remotes/origin/main', 'wiki.config.yaml')
             root = args.root.resolve()
             _policy(root, binding, args.context_id, args.approved_revision)
             raw = sys.stdin.read(2_000_001)

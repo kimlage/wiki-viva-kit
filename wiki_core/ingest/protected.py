@@ -29,7 +29,8 @@ from wiki_core.llm.context_pass import (CONTEXT_PASS_SCHEMA_VERSION, canonical_r
     enforce_request_budget, result_matches_request, request_limits, require_approved_prompt_version)
 from wiki_core.paths import WikiPaths
 from wiki_core.repo_read import contains_access_secrets
-from wiki_core.repo_host import selected_repository, authorize_repository_event
+from wiki_core.repo_host import (selected_repository, authorize_repository_event,
+    authorize_repository_grant, _selection_ids)
 from wiki_core.source_manifest import classify_source, source_id_for, source_origin, chunk_document
 from wiki_core.traversal import (PROTECTED_ARTIFACT_COMPONENT, require_wiki_boundaries,
     require_wiki_path)
@@ -208,14 +209,25 @@ def _request_path(paths, source_id, request_id, repository_context=None):
     if not isinstance(request_id, str) or not re.fullmatch(r'[0-9a-f]{64}', request_id):
         raise ValueError('request unavailable')
     source = hashlib.sha256(source_id.encode()).hexdigest()
-    selection = '' if repository_context is None else repository_context['host_binding_digest'] + '-'
+    if repository_context is None:
+        selection = ''
+    elif isinstance(repository_context, list):
+        selection = hashlib.sha256(canonical_request_text(
+            [row['host_binding_digest'] for row in repository_context]).encode()).hexdigest() + '-'
+    else:
+        selection = repository_context['host_binding_digest'] + '-'
     return paths.extraction_events / f'protected-{source}-{selection}{request_id}-llm-context-request.json'
 
 
 def _repository(binding, policy, context_id, actor, selection):
     if selection is None:
         return None
-    return selected_repository(binding, policy, context_id, actor, selection)
+    ids = _selection_ids(selection)
+    # Qualify every requested grant before opening any selected Git repository.
+    for item in ids:
+        authorize_repository_grant(binding, policy, context_id, actor, item)
+    rows = [selected_repository(binding, policy, context_id, actor, item) for item in ids]
+    return rows[0] if isinstance(selection, str) else rows
 
 
 def _perspectives(policy, refs, required, optional):
@@ -657,8 +669,10 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     aggregated['source_hash_sha256'] = digest
     if request.get('repository_context') is not None:
         selected = request['repository_context']
-        aggregated['independent_git_sources'] = [{key: selected[key] for key in
-            ('selection_id', 'host_binding_digest', 'revision', 'path', 'blob', 'document_sha256', 'content_sha256')}]
+        rows = selected if isinstance(selected, list) else [selected]
+        aggregated['independent_git_sources'] = [{key: row[key] for key in
+            ('selection_id', 'repository_identity', 'host_binding_digest', 'revision', 'path', 'blob',
+             'document_sha256', 'content_sha256')} for row in rows]
     packet = build_packet(aggregated, root, config, paths, candidates=refs)
     markdown = build_event_markdown(aggregated, config=config, context=request['source_context'],
         date=date, source_page=source_page, source_type=classify_source(source_ref),

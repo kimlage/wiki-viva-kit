@@ -101,27 +101,44 @@ class RepositoryGrant:
             raise ValueError('invalid host publication target')
 
 
+def _selection_ids(selection):
+    if isinstance(selection, str):
+        return [selection]
+    if (not isinstance(selection, list) or not selection or len(selection) > 8
+            or any(not isinstance(item, str) for item in selection)
+            or len(set(selection)) != len(selection)):
+        raise ValueError('repository selection unavailable')
+    return sorted(selection)
+
+
+def authorize_repository_grant(binding, policy, context_id, actor, selection_id):
+    if not isinstance(selection_id, str):
+        raise ValueError('repository selection unavailable')
+    matches = [item for item in binding.repository_grants if item.selection_id == selection_id]
+    policy.fresh()
+    if (len(matches) != 1 or matches[0].executor != context_id or matches[0].integrator != actor
+            or context_id not in binding.contexts or actor not in binding.contexts
+            or not all(policy.permits_effect(reader, 'capabilities', REPOSITORY_CAPABILITY)
+                       for reader in {context_id, actor})):
+        raise ValueError('repository selection unavailable')
+    return matches[0]
+
+
 def authorize_repository_event(binding, policy, context_id, actor, selection_id, event_target):
     """Publication is a separate exact host grant, not a consequence of reading."""
     if selection_id is None:
         return
-    matches = [grant for grant in binding.repository_grants if grant.selection_id == selection_id]
-    policy.fresh()
-    if (len(matches) != 1 or matches[0].executor != context_id or matches[0].integrator != actor
-            or matches[0].event_target is None or matches[0].event_target != event_target
-            or not all(policy.permits_effect(reader, 'publication', REPOSITORY_PUBLICATION)
-                       for reader in {context_id, actor})):
-        raise ValueError('repository publication unavailable')
+    for item in _selection_ids(selection_id):
+        grant = authorize_repository_grant(binding, policy, context_id, actor, item)
+        if (grant.event_target is None or grant.event_target != event_target
+                or not all(policy.permits_effect(reader, 'publication', REPOSITORY_PUBLICATION)
+                           for reader in {context_id, actor})):
+            raise ValueError('repository publication unavailable')
 
 
 def selected_repository(binding, policy, context_id, actor, selection_id):
     """Revalidate binding, policy and physical root before every local Git I/O."""
-    if not isinstance(selection_id, str):
-        raise ValueError('repository selection unavailable')
-    matches = [item for item in binding.repository_grants if item.selection_id == selection_id]
-    if len(matches) != 1:
-        raise ValueError('repository selection unavailable')
-    grant = matches[0]
+    grant = authorize_repository_grant(binding, policy, context_id, actor, selection_id)
     def check():
         policy.fresh()
         if (grant not in binding.repository_grants or grant.executor != context_id
@@ -151,7 +168,7 @@ def selected_repository(binding, policy, context_id, actor, selection_id):
               'revision': grant.revision, 'path': grant.path, 'executor': grant.executor,
               'integrator': grant.integrator, 'max_bytes': grant.max_bytes}
     grant_digest = hashlib.sha256(json.dumps(pinned, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-    return {'selection_id': selection_id, 'host_binding_digest': grant_digest,
+    return {'selection_id': selection_id, 'repository_identity': grant.identity, 'host_binding_digest': grant_digest,
             'revision': result['revision'], 'path': result['path'],
             'blob': result['blob'], 'document_sha256': result['document_sha256'],
             'content_sha256': result['content_sha256'], 'text': result['text']}
