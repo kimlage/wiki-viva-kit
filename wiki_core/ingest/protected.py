@@ -434,6 +434,10 @@ def _check_repository_grant_associations(projected, binding, policy, context_id,
     _check_repository_associations(projected, rows)
 
 
+class _InvalidArtifact(ValueError):
+    """A bounded artifact was read, but its JSON contents are unusable."""
+
+
 def _read_json(root, policy, context_id, path, *, max_bytes=2_000_000):
     _allowed(root, policy, context_id, path, 'read')
     from wiki_core.context_selection import strict_json_loads
@@ -442,8 +446,11 @@ def _read_json(root, policy, context_id, path, *, max_bytes=2_000_000):
         data = stream.read(max_bytes + 1)
     policy.fresh()
     if len(data) > max_bytes:
-        raise ValueError('artifact unavailable')
-    return strict_json_loads(data.decode('utf-8'))
+        raise _InvalidArtifact('artifact unavailable')
+    try:
+        return strict_json_loads(data.decode('utf-8'))
+    except (ValueError, UnicodeError, RecursionError) as exc:
+        raise _InvalidArtifact('artifact unavailable') from exc
 
 
 def _candidate_authorization_day():
@@ -648,12 +655,25 @@ def _historical_candidate(root, policy, actor, paths, current, row, previous, hi
         if _artifact_stamp(prior_request) != proof[0]:
             raise ValueError('historical request changed')
         _check_reuse_dependencies(root, policy, actor, capture_dependencies, current=current)
-        old_result = _read_json(root, policy, actor, old_target)
+        try:
+            old_result = _read_json(root, policy, actor, old_target)
+        except _InvalidArtifact:
+            # Only the individual result is unusable. Shared authority and
+            # evidence must still be unchanged before considering another row.
+            _check_reuse_dependencies(root, policy, actor, before, current=current)
+            return None, ()
     except FileNotFoundError:
         return None, ()
-    if (contains_access_secrets(old_result) or not result_matches_request(old_result, previous, old_row)
-            or old_result.get('source_id') != previous['source_id'] or old_result.get('chunk_id') != old_row['chunk_id']
-            or 'protected_reuse_origin' in old_result or 'protected_historical_review' in old_result):
+    try:
+        usable = (result_matches_request(old_result, previous, old_row) and not contains_access_secrets(old_result)
+                  and old_result.get('source_id') == previous['source_id']
+                  and old_result.get('chunk_id') == old_row['chunk_id']
+                  and 'protected_reuse_origin' not in old_result
+                  and 'protected_historical_review' not in old_result)
+    except (ValueError, TypeError, OverflowError, RecursionError):
+        _check_reuse_dependencies(root, policy, actor, before, current=current)
+        return None, ()
+    if not usable:
         return None, ()
     _check_reuse_dependencies(root, policy, actor, before, current=current)
     origin = {'request_id': previous['protected_request_id'],

@@ -56,6 +56,100 @@ def test_changed_source_unique_identical_chunk_is_historical_candidate(prepared_
     assert not new_cache.exists()
 
 
+@pytest.mark.parametrize('bad_bytes', [
+    pytest.param(b'{"unfinished":', id='truncated'),
+    pytest.param(b'{"duplicate":1,"duplicate":2}', id='duplicate'),
+    pytest.param(b'\xff', id='invalid-utf8'),
+    pytest.param(b' ' * 2_000_001, id='over-limit'),
+    pytest.param(b'[' * 2000 + b']' * 2000, id='too-deep'),
+    pytest.param(b'deep-dict', id='deep-dict'),
+    pytest.param(b'parser-recursion', id='parser-recursion'),
+])
+def test_invalid_individual_old_result_preserves_other_candidate(prepared_repo, bad_bytes, monkeypatch):
+    if bad_bytes == b'parser-recursion':
+        from wiki_core import context_selection
+        original = context_selection.strict_json_loads
+        def parse(text):
+            if text == 'parser-recursion':
+                raise RecursionError('synthetic parser recursion')
+            return original(text)
+        monkeypatch.setattr(context_selection, 'strict_json_loads', parse)
+    root, sha, binding, args, before, current, old_row, new_row, result = setup_changed_source(prepared_repo)
+    previous_by_hash = {row['chunk_hash_sha256']: row for row in before['request']['chunks']}
+    rows = [row for row in current['request']['chunks'] if row['chunk_hash_sha256'] in previous_by_hash][:2]
+    assert len(rows) == 2
+    old_bad = previous_by_hash[rows[0]['chunk_hash_sha256']]
+    bad_path = root / 'data/derived/wiki/.wiki-viva-protected/llm-cache' / (old_bad['cache_key'] + '.json')
+    if bad_bytes == b'deep-dict':
+        bad_bytes = json.dumps(result).encode()[:-1] + b',"extra":' + b'[' * 2000 + b']' * 2000 + b'}'
+    bad_path.write_bytes(bad_bytes)
+    outcome = prepare(root, binding, **args, source_context='system', previous_request_id=before['request_id'],
+                      previous_source_id=before['source_id'], candidate_chunk_ids=[row['chunk_id'] for row in rows])
+    review = outcome['historical_review']
+    assert review['status'] == 'review_needed'
+    assert review['unavailable_chunk_ids'] == [rows[0]['chunk_id']]
+    assert [item['chunk_id'] for item in review['candidates']] == [rows[1]['chunk_id']]
+    assert all(row['result_exists'] is False for row in outcome['request']['chunks'])
+    assert bad_path.read_bytes() == bad_bytes
+
+
+def test_changed_shared_capture_during_invalid_result_discards_all_candidates(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    root, sha, binding, args, before, current, old_row, new_row, result = setup_changed_source(prepared_repo)
+    previous_by_hash = {row['chunk_hash_sha256']: row for row in before['request']['chunks']}
+    rows = [row for row in current['request']['chunks'] if row['chunk_hash_sha256'] in previous_by_hash][:2]
+    assert len(rows) == 2
+    bad = previous_by_hash[rows[1]['chunk_hash_sha256']]
+    directory = root / 'data/derived/wiki/.wiki-viva-protected'
+    bad_path = directory / 'llm-cache' / (bad['cache_key'] + '.json')
+    bad_path.write_bytes(b'{invalid')
+    chunks_path = next(path for path in directory.rglob(before['source_id'] + '.json')
+                       if json.loads(path.read_text()).get('schema_version') == 'wiki_chunks.v1')
+    original = protected._read_json
+    changed = []
+    def change_shared_evidence(*a, **kw):
+        try:
+            return original(*a, **kw)
+        except protected._InvalidArtifact:
+            if a[3] == bad_path:
+                with chunks_path.open('a') as stream:
+                    stream.write(' ')
+                changed.append(True)
+            raise
+    monkeypatch.setattr(protected, '_read_json', change_shared_evidence)
+    outcome = prepare(root, binding, **args, source_context='system', previous_request_id=before['request_id'],
+                      previous_source_id=before['source_id'], candidate_chunk_ids=[row['chunk_id'] for row in rows])
+    assert changed and outcome['historical_review']['status'] == 'unavailable'
+    assert 'candidates' not in outcome['historical_review']
+
+
+def test_ref_change_during_invalid_result_fails_current_request(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    from wiki_core.ingest.protected import ProtectedPartialError
+    root, sha, binding, args, before, current, old_row, new_row, result = setup_changed_source(prepared_repo)
+    previous_by_hash = {row['chunk_hash_sha256']: row for row in before['request']['chunks']}
+    rows = [row for row in current['request']['chunks'] if row['chunk_hash_sha256'] in previous_by_hash][:2]
+    assert len(rows) == 2
+    bad = previous_by_hash[rows[1]['chunk_hash_sha256']]
+    bad_path = root / 'data/derived/wiki/.wiki-viva-protected/llm-cache' / (bad['cache_key'] + '.json')
+    bad_path.write_bytes(b'{invalid')
+    original = protected._read_json
+    changed = []
+    def change_ref(*a, **kw):
+        try:
+            return original(*a, **kw)
+        except protected._InvalidArtifact:
+            if a[3] == bad_path:
+                git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD^')
+                changed.append(True)
+            raise
+    monkeypatch.setattr(protected, '_read_json', change_ref)
+    with pytest.raises(ProtectedPartialError):
+        prepare(root, binding, **args, source_context='system', previous_request_id=before['request_id'],
+                previous_source_id=before['source_id'], candidate_chunk_ids=[row['chunk_id'] for row in rows])
+    assert changed
+
+
 def test_changed_source_with_inconsistent_old_capture_stays_pending(prepared_repo, monkeypatch):
     root, sha, binding, args, before, current, old_row, new_row, result = setup_changed_source(prepared_repo)
     directory = root / 'data/derived/wiki/.wiki-viva-protected'
