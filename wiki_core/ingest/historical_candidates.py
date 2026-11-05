@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 
 from wiki_core.context_policy import within
 
@@ -21,8 +22,8 @@ def _packet_digest(packet):
         raise ValueError('historical packet unavailable')
 
 
-def comparable_request(request):
-    """Remove only revision bookkeeping; retain all selected content and roles."""
+def comparable_request(request, *, source_may_differ=False):
+    """Retain selected context; source differences require a separate chunk proof."""
     if not isinstance(request, dict) or request.get('context_binding_version') != 1:
         raise ValueError('historical request unavailable')
     out = copy.deepcopy(request)
@@ -64,6 +65,16 @@ def comparable_request(request):
             raise ValueError('historical request unavailable')
         for key in ('context_sha256', 'cache_key', 'result_exists', 'result_source_id', 'result_chunk_id'):
             row.pop(key, None)
+    if source_may_differ:
+        source_id, source_hash = out.get('source_id'), out.get('source_hash_sha256')
+        if (not isinstance(source_id, str) or not source_id
+                or not isinstance(source_hash, str) or not re.fullmatch(r'[0-9a-f]{64}', source_hash)
+                or packet.get('task_id') != source_id):
+            raise ValueError('historical source identity unavailable')
+        packet.pop('task_id')
+        out.pop('source_id')
+        out.pop('source_hash_sha256')
+        out.pop('chunks')
     return out
 
 

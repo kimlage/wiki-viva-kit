@@ -266,7 +266,8 @@ An operator may explicitly supply `previous_request_id` and a list of one to
 32 `candidate_chunk_ids` to `prepare` to inspect historical candidates after the
 trusted approval advances. First prepare the current request to obtain its chunk
 IDs. Use the original request ID and current approved revision, with the same
-selected source and context.
+source locator and context. If source bytes changed, also pass the original
+`previous_source_id`; when omitted, it defaults to the current source ID.
 Before the old request can be opened, the trusted host must pin an exact
 `PreviousRequestGrant` in `CoordinationBinding`, naming the executor, integrator,
 source ref, source ID, previous request ID and previous policy revision. The
@@ -277,11 +278,16 @@ The trusted local CLI uses its process environment as host configuration and
 is not a security boundary against that local operator.
 There is no cache or request directory discovery. The host first authorizes the
 current request, then opens only the named prior request and its exact result
-keys. Candidate selection requires the same source, selected bodies and selectors, matching
+keys. Candidate selection requires the same source locator, selected bodies and selectors, matching
 effective read scopes and bilateral grants for every selected reader, and an
-approved ancestor revision. Changed or ambiguous inputs, unavailable evidence,
-duplicate cache keys and previously reused results stay pending. Selected
-independent Git context and its host binding must also remain unchanged.
+approved ancestor revision. Changed selected context inputs, unavailable evidence,
+ambiguous matching chunks and previously reused results stay pending. Selected
+independent Git context and its host binding must also remain unchanged. For a
+changed source, the selected current chunk must have one historical match with
+identical text, hash and origin. The previous manifest and chunk capture are
+checked against the prior request. The prior raw source bytes are not retained,
+so the candidate reports `source_proof: retained_capture_not_raw_source`; this
+is not an independent replay of the old extraction.
 
 Returned candidates contain the unchanged historical result, its prior request,
 policy revision and digests, and `status: review_needed`. No candidate is copied

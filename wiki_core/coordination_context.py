@@ -235,7 +235,7 @@ def protected_source_stage(root, binding, stage, payload):
     common = {'context_id', 'approved_revision', 'entry_folder', 'entry_index', 'source_ref'}
     optional = {'context_max_bytes', 'request_max_bytes', 'artifact_context', 'perspective_refs', 'context_selection', 'repository_selection', 'csv_delimiter'}
     if stage == 'prepare':
-        required, permitted = common | {'source_context'}, common | {'source_context', 'previous_request_id', 'candidate_chunk_ids'} | optional
+        required, permitted = common | {'source_context'}, common | {'source_context', 'previous_request_id', 'previous_source_id', 'candidate_chunk_ids'} | optional
     elif stage == 'record':
         required = common | {'source_id', 'request_id', 'results'}
         permitted = required | optional
