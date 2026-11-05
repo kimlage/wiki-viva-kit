@@ -50,27 +50,9 @@ def _authority(root, binding, context_id, approved_revision, entry_folder, entry
     lineage = policy.lineage(context_id)
     if actor not in [row['id'] for row in lineage]:
         raise ValueError('integrator requires an authorized ancestor context')
-    if actor != context_id:
-        # The integrator may receive the packet only when it can itself read
-        # every potential instruction and selected index under exact rules.
-        refs = set()
-        parts = [] if entry_folder == '.' else safe_path(entry_folder).split('/')
-        for index in range(len(parts) + 1):
-            prefix = '/'.join(parts[:index])
-            for name in ('AGENTS.override.md', 'AGENTS.md'):
-                ref = (prefix + '/' if prefix else '') + name
-                if ref in policy._folder_names:
-                    refs.add(ref)
-        for row in lineage:
-            if row['root'] != '.' or context_id == '.':
-                refs.add(entry_index if row['id'] == context_id else row['root'] + '/index.md')
-        policy.fresh()
-        for ref in refs:
-            producer = policy.owner_of(ref)
-            if policy._connection(producer, actor, ref, 'interpretation', 'context', qualified=False) != 'approved':
-                raise ValueError('integrator context unavailable')
-        policy.fresh()
-    qualify_folder_context(root, policy, context_id, entry_folder, entry_index, budget)
+    readers = () if actor == context_id else (actor,)
+    qualify_folder_context(root, policy, context_id, entry_folder, entry_index, budget,
+                           additional_readers=readers)
     raw = yaml.safe_load(git_file(root, policy.policy_revision, 'wiki.config.yaml'))
     config = config_from_mapping(raw)
     configured = safe_path(config.paths['derived_root'])
@@ -297,6 +279,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         task_id=str(manifest['source_id']), goal='Interpret the authorized selected source',
         output='Contextual source interpretation', integrator=actor,
         entry_folder=entry_folder, entry_index=entry_index,
+        additional_readers=() if actor == context_id else (actor,),
         omissions=['linked sources not inspected'])
     auth = {'ref': source_ref, 'producer': policy.owner_of(source_ref), 'context_id': context_id,
         'policy_revision': approved_revision, 'use': 'interpretation', 'classification': 'source',
@@ -401,6 +384,7 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
         task_id=source_id, goal='Interpret the authorized selected source',
         output='Contextual source interpretation', integrator=actor,
         entry_folder=entry_folder, entry_index=entry_index,
+        additional_readers=() if actor == context_id else (actor,),
         omissions=['linked sources not inspected'])
     if current != packet:
         raise ValueError('request authority changed')

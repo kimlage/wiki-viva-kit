@@ -423,7 +423,7 @@ def _nested_integrator_repo(root):
     alpha_to_root = [
         {'from_context': 'alpha', 'to_context': '.', 'selector': ref,
          'use': 'interpretation', 'classification': classification, 'expires': '2099-01-01'}
-        for ref, classification in [('alpha/AGENTS.md', 'context'), ('alpha/AGENTS.override.md', 'context'),
+        for ref, classification in [('alpha/AGENTS.override.md', 'context'),
                                     ('alpha/index.md', 'context'), ('alpha/source.txt', 'source')]
     ]
     config['context_access']['.']['exports'] = root_to_alpha
@@ -478,6 +478,41 @@ def test_integrator_without_source_connection_is_denied_before_open(prepared_rep
         return original(path, *args, **kwargs)
     monkeypatch.setattr(Path, 'open', no_source)
     with pytest.raises(ValueError, match='source unavailable'):
+        prepare(root, binding, context_id='alpha', approved_revision=sha, entry_folder='alpha',
+            entry_index='alpha/index.md', source_ref='alpha/source.txt', source_context='alpha', artifact_context='.')
+
+
+def test_integrator_without_instruction_connection_is_denied_before_blob(prepared_repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    root, _ = prepared_repo
+    _nested_integrator_repo(root)
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    for context, key in [('.', 'imports'), ('alpha', 'exports')]:
+        config['context_access'][context][key] = [r for r in config['context_access'][context][key]
+                                                   if r['selector'] != 'alpha/AGENTS.override.md']
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'remove instruction connection')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('alpha', '.'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    original = RepositoryReader.read
+    def guarded(reader, path, *args, **kwargs):
+        if path == 'alpha/AGENTS.override.md':
+            pytest.fail('instruction opened without integrator connection')
+        return original(reader, path, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    with pytest.raises(ValueError):
+        prepare(root, binding, context_id='alpha', approved_revision=sha, entry_folder='alpha',
+            entry_index='alpha/index.md', source_ref='alpha/source.txt', source_context='alpha', artifact_context='.')
+
+
+def test_integrator_not_in_host_binding_fails_before_any_context_body(prepared_repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    root, _ = prepared_repo
+    sha = _nested_integrator_repo(root)
+    binding = CoordinationBinding(('alpha',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    monkeypatch.setattr(RepositoryReader, 'read', lambda *_args, **_kwargs: pytest.fail('body opened without host binding'))
+    with pytest.raises(ValueError):
         prepare(root, binding, context_id='alpha', approved_revision=sha, entry_folder='alpha',
             entry_index='alpha/index.md', source_ref='alpha/source.txt', source_context='alpha', artifact_context='.')
 
