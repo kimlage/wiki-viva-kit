@@ -155,6 +155,12 @@ Without a selection, a semicolon-delimited CSV can be misread as one column; the
 unverified comma default is recorded in that source's manifest, request and event.
 An existing capture using a different selection is preserved and requires review
 or migration; it is never silently overwritten. The legacy reader is unchanged.
+The newly explicit dialect uncertainty for existing CSV/TSV captures and the
+page-location limitation for existing PDF captures also change their retained
+coverage and request fingerprint, even when source bytes are unchanged. A prior
+protected request cannot be reused as current evidence without requalification;
+preparation preserves any conflicting earlier capture and requires a controlled
+review or migration rather than replacing its artifacts.
 XLSX rows are JSON lines with sheet names and row numbers. Cell boundaries, line
 breaks and separators are preserved; XLSX numbers, booleans and strings retain
 their types, while dates, times, durations, decimals and errors are tagged.
