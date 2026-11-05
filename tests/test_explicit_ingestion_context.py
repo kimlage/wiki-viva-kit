@@ -216,6 +216,22 @@ def test_declared_context_path_cannot_match_another_page_id(selected_repo, role)
         resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
 
 
+@pytest.mark.parametrize(('field', 'role'), [('config_ref', 'source_config'), ('input_channel_ref', 'input_channel')])
+def test_captured_source_path_cannot_match_another_page_id(field, role):
+    from types import SimpleNamespace
+    from wiki_core.ingest.protected import _validate_source_context
+
+    source = SimpleNamespace(text=f'---\n{field}: beta/selected.md\n---\n# Source\n')
+    projected = {role: {'path': 'alpha/selected.md', 'page_id': 'beta/selected.md'}}
+    with pytest.raises(ValueError, match='explicit qualification'):
+        _validate_source_context(source, projected)
+    projected[role]['path'] = 'beta/selected.md'
+    _validate_source_context(source, projected)
+    source.text = f'---\n{field}: selected-id\n---\n# Source\n'
+    projected[role]['page_id'] = 'selected-id'
+    _validate_source_context(source, projected)
+
+
 def test_global_root_only_when_explicit_and_omission_is_recorded(selected_repo):
     repo, config = selected_repo
     selected = {'root_entity': 'global-root.md'}

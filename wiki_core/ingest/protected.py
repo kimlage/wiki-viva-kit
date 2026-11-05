@@ -284,11 +284,12 @@ def _request_identity(request):
 def _validate_source_context(extracted, projected):
     if extracted.text.startswith('---\n') or extracted.text.startswith('---\r\n'):
         from wiki_core.context_selection import _metadata
+        from wiki_core.ingest.explicit_context import declared_reference_matches
         source_meta = _metadata({'text': extracted.text})
         for key, selected in (('config_ref', projected.get('source_config')),
                               ('input_channel_ref', projected.get('input_channel'))):
             declared = source_meta.get(key)
-            if declared and (not selected or declared not in (selected.get('path'), selected.get('page_id'))):
+            if declared and not declared_reference_matches(declared, selected):
                 raise ValueError('source configuration requires explicit qualification')
         if source_meta.get('perspectives_required') and source_meta['perspectives_required'] != projected['perspectives_required']:
             raise ValueError('source perspectives require explicit qualification')

@@ -22,6 +22,12 @@ class ExplicitContextError(ValueError):
     """An explicit interpretation selection is missing or inconsistent."""
 
 
+def declared_reference_matches(ref, page):
+    """Treat a Markdown path as a path even when another page uses it as ID."""
+    return (isinstance(ref, str) and isinstance(page, dict) and
+            (ref == page.get('path') or (not ref.endswith('.md') and ref == page.get('page_id'))))
+
+
 def _selection(selection):
     keys = {'source_page', 'source_config', 'input_channel', 'root_entity',
             'omit_root_entity', 'templates', 'target_pages', 'target_selection',
@@ -224,9 +230,7 @@ def resolve_explicit_ingestion_context(packet, selection, config):
             body(ref, role)
 
     def verify_link(expected_ref, page_):
-        if expected_ref and (page_ is None or
-                (expected_ref != page_['path'] and
-                 (expected_ref.endswith('.md') or expected_ref != page_['page_id']))):
+        if expected_ref and not declared_reference_matches(expected_ref, page_):
             raise ExplicitContextError('declared context reference requires explicit matching selection')
 
     values = (source or {}).get('values', {})
