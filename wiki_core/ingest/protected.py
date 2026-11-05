@@ -23,10 +23,10 @@ from wiki_core.context_packet import build_packet as context_packet, qualify_fol
 from wiki_core.context_policy import git_file, safe_path
 from wiki_core.coordination_context import _policy, ProtectedCoordinationError
 from wiki_core.detectors import scan_text
-from wiki_core.extractors.text import ExtractedDocument, _looks_binary
+from wiki_core.extractors.text import ExtractedDocument
 from wiki_core.llm import build_context_request
 from wiki_core.llm.context_pass import (CONTEXT_PASS_SCHEMA_VERSION, canonical_request_text,
-    result_matches_request, request_limits)
+    enforce_request_budget, result_matches_request, request_limits)
 from wiki_core.paths import WikiPaths
 from wiki_core.repo_read import contains_access_secrets
 from wiki_core.source_manifest import classify_source, source_id_for, source_origin, chunk_document
@@ -39,11 +39,37 @@ class ProtectedPartialError(ValueError):
     """A failed operation may have retained some artifacts; inspect before retry."""
 
 
-def _authority(root, binding, context_id, approved_revision, entry_folder, entry_index, budget):
+def _authority(root, binding, context_id, approved_revision, entry_folder, entry_index, budget,
+               artifact_context=None):
     root = Path(root).resolve(strict=True)
     policy = _policy(root, binding, context_id, approved_revision)
     if getattr(policy, 'format_version', None) != 'folder':
         raise ProtectedCoordinationError('coordination_policy_unavailable')
+    actor = context_id if artifact_context is None else artifact_context
+    _policy(root, binding, actor, approved_revision)
+    lineage = policy.lineage(context_id)
+    if actor not in [row['id'] for row in lineage]:
+        raise ValueError('integrator requires an authorized ancestor context')
+    if actor != context_id:
+        # The integrator may receive the packet only when it can itself read
+        # every potential instruction and selected index under exact rules.
+        refs = set()
+        parts = [] if entry_folder == '.' else safe_path(entry_folder).split('/')
+        for index in range(len(parts) + 1):
+            prefix = '/'.join(parts[:index])
+            for name in ('AGENTS.override.md', 'AGENTS.md'):
+                ref = (prefix + '/' if prefix else '') + name
+                if ref in policy._folder_names:
+                    refs.add(ref)
+        for row in lineage:
+            if row['root'] != '.' or context_id == '.':
+                refs.add(entry_index if row['id'] == context_id else row['root'] + '/index.md')
+        policy.fresh()
+        for ref in refs:
+            producer = policy.owner_of(ref)
+            if policy._connection(producer, actor, ref, 'interpretation', 'context', qualified=False) != 'approved':
+                raise ValueError('integrator context unavailable')
+        policy.fresh()
     qualify_folder_context(root, policy, context_id, entry_folder, entry_index, budget)
     raw = yaml.safe_load(git_file(root, policy.policy_revision, 'wiki.config.yaml'))
     config = config_from_mapping(raw)
@@ -78,13 +104,15 @@ def _allowed(root, policy, context_id, path, action):
     return path
 
 
-def _source(root, policy, context_id, source_ref):
+def _source(root, policy, context_id, source_ref, artifact_context=None):
     ref = safe_path(source_ref)
     if contains_access_secrets(ref):
         raise ValueError('source unavailable')
     owner = policy.owner_of(ref)
-    if policy.connection(owner, context_id, ref, 'interpretation', 'source') != 'approved':
-        raise ValueError('source unavailable')
+    actor = context_id if artifact_context is None else artifact_context
+    for reader in {context_id, actor}:
+        if policy.connection(owner, reader, ref, 'interpretation', 'source') != 'approved':
+            raise ValueError('source unavailable')
     path = require_wiki_path(root, ref)
     if not path.is_file():
         raise ValueError('source unavailable')
@@ -107,10 +135,11 @@ def _hash(path, policy):
     return digest.hexdigest()
 
 
-def _capture(root, policy, context_id, source_ref, source_context, config):
-    if not isinstance(source_context, str) or contains_access_secrets(source_context):
+def _capture(root, policy, context_id, source_ref, source_context, config, artifact_context=None):
+    if (not isinstance(source_context, str) or not source_context.strip() or len(source_context) > 1024
+            or contains_access_secrets(source_context)):
         raise ValueError('source context unavailable')
-    source = _source(root, policy, context_id, source_ref)
+    source = _source(root, policy, context_id, source_ref, artifact_context)
     source_type = classify_source(str(source))
     if source_type != 'markdown':
         raise ValueError('source format requires an authorized adapter')
@@ -120,10 +149,13 @@ def _capture(root, policy, context_id, source_ref, source_context, config):
     with source.open('rb') as stream:
         data = stream.read(16_000_001)
     policy.fresh()
-    if len(data) > 16_000_000 or _looks_binary(data):
+    if len(data) > 16_000_000 or b'\x00' in data:
         raise ValueError('source unavailable')
     digest = hashlib.sha256(data).hexdigest()
-    text = data.decode('utf-8', errors='replace')
+    try:
+        text = data.decode('utf-8', errors='strict')
+    except UnicodeDecodeError as exc:
+        raise ValueError('source encoding requires an authorized adapter') from exc
     extracted = ExtractedDocument(str(source), source_type, text,
         [{'unit_id': 'full-text', 'kind': 'text', 'text': text}], [])
     manifest = {'schema_version': 'wiki_source_manifest.v1', 'source_uri': str(source),
@@ -178,6 +210,31 @@ def _read_json(root, policy, context_id, path, *, max_bytes=2_000_000):
     return strict_json_loads(data.decode('utf-8'))
 
 
+def _source_page(root, policy, context_id, config, ref):
+    """Read only an explicitly selected, authorized canonical source page."""
+    from wiki_core.context_selection import _metadata
+    ref = safe_path(ref)
+    path = root / ref
+    if (path.suffix.lower() != '.md' or not path.is_relative_to(root / config.paths['memory_root'])):
+        raise ValueError('source page unavailable')
+    _allowed(root, policy, context_id, path, 'read')
+    require_wiki_path(root, ref)
+    policy.fresh()
+    with path.open('rb') as stream:
+        raw = stream.read(1_000_001)
+    policy.fresh()
+    if len(raw) > 1_000_000:
+        raise ValueError('source page unavailable')
+    text = raw.decode('utf-8')
+    if contains_access_secrets(text):
+        raise ValueError('source page unavailable')
+    meta = _metadata({'text': text})
+    if (meta.get('page_type') != 'source' or not isinstance(meta.get('page_id'), str)
+            or not meta['page_id'].strip()):
+        raise ValueError('source page unavailable')
+    return hashlib.sha256(raw).hexdigest()
+
+
 def _capture_matches(root, policy, context_id, paths, manifest, extracted, chunks):
     source_id = manifest['source_id']
     files = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
@@ -204,10 +261,14 @@ def _capture_matches(root, policy, context_id, paths, manifest, extracted, chunk
     return True
 
 
-def _write_once(root, policy, context_id, path, value):
+def _json_text(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + '\n'
+
+
+def _write_once(root, policy, context_id, path, value, *, compact=False):
     _allowed(root, policy, context_id, path, 'write')
     _allowed(root, policy, context_id, path, 'read')
-    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + '\n'
+    payload = canonical_request_text(value) if compact else _json_text(value)
     policy.fresh()
     path.parent.mkdir(parents=True, exist_ok=True)
     policy.fresh()
@@ -223,20 +284,23 @@ def _write_once(root, policy, context_id, path, value):
 
 
 def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
-            source_ref, source_context, context_max_bytes=100_000, request_max_bytes=1_000_000):
+            source_ref, source_context, context_max_bytes=100_000, request_max_bytes=1_000_000,
+            artifact_context=None):
     """Capture one authorized source and emit its bound contextual request."""
     request_limits(context_max_bytes, request_max_bytes)
+    actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes)
+        entry_folder, entry_index, context_max_bytes, actor)
     source, source_digest, manifest, extracted, chunks = _capture(root, policy, context_id,
-        source_ref, source_context, config)
+        source_ref, source_context, config, actor)
     packet = context_packet(root, policy, context_id, approved_revision, [], context_max_bytes,
         task_id=str(manifest['source_id']), goal='Interpret the authorized selected source',
-        output='Contextual source interpretation', integrator=context_id,
+        output='Contextual source interpretation', integrator=actor,
         entry_folder=entry_folder, entry_index=entry_index,
         omissions=['linked sources not inspected'])
     auth = {'ref': source_ref, 'producer': policy.owner_of(source_ref), 'context_id': context_id,
-        'policy_revision': approved_revision, 'use': 'interpretation', 'classification': 'source'}
+        'policy_revision': approved_revision, 'use': 'interpretation', 'classification': 'source',
+        'artifact_context': actor}
     prompt = str(config.llm.get('prompt_versions', {}).get('context_deep_read', DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION))
     profile = str(config.llm.get('default_model_profile', 'deep_context'))
     # An empty temporary cache avoids opening any stored cache before the exact
@@ -248,49 +312,55 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             source_authorization=auth)
     request_id = _request_identity(request)
     request['protected_request_id'] = request_id
+    enforce_request_budget(request, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)
+    if len(canonical_request_text(request).encode('utf-8')) > 2_000_000:
+        raise ValueError('request exceeds protected retention limit')
     source_id = str(manifest['source_id'])
+    text_document = {'schema_version': 'wiki_extracted_text.v1', 'source_id': source_id, 'source_uri': str(source),
+        'source_type': manifest['source_type'], 'context': source_context, 'warnings': list(extracted.warnings),
+        'text_characters': len(extracted.text), 'units': extracted.units}
+    chunks_document = chunk_document(manifest, chunks, warnings=list(extracted.warnings))
+    if any(len(_json_text(value).encode('utf-8')) > 20_000_000
+           for value in (manifest, text_document, chunks_document)):
+        raise ValueError('capture exceeds protected retention limit')
     artifact_paths = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
         paths.chunks / f'{source_id}.json', _request_path(paths, source_id, request_id)]
     for path in artifact_paths:
-        _allowed(root, policy, context_id, path, 'read')
-        _allowed(root, policy, context_id, path, 'write')
+        _allowed(root, policy, actor, path, 'read')
+        _allowed(root, policy, actor, path, 'write')
     for row in request['chunks']:
         path = paths.llm_cache / (row['cache_key'] + '.json')
-        _allowed(root, policy, context_id, path, 'read')
-        _allowed(root, policy, context_id, path, 'write')
+        _allowed(root, policy, actor, path, 'read')
+        _allowed(root, policy, actor, path, 'write')
     # Revalidate the current authority and source before the first side effect.
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes)
-    if _hash(_source(root, policy, context_id, source_ref), policy) != source_digest:
+        entry_folder, entry_index, context_max_bytes, actor)
+    if _hash(_source(root, policy, context_id, source_ref, actor), policy) != source_digest:
         raise ValueError('source changed')
-    capture = _capture_matches(root, policy, context_id, paths, manifest, extracted, chunks)
+    capture = _capture_matches(root, policy, actor, paths, manifest, extracted, chunks)
     def revalidate(path):
         current_root, current_policy, _config, _paths = _authority(root, binding, context_id,
-            approved_revision, entry_folder, entry_index, context_max_bytes)
-        if _hash(_source(current_root, current_policy, context_id, source_ref), current_policy) != source_digest:
+            approved_revision, entry_folder, entry_index, context_max_bytes, actor)
+        if _hash(_source(current_root, current_policy, context_id, source_ref, actor), current_policy) != source_digest:
             raise ValueError('source changed')
-        _allowed(current_root, current_policy, context_id, path, 'read')
-        _allowed(current_root, current_policy, context_id, path, 'write')
+        _allowed(current_root, current_policy, actor, path, 'read')
+        _allowed(current_root, current_policy, actor, path, 'write')
     try:
         if not capture:
             revalidate(artifact_paths[0])
-            _write_once(root, policy, context_id, artifact_paths[0], manifest)
+            _write_once(root, policy, actor, artifact_paths[0], manifest)
             revalidate(artifact_paths[1])
-            _write_once(root, policy, context_id, artifact_paths[1], {
-                'schema_version': 'wiki_extracted_text.v1', 'source_id': source_id, 'source_uri': str(source),
-                'source_type': manifest['source_type'], 'context': source_context, 'warnings': list(extracted.warnings),
-                'text_characters': len(extracted.text), 'units': extracted.units})
+            _write_once(root, policy, actor, artifact_paths[1], text_document)
             revalidate(artifact_paths[2])
-            _write_once(root, policy, context_id, artifact_paths[2],
-                chunk_document(manifest, chunks, warnings=list(extracted.warnings)))
+            _write_once(root, policy, actor, artifact_paths[2], chunks_document)
         revalidate(artifact_paths[3])
-        _write_once(root, policy, context_id, _request_path(paths, source_id, request_id), request)
+        _write_once(root, policy, actor, _request_path(paths, source_id, request_id), request, compact=True)
         revalidate(artifact_paths[3])
         root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-            entry_folder, entry_index, context_max_bytes)
-        if not _capture_matches(root, policy, context_id, paths, manifest, extracted, chunks):
+            entry_folder, entry_index, context_max_bytes, actor)
+        if not _capture_matches(root, policy, actor, paths, manifest, extracted, chunks):
             raise ValueError('capture unavailable after write')
-        if _read_json(root, policy, context_id, _request_path(paths, source_id, request_id)) != request:
+        if _read_json(root, policy, actor, _request_path(paths, source_id, request_id)) != request:
             raise ValueError('request differs after write')
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
@@ -299,29 +369,37 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
 
 
 def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
-                source_ref, source_id, request_id, context_max_bytes, request_max_bytes):
+                source_ref, source_id, request_id, context_max_bytes, request_max_bytes,
+                artifact_context=None):
+    actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes)
-    source = _source(root, policy, context_id, source_ref)
+        entry_folder, entry_index, context_max_bytes, actor)
+    source = _source(root, policy, context_id, source_ref, actor)
     digest = _hash(source, policy)
     path = _request_path(paths, source_id, request_id)
-    request = _read_json(root, policy, context_id, path)
+    request = _read_json(root, policy, actor, path)
     if (not isinstance(request, dict) or request.get('source_id') != source_id
             or request.get('protected_request_id') != request_id
             or _request_identity(request) != request_id
             or request.get('source_hash_sha256') != digest
             or request.get('request_limits') != request_limits(context_max_bytes, request_max_bytes)):
         raise ValueError('request unavailable')
+    checked = dict(request)
+    enforce_request_budget(checked, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)
+    if (checked.get('byte_accounting') != request.get('byte_accounting')
+            or len(canonical_request_text(request).encode('utf-8')) > 2_000_000):
+        raise ValueError('request unavailable')
     auth = request.get('source_authorization')
     if auth != {'ref': source_ref, 'producer': policy.owner_of(source_ref), 'context_id': context_id,
-                'policy_revision': approved_revision, 'use': 'interpretation', 'classification': 'source'}:
+                'policy_revision': approved_revision, 'use': 'interpretation', 'classification': 'source',
+                'artifact_context': actor}:
         raise ValueError('request unavailable')
     packet = request.get('block_context_package')
     if not isinstance(packet, dict):
         raise ValueError('request unavailable')
     current = context_packet(root, policy, context_id, approved_revision, [], context_max_bytes,
         task_id=source_id, goal='Interpret the authorized selected source',
-        output='Contextual source interpretation', integrator=context_id,
+        output='Contextual source interpretation', integrator=actor,
         entry_folder=entry_folder, entry_index=entry_index,
         omissions=['linked sources not inspected'])
     if current != packet:
@@ -329,7 +407,7 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
     # A request filename and digest bind bytes; they do not prove that those
     # chunks came from the selected source. Reconstruct the selected capture.
     _source_path, observed_hash, manifest, _extracted, chunks = _capture(root, policy, context_id,
-        source_ref, request.get('source_context'), config)
+        source_ref, request.get('source_context'), config, actor)
     if observed_hash != digest or manifest.get('source_id') != source_id:
         raise ValueError('request source changed')
     prompt = str(config.llm.get('prompt_versions', {}).get('context_deep_read', DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION))
@@ -346,12 +424,13 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
 
 def record(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
            source_ref, source_id, request_id, results,
-           context_max_bytes=100_000, request_max_bytes=1_000_000):
+           context_max_bytes=100_000, request_max_bytes=1_000_000, artifact_context=None):
     """Record host-supplied result objects against the exact retained request."""
     options = dict(context_id=context_id, approved_revision=approved_revision,
         entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
         source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
-        request_max_bytes=request_max_bytes)
+        request_max_bytes=request_max_bytes, artifact_context=artifact_context)
+    actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     if not isinstance(results, list) or not results or contains_access_secrets(results):
         raise ValueError('result unavailable')
@@ -360,14 +439,16 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
     for result in results:
         if not isinstance(result, dict):
             raise ValueError('result unavailable')
+        if len(_json_text(result).encode('utf-8')) > 2_000_000:
+            raise ValueError('result exceeds protected retention limit')
         matches = [row for row in rows if result_matches_request(result, request, row, recording=True)]
         if len(matches) != 1 or result.get('cache_key') in keys:
             raise ValueError('result unavailable')
         key = result['cache_key']
         keys.append(key)
         target = paths.llm_cache / (key + '.json')
-        _allowed(root, policy, context_id, target, 'read')
-        _allowed(root, policy, context_id, target, 'write')
+        _allowed(root, policy, actor, target, 'read')
+        _allowed(root, policy, actor, target, 'write')
     from wiki_core.llm.context_pass import validate_result
     if any(validate_result(result) for result in results):
         raise ValueError('result unavailable')
@@ -378,11 +459,11 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
             if current != request or current_digest != digest:
                 raise ValueError('request authority changed')
             target = paths.llm_cache / (result['cache_key'] + '.json')
-            _allowed(root, policy, context_id, target, 'read')
-            _allowed(root, policy, context_id, target, 'write')
-            _write_once(root, policy, context_id, target, result)
+            _allowed(root, policy, actor, target, 'read')
+            _allowed(root, policy, actor, target, 'write')
+            _write_once(root, policy, actor, target, result)
             root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
-            if current != request or current_digest != digest or _read_json(root, policy, context_id, target) != result:
+            if current != request or current_digest != digest or _read_json(root, policy, actor, target) != result:
                 raise ValueError('result differs after write')
             written.append(target)
         except (ValueError, OSError) as exc:
@@ -392,13 +473,15 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
 
 def consolidate(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
                 source_ref, source_id, request_id, source_page, event_target, date,
-                candidates=(), context_max_bytes=100_000, request_max_bytes=1_000_000):
+                candidates=(), context_max_bytes=100_000, request_max_bytes=1_000_000,
+                artifact_context=None):
     """Prepare an event and packet; incorporation and review remain separate."""
     from wiki_core.consolidate import aggregate_results, build_event_markdown, build_packet
     options = dict(context_id=context_id, approved_revision=approved_revision,
         entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
         source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
-        request_max_bytes=request_max_bytes)
+        request_max_bytes=request_max_bytes, artifact_context=artifact_context)
+    actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     refs = [safe_path(x) for x in candidates]
     if len(refs) != len(set(refs)) or len(refs) > 128:
@@ -413,20 +496,25 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         f'{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}.md')
     if root / event_target != expected:
         raise ValueError('event target unavailable')
-    for ref in [source_page, *refs]:
+    _allowed(root, policy, context_id, root / source_page, 'read')
+    source_page_digest = _source_page(root, policy, actor, config, source_page)
+    for ref in refs:
         _allowed(root, policy, context_id, root / ref, 'read')
-    target = _allowed(root, policy, context_id, root / event_target, 'write')
-    _allowed(root, policy, context_id, target, 'read')
+        _allowed(root, policy, actor, root / ref, 'read')
+    target = _allowed(root, policy, actor, root / event_target, 'write')
+    _allowed(root, policy, actor, target, 'read')
     packet_path = paths.extraction_events / f'protected-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}-integration-packet.json'
-    _allowed(root, policy, context_id, packet_path, 'read')
-    _allowed(root, policy, context_id, packet_path, 'write')
+    _allowed(root, policy, actor, packet_path, 'read')
+    _allowed(root, policy, actor, packet_path, 'write')
     for row in request['chunks']:
         cache_path = paths.llm_cache / (row['cache_key'] + '.json')
-        _allowed(root, policy, context_id, cache_path, 'read')
+        _allowed(root, policy, actor, cache_path, 'read')
     def read_bound_result(row):
+        from wiki_core.llm.context_pass import validate_result
         cache_path = paths.llm_cache / (row['cache_key'] + '.json')
-        result = _read_json(root, policy, context_id, cache_path)
-        if not result_matches_request(result, request, row):
+        result = _read_json(root, policy, actor, cache_path)
+        if (contains_access_secrets(result) or validate_result(result)
+                or not result_matches_request(result, request, row)):
             raise ValueError('result unavailable')
         return result
     aggregated = aggregate_results(request, paths.llm_cache, root=root, result_reader=read_bound_result)
@@ -434,24 +522,36 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     aggregated['source_hash_sha256'] = digest
     packet = build_packet(aggregated, root, config, paths, candidates=refs)
     markdown = build_event_markdown(aggregated, config=config, context=request['source_context'],
-        date=date, source_page=source_page, event_dir=target.parent, root=root,
+        date=date, source_page=source_page, source_type=classify_source(source_ref),
+        event_dir=target.parent, root=root, yaml_safe=True,
+        protected_provenance={'source_locator': source_ref, 'policy_revision': approved_revision,
+            'executor_context': context_id, 'integrator_context': actor,
+            'source_page_association': 'operator_selected_unverified'},
         impact=dict(packet.get('impact') or {}))
     if contains_access_secrets([packet, markdown]):
         raise ValueError('output unavailable')
+    if len(_json_text(packet).encode('utf-8')) > 2_000_000 or len(markdown.encode('utf-8')) > 2_000_000:
+        raise ValueError('output exceeds protected retention limit')
     root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
     if current != request or current_digest != digest:
         raise ValueError('request authority changed')
-    _allowed(root, policy, context_id, target, 'write')
-    _allowed(root, policy, context_id, target, 'read')
+    _allowed(root, policy, context_id, root / source_page, 'read')
+    if _source_page(root, policy, actor, config, source_page) != source_page_digest:
+        raise ValueError('source page changed')
+    _allowed(root, policy, actor, target, 'write')
+    _allowed(root, policy, actor, target, 'read')
     if target.exists():
         raise ValueError('event already exists; preserved')
     try:
-        _write_once(root, policy, context_id, packet_path, packet)
+        _write_once(root, policy, actor, packet_path, packet)
         root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
         if current != request or current_digest != digest:
             raise ValueError('request authority changed')
-        _allowed(root, policy, context_id, target, 'write')
-        _allowed(root, policy, context_id, target, 'read')
+        _allowed(root, policy, context_id, root / source_page, 'read')
+        if _source_page(root, policy, actor, config, source_page) != source_page_digest:
+            raise ValueError('source page changed')
+        _allowed(root, policy, actor, target, 'write')
+        _allowed(root, policy, actor, target, 'read')
         policy.fresh()
         target.parent.mkdir(parents=True, exist_ok=True)
         policy.fresh()
@@ -461,14 +561,17 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
         if current != request or current_digest != digest:
             raise ValueError('request authority changed')
-        _allowed(root, policy, context_id, target, 'read')
+        _allowed(root, policy, context_id, root / source_page, 'read')
+        if _source_page(root, policy, actor, config, source_page) != source_page_digest:
+            raise ValueError('source page changed')
+        _allowed(root, policy, actor, target, 'read')
         policy.fresh()
         with target.open('rb') as stream:
             event_bytes = stream.read(2_000_001)
         policy.fresh()
         if event_bytes != markdown.encode('utf-8'):
             raise ValueError('event differs after write')
-        if _read_json(root, policy, context_id, packet_path) != packet:
+        if _read_json(root, policy, actor, packet_path) != packet:
             raise ValueError('packet differs after write')
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc

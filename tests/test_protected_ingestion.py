@@ -17,6 +17,8 @@ def prepared_repo(repo):
     write(repo, '.gitignore', 'data/derived/\n')
     write(repo, 'index.md', '# Root index\n')
     write(repo, 'source.txt', 'A small synthetic source for the contextual read.\n')
+    write(repo, 'memories/sources/synthetic.md', '---\npage_id: source-synthetic\npage_type: source\n---\n# Source\n')
+    write(repo, 'memories/sources/Source: Example.md', '---\npage_id: source-example\npage_type: source\n---\n# Source\n')
     git(repo, 'add', '.')
     git(repo, 'commit', '-qm', 'source and root index')
     git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
@@ -38,8 +40,11 @@ def test_complete_protected_proposal_and_local_search_boundary(prepared_repo):
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
     args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
                 source_ref='source.txt')
-    prepared = protected_source_stage(root, binding, 'prepare', {**args, 'source_context': 'system'})['result']
+    source_context = 'system\npage_type: claim'
+    prepared = protected_source_stage(root, binding, 'prepare', {**args, 'source_context': source_context})['result']
     request = prepared['request']
+    from wiki_core.llm.context_pass import canonical_request_text
+    assert request['byte_accounting']['request_bytes'] == len(canonical_request_text(request).encode('utf-8'))
     row = request['chunks'][0]
     sample = json.loads((__import__('pathlib').Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
@@ -49,10 +54,19 @@ def test_complete_protected_proposal_and_local_search_boundary(prepared_repo):
     assert protected_source_stage(root, binding, 'record', {**args, **ids, 'results': [result]})['result']['recorded'] == 1
     event = ('memories/system/ingestion/events/2026-11-04-' +
              hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    source_page = 'memories/sources/Source: Example.md'
     output = protected_source_stage(root, binding, 'consolidate', {**args, **ids,
-        'source_page': 'source.txt', 'event_target': event, 'date': '2026-11-04'})['result']
+        'source_page': source_page, 'event_target': event, 'date': '2026-11-04'})['result']
     assert output['integration'] == 'pending review and incorporation'
     assert (root / output['event']).is_file()
+    assert 'source_type: markdown' in (root / output['event']).read_text()
+    from wiki_core.frontmatter import parse_frontmatter
+    frontmatter, _ = parse_frontmatter(root / output['event'])
+    assert frontmatter['context'] == source_context and frontmatter['page_type'] == 'ingestion_event'
+    assert frontmatter['moc_parent'] == source_page
+    assert frontmatter['protected_provenance']['policy_revision'] == sha
+    assert frontmatter['protected_provenance']['source_page_association'] == 'operator_selected_unverified'
+    assert 'Source%3A%20Example.md' in (root / output['event']).read_text()
     from wiki_core.find import find
     from wiki_core.config import load_config
     protected = 'data/derived/wiki/.wiki-viva-protected'
@@ -296,7 +310,7 @@ def test_event_cannot_be_instruction_file(prepared_repo):
     prepared = prepare(root, binding, **args, source_context='system')
     with pytest.raises(ValueError, match='event target unavailable'):
         consolidate(root, binding, **args, source_id=prepared['source_id'], request_id=prepared['request_id'],
-            source_page='source.txt', event_target='memories/AGENTS.md', date=dt.date(2026, 11, 4))
+            source_page='memories/sources/synthetic.md', event_target='memories/AGENTS.md', date=dt.date(2026, 11, 4))
     assert not (root / 'memories/AGENTS.md').exists()
 
 
@@ -320,7 +334,7 @@ def test_cli_local_operator_prepare_record_consolidate(prepared_repo):
     assert call('record', {**base, **ids, 'results': [result]})['recorded'] == 1
     event = ('memories/system/ingestion/events/2026-11-04-' +
              hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
-    output = call('consolidate', {**base, **ids, 'source_page': 'source.txt', 'event_target': event, 'date': '2026-11-04'})
+    output = call('consolidate', {**base, **ids, 'source_page': 'memories/sources/synthetic.md', 'event_target': event, 'date': '2026-11-04'})
     assert output['integration'] == 'pending review and incorporation'
     assert (root / event).is_file()
 
@@ -338,6 +352,134 @@ def test_cli_packet_uses_folder_authority(prepared_repo, tmp_path):
     output = json.loads(completed.stdout)
     assert output['caller_boundary'] == 'trusted_local_operator'
     assert output['packet']['authority_format'] == 'folder'
+
+
+def test_valid_unicode_is_preserved_and_invalid_utf8_is_blocked(prepared_repo):
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+                source_ref='source.txt', source_context='system')
+    text = 'Informação: 漢字 e 你好.\n' * 10
+    (root / 'source.txt').write_text(text, encoding='utf-8')
+    result = prepare(root, binding, **args)
+    assert '漢字 e 你好' in ''.join(row['text'] for row in result['request']['chunks'])
+    (root / 'source.txt').write_bytes(b'bad\xffencoding')
+    with pytest.raises(ValueError, match='encoding'):
+        prepare(root, binding, **args)
+
+
+def test_final_request_budget_counts_identifier_before_write(prepared_repo):
+    from wiki_core.llm.context_pass import canonical_request_text
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+                source_ref='source.txt', source_context='system')
+    (root / 'source.txt').write_text('synthetic data ' * 1200)
+    result = prepare(root, binding, **args, request_max_bytes=50_000)
+    request = result['request']
+    assert request['byte_accounting']['request_bytes'] == len(canonical_request_text(request).encode('utf-8'))
+    assert 10_000 <= request['byte_accounting']['request_bytes'] < 50_000
+    count = len(list((root / 'data/derived/wiki/.wiki-viva-protected/extraction-events').glob('*.json')))
+    with pytest.raises(ValueError):
+        prepare(root, binding, **args, request_max_bytes=request['byte_accounting']['request_bytes'] - 1)
+    assert len(list((root / 'data/derived/wiki/.wiki-viva-protected/extraction-events').glob('*.json'))) == count
+
+
+def test_escaped_content_over_retention_limit_blocks_before_writes(prepared_repo):
+    root, sha = prepared_repo
+    (root / 'source.txt').write_bytes(b'\x01' * 400_000)
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    with pytest.raises(ValueError, match='retention limit'):
+        prepare(root, binding, context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+                source_ref='source.txt', source_context='system', request_max_bytes=4_000_000)
+    assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
+
+
+def test_invalid_or_missing_source_page_blocks_before_event(prepared_repo):
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
+    event = ('memories/system/ingestion/events/2026-11-04-' +
+             hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    for page in ('memories/sources/missing.md', 'memories/sources/bad.md'):
+        if page.endswith('bad.md'):
+            write(root, page, '---\npage_id: claim-example\npage_type: claim\n---\n# Not a source\n')
+        with pytest.raises((ValueError, OSError)):
+            consolidate(root, binding, **args, **ids, source_page=page,
+                event_target=event, date=dt.date(2026, 11, 4))
+    assert not (root / event).exists()
+
+
+def _nested_integrator_repo(root):
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    root_to_alpha = [
+        {'from_context': '.', 'to_context': 'alpha', 'selector': 'AGENTS.md',
+         'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'},
+        {'from_context': '.', 'to_context': 'alpha', 'selector': 'memories/sources/synthetic.md',
+         'use': 'interpretation', 'classification': 'artifact', 'expires': '2099-01-01'},
+    ]
+    alpha_to_root = [
+        {'from_context': 'alpha', 'to_context': '.', 'selector': ref,
+         'use': 'interpretation', 'classification': classification, 'expires': '2099-01-01'}
+        for ref, classification in [('alpha/AGENTS.md', 'context'), ('alpha/AGENTS.override.md', 'context'),
+                                    ('alpha/index.md', 'context'), ('alpha/source.txt', 'source')]
+    ]
+    config['context_access']['.']['exports'] = root_to_alpha
+    config['context_access']['alpha']['imports'] = root_to_alpha
+    config['context_access']['alpha']['exports'] = alpha_to_root
+    config['context_access']['.']['imports'] = alpha_to_root
+    config['context_access']['alpha']['policy']['read'] = ['self', 'AGENTS.md', 'memories/sources/synthetic.md']
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    write(root, 'alpha/source.txt', 'Synthetic nested context source.\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'authorized nested integrator')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    return git(root, 'rev-parse', 'HEAD')
+
+
+def test_nested_context_with_explicit_authorized_integrator(prepared_repo):
+    root, _ = prepared_repo
+    sha = _nested_integrator_repo(root)
+    binding = CoordinationBinding(('alpha', '.'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='alpha', approved_revision=sha, entry_folder='alpha',
+                entry_index='alpha/index.md', source_ref='alpha/source.txt', artifact_context='.')
+    prepared = prepare(root, binding, **args, source_context='alpha')
+    assert prepared['request']['block_context_package']['context_id'] == 'alpha'
+    assert prepared['request']['block_context_package']['integrator'] == '.'
+    ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
+    record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])
+    event = ('memories/system/ingestion/events/2026-11-04-' +
+             hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    output = consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
+                         event_target=event, date=dt.date(2026, 11, 4))
+    assert output['integration'] == 'pending review and incorporation'
+    assert (root / event).is_file()
+
+
+def test_integrator_without_source_connection_is_denied_before_open(prepared_repo, monkeypatch):
+    from pathlib import Path
+    root, _ = prepared_repo
+    _nested_integrator_repo(root)
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    for context, key in [('.', 'imports'), ('alpha', 'exports')]:
+        config['context_access'][context][key] = [r for r in config['context_access'][context][key]
+                                                   if r['selector'] != 'alpha/source.txt']
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'remove source connection')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('alpha', '.'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    original = Path.open
+    def no_source(path, *args, **kwargs):
+        if path == root / 'alpha/source.txt':
+            pytest.fail('source opened without integrator connection')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', no_source)
+    with pytest.raises(ValueError, match='source unavailable'):
+        prepare(root, binding, context_id='alpha', approved_revision=sha, entry_folder='alpha',
+            entry_index='alpha/index.md', source_ref='alpha/source.txt', source_context='alpha', artifact_context='.')
 
 
 def _result_for(request):
@@ -392,6 +534,6 @@ def test_revocation_after_event_write_reports_partial(prepared_repo, monkeypatch
         return original(path, *values, **kwargs)
     monkeypatch.setattr(Path, 'open', tracked)
     with pytest.raises(protected.ProtectedPartialError):
-        consolidate(root, binding, **args, **ids, source_page='source.txt',
+        consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
                     event_target=event, date=dt.date(2026, 11, 4))
     assert (root / event).is_file()
