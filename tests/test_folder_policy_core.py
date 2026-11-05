@@ -3,6 +3,8 @@ import subprocess
 
 import pytest
 import yaml
+import json
+from jsonschema import validate
 
 from wiki_core.context_policy import PolicyError, load_policy
 from wiki_core.context_packet import build_packet
@@ -53,12 +55,13 @@ def test_physical_contexts_override_and_auxiliary_with_no_grant(repo):
     assert policy.contexts['alpha']['instructions'] == ['alpha/AGENTS.override.md']
     assert policy.owner_of('alpha/aux/data.md') == 'alpha'
     assert policy.owner_of('alpha/child/data.md') == 'alpha/child'
-    assert policy.permits('alpha', 'read', 'alpha/data.md')
+    # Discovery alone supplies no grants before authorized body qualification.
+    assert not policy.permits('alpha', 'read', 'alpha/data.md')
     assert not policy.permits('alpha/child', 'read', 'alpha/child/data.md')
     assert not policy.permits('beta', 'read', 'beta/data.md')
     assert policy.connection('alpha/child', 'alpha', 'alpha/child/data.md', 'interpret', 'internal') == 'denied'
     assert policy.format_version == 'folder'
-    with pytest.raises(PolicyError, match='v2 policy requires a v2 packet'):
+    with pytest.raises(PolicyError, match='entry folder required'):
         build_packet(repo, policy, 'alpha', 'HEAD', [], 100000,
                      task_id='x', goal='x', output='x', integrator='x')
 
@@ -81,8 +84,8 @@ def test_access_requires_exact_bilateral_rule_without_a_second_tree(repo):
     write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
     git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'explicit connection'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     policy = folder_policy(repo)
-    assert policy.connection('alpha', '.', 'alpha/a.md', 'interpret', 'internal') == 'approved'
-    assert policy.connection('alpha', '.', 'alpha/a.md', 'other', 'internal') == 'pending'
+    # Access rules are not activated by metadata discovery alone.
+    assert policy.connection('alpha', '.', 'alpha/a.md', 'interpret', 'internal') == 'denied'
     assert policy.connection('beta', '.', 'beta/a.md', 'interpret', 'internal') == 'denied'
 
 
@@ -118,3 +121,79 @@ def test_tracked_symlink_cannot_define_context(repo):
     write(repo, 'bad/index.md', '# Bad\n')
     git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'invalid instruction'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     with pytest.raises(PolicyError, match='unsafe context tree entry'): folder_policy(repo)
+
+
+def enable_alpha(repo):
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    config['context_access']['alpha']['policy']['read'] = ['.']
+    rule = {'from_context': '.', 'to_context': 'alpha', 'selector': 'AGENTS.md',
+            'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
+    config['context_access']['.']['exports'] = [rule]
+    config['context_access']['alpha']['imports'] = [copy.deepcopy(rule)]
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'authorize synthetic task'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+
+
+def packet(repo, folder='alpha/aux'):
+    return build_packet(repo, folder_policy(repo), 'alpha', 'HEAD', [], 100000,
+                        task_id='task', goal='goal', output='output', integrator='operator',
+                        entry_folder=folder)
+
+
+def test_folder_packet_requires_authorization_before_bodies(repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    opened = []
+    original = RepositoryReader.read
+    def spy(self, path, **kwargs):
+        opened.append(path)
+        return original(self, path, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', spy)
+    with pytest.raises(PolicyError, match='not authorized'):
+        packet(repo)
+    assert opened == []
+
+
+def test_folder_packet_binds_auxiliary_chain_and_index(repo):
+    enable_alpha(repo)
+    value = packet(repo)
+    assert value['authority_format'] == 'folder'
+    assert value['entry_folder'] == 'alpha/aux'
+    assert value['entry_index'] == 'alpha/index.md'
+    assert [item['ref'] for item in value['inputs']] == [
+        'AGENTS.md', 'alpha/AGENTS.override.md', 'alpha/aux/AGENTS.md', 'alpha/index.md']
+    assert 'linked sources not inspected' in value['coverage']['missing']
+    schema = json.loads((__import__('pathlib').Path(__file__).resolve().parents[1] /
+                         'docs/references/schemas/wiki-task-context-v1.schema.json').read_text())
+    validate(value, schema)
+
+
+def test_empty_override_falls_back_only_after_authorized_read(repo):
+    enable_alpha(repo)
+    write(repo, 'alpha/AGENTS.override.md', '  \n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'empty override'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    refs = [item['ref'] for item in packet(repo)['inputs']]
+    assert 'alpha/AGENTS.md' in refs
+    assert 'alpha/AGENTS.override.md' not in refs
+
+
+def test_empty_index_cannot_qualify_context(repo):
+    enable_alpha(repo)
+    write(repo, 'alpha/index.md', '  \n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'empty index'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    with pytest.raises(PolicyError, match='index empty or unavailable'):
+        packet(repo)
+
+
+def test_nested_git_boundary_refused_before_body_reads(repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    enable_alpha(repo)
+    git(repo / 'alpha', 'init', '-q')
+    opened = []
+    original = RepositoryReader.read
+    def spy(self, path, **kwargs):
+        opened.append(path)
+        return original(self, path, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', spy)
+    with pytest.raises(PolicyError, match='entry folder unavailable'):
+        packet(repo)
+    assert opened == []
