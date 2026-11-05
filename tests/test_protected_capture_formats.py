@@ -71,7 +71,9 @@ def test_captured_reader_matches_existing_reader(tmp_path, suffix, kind, monkeyp
         assert json.loads(actual.text.splitlines()[0]) == {'record': 1, 'cells': ['name', 'value']}
         assert actual.warnings == expected.warnings == []
     elif kind == 'spreadsheet':
-        assert json.loads(actual.text) == {'sheet': 'Sheet', 'row': 1, 'cells': ['Synthetic', '漢字']}
+        assert json.loads(actual.text) == {'sheet': 'Sheet', 'row': 1, 'cells': [
+            {'value': 'Synthetic', 'number_format': 'General'},
+            {'value': '漢字', 'number_format': 'General'}]}
         assert actual.warnings == expected.warnings == []
     else:
         assert (actual.text, actual.units, actual.warnings) == (expected.text, expected.units, expected.warnings)
@@ -160,9 +162,75 @@ def test_captured_docx_preserves_simple_table_in_body_order():
     document.save(output)
 
     extracted = extract_captured('source.docx', 'document', output.getvalue())
-    assert extracted.text == 'Before table\nItem | Amount\nAfter table'
+    before, row, after = extracted.text.split('\n')
+    assert before == 'Before table' and after == 'After table'
+    assert json.loads(row) == {'kind': 'doc_table_row', 'table': 1, 'row': 1, 'cells': ['Item', 'Amount']}
     assert [unit['kind'] for unit in extracted.units] == [
         'doc_paragraph', 'doc_table_row', 'doc_paragraph']
+
+
+def test_captured_docx_table_rows_keep_cell_boundaries_and_locator_in_chunks():
+    from docx import Document
+    from wiki_core.chunking import chunk_text
+
+    document = Document()
+    document.add_paragraph('long ' * 250)
+    table = document.add_table(rows=2, cols=2)
+    table.cell(0, 0).text = 'pipe | text'
+    table.cell(0, 1).text = 'line 1\nline 2'
+    table.cell(1, 0).text = 'second'
+    table.cell(1, 1).text = 'row'
+    document.add_paragraph('After table')
+    output = io.BytesIO()
+    document.save(output)
+    extracted = extract_captured('source.docx', 'document', output.getvalue())
+    chunks = chunk_text('source', extracted.text, target_tokens=100, source_units=extracted.units)
+    rows = [json.loads(line) for chunk in chunks for line in chunk.text.split('\n')
+            if line.startswith('{"kind":"doc_table_row"')]
+    assert rows == [{'kind': 'doc_table_row', 'table': 1, 'row': 1, 'cells': ['pipe | text', 'line 1\nline 2']},
+                    {'kind': 'doc_table_row', 'table': 1, 'row': 2, 'cells': ['second', 'row']}]
+    assert any('After table' in chunk.text for chunk in chunks)
+    assert len(chunks) >= 3  # Long paragraphs still subdivide normally.
+
+
+def test_captured_docx_table_row_does_not_split_when_oversize():
+    from docx import Document
+    from wiki_core.chunking import chunk_text
+
+    document = Document()
+    document.add_table(rows=1, cols=1).cell(0, 0).text = 'x' * 32_001
+    output = io.BytesIO()
+    document.save(output)
+    extracted = extract_captured('source.docx', 'document', output.getvalue())
+    with pytest.raises(ValueError, match='tabular row exceeds estimated limit'):
+        chunk_text('source', extracted.text, source_units=extracted.units)
+
+
+def test_document_chunking_rejects_units_that_do_not_match_extracted_text():
+    from wiki_core.chunking import chunk_text
+
+    units = [{'kind': 'doc_paragraph', 'text': 'Different content'}]
+    with pytest.raises(ValueError, match='document chunk units differ'):
+        chunk_text('source', 'Source content', source_units=units)
+
+
+def test_protected_request_keeps_docx_table_row(prepared_repo):
+    from docx import Document
+
+    root, sha = prepared_repo
+    document = Document()
+    table = document.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = 'pipe | inside'
+    table.cell(0, 1).text = 'first line\nsecond line'
+    source = root / 'table.docx'
+    document.save(source)
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    result = prepare(root, binding, context_id='.', approved_revision=sha,
+        entry_folder='.', entry_index='index.md', source_ref=source.name, source_context='system')
+    rows = [json.loads(line) for chunk in result['request']['chunks'] for line in chunk['text'].split('\n')
+            if line.startswith('{"kind":"doc_table_row"')]
+    assert rows == [{'kind': 'doc_table_row', 'table': 1, 'row': 1,
+                     'cells': ['pipe | inside', 'first line\nsecond line']}]
 
 
 def test_captured_docx_does_not_silently_flatten_merged_or_nested_tables():
@@ -227,6 +295,24 @@ def test_captured_docx_rejects_equations_missing_from_paragraph_text(wrapper):
         extract_captured('source.docx', 'document', output.getvalue())
 
 
+@pytest.mark.parametrize('reference', ['footnoteReference', 'endnoteReference'])
+@pytest.mark.parametrize('inside_table', [False, True])
+def test_captured_docx_requires_review_for_note_references(reference, inside_table):
+    from docx import Document
+    from docx.oxml import OxmlElement
+
+    document = Document()
+    paragraph = (document.add_table(rows=1, cols=1).cell(0, 0).paragraphs[0]
+                 if inside_table else document.add_paragraph('Text'))
+    run = OxmlElement('w:r')
+    run.append(OxmlElement('w:' + reference))
+    paragraph._p.append(run)
+    output = io.BytesIO()
+    document.save(output)
+    with pytest.raises(ValueError, match='revision or unsupported inline'):
+        extract_captured('source.docx', 'document', output.getvalue())
+
+
 def test_captured_docx_preserves_hyperlink_runs_and_rejects_unknown_text_wrappers():
     from docx import Document
     from docx.oxml import OxmlElement
@@ -281,7 +367,9 @@ def test_captured_xlsx_keeps_formula_and_cached_value_state(cached_value):
 
     extracted = extract_captured('source.xlsx', 'spreadsheet', data)
     assert json.loads(extracted.text) == {'sheet': 'Sheet', 'row': 1, 'cells': [
-        3, {'formula': '=A1*2', 'cached_value': None if cached_value is None else 6}]}
+        {'value': 3, 'number_format': 'General'},
+        {'formula': '=A1*2', 'cached_value': None if cached_value is None else 6,
+         'number_format': 'General'}]}
     assert extracted.units[0]['text'] == extracted.text
 
 
@@ -303,15 +391,18 @@ def test_captured_xlsx_preserves_scalar_types_and_tags_dates():
 
     workbook = Workbook()
     workbook.active.append([1, '1', True, 'True', datetime.datetime(2026, 11, 5, 8, 30),
-                            '#DIV/0!', '#DIV/0!'])
+                            '#DIV/0!', '#DIV/0!', 0.5])
     workbook.active.cell(row=1, column=7).data_type = 's'
+    workbook.active.cell(row=1, column=8).number_format = '0%'
     output = io.BytesIO()
     workbook.save(output)
     workbook.close()
     extracted = extract_captured('source.xlsx', 'spreadsheet', output.getvalue())
-    assert json.loads(extracted.text)['cells'] == [1, '1', True, 'True',
+    cells = json.loads(extracted.text)['cells']
+    assert [cell['value'] for cell in cells] == [1, '1', True, 'True',
         {'type': 'datetime', 'value': '2026-11-05T08:30:00'},
-        {'type': 'error', 'value': '#DIV/0!'}, '#DIV/0!']
+        {'type': 'error', 'value': '#DIV/0!'}, '#DIV/0!', 0.5]
+    assert cells[-1]['number_format'] == '0%'
 
 
 @pytest.mark.parametrize('suffix,delimiter', [('.csv', ','), ('.tsv', '\t')])
@@ -345,8 +436,10 @@ def test_captured_spreadsheet_rows_keep_sheet_and_row_in_chunks():
     extracted = extract_captured('source.xlsx', 'spreadsheet', output.getvalue())
     chunks = chunk_text('source', extracted.text, target_tokens=100, preserve_lines=True)
     rows = [json.loads(line) for chunk in chunks for line in chunk.text.split('\n')]
-    assert rows == [{'sheet': 'First', 'row': 1, 'cells': ['same | value', 'line 1\nline 2']},
-                    {'sheet': 'Second', 'row': 1, 'cells': ['same | value', 'line 1\nline 2']}]
+    cells = [{'value': 'same | value', 'number_format': 'General'},
+             {'value': 'line 1\nline 2', 'number_format': 'General'}]
+    assert rows == [{'sheet': 'First', 'row': 1, 'cells': cells},
+                    {'sheet': 'Second', 'row': 1, 'cells': cells}]
 
 
 @pytest.mark.parametrize('text', ['word ' * 121, 'x' * 32_001])

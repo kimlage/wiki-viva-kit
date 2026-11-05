@@ -207,15 +207,18 @@ Office archives have bounded expanded size and spreadsheet dimensions. Extracted
 content from non-text formats is capped at 2 MB. PDF extraction requires the
 local `pdftotext` executable, runs with a 30-second timeout, and does not perform
 OCR. DOCX extraction includes body paragraphs and simple table rows in their
-document order; merged or nested tables and unsupported body elements require
-separate review. Inline revisions and wrappers that the reader cannot preserve
-also require review. Headers, footers, images, embedded objects, hyperlink
-destinations and comments are not
+document order. Each table row is a JSON line with table/row identifiers and
+escaped cells, and remains whole in its chunk; merged or nested tables require
+separate review. Footnote/endnote references, inline revisions and wrappers
+that the reader cannot preserve also require review. Headers, footers, images,
+embedded objects, hyperlink destinations and comments are not
 interpreted. CSV and TSV are represented as JSON lines with logical record
 ordinals, not physical line numbers; a record can span multiple physical lines.
 XLSX rows are JSON lines with sheet names and row numbers. Cell boundaries, line
 breaks and separators are preserved; XLSX numbers, booleans and strings retain
 their types, while dates, times, durations, decimals and errors are tagged.
+Nonempty XLSX cells include their stored number format; this is not a rendering
+of conditional formatting, locale-dependent display or other styles.
 Each tabular row remains whole in its chunk: a row above 32,000 bytes or 1.5
 times the estimated word target (minimum 80) is blocked and needs a smaller
 source scope. The estimate uses the larger of the space-split word count and

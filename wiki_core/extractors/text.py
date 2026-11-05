@@ -160,10 +160,13 @@ def _extract_xlsx_captured(data: bytes):
                         if not isinstance(expression, str):
                             raise ValueError('spreadsheet formula requires explicit review')
                         cells.append({'formula': expression,
-                                      'cached_value': _spreadsheet_value(value, value_cell.data_type)})
+                                      'cached_value': _spreadsheet_value(value, value_cell.data_type),
+                                      'number_format': formula_cell.number_format})
                     else:
-                        cells.append(_spreadsheet_value(value, value_cell.data_type))
-                if all(value is None or value == '' for value in cells):
+                        cells.append(None if value is None else {
+                            'value': _spreadsheet_value(value, value_cell.data_type),
+                            'number_format': formula_cell.number_format})
+                if all(value is None or value.get('value') == '' for value in cells):
                     continue
                 line = _tabular_json_line({'sheet': sheet.title, 'row': row_index, 'cells': cells})
                 size += len(line.encode('utf-8')) + 1
@@ -230,7 +233,8 @@ def _extract_docx_captured(data: bytes):
     paragraph_index = table_index = 0
     unsupported_inline = {qn('w:ins'), qn('w:del'), qn('w:moveFrom'), qn('w:moveTo'),
         qn('w:sdt'), qn('w:customXml'), qn('w:smartTag'), qn('w:fldSimple'),
-        qn('w:sym'), qn('w:instrText'), qn('w:delText')}
+        qn('w:sym'), qn('w:instrText'), qn('w:delText'), qn('w:footnoteReference'),
+        qn('w:endnoteReference')}
     math_namespace = qn('m:oMath').split('}')[0] + '}'
 
     def append(text, unit):
@@ -271,7 +275,8 @@ def _extract_docx_captured(data: bytes):
                         raise ValueError('merged or nested document table requires explicit review')
                     seen_cells.add(cell._tc)
                     cells.append(cell.text)
-                text = ' | '.join(cells)
+                text = _tabular_json_line({'kind': 'doc_table_row', 'table': table_index,
+                                           'row': row_index, 'cells': cells})
                 if any(cell.strip() for cell in cells):
                     append(text, {'unit_id': f'table-{table_index}-row-{row_index}',
                         'kind': 'doc_table_row', 'table': table_index, 'row': row_index})
