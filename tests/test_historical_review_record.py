@@ -153,3 +153,24 @@ def test_historical_result_changed_before_record_is_not_written(prepared_repo, m
     with pytest.raises(protected.ProtectedPartialError):
         record(root, binding, **args, **ids, results=[result], historical_reviews=[selection])
     assert changed and not (prior.parent / (result['cache_key'] + '.json')).exists()
+
+
+def test_reviewed_result_is_not_offered_as_candidate_in_third_revision(prepared_repo):
+    root, old_sha, middle_sha, binding, args, old, old_result, middle, result, selection, ids = selected_history(prepared_repo)
+    record(root, binding, **args, **ids, results=[result], historical_reviews=[selection])
+    cache = root / 'data/derived/wiki/.wiki-viva-protected/llm-cache'
+    middle_path = cache / (result['cache_key'] + '.json')
+    middle_bytes = middle_path.read_bytes()
+    assert 'protected_historical_review' in json.loads(middle_bytes)
+    # Only B is granted as a prior request for C; neither a receipt nor the B
+    # annotation grants access to A or proves a chain of independent reviews.
+    binding_for_middle = grant_prior(binding, args, middle, middle_sha)
+    latest_sha = advance(root, 'gamma/unrelated.md')
+    latest_args = {**args, 'approved_revision': latest_sha}
+    latest = prepare(root, binding_for_middle, **latest_args, source_context='system')
+    row = latest['request']['chunks'][0]
+    outcome = prepare(root, binding_for_middle, **latest_args, source_context='system',
+                      previous_request_id=middle['request_id'], candidate_chunk_ids=[row['chunk_id']])
+    assert outcome['historical_review']['status'] == 'unavailable'
+    assert row['result_exists'] is False
+    assert middle_path.read_bytes() == middle_bytes

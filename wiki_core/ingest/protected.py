@@ -653,7 +653,7 @@ def _historical_candidate(root, policy, actor, paths, current, row, previous, hi
         return None, ()
     if (contains_access_secrets(old_result) or not result_matches_request(old_result, previous, old_row)
             or old_result.get('source_id') != previous['source_id'] or old_result.get('chunk_id') != old_row['chunk_id']
-            or 'protected_reuse_origin' in old_result):
+            or 'protected_reuse_origin' in old_result or 'protected_historical_review' in old_result):
         return None, ()
     _check_reuse_dependencies(root, policy, actor, before, current=current)
     origin = {'request_id': previous['protected_request_id'],
