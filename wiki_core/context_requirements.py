@@ -9,7 +9,7 @@ import re
 import subprocess
 from pathlib import Path
 from wiki_core.context_policy import PolicyError, safe_path, within
-from wiki_core.context_packet import validate_result, _context_view, guarded_context_read
+from wiki_core.context_packet import validate_result, _context_view, guarded_context_read, declared_reads_from_inputs
 from wiki_core.context_impact import assess_impact, ImpactError
 from wiki_core.detectors import scan_text
 from wiki_core.information_relations import operational_consumption_edges
@@ -100,7 +100,7 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
         except (ValueError, KeyError, TypeError, OSError) as exc:
             raise RequirementError('folder context input requires requalification') from exc
     if packet['context']!=_context_view(policy,packet['context_id']): raise RequirementError('packet context policy changed')
-    expected_read_set=[{k:item[k] for k in ('ref','section','field','revision')} for item in packet['inputs']]
+    expected_read_set=declared_reads_from_inputs(packet['inputs'], folder_mode=folder_mode)
     if packet['declared_read_set']!=expected_read_set: raise RequirementError('packet read set differs from inputs')
     if any(item['revision'] != (packet['policy_revision'] if (item['kind']=='mandatory' or (folder_mode and i < automatic_count)) else packet['content_revision']) for i, item in enumerate(packet['inputs'])): raise RequirementError('packet input revisions differ')
 

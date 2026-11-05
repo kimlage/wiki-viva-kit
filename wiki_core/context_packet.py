@@ -19,6 +19,18 @@ def _reject_secrets(value):
     if found: raise PolicyError('secret detected in packet input')
 
 
+def declared_reads_from_inputs(inputs, *, folder_mode):
+    """Return the ordered read set, retaining distinct revisions and selectors."""
+    keys = ('ref', 'section', 'field', 'revision')
+    reads = [{key: item[key] for key in keys} for item in inputs]
+    if not folder_mode:
+        return reads  # Preserve the historical v1 representation.
+    unique = {}
+    for item in reads:
+        unique.setdefault(tuple(item[key] for key in keys), item)
+    return list(unique.values())
+
+
 def blocker(action, target, reason, owner, required_action, resume_condition, status='pending', interface=None):
     if status not in ('pending', 'denied', 'uncertain'):
         raise PolicyError('invalid blocker status')
@@ -375,16 +387,8 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     total = sum(x['byte_length'] for x in selected)
     if total > max_bytes: raise PolicyError('selected content exceeds byte budget')
     policy.fresh()  # Fail if approval moved during composition.
-    declared_read_set = [{'ref': x['ref'], 'section': x['section'], 'field': x['field'], 'revision': x['revision']} for x in selected]
-    if folder_mode:
-        # The selected index can also be a query anchor (or explicit evidence).
-        # Preserve both inputs and their roles, but report each identical read
-        # once: task-result/v1 requires unique observed_refs.
-        keys = ('ref', 'section', 'field', 'revision')
-        unique_reads = {}
-        for item in declared_read_set:
-            unique_reads.setdefault(tuple(item[key] for key in keys), item)
-        declared_read_set = list(unique_reads.values())
+    # Inputs retain their separate roles even when they refer to the same read.
+    declared_read_set = declared_reads_from_inputs(selected, folder_mode=folder_mode)
     packet = {'schema_version': 'wiki.task-context/v1', 'task_id': task_id, 'goal': goal, 'output': output, 'integrator': integrator, 'context_id': context_id,
             'content_revision': reader.revision, 'policy_revision': policy.policy_revision, 'context': _context_view(policy, context_id),
             'inputs': selected, 'declared_read_set': declared_read_set,
