@@ -4,9 +4,11 @@ import subprocess
 import pytest
 import yaml
 import json
+import sys
+from pathlib import Path
 from jsonschema import validate
 
-from wiki_core.context_policy import PolicyError, load_policy
+from wiki_core.context_policy import PolicyError, load_policy, historical_policy
 from wiki_core.context_packet import build_packet
 from wiki_core.context_integration import preflight, IntegrationError
 
@@ -347,3 +349,44 @@ def test_context_index_boundary_change_needs_separate_review(repo, change):
     with pytest.raises(IntegrationError, match='context boundary change'):
         preflight(repo, policy, context_id='alpha', base=base, head=git(repo, 'rev-parse', 'HEAD'),
                   branch='wiki/folder-index-change', packet=selected, result=result)
+
+
+def test_folder_cli_uses_physical_cwd_and_rejects_legacy_new_packet(repo, tmp_path):
+    enable_alpha(repo)
+    root = Path(__file__).resolve().parents[1]
+    request = tmp_path / 'request.json'
+    request.write_text(json.dumps({'task_id': 'task', 'goal': 'goal', 'output': 'output',
+                                   'integrator': 'operator', 'max_bytes': 100000, 'evidence': []}))
+    args = [sys.executable, str(root / 'scripts/wiki_context.py'), '--repo', str(repo),
+            '--approved-revision', git(repo, 'rev-parse', 'HEAD'), 'pack', 'alpha',
+            '--content-revision', git(repo, 'rev-parse', 'HEAD'), '--request', str(request)]
+    completed = subprocess.run(args, cwd=repo / 'alpha/aux', capture_output=True, text=True, check=True)
+    output = json.loads(completed.stdout)
+    assert output['entry_folder'] == 'alpha/aux'
+    assert len(completed.stdout.encode('utf-8')) == output['bytes_used']
+    denied = subprocess.run(args[:2] + ['--manifest', 'context.yaml'] + args[2:],
+                            cwd=repo / 'alpha/aux', capture_output=True, text=True)
+    assert denied.returncode != 0
+
+
+def test_legacy_history_is_read_without_mapping_old_identity(tmp_path):
+    git(tmp_path, 'init', '-q'); git(tmp_path, 'config', 'user.name', 'Synthetic'); git(tmp_path, 'config', 'user.email', 'synthetic@example.invalid')
+    legacy = {'schema_version': 'wiki.context/v1', 'id': 'old-root', 'parent': None, 'root': '.',
+              'purpose': 'legacy', 'owner': 'operator', 'instructions': [], 'skills': [], 'templates': [],
+              'policy': {'read': ['self'], 'write': [], 'capabilities': [], 'deny': {}, 'publication': []},
+              'imports': [], 'exports': []}
+    write(tmp_path, 'context.yaml', yaml.safe_dump(legacy))
+    write(tmp_path, 'wiki.config.yaml', yaml.safe_dump({'repo_id': 'synthetic'}))
+    git(tmp_path, 'add', '.'); git(tmp_path, 'commit', '-qm', 'old policy')
+    old = git(tmp_path, 'rev-parse', 'HEAD')
+    write(tmp_path, 'AGENTS.md', '# Root\n')
+    write(tmp_path, 'wiki.config.yaml', yaml.safe_dump({'context_access': {'.': {'owner': 'operator'}}}))
+    git(tmp_path, 'add', '.'); git(tmp_path, 'commit', '-qm', 'folder policy'); git(tmp_path, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    current = load_policy(tmp_path, 'HEAD', 'wiki.config.yaml')
+    history = historical_policy(current, old)
+    assert set(history.contexts) == {'old-root'}
+    assert set(current.contexts) == {'.'}
+    assert history._binding is None
+    with pytest.raises(PolicyError, match='unbound'):
+        build_packet(tmp_path, history, 'old-root', old, [], 100000,
+                     task_id='task', goal='goal', output='output', integrator='operator')
