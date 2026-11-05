@@ -155,9 +155,16 @@ integrator path exists. Each stage revalidates the source, selected context and
 revision. A failed write may leave partial effects and explicitly reports that
 inspection is needed before retry.
 
-This route supports local files up to 16 MB and explicitly selected candidates.
+This route supports local Markdown and text files up to 16 MB and explicitly
+selected candidates. PDF, spreadsheets and other formats require an authorized
+adapter that can extract from the captured bytes without reopening the source.
 It does not yet inspect linked sources, read independent Git repositories, expose
-an HTTP/CLI transport, or incorporate the event in memory. Regular compatibility
+an HTTP transport, or incorporate the event in memory. The existing
+`wiki_coordination.py` offers the three `--source-stage` operations to a trusted
+local operator, with stage JSON on stdin and an explicit context and approved
+revision. Its flags are selected by that operator and are not a security boundary
+against the operator; a separately configured host binding is the protected
+interface. Regular compatibility
 search, audit, GC and result recording do not open the reserved new artifacts;
 their coverage does not include them. The older shared caches are not migrated
 or classified by this route. Their compatibility readers still require separate
