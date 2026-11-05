@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from tests.test_ingestion_budget import approved, execute
+from tests.test_ingestion_budget import approved
 from wiki_core.config import load_config
 from wiki_core.ingest import run
 from wiki_core.llm.context_pass import (context_fingerprint, read_matching_result,
@@ -28,6 +28,34 @@ def result_for(request, row):
         key: {'status': 'extracted'} for key in request.get('perspectives_required', [])},
         **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
         **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')}}
+
+
+def retained_v1_request(approved):
+    """Build a synthetic historical envelope without using retired ingestion."""
+    from dataclasses import asdict
+    from wiki_core.chunking import chunk_text
+    from wiki_core.context_packet import build_packet
+    from wiki_core.context_policy import load_policy
+    from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION, build_context_request
+    from wiki_core.source_manifest import build_manifest
+
+    root, source, sha, _ = approved
+    config = load_config(root)
+    paths = WikiPaths(root, config)
+    manifest = build_manifest(str(source), 'system', root=root)
+    chunks = [asdict(chunk) for chunk in chunk_text(manifest['source_id'], source.read_text())]
+    policy = load_policy(root, sha)
+    packet = build_packet(root, policy, 'root', sha, [], 100_000,
+        task_id='historical-test', goal='Read the source', output='Interpretation', integrator='Reviewer')
+    request = build_context_request(manifest, chunks, paths.llm_cache, 'v4',
+        CONTEXT_PASS_SCHEMA_VERSION, 'deep_context', context_root=root,
+        block_context_package=packet,
+        source_authorization={'ref': 'source.md', 'producer': 'root', 'context_id': 'root',
+                              'policy_revision': sha, 'use': 'interpretation', 'classification': 'source'})
+    path = paths.extraction_events / f"{manifest['source_id']}-llm-context-request.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(request, ensure_ascii=False), encoding='utf-8')
+    return request, path
 
 
 @pytest.mark.parametrize('allow_unrequested', [False, True])
@@ -90,9 +118,7 @@ def test_legacy_paths_do_not_satisfy_local_request(approved, monkeypatch, tmp_pa
 
 def test_existing_approved_v1_result_still_uses_same_bytes_and_location(approved):
     root, _, _, _ = approved
-    produced = execute(approved)
-    assert not produced.blocked
-    request = json.loads((root / produced.request_path).read_text())
+    request, _ = retained_v1_request(approved)
     row = request['chunks'][0]
     result = result_for(request, row)
     assert result_matches_request(result, request, row, recording=True)
@@ -312,21 +338,20 @@ def test_local_consolidation_rejects_changed_context_and_vanished_result(approve
 
 def test_explicit_legacy_request_remains_selectable_alongside_local(approved):
     root, source, _, _ = approved
-    legacy = execute(approved)
-    assert not legacy.blocked
-    original = (root / legacy.request_path).read_bytes()
+    legacy, legacy_path = retained_v1_request(approved)
+    original = legacy_path.read_bytes()
     (root / 'area').mkdir()
     (root / 'area/index.md').write_text('index')
     (root / 'area/AGENTS.md').write_text('guidance')
     local = run(str(source), 'system', root, load_config(root), entry_folder='area', record_score=False)
-    assert not local.blocked and local.source_id == legacy.source_id
+    assert not local.blocked and local.source_id == legacy['source_id']
     paths = WikiPaths(root, load_config(root))
     consolidate = module('wiki_consolidate')
     with pytest.raises(ValueError, match='select an exact'):
-        consolidate._request_for(paths, legacy.source_id)
-    assert consolidate._request_for(paths, legacy.source_id, legacy.request_path) == json.loads(original)
+        consolidate._request_for(paths, legacy['source_id'])
+    assert consolidate._request_for(paths, legacy['source_id'], str(legacy_path)) == json.loads(original)
     assert consolidate._request_for(paths, local.source_id, local.request_path)['folder_request_id']
-    assert (root / legacy.request_path).read_bytes() == original
+    assert legacy_path.read_bytes() == original
 
 
 def test_invalid_retained_identity_never_closes_local_gate(approved, monkeypatch):

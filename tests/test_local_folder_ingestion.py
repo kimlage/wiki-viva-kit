@@ -125,15 +125,17 @@ def test_cli_uses_nested_cwd_and_fails_without_index(approved):
     assert second.returncode == 0 and not json.loads(second.stdout)['blocked']
 
 
-def test_approved_adapter_is_unchanged_and_rejects_mixed_selection(approved, monkeypatch):
-    root, _, sha, _ = approved
-    expected = {'approved': True}
-    monkeypatch.setattr(context_pass, '_approved_ingestion_context', lambda *_args: expected)
-    assert context_pass.ingestion_block_context(root, load_config(root), {}, [],
-        approved_revision=sha, policy_context='root') == expected
-    with pytest.raises(ValueError, match='cannot replace'):
-        context_pass.ingestion_block_context(root, load_config(root), {}, [],
-            approved_revision=sha, policy_context='root', entry_folder='area')
+@pytest.mark.parametrize('options', [
+    {'approved_revision': 'a' * 40},
+    {'policy_context': 'root'},
+    {'approved_revision': 'a' * 40, 'policy_context': 'root', 'entry_folder': 'area'},
+])
+def test_direct_adapter_rejects_retired_v1_before_reading(tmp_path, monkeypatch, options):
+    from wiki_core.config import WikiConfig
+    monkeypatch.setattr(Path, 'open', lambda *_a, **_k: pytest.fail('retired v1 opened a file'))
+    with pytest.raises(context_pass.ContextRequestBlocked, match='v1 entry is retired') as error:
+        context_pass.ingestion_block_context(tmp_path, WikiConfig(), {}, [], **options)
+    assert error.value.code == 'v1_ingestion_retired'
 
 
 def test_second_folder_preserves_existing_source_capture_and_request(approved):

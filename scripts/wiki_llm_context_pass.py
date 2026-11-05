@@ -45,9 +45,7 @@ from wiki_core.input_stage import input_context_for_source
 from wiki_core.llm import CONTEXT_PASS_SCHEMA_VERSION, build_context_request, write_result
 from wiki_core.llm.context_pass import (result_matches_request, ingestion_block_context,
     DEFAULT_CONTEXT_MAX_BYTES, DEFAULT_REQUEST_MAX_BYTES, ContextRequestBlocked,
-    canonical_request_text, enforce_request_budget, preparation_blocker, request_limits,
-    authorize_ingestion_source, revalidate_ingestion_source, approved_ingestion_inputs,
-    require_approved_prompt_version)
+    canonical_request_text, enforce_request_budget, preparation_blocker, request_limits)
 from wiki_core.paths import WikiPaths
 from wiki_core.source_config import find_source_config, merge_perspectives
 from wiki_core.source_manifest import build_manifest, resolve_source_manifest
@@ -492,21 +490,8 @@ def main() -> int:
                     expected_documents=expected_documents)
         except (ValueError, OSError) as exc:
             return _blocked(exc, 'requested-input', config.owner_label)
-    if (args.root_entity_ref is not None or args.omit_root_entity) and not args.approved_revision:
+    if args.root_entity_ref is not None or args.omit_root_entity:
         return _blocked(ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used."), "source-context-pass", config.owner_label)
-    if args.policy_context and not args.approved_revision:
-        return _blocked(ValueError("approved revision required"), "source-context-pass", config.owner_label)
-    if args.approved_revision and args.allow_unrequested:
-        return _blocked(ContextRequestBlocked("approved_result_binding_required", "Approved mode refuses unrequested-result bypass; emit and read the current bound request before recording."), "source-context-pass", config.owner_label)
-    if args.approved_revision and not args.source:
-        return _blocked(ContextRequestBlocked("approved_source_required", "Approved mode requires an explicit source and its requested-result binding."), "source-context-pass", config.owner_label)
-    if args.approved_revision:
-        prompt_version = str(config.llm.get("prompt_versions", {}).get(
-            "context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION))
-        try:
-            require_approved_prompt_version(prompt_version)
-        except (ValueError, OSError) as exc:
-            return _blocked(exc, "source-context-pass", config.owner_label)
     if args.record_result and not args.source and not args.query:
         return _record_results(paths, args.record_result, allow_unrequested=args.allow_unrequested,
             limits=limits, owner=config.owner_label)
@@ -522,14 +507,8 @@ def main() -> int:
     model_profile = args.profile or str(config.llm.get("default_model_profile", "deep_context"))
     required = bool(config.llm.get("required_context_pass", True))
 
-    source_guard = None
     if args.source:
-        if args.approved_revision is not None:
-            try:
-                source_guard = authorize_ingestion_source(root, args.source, args.approved_revision, args.policy_context)
-            except (ValueError, OSError) as exc:
-                return _blocked(exc, "requested-input", config.owner_label)
-        source = selected_source if entry_folder is not None else str(source_guard["path"]) if source_guard else args.source
+        source = selected_source if entry_folder is not None else args.source
         if not Path(source).is_absolute() and not urlsplit(source).scheme:
             source = str(root / source)
         try:
@@ -547,13 +526,10 @@ def main() -> int:
                 for path in (paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
                              paths.chunks / f'{source_id}.json', paths.llm_cache):
                     require_wiki_path(root, path.relative_to(root).as_posix())
-            elif source_guard is None:  # Approved callers use the exact origin-qualified artifact ID.
+            else:
                 manifest = resolve_source_manifest(manifest, paths.source_manifests, paths.chunks, root=root)
             chunks = _chunks_for_source(paths, manifest)
         except ValueError as exc:
-            if source_guard is not None:
-                return _blocked(ContextRequestBlocked("source_capture_required", "The exact authorized capture is unavailable; run canonical ingestion with this source, current approval/context and explicit limits before requesting a pass."),
-                                str(manifest["source_id"]), config.owner_label)
             if args.check:
                 print(json.dumps({
                     "source_id": manifest["source_id"], "required_context_pass": required,
@@ -572,9 +548,6 @@ def main() -> int:
             if entry_folder is not None:
                 from wiki_core.input_stage import local_folder_input_context
                 source_config, input_context = None, local_folder_input_context()
-            elif source_guard is not None:
-                revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
-                source_config, input_context = approved_ingestion_inputs(root, config, source_guard, root_entity_ref=args.root_entity_ref, omit_root_entity=args.omit_root_entity)
             else:
                 source_config = find_source_config(root, config, args.source)
                 input_context = input_context_for_source(root, config, args.source)
@@ -611,9 +584,8 @@ def main() -> int:
     )
     try:
         context_package = selected_context if entry_folder is not None else ingestion_block_context(root, config, input_context,
-            perspectives_required, approved_revision=args.approved_revision, policy_context=args.policy_context,
-            task_id=str(manifest.get("source_id") or "source-context-pass"), context_max_bytes=args.context_max_bytes,
-            content_revision=source_guard["reader"].revision if source_guard else "HEAD",
+            perspectives_required, task_id=str(manifest.get("source_id") or "source-context-pass"),
+            context_max_bytes=args.context_max_bytes,
             entry_folder=entry_folder, entry_index=entry_index)
         request = build_context_request(
             manifest,
@@ -636,15 +608,12 @@ def main() -> int:
             input_stage_status=str(input_context.get("input_stage_status") or ""),
             block_context_package=context_package,
             context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes,
-            source_authorization=source_guard["authorization"] if source_guard else None,
             cache_root=root if entry_folder is not None else None,
         )
         if source_config:
             request["source_config_ref"] = source_config["path"]
             request["source_config_perspectives_applied"] = True
         enforce_request_budget(request, context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes)
-        if source_guard is not None:
-            revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
     except (ValueError, OSError) as exc:
         return _blocked(exc, str(manifest.get("source_id") or "source-context-pass"), config.owner_label)
 
@@ -670,8 +639,7 @@ def main() -> int:
                     'The selected request does not match the current source and context.'), 'requested-input', config.owner_label)
         return _record_results(paths, args.record_result, allow_unrequested=args.allow_unrequested,
             current_request=request, limits=limits, owner=config.owner_label,
-            before_write=(revalidate_entry if entry_folder is not None else
-                (lambda: revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))) if source_guard else None),
+            before_write=revalidate_entry if entry_folder is not None else None,
             preserve_existing=entry_folder is not None)
     if args.check:
         report = {

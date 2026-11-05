@@ -37,9 +37,7 @@ from wiki_core.input_stage import input_context_for_source
 from wiki_core.llm import build_context_request
 from wiki_core.llm.context_pass import (CONTEXT_PASS_SCHEMA_VERSION, ingestion_block_context,
     DEFAULT_CONTEXT_MAX_BYTES, DEFAULT_REQUEST_MAX_BYTES, preparation_blocker,
-    enforce_request_budget, canonical_request_text, request_limits, ContextRequestBlocked,
-    authorize_ingestion_source, revalidate_ingestion_source, approved_ingestion_inputs,
-    require_approved_prompt_version)
+    enforce_request_budget, canonical_request_text, request_limits, ContextRequestBlocked)
 from wiki_core.paths import WikiPaths
 from wiki_core.score import record_event
 from wiki_core.source_config import find_source_config, merge_perspectives
@@ -146,7 +144,6 @@ def run(
     computed in memory and the index/score are not touched.
     """
     paths = WikiPaths(root, config)
-    source_guard = None
     selected_context = None
     report_context = '' if entry_folder is not None else context
     try:
@@ -163,8 +160,6 @@ def run(
             *((paths.source_state, paths.source_state / '.locks') if stream_id else ())),
             files=(paths.derived_root / 'score-events.jsonl', db_path,
                    *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
-        if (approved_revision is not None or policy_context is not None) and (entry_folder is not None or entry_index is not None):
-            raise ValueError('folder selection cannot replace an approved policy')
         if entry_index is not None and entry_folder is None:
             raise ValueError('index requires a context folder')
         if repo_selections is not None and entry_folder is None:
@@ -187,16 +182,8 @@ def run(
                 raise ContextRequestBlocked('local_folder_unavailable',
                     'Selected folder instructions or index are unavailable; no fallback was used.') from exc
             source = validate_local_entry_source(root, source)
-        if (root_entity_ref is not None or omit_root_entity) and not approved_revision:
+        if root_entity_ref is not None or omit_root_entity:
             raise ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used.")
-        if approved_revision is not None or policy_context is not None:
-            if not approved_revision or not policy_context:
-                raise ContextRequestBlocked("approved_source_context_required", "Approved ingestion requires a current approved revision and explicit policy context.")
-            prompt_version = str(config.llm.get("prompt_versions", {}).get(
-                "context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION))
-            require_approved_prompt_version(prompt_version)
-            source_guard = authorize_ingestion_source(root, source, approved_revision, policy_context)
-            source = str(source_guard["path"])
     except (ValueError, OSError) as exc:
         return _blocked_preparation(report_context, config, exc)
 
@@ -213,11 +200,6 @@ def run(
         if entry_folder is None:
             raise
         return _blocked_preparation(context, config, exc)
-    if source_guard is not None:
-        try:
-            revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
-        except (ValueError, OSError) as exc:
-            return _blocked_preparation(context, config, exc)
     source_id = str(manifest["source_id"])
     source_type = str(manifest["source_type"])
     try:
@@ -348,8 +330,6 @@ def run(
                 if entry_folder is not None:
                     from wiki_core.input_stage import local_folder_input_context
                     source_config, input_context = None, local_folder_input_context()
-                elif source_guard is not None:
-                    source_config, input_context = approved_ingestion_inputs(root, config, source_guard, root_entity_ref=root_entity_ref, omit_root_entity=omit_root_entity)
                 else:
                     source_config = find_source_config(root, config, source)
                     input_context = input_context_for_source(root, config, source)
@@ -365,9 +345,7 @@ def run(
                 metrics["perspective_count"] = len(perspectives_required) + len(perspectives_optional)
             with _observed(observer, "llm_request", chunk_count=len(chunk_dicts)) as metrics:
                 context_package = selected_context if entry_folder is not None else ingestion_block_context(root, config, input_context,
-                    perspectives_required, approved_revision=approved_revision, policy_context=policy_context,
-                    task_id=source_id, context_max_bytes=context_max_bytes,
-                    content_revision=source_guard["reader"].revision if source_guard else "HEAD",
+                    perspectives_required, task_id=source_id, context_max_bytes=context_max_bytes,
                     entry_folder=entry_folder, entry_index=entry_index)
                 request = build_context_request(
                     manifest,
@@ -390,7 +368,6 @@ def run(
                     input_stage_status=str(input_context.get("input_stage_status") or ""),
                     block_context_package=context_package,
                     context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
-                    source_authorization=source_guard["authorization"] if source_guard else None,
                     cache_root=root if entry_folder is not None else None,
                 )
                 metrics["pending_llm_calls"] = int(request.get("pending_llm_calls", 0))
@@ -399,18 +376,6 @@ def run(
                 request["source_config_perspectives_applied"] = True
             enforce_request_budget(request, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)
             pending = int(request.get("pending_llm_calls", 0))
-        except (ValueError, OSError) as exc:
-            report = preparation_blocker(exc, source_id, config.owner_label)
-            blockers.append(report["blocker"])
-            context_error_code = report["error_code"]
-            pending = chunk_count
-            request = None
-            blocked = True
-    # This fence covers zero-chunk captures too: they may replace artifacts or
-    # prune an existing index even though no LLM request was assembled.
-    if source_guard is not None and not blocked:
-        try:
-            revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
         except (ValueError, OSError) as exc:
             report = preparation_blocker(exc, source_id, config.owner_label)
             blockers.append(report["blocker"])
