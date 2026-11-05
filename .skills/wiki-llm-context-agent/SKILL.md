@@ -23,6 +23,23 @@ ingesting = integrating.
 
 ## Flow
 
+For the approved folder-policy route, use the `prepare`, `record` and
+`consolidate` stages described in [bounded ingestion](../../docs/references/guides/bounded-ingestion.md#host-bound-protected-source-preparation).
+Read the returned request and bind result objects to its chunks; recording and
+event preparation do not perform review or incorporation. The stage requires
+the same selected folder, index, source, policy revision, limits and authorized
+integrator throughout. The approved source route currently accepts UTF-8
+Markdown/text only; its independent Git and linked-source coverage is incomplete.
+The CLI is a trusted local operator adapter, not an ACL. The `wiki_ingest.py`
+and `wiki_llm_context_pass.py` approval-flag commands below still select the
+older v1 `context.yaml` route, which remains operational and is not proof of a
+completed migration. Use the separately described working-tree route only when
+its actual scope is authorized; it does not apply the folder policy.
+
+The following numbered flow describes the older v1 and working-tree interfaces;
+the host-bound folder source stages have distinct request/result selectors and
+do not use the shared-cache check or consolidation commands below.
+
 1. Use the task's validated packet and selected root/channel/template inputs.
    An authorized coordinator can compile/check [the input stage](../../scripts/wiki_input_stage.py)
    when routing requires it; a scoped executor does not read the full global

@@ -1,10 +1,16 @@
 # Bounded ingestion requests
 
-[wiki_ingest.py](../../../scripts/wiki_ingest.py) is the canonical source entry
-point. It extracts and scans in memory, prepares the complete LLM request and
-checks its budgets before writing artifacts, indexing, scoring or advancing a
-stream cursor. A blocked attempt preserves prior artifacts and never emits a
-partial request or a successful-reading receipt.
+[wiki_ingest.py](../../../scripts/wiki_ingest.py) is the existing source entry
+point for its working-tree and v1 approved routes. Its v1 approval flags below
+still load `context.yaml` for new operations; this is a migration gap, not a
+historical-only path. For a folder-policy source request, use the separate
+[host-bound source stages](#host-bound-protected-source-preparation) below.
+Do not mix either route with local-folder arguments or silently fall back.
+
+The v1 ingestion route extracts and scans in memory, prepares the complete LLM
+request and checks its budgets before writing artifacts, indexing, scoring or
+advancing a stream cursor. A blocked attempt preserves prior artifacts and never
+emits a partial request or a successful-reading receipt.
 
 ```sh
 python3 scripts/wiki_ingest.py --root . --source SOURCE --context SOURCE_CONTEXT \
@@ -176,6 +182,33 @@ their coverage does not include them. The older shared caches are not migrated
 or classified by this route. Their compatibility readers still require separate
 review before treating historical approved material as protected. A reserved
 name is a routing convention, not an access grant or a filesystem ACL.
+
+For example, a trusted local operator can prepare a selected root-context source
+using the existing CLI (replace all placeholders with authorized values):
+
+```sh
+python3 scripts/wiki_coordination.py --root REPO --context-id . \
+  --approved-revision APPROVED_SHA --source-stage prepare <<'JSON'
+{"entry_folder":".","entry_index":"index.md","source_ref":"source.txt","source_context":"example"}
+JSON
+```
+
+The selected context, source, index, artifact paths and event destination must
+already be permitted under the current policy; the example does not create
+those grants. `prepare` returns a request plus `source_id` and `request_id`.
+Read the complete request and supply the results explicitly. For `record`,
+the JSON repeats `entry_folder`, `entry_index`, `source_ref`, `source_id` and
+`request_id`, and adds a `results` array bound to the request. For `consolidate`,
+repeat those selectors and add `source_page`, `event_target`, ISO `date` and
+optional `candidates`. The event path must use the configured ingestion-events
+directory and the canonical name `<date>-<sha256(source_id)>-<request_id>.md`.
+The source page must exist, be authorized and have `page_type: source`. Its
+association with the selected file is operator-supplied, not verified by the
+route. Both `record` and `consolidate` must use the same limits and authorized
+integrator as `prepare`. See the [stage dispatch](../../../wiki_core/coordination_context.py)
+and [synthetic tests](../../../tests/test_protected_ingestion.py) for the exact
+JSON fields. A result, event or integration packet is not a reviewed or
+incorporated memory update.
 
 For example, from the wiki root, enter the chosen context and prepare a source
 using paths anchored to that root (replace the example paths and context):

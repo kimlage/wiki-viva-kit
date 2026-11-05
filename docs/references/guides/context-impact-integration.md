@@ -21,7 +21,7 @@ After preflight, an authorized integrator must independently review the exact pr
 The [CLI](../../../scripts/wiki_context_flow.py) offers finite `impact`, `requirements`, `review`, `revalidate` and `preflight` commands.
 [Dynamic collections](context-dynamic-selection.md) retain their predicate and
 digests on the same canonical requirement/edge; authorized `revalidate` compares
-sets and selected bytes without asserting factual verification. Its `--graph` argument is an already authorized JSON representation of the existing relation inventory, not a new canonical graph. Its `--packet` and `--result` inputs are the existing task contracts. Pass the trusted approved revision and manifest explicitly; use `--help` for arguments. This guide and the synthetic tests do not authorize new credentials, a public export, an external transmission or a scheduler.
+sets and selected bytes without asserting factual verification. Its `--graph` argument is an already authorized JSON representation of the existing relation inventory, not a new canonical graph. Its `--packet` and `--result` inputs are the existing task contracts. The current CLI uses the approved `wiki.config.yaml` folder policy; pass the trusted approved revision and use `--help` for arguments. Historical v1 receipts without a verifiable original manifest require requalification. This guide and the synthetic tests do not authorize new credentials, a public export, an external transmission or a scheduler.
 
 
 ## Synthetic pilot preparation
@@ -44,12 +44,14 @@ ordinary evidence is not an authorization. Evidence with `use: normative` and no
 
 The authorized impact check requires the input to be declared by the current
 lineage and permitted by all applicable denies, and to have been declared in
-the approved ancestral policy revision at which it was consumed. It checks
+the approved ancestral policy revision at which it was consumed. Folder
+receipts must retain their authority format and physical entry/index; v1
+receipts lacking a verifiable binding require requalification. It checks
 that authority before opening historical content. A changed whole body produces
 a review candidate; a revoked, removed or otherwise unprovable authority stops
 with an opaque pending-review error. The global caller-trust audit cannot certify
 policy authority and conservatively reports a requalification obligation when
-context manifests change. A policy or normative edit itself still requires its
+relevant context authority changes. A policy or normative edit itself still requires its
 separate review; no parenthood or this declaration grants access to ordinary
 cross-context evidence.
 
