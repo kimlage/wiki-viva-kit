@@ -152,14 +152,28 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
                         raise PolicyError('query content is not an ancestor of its policy')
                     if folder_mode:
                         from wiki_core.context_packet import qualify_folder_context
-                        from wiki_core.context_selection import _equivalent_folder_chain
+                        from wiki_core.context_policy import safe_path
+                        from pathlib import PurePosixPath
                         qualify_folder_context(root, policy, context_id, req['entry_folder'], req['entry_index'], 2_000_000)
                         historical = (policy if req['query_policy_revision'] == policy.policy_revision else
-                                      _equivalent_folder_chain(policy, context_id, req['query_policy_revision'], req['entry_folder'], req['entry_index']))
+                                      historical_policy(policy, req['query_policy_revision'], authority_format='folder'))
                         # A replacement is evaluated separately with current
-                        # authority. Check the old receipt's recorded metadata
-                        # without requiring old and current grants to match or
-                        # opening blobs whose access may have been revoked.
+                        # authority. Check the old receipt's recorded authority
+                        # and physical selection as metadata, without requiring
+                        # the historical chain to equal the current one or
+                        # opening bodies whose access may have been revoked.
+                        folder = safe_path(req['entry_folder'], allow_root=True)
+                        index = safe_path(req['entry_index'])
+                        if (context_id not in historical.contexts or
+                                (folder == '.' and context_id != '.') or
+                                (folder != '.' and historical.owner_of(folder) != context_id) or
+                                str(PurePosixPath(index).parent) != historical.contexts[context_id]['root']):
+                            raise PolicyError('historical folder selection unavailable')
+                        old_paths = RepositoryReader(root, req['query_policy_revision']).paths
+                        if index not in old_paths or (folder != '.' and not any(ref.startswith(folder + '/') for ref in old_paths)):
+                            raise PolicyError('historical folder selection unavailable')
+                        # Only authority_digest uses this unbound historical
+                        # view; it must never authorize a content read.
                         historical._qualified_contexts.add(context_id)
                     else:
                         historical = historical_policy(policy, req['query_policy_revision'])
