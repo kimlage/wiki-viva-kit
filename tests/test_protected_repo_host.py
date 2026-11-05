@@ -78,6 +78,23 @@ def test_host_exact_selection_complete_journey_and_provenance(configured, monkey
     assert 'example.test/team/independent' in event and str(external) not in event
 
 
+def test_record_invalid_repo_page_selection_fails_before_git_body(configured, monkeypatch):
+    import wiki_core.repo_host as host
+    root, _external, binding, args = configured
+    prepared = prepare(root, binding, **args, source_context='system')
+    calls = []
+    original = host._read_prepared_repo
+    def spy(*a, **kw):
+        calls.append(True)
+        return original(*a, **kw)
+    monkeypatch.setattr(host, '_read_prepared_repo', spy)
+    selection = {'omit_root_entity': True, 'repository_source_pages': {'missing': 'memories/sources/synthetic.md'}}
+    with pytest.raises(ValueError):
+        record(root, binding, **args, source_id=prepared['source_id'], request_id=prepared['request_id'],
+               context_selection=selection, results=[_result_for(prepared['request'])])
+    assert calls == []
+
+
 def test_all_requested_grants_checked_before_any_repository_git(configured, monkeypatch):
     root, _, binding, args = configured
     import wiki_core.ingest.protected as protected
