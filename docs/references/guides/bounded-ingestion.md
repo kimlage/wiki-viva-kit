@@ -229,12 +229,13 @@ results are not counted. An `exceeded` status warns that those observed results
 already exceed the limit. The route rechecks each selected result or absence
 before returning, but the cache can change after that check; it is not an atomic
 snapshot or filesystem access control.
-After every `record` batch, `result_budget` likewise reports the cumulative
-bytes and count of request chunks with matching cached results, plus the count
-of missing chunks. A reused cache key is counted once per request chunk, as it
-is in consolidation. A total above the review limit is reported without discarding
-or blocking recorded data; future result sizes and later cache changes remain
-unknown. The route rechecks the selected results and absences before returning.
+After every `record` batch, `result_budget` reports the bytes in that submitted
+batch and explicitly marks the aggregate as unchecked. This count is not a net
+increase: an identical result might already have been recorded. `record` checks
+the written batch without scanning previous results. To check the current
+aggregate on demand, repeat `prepare` with the same selectors and limits; this
+reads the selected cache and can be expensive for many chunks or repositories.
+Consolidation enforces the combined limit before writing a packet or event.
 
 To review retained data, use `--source-stage inspect` with the same selectors,
 limits, context selection, repository selection and integrator as the original

@@ -68,8 +68,8 @@ Git command. Filesystem checks cannot prevent concurrent hostile replacement;
 the trusted host must protect the repository and storage while operating.
 Protected cache guards also recheck selected repository storage around reads.
 Each check walks bounded object-store metadata, so many chunks or a large store
-can make preparation, recording and inspection expensive. Recording also
-rechecks selected cached results to report the cumulative review budget.
+can make preparation, recording and inspection expensive. To check the
+cumulative review budget, rerun `prepare` on demand for the selected request.
 Metadata at the object-store
 root does not prove that nested entries remain unchanged.
 Local Git configuration is read with a 100 KB cap and a conservative lexical

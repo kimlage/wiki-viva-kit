@@ -827,10 +827,13 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
     rows_by_key = {}
     for row in rows:
         rows_by_key.setdefault(row['cache_key'], []).append(row)
+    batch_result_bytes = 0
     for result in results:
         if not isinstance(result, dict):
             raise ValueError('result unavailable')
-        if len(_json_text(result).encode('utf-8')) > 2_000_000:
+        result_bytes = len(_json_text(result).encode('utf-8'))
+        batch_result_bytes += result_bytes
+        if result_bytes > 2_000_000:
             raise ValueError('result exceeds protected retention limit')
         key = result.get('cache_key')
         if not isinstance(key, str):
@@ -846,7 +849,7 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
     from wiki_core.llm.context_pass import validate_result
     if any(validate_result(result) for result in results):
         raise ValueError('result unavailable')
-    def guard(target, *, writable=True):
+    def guard(target):
         nonlocal root, policy, config, paths
         root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
             entry_folder, entry_index, context_max_bytes, actor)
@@ -858,8 +861,7 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
         if _repository(binding, policy, context_id, actor, repository_selection) != repository_context:
             raise ValueError('repository selection changed')
         _allowed(root, policy, actor, target, 'read')
-        if writable:
-            _allowed(root, policy, actor, target, 'write')
+        _allowed(root, policy, actor, target, 'write')
         policy.fresh()
     written = []
     try:
@@ -882,60 +884,6 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
             guard(target)
             if stamp(target) != written_stamp:
                 raise ValueError('result changed after write')
-        # Count the exact request's selected results, including earlier batches.
-        # Missing results remain explicit; their eventual sizes are unknown.
-        missing = object()
-        def read_snapshot(row):
-            target = paths.llm_cache / (row['cache_key'] + '.json')
-            guard(target, writable=False)
-            try:
-                before = stamp(target)
-            except FileNotFoundError:
-                before = None
-            try:
-                value = _read_json(root, policy, actor, target)
-            except FileNotFoundError:
-                value = missing
-            guard(target, writable=False)
-            try:
-                after = stamp(target)
-            except FileNotFoundError:
-                after = None
-            if before != after or ((value is missing) != (after is None)):
-                raise ValueError('cache changed during budget readback')
-            return target, value, after
-        snapshots = []
-        cached_result_bytes = 0
-        cached_results = 0
-        for row in rows:
-            target, value, identity = read_snapshot(row)
-            if value is missing:
-                fingerprint = None
-            else:
-                if (contains_access_secrets(value) or validate_result(value)
-                        or not result_matches_request(value, request, row)):
-                    raise ValueError('recorded result unavailable')
-                raw = _json_text(value).encode('utf-8')
-                cached_result_bytes += len(raw)
-                cached_results += 1
-                fingerprint = hashlib.sha256(raw).digest()
-            snapshots.append((row, target, identity, fingerprint))
-        for row, target, identity, fingerprint in snapshots:
-            current_target, value, current_identity = read_snapshot(row)
-            current_fingerprint = (None if value is missing else
-                hashlib.sha256(_json_text(value).encode('utf-8')).digest())
-            if current_target != target or current_identity != identity or current_fingerprint != fingerprint:
-                raise ValueError('cache changed before budget delivery')
-        root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-            entry_folder, entry_index, context_max_bytes, actor)
-        for _, target, identity, _ in snapshots:
-            _allowed(root, policy, actor, target, 'read')
-            try:
-                current_identity = stamp(target)
-            except FileNotFoundError:
-                current_identity = None
-            if current_identity != identity:
-                raise ValueError('cache changed before budget delivery')
         if (stamp(_source(root, policy, context_id, source_ref, actor)) != source_stamp
                 or stamp(request_path) != request_stamp):
             raise ValueError('source or request changed')
@@ -944,10 +892,9 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
     return {'recorded': len(written), 'request_id': request_id,
             'result_budget': {'max_combined_result_bytes': 2_000_000,
-                'cached_result_bytes': cached_result_bytes,
-                'status': 'exceeded' if cached_result_bytes > 2_000_000 else 'within_limit',
-                'cached_results': cached_results, 'missing_results': len(rows) - cached_results,
-                'coverage': 'selected cached results only; future results not counted'},
+                'batch_result_bytes': batch_result_bytes,
+                'status': 'aggregate_not_checked',
+                'coverage': 'submitted batch only; use prepare for current selected aggregate'},
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
 
