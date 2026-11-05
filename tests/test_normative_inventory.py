@@ -187,6 +187,25 @@ def test_changed_folder_rule_needs_approved_and_unambiguous_history(folder_norma
     assert row['blockers']==['information_normative_authority_required']
 
 
+def test_changed_folder_index_is_not_promoted_to_mandatory_instruction(folder_normative_repo):
+    from wiki_core.information_use import bind_normative_coverage
+    repo=folder_normative_repo
+    old=git(repo,'rev-parse','HEAD')
+    req={'target':'finance/index.md','fields':['*'],'temporal':'current','max_age_days':30,
+         'consumed_revision':old,'use':'normative','source_kind':'mandatory','classification':'internal',
+         'authority_format':'folder','entry_folder':'finance/costs','entry_index':'finance/costs/index.md'}
+    target='finance/costs/result.md'
+    (repo/target).write_text('---\n'+yaml.safe_dump({'page_id':'cost-task','page_type':'action','action_state':'open',
+                                                    'information_requirements':[req]})+'---\nTask\n')
+    (repo/'finance/index.md').write_text('# Changed finance index\n')
+    git(repo,'add','.');git(repo,'commit','-qm','change index');approve(repo)
+    head=git(repo,'rev-parse','HEAD')
+    graph=authored_graph(repo,load_config(repo))
+    bound=bind_normative_coverage(repo,graph,physical_policy(repo),'finance/costs',head=head)
+    row=assess_information_use(bound,target,now=dt.datetime.now(dt.timezone.utc))['requirements'][0]
+    assert row['blockers']==['information_normative_authority_required']
+
+
 def test_untracked_or_ordinary_external_reference_is_not_granted(repo):
     from copy import deepcopy
     rev=git(repo,'rev-parse','HEAD'); req={'target':'rules.md','fields':['*'],'temporal':'current','max_age_days':30,'consumed_revision':rev,'use':'normative','source_kind':'mandatory','classification':'internal'}

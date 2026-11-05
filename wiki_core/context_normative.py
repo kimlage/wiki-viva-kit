@@ -54,10 +54,12 @@ def folder_normative_changed(policy, context, ref, revision, *, entry_folder, en
     """
     from pathlib import Path, PurePosixPath
     from wiki_core.context_packet import guarded_context_read
+    from wiki_core.context_policy import is_context_instruction
     from wiki_core.detectors import scan_text
     from wiki_core.repository_reader import RepositoryReader
     try:
-        if getattr(policy, 'format_version', None) != 'folder' or not getattr(policy, '_binding', None):
+        if (getattr(policy, 'format_version', None) != 'folder' or not getattr(policy, '_binding', None)
+                or not is_context_instruction(ref)):
             return False
         selected = policy._folder_qualifications.get((context, entry_folder, entry_index))
         if not selected or ref not in selected['refs'] or not selected['nonempty'].get(ref): return False
