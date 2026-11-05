@@ -95,7 +95,9 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
             except (ValueError, KeyError, TypeError, OSError):
                 continue
             if req.get('authority_format') != 'folder':
-                outcomes.append({'path': path, 'state': 'unknown', 'reason': 'dynamic_query_requalification_required', 'seed': path})
+                outcomes.append({'path': path, 'state': 'review_pending', 'reason': 'dynamic_query_requalification_required',
+                    'seed': path, 'requirement_id': requirement_id, 'fields': ['*'], 'causes': [], 'chain': [],
+                    'priority': 'on_demand', 'verification_performed': False})
                 continue
         try:
             if changed_policy and path in changed: raise PolicyError('consumer and policy or normative input changed together')
