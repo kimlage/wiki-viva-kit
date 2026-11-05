@@ -97,11 +97,14 @@ def test_legacy_query_requalifies_when_unbound_rule_changes(query_repo, monkeypa
     path = root / 'alpha/consumer.md'
     raw = path.read_text().split('---\n', 2)
     data = yaml.safe_load(raw[1])
+    folder_data = yaml.safe_load(raw[1])
+    folder_data['page_id'] = 'folder-consumer'
+    write(root, 'alpha/folder-consumer.md', '---\n' + yaml.safe_dump(folder_data) + '---\n' + raw[2])
     for key in ('authority_format', 'entry_folder', 'entry_index'):
         data['information_requirements'][0].pop(key)
     path.write_text('---\n' + yaml.safe_dump(data) + '---\n' + raw[2])
     write(root, 'rules.md', '# Historical rule\n')
-    git(root, 'add', 'alpha/consumer.md', 'rules.md'); git(root, 'commit', '-qm', 'legacy receipt and rule')
+    git(root, 'add', 'alpha/consumer.md', 'alpha/folder-consumer.md', 'rules.md'); git(root, 'commit', '-qm', 'legacy receipt and rule')
     git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     base = git(root, 'rev-parse', 'HEAD')
     git(root, 'checkout', '-qb', 'wiki/legacy-rule-review')
@@ -113,4 +116,7 @@ def test_legacy_query_requalifies_when_unbound_rule_changes(query_repo, monkeypa
     output = repository_report(root, load_config(root), base, query_context='alpha',
                                query_policy_revision=base, query_head=head)
     assert any(row.get('path') == 'alpha/consumer.md' and row['reason'] == 'dynamic_query_requalification_required'
-               for row in output['blockers'])
+               and row['priority'] == 'on_demand' for row in output['pending_reviews'])
+    assert not any(row.get('path') == 'alpha/consumer.md' for row in output['blockers'])
+    assert not any(row.get('path') == 'alpha/folder-consumer.md' and row['reason'].startswith('dynamic_query')
+                   for row in output['blockers'] + output['pending_reviews'])
