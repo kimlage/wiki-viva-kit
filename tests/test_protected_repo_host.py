@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 import pytest
 import yaml
@@ -12,7 +13,7 @@ import yaml
 from tests.test_protected_ingestion import prepared_repo, _result_for, _nested_integrator_repo
 from tests.test_folder_policy_core import repo, git, write
 from wiki_core.coordination_context import CoordinationBinding
-from wiki_core.ingest.protected import prepare, record, consolidate
+from tests.test_protected_ingestion import prepare, record, consolidate
 from wiki_core.repo_host import RepositoryGrant
 
 
@@ -60,7 +61,8 @@ def test_host_exact_selection_complete_journey_and_provenance(configured, monkey
     assert 'Use the selected repository_context' in request['instructions']
     assert selection['text'].endswith('Precise Git evidence.\n')
     assert selection['selection_id'] == 'guide' and len(selection['blob']) in (40, 64)
-    assert str(external) not in json.dumps(request) and 'example.test' not in json.dumps(request)
+    assert str(external) not in json.dumps(request)
+    assert selection['repository_identity'] == 'example.test/team/independent'
     assert external_calls
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     result = _result_for(request)
@@ -73,7 +75,68 @@ def test_host_exact_selection_complete_journey_and_provenance(configured, monkey
                       event_target=target, date=dt.date(2026, 11, 4))
     event = (root / out['event']).read_text()
     assert selection['document_sha256'] in event and selection['revision'] in event
-    assert 'example.test' not in event and str(external) not in event
+    assert 'example.test/team/independent' in event and str(external) not in event
+
+
+def test_all_requested_grants_checked_before_any_repository_git(configured, monkeypatch):
+    root, _, binding, args = configured
+    import wiki_core.ingest.protected as protected
+    monkeypatch.setattr(protected, 'selected_repository', lambda *a, **k: pytest.fail('Git opened before all grants'))
+    with pytest.raises(ValueError):
+        prepare(root, binding, **{**args, 'repository_selection': ['guide', 'not-granted']}, source_context='system')
+
+
+def test_host_environment_pins_grants_and_readback_hides_paths(configured):
+    from wiki_core.coordination_context import capability
+    root, external, binding, args = configured
+    grant = binding.repository_grants[0]
+    config = {'selection_id': grant.selection_id, 'root': str(grant.root), 'identity': grant.identity,
+              'revision': grant.revision, 'path': grant.path, 'executor': grant.executor,
+              'integrator': grant.integrator, 'max_bytes': grant.max_bytes}
+    env = {'WIKI_COORDINATION_ALLOWED_CONTEXTS': '.', 'WIKI_COORDINATION_CONTEXT_MODE': 'folder',
+           'WIKI_COORDINATION_REPOSITORY_GRANTS': json.dumps([config])}
+    pinned = CoordinationBinding.from_environment(env)
+    report = capability(root, pinned)
+    assert report['repository_selections'] == [{'selection_id': 'guide', 'executor': '.',
+        'integrator': '.', 'publication_configured': False}]
+    assert str(external) not in json.dumps(report) and grant.identity not in json.dumps(report)
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
+    command = subprocess.run([sys.executable, str(script), '--root', str(root), '--show-host-binding'],
+        env={**os.environ, **env}, text=True, capture_output=True, check=True)
+    assert json.loads(command.stdout)['repository_selections'] == report['repository_selections']
+    env['WIKI_COORDINATION_REPOSITORY_GRANTS'] = '[{"selection_id":"a","selection_id":"b"}]'
+    with pytest.raises(ValueError): CoordinationBinding.from_environment(env)
+
+
+def test_two_explicit_repositories_share_one_bound_request(configured):
+    root, external, binding, args = configured
+    second = root.parent / (root.name + '-second')
+    second.mkdir()
+    git(second, 'init', '-q'); git(second, 'config', 'user.name', 'Synthetic')
+    git(second, 'config', 'user.email', 'synthetic@example.invalid')
+    git(second, 'remote', 'add', 'origin', 'https://example.test/team/second.git')
+    write(second, 'selected.md', '# Selected second repository\n')
+    git(second, 'add', '.'); git(second, 'commit', '-qm', 'selected')
+    second_grant = RepositoryGrant('second', second.resolve(), 'example.test/team/second',
+        git(second, 'rev-parse', 'HEAD'), 'selected.md', '.', '.', 10000)
+    both = CoordinationBinding(binding.contexts, binding.trusted_ref, binding.manifest,
+                               (*binding.repository_grants, second_grant))
+    args = {**args, 'repository_selection': ['second', 'guide']}
+    prepared = prepare(root, both, **args, source_context='system')
+    rows = prepared['request']['repository_context']
+    assert [row['selection_id'] for row in rows] == ['guide', 'second']
+    assert {row['repository_identity'] for row in rows} == {'example.test/team/independent', 'example.test/team/second'}
+    assert str(external) not in json.dumps(rows) and str(second) not in json.dumps(rows)
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    assert record(root, both, **args, **ids, results=[_result_for(prepared['request'])])['recorded'] == 1
+    target = ('memories/system/ingestion/events/2026-11-04-' +
+              hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    publisher = CoordinationBinding(both.contexts, both.trusted_ref, both.manifest,
+        tuple(replace(grant, event_target=target) for grant in both.repository_grants))
+    result = consolidate(root, publisher, **args, **ids, source_page='memories/sources/synthetic.md',
+        event_target=target, date=dt.date(2026, 11, 4))
+    event = (root / result['event']).read_text()
+    assert 'example.test/team/independent' in event and 'example.test/team/second' in event
 
 
 def test_missing_or_wrong_grant_fails_before_any_external_git_or_source(configured, monkeypatch):

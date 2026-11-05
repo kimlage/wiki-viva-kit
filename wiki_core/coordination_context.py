@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
@@ -47,11 +48,31 @@ class CoordinationBinding:
         contexts=env.get('WIKI_COORDINATION_ALLOWED_CONTEXTS','').strip()
         trusted=env.get('WIKI_COORDINATION_TRUSTED_REF','').strip()
         mode=env.get('WIKI_COORDINATION_CONTEXT_MODE','').strip()
+        raw_grants = env.get('WIKI_COORDINATION_REPOSITORY_GRANTS', '').strip()
         if mode not in ('', 'v1', 'folder'): raise ValueError('invalid coordination context mode')
-        if not contexts and not trusted and not mode: return None
+        if not contexts and not trusted and not mode and not raw_grants: return None
         if not contexts: raise ValueError('incomplete coordination host binding')
+        grants = []
+        if raw_grants:
+            if len(raw_grants.encode('utf-8')) > 100_000: raise ValueError('invalid host repository grants')
+            def unique(pairs):
+                result = {}
+                for key, value in pairs:
+                    if key in result: raise ValueError('duplicate host repository field')
+                    result[key] = value
+                return result
+            try:
+                rows = json.loads(raw_grants, object_pairs_hook=unique)
+                required = {'selection_id', 'root', 'identity', 'revision', 'path', 'executor', 'integrator'}
+                if not isinstance(rows, list) or len(rows) > 32: raise ValueError('invalid host repository grants')
+                for row in rows:
+                    if not isinstance(row, dict) or not required <= set(row) or set(row) - (required | {'max_bytes', 'event_target'}):
+                        raise ValueError('invalid host repository grants')
+                    grants.append(RepositoryGrant(**row))
+            except (TypeError, ValueError, OSError) as exc:
+                raise ValueError('invalid host repository grants') from exc
         return cls(tuple(c.strip() for c in contexts.split(',')),trusted or 'refs/remotes/origin/main',
-                   'wiki.config.yaml' if mode == 'folder' else 'context.yaml')
+                   'wiki.config.yaml' if mode == 'folder' else 'context.yaml', tuple(grants))
 
 
 def capability(root: Path, binding: CoordinationBinding | None) -> dict:
@@ -65,7 +86,10 @@ def capability(root: Path, binding: CoordinationBinding | None) -> dict:
         contexts=[c for c in binding.contexts if c in policy.contexts]
     except (ValueError,OSError): contexts=[]
     if not contexts: return {'ok':True,'schema_version':'wiki.coordination-capability/v1','available':False,'reason':'not_available_or_not_authorized'}
-    return {'ok':True,'schema_version':'wiki.coordination-capability/v1','available':True,'contexts':contexts,'policy_revision':sha}
+    return {'ok':True,'schema_version':'wiki.coordination-capability/v1','available':True,'contexts':contexts,'policy_revision':sha,
+            'repository_selections': [{'selection_id': grant.selection_id, 'executor': grant.executor,
+                'integrator': grant.integrator, 'publication_configured': grant.event_target is not None}
+                for grant in binding.repository_grants]}
 
 
 def _policy(root, binding, context_id, approved_revision):
