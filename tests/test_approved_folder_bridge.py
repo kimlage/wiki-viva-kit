@@ -105,6 +105,44 @@ def test_approved_folder_revalidates_policy_before_persistence(approved, monkeyp
     assert not WikiPaths(root, load_config(root)).derived_root.exists()
 
 
+def test_two_approved_folder_requests_keep_one_capture_and_separate_interpretations(approved):
+    root, source, _, _ = approve_folder(approved)
+    (root / 'area' / 'another').mkdir()
+    (root / 'area' / 'another' / 'AGENTS.md').write_text('other approved guidance\n')
+    (root / 'area' / 'another' / 'index.md').write_text('other approved index\n')
+    git(root, 'add', 'area/another')
+    git(root, 'commit', '-qm', 'Add another authorized folder')
+    sha = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', sha)
+    config = load_config(root)
+    first = run(str(source), 'system', root, config, entry_folder='area/aux',
+                approved_revision=sha, policy_context='root', record_score=False)
+    assert not first.blocked, first.blockers
+    retained = [root / first.manifest_path, root / first.text_path, root / first.chunks_path, root / first.request_path]
+    before = [path.read_bytes() for path in retained]
+    second = run(str(source), 'system', root, config, entry_folder='area/another',
+                 approved_revision=sha, policy_context='root', record_score=False)
+    assert not second.blocked, second.blockers
+    assert first.source_id == second.source_id and first.request_path != second.request_path
+    assert (root / second.request_path).is_file()
+    assert [path.read_bytes() for path in retained] == before
+
+
+def test_cli_approved_nested_cwd_selects_the_folder(approved, monkeypatch, capsys):
+    from tests.test_local_result_cache import module
+    root, source, _, sha = approve_folder(approved)
+    monkeypatch.chdir(root / 'area' / 'aux')
+    cli = module('wiki_ingest')
+    monkeypatch.setattr(sys, 'argv', ['wiki_ingest.py', '--root', str(root), '--source', str(source),
+        '--context', 'system', '--approved-revision', sha, '--policy-context', 'root', '--no-score'])
+    assert cli.main() == 0
+    result = json.loads(capsys.readouterr().out)
+    request = json.loads((root / result['request_path']).read_text())
+    assert request['block_context_package']['entry_folder'] == 'area/aux'
+    assert request['block_context_package']['entry_index'] == 'area/index.md'
+    assert request['source_authorization']['policy_revision'] == sha
+
+
 def test_approved_folder_record_and_consolidate_require_current_authority(approved, monkeypatch, tmp_path, capsys):
     from tests.test_local_result_cache import module, result_for
     root, source, previous, sha = approve_folder(approved)
