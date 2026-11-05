@@ -123,4 +123,4 @@ def test_v1_binding_does_not_accept_folder_payload(repo, monkeypatch):
     data['context_id'] = 'costs'
     with pytest.raises(coord.ProtectedCoordinationError) as error:
         coord.prepare_packet(repo, binding, data)
-    assert error.value.code == 'coordination_invalid_request'
+    assert error.value.code == 'coordination_v1_retired'

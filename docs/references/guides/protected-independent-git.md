@@ -47,6 +47,10 @@ operator must protect the startup environment. The CLI is an interface for a
 trusted local operator, not a boundary against that operator. The binding controls
 this application route only; it is not an operating-system ACL, process
 sandbox, remote authentication or evidence of external business permission.
+Startup validates grant syntax without opening every repository. Physical root
+and storage are checked and pinned only when a grant is selected; an absent
+unselected repository does not block another selection. Every selected grant
+and storage boundary is checked before opening any selected Git body.
 The host remains responsible for separately qualifying local filesystem access
 and the Git installation. A configured origin only checks local routing; it is
 not proof of the remote repository's identity. Other links and files are not

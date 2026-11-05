@@ -165,6 +165,10 @@ the matching ID and type and pass current policy; the paths grant no access.
 Skipped perspectives, unselected optional perspectives, linked sources and
 other gaps remain visible in packet coverage. Source frontmatter declaring a
 configuration or channel must match the selected context.
+For independent Git evidence, `repository_source_pages` may explicitly map
+each host selection ID to its own authorized source page; the page locator
+must match the sanitized configured identity. This association does not grant
+access or prove remote identity or file consumption.
 
 Protected folder ingestion requires the v5 prompt, which points to
 `wiki_coordination.py --source-stage`. A configuration explicitly selecting
@@ -180,6 +184,8 @@ those flags; they refuse before opening the selected source or result. Local
 working-tree compatibility without those flags remains available. Existing
 v1 and mixed-cache artifacts are preserved, but examining the mixed artifacts
 under current authority requires a separately qualified historical route.
+The protected host also refuses new v1 task packets; existing historical
+preflight remains a separate operation.
 
 This route supports local Markdown, text, CSV, TSV, XLSX, DOCX, EML and PDF
 sources up to 16 MB. Extraction consumes the authorized bytes captured in memory;
@@ -191,7 +197,8 @@ local `pdftotext` executable, runs with a 30-second timeout, and does not perfor
 OCR. DOCX extraction includes body paragraphs and simple table rows in their
 document order; merged or nested tables and unsupported body elements require
 separate review. Inline revisions and wrappers that the reader cannot preserve
-also require review. Headers, footers, images and embedded objects are not
+also require review. Headers, footers, images, embedded objects, hyperlink
+destinations and comments are not
 interpreted. CSV and TSV are represented as JSON lines with logical record
 ordinals, not physical line numbers; a record can span multiple physical lines.
 XLSX rows are JSON lines with sheet names and row numbers. Cell boundaries, line

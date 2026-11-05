@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import replace
 
 from wiki_core.frontmatter import list_values, parse_frontmatter
@@ -23,7 +24,7 @@ class ExplicitContextError(ValueError):
 
 def _selection(selection):
     keys = {'source_page', 'source_config', 'input_channel', 'root_entity',
-            'omit_root_entity', 'templates', 'target_pages'}
+            'omit_root_entity', 'templates', 'target_pages', 'repository_source_pages'}
     if not isinstance(selection, dict) or set(selection) - keys:
         raise ExplicitContextError('invalid explicit context selection')
     omitted = selection.get('omit_root_entity', False)
@@ -48,6 +49,15 @@ def _selection(selection):
             clean[name] = [canonical_path(value) for value in values]
         except (ValueError, TypeError) as exc:
             raise ExplicitContextError('invalid context path') from exc
+    repository_pages = selection.get('repository_source_pages', {})
+    if (not isinstance(repository_pages, dict) or len(repository_pages) > 8
+            or any(not isinstance(key, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', key)
+                   for key in repository_pages)):
+        raise ExplicitContextError('invalid repository source selection')
+    try:
+        clean['repository_source_pages'] = {key: canonical_path(repository_pages[key]) for key in sorted(repository_pages)}
+    except (ValueError, TypeError) as exc:
+        raise ExplicitContextError('invalid repository source selection') from exc
     refs = [clean[name] for name in ('source_page', 'source_config', 'input_channel', 'root_entity') if name in clean]
     refs += clean['templates'] + clean['target_pages']
     if len(refs) != len(set(refs)):
@@ -63,10 +73,11 @@ def explicit_ingestion_evidence(policy, selection):
             ('source_page', 'source_config', 'input_channel', 'root_entity') if name in selected]
     refs += [('template', ref) for ref in selected['templates']]
     refs += [('target_page', ref) for ref in selected['target_pages']]
+    refs += [('repository_source_page:' + key, ref) for key, ref in selected['repository_source_pages'].items()]
     for role, ref in refs:
         rows.append({'ref': ref, 'producer': policy.owner_of(ref),
             'reason': 'Explicit ingestion ' + role, 'use': 'interpretation',
-            'classification': 'source' if role == 'source_page' else 'context'})
+            'classification': 'source' if role == 'source_page' or role.startswith('repository_source_page:') else 'context'})
     return rows
 
 
@@ -91,7 +102,7 @@ def resolve_explicit_ingestion_context(packet, selection, config):
                 and row.get('ref') == ref and row.get('kind') == 'evidence'
                 and row.get('reason') == 'Explicit ingestion ' + role
                 and row.get('use') == 'interpretation'
-                and row.get('classification') == ('source' if role == 'source_page' else 'context')]
+                and row.get('classification') == ('source' if role == 'source_page' or role.startswith('repository_source_page:') else 'context')]
         if len(rows) != 1 or not isinstance(rows[0].get('text'), str):
             raise ExplicitContextError('selected context body unavailable')
         row = rows[0]
@@ -123,6 +134,15 @@ def resolve_explicit_ingestion_context(packet, selection, config):
     root_page = page('root_entity')
     if root_page and root_page['page_type'] not in ('root_entity', 'context_hub'):
         raise ExplicitContextError('selected business root type is not qualified')
+    repository_sources = {}
+    for key, ref in selected['repository_source_pages'].items():
+        values, _ = parse_frontmatter(body(ref, 'repository_source_page:' + key))
+        if (values.get('page_type') != 'source' or values.get('platform') != 'repo'
+                or not isinstance(values.get('page_id'), str) or not values['page_id'].strip()
+                or not isinstance(values.get('source_locator'), str) or not values['source_locator'].strip()):
+            raise ExplicitContextError('repository source page invalid')
+        repository_sources[key] = {'path': ref, 'page_id': values['page_id'],
+                                   'source_locator': values['source_locator']}
     # Validate every explicitly requested body even when it is only a template
     # or destination candidate. A link from a page never counts as a read.
     for name, role in (('templates', 'template'), ('target_pages', 'target_page')):
@@ -186,6 +206,7 @@ def resolve_explicit_ingestion_context(packet, selection, config):
         'target_pages': list(selected['target_pages']),
         'perspectives_required': perspectives['required'], 'perspectives_optional': perspectives['optional'],
         'perspectives_skipped': perspectives['skipped'],
+        'repository_sources': repository_sources,
         'input_stage_status': 'explicit_authorized_refs_only', 'context_omissions': gaps,
         'source_page_association': 'operator_selected_unverified' if source else 'not_selected',
         'source_config_association': ('declared_reference_matched' if config_ref else

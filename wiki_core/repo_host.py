@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import threading
 
 from wiki_core.repo_read import _prepare_repo_read, _read_prepared_repo, remote_identity
 from wiki_core.repository_reader import canonical_path
@@ -77,19 +78,17 @@ class RepositoryGrant:
     integrator: str
     max_bytes: int = 100_000
     event_target: str | None = field(default=None, repr=False)
-    _physical_root: tuple = field(init=False, repr=False)
-    _physical_storage: tuple = field(init=False, repr=False)
+    _physical_root: tuple | None = field(init=False, default=None, repr=False, compare=False)
+    _physical_storage: tuple | None = field(init=False, default=None, repr=False, compare=False)
+    _pin_lock: object = field(init=False, default_factory=threading.RLock, repr=False, compare=False, hash=False)
 
     def __post_init__(self):
         if not isinstance(self.selection_id, str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}', self.selection_id):
             raise ValueError('invalid host repository grant')
         root = Path(self.root)
-        if not root.is_absolute() or root.resolve(strict=True) != root or not root.is_dir():
+        if not root.is_absolute() or '..' in root.parts:
             raise ValueError('invalid host repository root')
-        stat = root.stat()
         object.__setattr__(self, 'root', root)
-        object.__setattr__(self, '_physical_root', (stat.st_dev, stat.st_ino))
-        object.__setattr__(self, '_physical_storage', _storage_identity(root))
         if (not isinstance(self.revision, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', self.revision)
                 or canonical_path(self.path) != self.path or type(self.max_bytes) is not int
                 or not 1 <= self.max_bytes <= 2_000_000
@@ -139,11 +138,17 @@ def authorize_repository_event(binding, policy, context_id, actor, selection_id,
 def check_repository_storage(binding, policy, context_id, actor, selection_id):
     grant = authorize_repository_grant(binding, policy, context_id, actor, selection_id)
     try:
-        stat = grant.root.stat()
-        if grant.root.resolve(strict=True) != grant.root or (stat.st_dev, stat.st_ino) != grant._physical_root:
-            raise ValueError('repository selection unavailable')
-        if _storage_identity(grant.root, before_read=policy.fresh) != grant._physical_storage:
-            raise ValueError('repository selection unavailable')
+        with grant._pin_lock:
+            info = grant.root.stat()
+            if grant.root.resolve(strict=True) != grant.root or not stat.S_ISDIR(info.st_mode):
+                raise ValueError('repository selection unavailable')
+            physical_root = (info.st_dev, info.st_ino)
+            physical_storage = _storage_identity(grant.root, before_read=policy.fresh)
+            if grant._physical_root is None and grant._physical_storage is None:
+                object.__setattr__(grant, '_physical_root', physical_root)
+                object.__setattr__(grant, '_physical_storage', physical_storage)
+            if physical_root != grant._physical_root or physical_storage != grant._physical_storage:
+                raise ValueError('repository selection unavailable')
     except OSError as exc:
         raise ValueError('repository selection unavailable') from exc
     return grant

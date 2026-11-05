@@ -124,6 +124,13 @@ def test_protected_stage_with_captured_formats(prepared_repo, suffix, kind):
     assert manifest['extraction_limitations'] == chunks['extraction_limitations'] == expected
     assert manifest['extraction_complete'] is chunks['extraction_complete'] is (not bool(expected))
     assert extracted['warnings'] == expected
+    if suffix == '.docx':
+        for block in (manifest['extraction_limitations'], chunks['extraction_limitations'],
+                      request['block_context_package']['coverage']['missing'],
+                      metadata['protected_provenance']['extraction_limitations']):
+            assert any('hyperlink destinations' in item and 'comments' in item for item in block)
+    if suffix == '.pdf':
+        assert any('OCR was not performed' in item for item in manifest['extraction_limitations'])
 
 
 def test_strict_encoding_and_archive_limit():
