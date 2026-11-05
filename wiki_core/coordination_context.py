@@ -204,6 +204,8 @@ def prepare_packet(root, binding, payload):
 
 
 def prepare_preflight(root,binding,payload):
+    if binding is None: raise ProtectedCoordinationError('coordination_not_available')
+    if binding.manifest != 'wiki.config.yaml': raise ProtectedCoordinationError('coordination_v1_retired')
     required={'context_id','approved_revision','base','head','branch','packet','result'}
     if not isinstance(payload,dict) or not required <= set(payload) or set(payload) - (required | {'additional_readers'}): raise ProtectedCoordinationError('coordination_invalid_request')
     policy=_policy(root,binding,payload['context_id'],payload['approved_revision'])

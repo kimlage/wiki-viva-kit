@@ -61,6 +61,8 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     Git bytes are verified at input, current base and proposal output. The task
     result reports its reads; this is not proof of semantic comprehension.
     """
+    if getattr(policy, 'format_version', None) != 'folder':
+        raise RequirementError('new requirements require folder authority; v1 is historical only')
     policy=_fresh(root,policy)
     folder_mode = getattr(policy, 'format_version', None) == 'folder'
     if not isinstance(packet, dict) or folder_mode != (packet.get('authority_format') == 'folder'):
