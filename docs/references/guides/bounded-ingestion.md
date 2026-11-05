@@ -289,6 +289,13 @@ and [synthetic tests](../../../tests/test_protected_ingestion.py) for the exact
 JSON fields. A result, event or integration packet is not a reviewed or
 incorporated memory update.
 
+`prepare` reports `result_budget`, including the 2 MB combined review limit and
+the bytes of the exact selected cached results observed in its readback; future
+results are not counted. An `exceeded` status warns that those observed results
+already exceed the limit. The route rechecks each selected result or absence
+before returning, but the cache can change after that check; it is not an atomic
+snapshot or filesystem access control.
+
 To review retained data, use `--source-stage inspect` with the same selectors,
 limits, context selection, repository selection and integrator as the original
 request. Supply `view: "results"` and an explicit `chunk_ids` array of one to

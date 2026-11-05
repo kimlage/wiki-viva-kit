@@ -954,7 +954,72 @@ def test_prepare_rechecks_exact_cache_without_changing_retained_request(prepared
     assert again['request']['chunks'][0]['result_exists'] is True
     assert again['request']['chunks'][0]['result_source_id'] == first['source_id']
     assert again['request']['cached_calls'] == 1 and again['request']['pending_llm_calls'] == 0
+    from wiki_core.ingest.protected import _json_text
+    assert again['result_budget'] == {
+        'max_combined_result_bytes': 2_000_000,
+        'cached_result_bytes': len(_json_text(_result_for(first['request'])).encode('utf-8')),
+        'status': 'within_limit',
+        'coverage': 'selected cached results only; future results not counted'}
     assert again['request']['byte_accounting']['request_bytes'] == len(canonical_request_text(again['request']).encode())
+
+
+@pytest.mark.parametrize('change', ['remove', 'replace', 'appear'])
+def test_prepare_rechecks_cached_result_and_miss_before_return(prepared_repo, monkeypatch, change):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    result = _result_for(first['request'])
+    if change != 'appear':
+        record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'], results=[result])
+    path = root / 'data/derived/wiki/.wiki-viva-protected/llm-cache' / (result['cache_key'] + '.json')
+    original = protected._open_bound
+    calls = []
+    def mutate_after_last_bound(*a, **kw):
+        value = original(*a, **kw)
+        calls.append(1)
+        if len(calls) == 2:
+            if change == 'remove':
+                path.unlink()
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                changed = {**result, 'produced_by': 'changed producer'} if change == 'replace' else result
+                path.write_text(json.dumps(changed))
+        return value
+    monkeypatch.setattr(protected, '_open_bound', mutate_after_last_bound)
+    with pytest.raises(protected.ProtectedPartialError, match='cache readback unavailable'):
+        prepare(root, binding, **args, source_context='system')
+    assert len(calls) == 2
+
+
+def test_prepare_rechecks_earlier_result_after_later_cache_read(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    (root / 'source.txt').write_text(''.join(f'Synthetic evidence {i} with bounded detail.\n' for i in range(1200)))
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    result = _result_for(first['request'])
+    rows = first['request']['chunks']
+    assert len(rows) >= 3
+    record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'], results=[result])
+    path = root / 'data/derived/wiki/.wiki-viva-protected/llm-cache' / (result['cache_key'] + '.json')
+    original = protected._read_json
+    calls = []
+    def mutate_early_cache(*a, **kw):
+        is_cache = a[3].parent.name == 'llm-cache'
+        if is_cache:
+            calls.append(a[3])
+        try:
+            return original(*a, **kw)
+        finally:
+            if is_cache and len(calls) == len(rows) + 2:
+                path.unlink()
+    monkeypatch.setattr(protected, '_read_json', mutate_early_cache)
+    with pytest.raises(protected.ProtectedPartialError, match='cache readback unavailable'):
+        prepare(root, binding, **args, source_context='system')
+    assert len(calls) >= len(rows) + 2
 
 
 @pytest.mark.parametrize('contents', ['null', '{broken'])
