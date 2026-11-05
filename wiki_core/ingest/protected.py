@@ -1144,12 +1144,42 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         context_selection=context_selection, repository_selection=repository_selection)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
-
+    repository_context = request.get('repository_context')
+    def stamp(path):
+        value = path.stat()
+        return (value.st_dev, value.st_ino, value.st_mode, value.st_size,
+                value.st_mtime_ns, value.st_ctime_ns)
+    source_path = _source(root, policy, context_id, source_ref, actor)
+    request_path = _request_path(paths, source_id, request_id, repository_context)
+    _allowed(root, policy, actor, request_path, 'read')
+    policy.fresh()
+    source_stamp, request_stamp = stamp(source_path), stamp(request_path)
+    policy.fresh()
     def refresh():
         current = _open_bound(root, binding, **options)
-        if current[4] != request or current[5] != digest:
+        if (current[4] != request or current[5] != digest or stamp(source_path) != source_stamp
+                or stamp(request_path) != request_stamp):
             raise ValueError('request authority changed')
         return current
+    root, policy, config, paths, _, _ = refresh()
+    def guard(path, *, next_is_read=False):
+        # The policy and actors were qualified at batch entry. Check the
+        # selected physical boundaries here; _read_json checks the trusted ref
+        # immediately before and after every body read.
+        cache = _STAGE_CACHE.get()
+        if cache is None:
+            raise ValueError('stage unavailable')
+        _check_physical_context(root, entry_folder, cache['context_paths'].get(str(root), (set(), set())))
+        current_source = _source(root, policy, context_id, source_ref, actor)
+        current_request = _request_path(paths, source_id, request_id, repository_context)
+        _allowed(root, policy, actor, current_request, 'read')
+        if stamp(current_source) != source_stamp or stamp(current_request) != request_stamp:
+            raise ValueError('source or request changed')
+        if _repository(binding, policy, context_id, actor, repository_selection) != repository_context:
+            raise ValueError('repository selection changed')
+        _allowed(root, policy, actor, path, 'read')
+        if not next_is_read:
+            policy.fresh()
 
     rows = request['chunks']
     if view == 'results':
@@ -1164,23 +1194,29 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         _allowed(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'), 'read')
 
     total = 0
+    result_fingerprints = {}
     def read_result(row):
         nonlocal total
-        current_root, current_policy, _, current_paths, _, _ = refresh()
+        target = paths.llm_cache / (row['cache_key'] + '.json')
+        guard(target, next_is_read=True)
+        initial_stamp = stamp(target)
         remaining = 2_000_000 - total
         if remaining <= 0:
             raise ProtectedResultBudgetError('combined results exceed 2 MB review limit')
-        result = _read_json(current_root, current_policy, actor,
-                            current_paths.llm_cache / (row['cache_key'] + '.json'))
+        result = _read_json(root, policy, actor, target)
         if (contains_access_secrets(result) or validate_result(result)
                 or not result_matches_request(result, request, row)):
             raise ValueError('result unavailable')
         total += len(_json_text(result).encode('utf-8'))
         if total > 2_000_000:
             raise ProtectedResultBudgetError('combined results exceed 2 MB review limit')
-        current_root, current_policy, _, current_paths, _, _ = refresh()
-        _allowed(current_root, current_policy, actor,
-                 current_paths.llm_cache / (row['cache_key'] + '.json'), 'read')
+        fingerprint = hashlib.sha256(canonical_request_text(result).encode('utf-8')).digest()
+        guard(target)
+        if stamp(target) != initial_stamp:
+            raise ValueError('result changed')
+        previous = result_fingerprints.setdefault(row['cache_key'], (initial_stamp, fingerprint))
+        if previous != (initial_stamp, fingerprint):
+            raise ValueError('result changed')
         return result
 
     if view == 'results':
@@ -1196,25 +1232,57 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
             aggregated['independent_git_sources'] = [{key: row[key] for key in
                 ('selection_id', 'repository_identity', 'host_binding_digest', 'revision', 'path', 'blob',
                  'document_sha256', 'content_sha256')} for row in repo_rows]
-        root, policy, config, paths, _, _ = refresh()
+        guard(paths.extraction_events / f'protected-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}-integration-packet.json')
         documents = _approved_candidate_documents(root, policy, context_id, actor, approved_revision, refs)
         expected = build_packet(aggregated, root, config, paths, candidates=refs, candidate_documents=documents)
-        root, policy, config, paths, _, _ = refresh()
         _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
         packet_path = paths.extraction_events / f'protected-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}-integration-packet.json'
+        guard(packet_path, next_is_read=True)
+        packet_stamp = stamp(packet_path)
         retained = _read_json(root, policy, actor, packet_path)
         if retained != expected or contains_access_secrets(retained):
             raise ValueError('integration packet unavailable')
+        guard(packet_path)
+        if stamp(packet_path) != packet_stamp:
+            raise ValueError('integration packet changed')
         output = {'view': view, 'source_id': source_id, 'request_id': request_id, 'packet': retained,
                   'event_status': 'not checked', 'integration': 'not assessed'}
     if len(canonical_request_text(output).encode('utf-8')) > max_output_bytes:
         raise ValueError('inspection output budget exceeded')
     root, policy, _, paths, _, _ = refresh()
     _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
-    for row in selected:
-        _allowed(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'), 'read')
+    for key, (initial_stamp, fingerprint) in result_fingerprints.items():
+        target = paths.llm_cache / (key + '.json')
+        guard(target, next_is_read=True)
+        if stamp(target) != initial_stamp:
+            raise ValueError('result changed')
+        readback = _read_json(root, policy, actor, target)
+        if hashlib.sha256(canonical_request_text(readback).encode('utf-8')).digest() != fingerprint:
+            raise ValueError('result changed')
+        guard(target)
+        if stamp(target) != initial_stamp:
+            raise ValueError('result changed')
     if view == 'integration':
-        _allowed(root, policy, actor, packet_path, 'read')
+        guard(packet_path, next_is_read=True)
+        if _read_json(root, policy, actor, packet_path) != retained:
+            raise ValueError('integration packet changed')
+        guard(packet_path)
+        if stamp(packet_path) != packet_stamp:
+            raise ValueError('integration packet changed')
+    for key, (initial_stamp, _fingerprint) in result_fingerprints.items():
+        target = paths.llm_cache / (key + '.json')
+        _allowed(root, policy, actor, target, 'read')
+        if stamp(target) != initial_stamp:
+            raise ValueError('result changed')
+    if view == 'integration' and stamp(packet_path) != packet_stamp:
+        raise ValueError('integration packet changed')
+    _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
+    cache = _STAGE_CACHE.get()
+    if cache is None:
+        raise ValueError('stage unavailable')
+    _check_physical_context(root, entry_folder, cache['context_paths'].get(str(root), (set(), set())))
+    if stamp(_source(root, policy, context_id, source_ref, actor)) != source_stamp or stamp(request_path) != request_stamp:
+        raise ValueError('source or request changed')
     policy.fresh()
     return output
 
