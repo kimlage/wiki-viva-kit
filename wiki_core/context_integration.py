@@ -35,10 +35,10 @@ class _QueryReuse:
             self.readers[revision] = reader
         return reader
 
-    def get(self, mode, reader, entry, *, policy_revision=None, expected_authority=None):
+    def get(self, mode, reader, entry, *, policy_revision=None, expected_authority=None, authority_format=None, entry_folder=None, entry_index=None):
         normalized = normalize_query(entry)
         key = (mode, reader.revision, self.policy.policy_revision, self.context_id,
-               policy_revision, expected_authority,
+               policy_revision, expected_authority, authority_format, entry_folder, entry_index,
                json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(',', ':')))
         if key in self.cache:
             # An immutable content cache does not itself grant authority.
@@ -50,7 +50,7 @@ class _QueryReuse:
         before = self.budget[0]
         if mode == 'historical':
             receipt, _, _ = reproduce_query(self.policy, self.context_id, reader, normalized,
-                policy_revision=policy_revision, expected_authority=expected_authority, read_budget=self.budget)
+                policy_revision=policy_revision, expected_authority=expected_authority, read_budget=self.budget, authority_format=authority_format, entry_folder=entry_folder, entry_index=entry_index)
         else:
             receipt, _, _ = select_query(self.policy, self.context_id, reader, normalized, read_budget=self.budget)
         if len(self.cache) < 96:
@@ -191,7 +191,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                                 try:
                                     consumed_reader=query_reuse.reader(requirement['consumed_revision'])
                                     entry=requirement_query(requirement)
-                                    old_query=query_reuse.get('historical',consumed_reader,entry,policy_revision=requirement['query_policy_revision'],expected_authority=requirement['authority_digest'])
+                                    old_query=query_reuse.get('historical',consumed_reader,entry,policy_revision=requirement['query_policy_revision'],expected_authority=requirement['authority_digest'],authority_format=requirement.get('authority_format'),entry_folder=requirement.get('entry_folder'),entry_index=requirement.get('entry_index'))
                                     now_query=query_reuse.get('base',base_reader,entry)
                                     proposed_query=query_reuse.get('proposal',proposal,entry)
                                     if path in {m['ref'] for m in [*old_query['members'],*now_query['members'],*proposed_query['members']]}: raise IntegrationError('query consumer cannot be a member')
@@ -207,7 +207,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                             rows = [r for r in packet.get('query_selections', []) if r['request']['target']==requirement['target']
                                 and r['request']['query']==requirement['query'] and r['members_digest']==requirement['members_digest']
                                 and r['selected_digest']==requirement['selected_digest'] and r['revision']==consumed
-                                and r['policy_revision']==requirement['query_policy_revision'] and r['authority_digest']==requirement['authority_digest']
+                                and r['policy_revision']==requirement['query_policy_revision'] and r['authority_digest']==requirement['authority_digest'] and all(r.get(k)==requirement.get(k) for k in ('authority_format','entry_folder','entry_index'))
                                 and r['request']['use']==requirement['use'] and r['request']['classification']==requirement['classification']]
                             if not rows or any(r['query_id'] not in result['read_coverage'].get('observed_queries', []) for r in rows):
                                 raise IntegrationError('query requirement does not match task selection')

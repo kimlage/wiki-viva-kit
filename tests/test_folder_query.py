@@ -136,13 +136,110 @@ def test_folder_query_replays_only_explicit_current_folder_authority(query_repo,
     with pytest.raises(PolicyError, match='requires requalification'):
         reproduce_query(policy, 'alpha', reader, query(), policy_revision=receipt['policy_revision'],
                         expected_authority=receipt['authority_digest'])
-    with pytest.raises(PolicyError, match='requires requalification'):
+    with pytest.raises(PolicyError, match='ancestor|requires requalification'):
         reproduce_query(policy, 'alpha', reader, query(), policy_revision='0' * 40,
-                        expected_authority=receipt['authority_digest'], authority_format='folder')
+                        expected_authority=receipt['authority_digest'], authority_format='folder',
+                        entry_folder=receipt['entry_folder'], entry_index=receipt['entry_index'])
     assert opened == []
     replay, _, _ = reproduce_query(policy, 'alpha', reader, query(), policy_revision=receipt['policy_revision'],
-                                   expected_authority=receipt['authority_digest'], authority_format='folder')
+                                   expected_authority=receipt['authority_digest'], authority_format='folder',
+                                   entry_folder=receipt['entry_folder'], entry_index=receipt['entry_index'])
     assert replay == receipt
+
+
+def test_unrelated_policy_sha_keeps_equivalent_folder_query(query_repo):
+    root, old_policy = query_repo
+    old = git(root, 'rev-parse', 'HEAD')
+    receipt, _, _ = select_query(old_policy, 'alpha', RepositoryReader(root, old), query())
+    write(root, 'beta/unrelated.md', '# unrelated\n')
+    git(root, 'add', 'beta/unrelated.md'); git(root, 'commit', '-qm', 'unrelated context change')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    current = folder_policy(root)
+    replay, _, _ = reproduce_query(current, 'alpha', RepositoryReader(root, old), query(),
+        policy_revision=old, expected_authority=receipt['authority_digest'], authority_format='folder',
+        entry_folder=receipt['entry_folder'], entry_index=receipt['entry_index'])
+    assert replay == receipt
+
+
+def test_replay_ignores_unused_ordinary_agents_behind_override(query_repo):
+    root, old_policy = query_repo
+    old = git(root, 'rev-parse', 'HEAD')
+    receipt, _, _ = select_query(old_policy, 'alpha', RepositoryReader(root, old), query())
+    write(root, 'alpha/AGENTS.md', '# Changed but superseded\n')
+    git(root, 'add', 'alpha/AGENTS.md'); git(root, 'commit', '-qm', 'change unused fallback')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    replay, _, _ = reproduce_query(folder_policy(root), 'alpha', RepositoryReader(root, old), query(),
+        policy_revision=old, expected_authority=receipt['authority_digest'], authority_format='folder',
+        entry_folder=receipt['entry_folder'], entry_index=receipt['entry_index'])
+    assert replay == receipt
+
+
+def test_changed_query_member_is_detected_across_policy_sha(query_repo):
+    root, old_policy = query_repo
+    old = git(root, 'rev-parse', 'HEAD')
+    receipt, _, _ = select_query(old_policy, 'alpha', RepositoryReader(root, old), query())
+    page(root, 'alpha/items/a.md', 'active')
+    path = root / 'alpha/items/a.md'
+    path.write_text(path.read_text().replace('amount: 5', 'amount: 9'))
+    git(root, 'add', 'alpha/items/a.md'); git(root, 'commit', '-qm', 'selected value changed')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    current = folder_policy(root)
+    replay, _, _ = reproduce_query(current, 'alpha', RepositoryReader(root, old), query(),
+        policy_revision=old, expected_authority=receipt['authority_digest'], authority_format='folder',
+        entry_folder=receipt['entry_folder'], entry_index=receipt['entry_index'])
+    now, _, _ = select_query(current, 'alpha', RepositoryReader(root, 'HEAD'), query())
+    assert replay == receipt
+    assert now['selected_digest'] != replay['selected_digest']
+
+
+def test_changed_auxiliary_instruction_requires_requalification(query_repo, monkeypatch):
+    root, old_policy = query_repo
+    old = git(root, 'rev-parse', 'HEAD')
+    receipt, _, _ = select_query(old_policy, 'alpha', RepositoryReader(root, old), query())
+    write(root, 'alpha/aux/AGENTS.md', '# Changed auxiliary instruction\n')
+    git(root, 'add', 'alpha/aux/AGENTS.md'); git(root, 'commit', '-qm', 'change local instruction')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    opened = []
+    original = RepositoryReader.read
+    def spy(self, path, **kwargs):
+        opened.append(path)
+        return original(self, path, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', spy)
+    with pytest.raises(PolicyError, match='requires requalification'):
+        reproduce_query(folder_policy(root), 'alpha', RepositoryReader(root, old), query(),
+            policy_revision=old, expected_authority=receipt['authority_digest'], authority_format='folder',
+            entry_folder=receipt['entry_folder'], entry_index=receipt['entry_index'])
+    assert 'alpha/collection.md' not in opened and 'alpha/items/a.md' not in opened
+
+
+def test_query_requirement_survives_unrelated_approved_output(query_repo):
+    from jsonschema import validate
+    from wiki_core.context_packet import build_packet
+    from wiki_core.context_requirements import requirements_from_result
+    root, policy = query_repo
+    base = git(root, 'rev-parse', 'HEAD')
+    packet = build_packet(root, policy, 'alpha', base, [], 100000, task_id='query-task', goal='goal',
+                          output='output', integrator='operator', entry_folder='alpha/aux', queries=[query()])
+    schema = json.loads((Path(__file__).resolve().parents[1] / 'docs/references/schemas/wiki-task-context-v1.schema.json').read_text())
+    validate(packet, schema)
+    git(root, 'checkout', '-qb', 'wiki/query-output')
+    write(root, 'alpha/query-output.md', '# Result\n')
+    git(root, 'add', 'alpha/query-output.md'); git(root, 'commit', '-qm', 'approved output')
+    head = git(root, 'rev-parse', 'HEAD'); git(root, 'update-ref', 'refs/remotes/origin/main', head)
+    result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed', 'task_id': 'query-task',
+              'context_id': 'alpha', 'packet_digest': packet['packet_digest'],
+              'changes': [{'path': 'alpha/query-output.md', 'action': 'created'}],
+              'read_coverage': {'observed_refs': packet['declared_read_set'],
+                                'observed_queries': [packet['query_selections'][0]['query_id']],
+                                'missing': packet['coverage']['missing']}, 'blockers': []}
+    requirements = requirements_from_result(root, folder_policy(root), packet=packet, result=result,
+                    output_path='alpha/query-output.md', proposal_head=head, temporal='current', max_age_days=30)
+    row = next(row for row in requirements['information_requirements'] if 'query' in row)
+    assert row['authority_format'] == 'folder' and row['entry_folder'] == 'alpha/aux'
+    assert row['entry_index'] == 'alpha/index.md'
+    assert requirements['coverage_missing'] == ['linked sources not inspected']
+    schema = json.loads((Path(__file__).resolve().parents[1] / 'docs/references/schemas/wiki-context-requirements-v1.schema.json').read_text())
+    validate(requirements, schema)
 
 
 def test_folder_authority_digest_cannot_be_relabelled_as_v1(query_repo, monkeypatch):

@@ -100,6 +100,7 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
     qualification_bytes = 0
     inspected = set()
     inspection_order = []
+    nonempty = {}
     def inspect_authorized(ref):
         nonlocal qualification_bytes
         producer = policy.owner_of(ref)
@@ -115,6 +116,7 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
             inspection_order.append(ref)
         item = reader.read(ref)
         _reject_secrets(item['text'])
+        nonempty[ref] = bool(item['text'].strip())
         return item['text']
     for context in lineage:
         folder = context['root']
@@ -127,8 +129,23 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
             index = entry_index if folder == context_id else prefix + 'index.md'
             if index not in reader.paths or not inspect_authorized(index).strip():
                 raise PolicyError('context index empty or unavailable')
+    # AGENTS files in auxiliary folders still participate in native physical
+    # discovery even though those folders do not create context ownership.
+    context_folders = {context['root'] for context in lineage}
+    parts = [] if entry_folder == '.' else entry_folder.split('/')
+    for folder in ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]:
+        if folder in context_folders: continue
+        prefix = folder + '/'
+        refs = [prefix + name for name in ('AGENTS.override.md', 'AGENTS.md')
+                if prefix + name in policy._folder_names]
+        # Empty auxiliary instructions contribute nothing; fallback is read
+        # only after the exact grant for that file has been checked.
+        if refs: any(inspect_authorized(ref).strip() for ref in refs)
     policy.fresh()
     policy._qualified_contexts.update(context['id'] for context in lineage)
+    policy._folder_qualification = {'context_id': context_id, 'entry_folder': entry_folder,
+                                    'entry_index': entry_index, 'refs': tuple(inspection_order),
+                                    'nonempty': nonempty}
     return reader, inspection_order
 
 
@@ -161,7 +178,6 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         entry_index = safe_path(entry_index)
         if str(PurePosixPath(entry_index).parent) != policy.contexts[context_id]['root']:
             raise PolicyError('entry index unavailable')
-        if queries: raise PolicyError('folder query receipts are not available')
     for value in (task_id, goal, output, integrator, context_id):
         if isinstance(value, str): _reject_secrets(value)
     if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
@@ -258,6 +274,11 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         ref = safe_path(e['ref'])
         if any(k in e and (not isinstance(e[k], str) or not e[k]) for k in ('section','field')) or ('section' in e and 'field' in e): raise PolicyError('invalid evidence selector')
         status = policy.connection(e['producer'], context_id, ref, e['use'], e['classification'], section=e.get('section'), field=e.get('field'))
+        if folder_mode and e['producer'] not in policy._qualified_contexts:
+            preliminary = policy._connection(e['producer'], context_id, ref, e['use'], e['classification'],
+                                             section=e.get('section'), field=e.get('field'), qualified=False)
+            if preliminary == 'approved': raise PolicyError('producer context requires authorized requalification')
+            status = preliminary
         if status != 'approved': raise PolicyError('connection ' + status)
         add(reader, ref, e['reason'], 'evidence', e.get('section'), e.get('field'), e['producer'], e['use'], e['classification'])
     query_selections = []

@@ -145,7 +145,8 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
         requirements.append({'target':e['target'],'fields':['*'],'temporal':temporal,'max_age_days':max_age_days,
             'consumed_revision':row['revision'],'use':e['use'],'classification':e['classification'],
             'query':e['query'],'members_digest':row['members_digest'],'selected_digest':row['selected_digest'],
-            'query_policy_revision':row['policy_revision'],'authority_digest':row['authority_digest']})
+            'query_policy_revision':row['policy_revision'],'authority_digest':row['authority_digest'],
+            **({key:row[key] for key in ('authority_format','entry_folder','entry_index')} if row.get('authority_format') else {})})
     for item in packet['inputs']:
         if not isinstance(item.get('revision'),str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',item['revision']): raise RequirementError('reported input revision is not fixed')
         readref={k:item[k] for k in ('ref','section','field','revision')}
@@ -201,7 +202,7 @@ def revalidate_approved_queries(root, policy, *, consumer, context_id):
     for req in requirements:
         if 'query' not in req: continue
         if req['target']==consumer: raise RequirementError('query anchor cannot be its own consumer')
-        prior, _, _ = reproduce_query(policy, context_id, RepositoryReader(root, req['consumed_revision']), requirement_query(req), policy_revision=req['query_policy_revision'], expected_authority=req['authority_digest'], read_budget=query_read_budget)
+        prior, _, _ = reproduce_query(policy, context_id, RepositoryReader(root, req['consumed_revision']), requirement_query(req), policy_revision=req['query_policy_revision'], expected_authority=req['authority_digest'], read_budget=query_read_budget, authority_format=req.get('authority_format'), entry_folder=req.get('entry_folder'), entry_index=req.get('entry_index'))
         if any(prior[k] != req[k] for k in ('members_digest', 'selected_digest')):
             raise RequirementError('canonical query receipt differs from consumed selection')
         if consumer in {m['ref'] for m in prior['members']}: raise RequirementError('query consumer cannot be a member')
