@@ -446,6 +446,159 @@ def _read_json(root, policy, context_id, path, *, max_bytes=2_000_000):
     return strict_json_loads(data.decode('utf-8'))
 
 
+def _requalification_guard(root, policy, current):
+    cache = _STAGE_CACHE.get()
+    folder = current.get('block_context_package', {}).get('entry_folder')
+    selected = cache.get('candidate_guard') if cache is not None else None
+    if (cache is None or not isinstance(folder, str) or not isinstance(selected, dict)
+            or selected.get('request_id') != current.get('protected_request_id')):
+        raise ValueError('reuse context unavailable')
+    _check_physical_context(root, folder, cache['context_paths'].get(str(root), (set(), set())))
+    auth = current['source_authorization']
+    source = _source(root, policy, auth['context_id'], auth['ref'], auth['artifact_context'])
+    _allowed(root, policy, auth['artifact_context'], selected['request_path'], 'read')
+    if (_artifact_stamp(source) != selected['source_stamp']
+            or _artifact_stamp(selected['request_path']) != selected['request_stamp']):
+        raise ValueError('source or request changed')
+    if _repository(selected['binding'], policy, auth['context_id'], auth['artifact_context'],
+                   selected['repository_selection']) != current.get('repository_context'):
+        raise ValueError('repository selection changed')
+    policy.fresh()
+
+
+def _previous_request(root, binding, policy, actor, paths, current, previous_id):
+    """Select one exact historical request; current policy remains the authority."""
+    from wiki_core.context_policy import historical_policy
+    from wiki_core.ingest.historical_candidates import comparable_request, selected_grants
+    if (not isinstance(previous_id, str) or not re.fullmatch(r'[0-9a-f]{64}', previous_id)
+            or previous_id == current.get('protected_request_id')):
+        return None
+    auth = current.get('source_authorization')
+    if not isinstance(auth, dict) or binding is None:
+        return None
+    matches = [grant for grant in binding.previous_request_grants
+               if grant.executor == auth.get('context_id') and grant.integrator == actor
+               and grant.source_ref == auth.get('ref') and grant.source_id == current.get('source_id')
+               and grant.request_id == previous_id]
+    if len(matches) != 1:
+        return None
+    grant = matches[0]
+    _requalification_guard(root, policy, current)
+    target = _request_path(paths, current['source_id'], previous_id, current.get('repository_context'))
+    _allowed(root, policy, actor, target, 'read')
+    def stamp(path):
+        value = path.stat()
+        return (value.st_dev, value.st_ino, value.st_mode, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+    try:
+        before = stamp(target)
+        cache = _STAGE_CACHE.get()
+        key = (str(root), policy.policy_revision, actor, current['protected_request_id'], previous_id)
+        proof = cache.setdefault('reuse_proofs', {}).get(key) if cache is not None else None
+        if proof is not None:
+            if before != proof[0]:
+                raise ValueError('historical request changed')
+            policy.fresh()
+            return proof[1], proof[2]
+        previous = _read_json(root, policy, actor, target)
+        if stamp(target) != before:
+            raise ValueError('historical request changed')
+    except FileNotFoundError:
+        return None
+    try:
+        if (not isinstance(previous, dict) or previous.get('protected_request_id') != previous_id
+                or _request_identity(previous) != previous_id
+                or previous.get('source_authorization', {}).get('policy_revision') != grant.policy_revision
+                or comparable_request(previous) != comparable_request(current)):
+            return None
+        previous_revision = previous['source_authorization']['policy_revision']
+        historical = historical_policy(policy, previous_revision, authority_format='folder')
+        if selected_grants(historical, previous) != selected_grants(policy, current):
+            return None
+        # The retained packet is not itself proof that its selected bodies came
+        # from the historical tree. Compare each selected Git blob identity to
+        # the immutable approved ancestor without reading unselected bodies.
+        from wiki_core.context_packet import guard_folder_blob
+        from wiki_core.repository_reader import RepositoryReader
+        reader = RepositoryReader(root, previous_revision, before_tree=policy.fresh)
+        for item in previous['block_context_package']['inputs']:
+            guard_folder_blob(root, policy, item['ref'])
+            if reader._entries.get(item['ref']) != item['origin']['blob']:
+                return None
+        old_rows, new_rows = previous['chunks'], current['chunks']
+        if (len({row['cache_key'] for row in old_rows}) != len(old_rows)
+                or len({row['cache_key'] for row in new_rows}) != len(new_rows)):
+            return None
+        policy.fresh()
+        if cache is not None:
+            cache['reuse_proofs'][key] = (before, previous, historical)
+        return previous, historical
+    except (ValueError, KeyError, TypeError, AttributeError):
+        policy.fresh()
+        return None
+
+
+def _historical_candidate(root, policy, actor, paths, current, row, previous, historical):
+    """Read one exact earlier result as historical review material only."""
+    cache = _STAGE_CACHE.get()
+    indexes = cache.setdefault('candidate_rows', {}) if cache is not None else {}
+    key = previous['protected_request_id']
+    if key not in indexes:
+        by_id = {}
+        for item in previous['chunks']:
+            chunk_id = item.get('chunk_id')
+            by_id[chunk_id] = item if chunk_id not in by_id else None
+        indexes[key] = by_id
+    old_row = indexes[key].get(row.get('chunk_id'))
+    if old_row is None:
+        return None, ()
+    old_key = old_row.get('cache_key')
+    if not isinstance(old_key, str) or not re.fullmatch(r'[0-9a-f]{64}', old_key):
+        return None, ()
+    prior_request = _request_path(paths, current['source_id'], previous['protected_request_id'],
+                                  current.get('repository_context'))
+    old_target = paths.llm_cache / (old_key + '.json')
+    ref = old_target.relative_to(root).as_posix()
+    owner = historical.owner_of(ref)
+    if historical._connection(owner, actor, ref, 'interpretation', 'artifact', qualified=False) != 'approved':
+        return None, ()
+    _requalification_guard(root, policy, current)
+    for path in (prior_request, old_target):
+        _allowed(root, policy, actor, path, 'read')
+    try:
+        before = tuple((path, _artifact_stamp(path)) for path in (prior_request, old_target))
+        old_result = _read_json(root, policy, actor, old_target)
+    except FileNotFoundError:
+        return None, ()
+    if (contains_access_secrets(old_result) or not result_matches_request(old_result, previous, old_row)
+            or 'protected_reuse_origin' in old_result):
+        return None, ()
+    _check_reuse_dependencies(root, policy, actor, before, current=current)
+    origin = {'request_id': previous['protected_request_id'],
+              'policy_revision': previous['source_authorization']['policy_revision'],
+              'packet_digest': previous['block_context_package']['packet_digest'],
+              'cache_key': old_key, 'context_sha256': old_row['context_sha256'],
+              'result_sha256': hashlib.sha256(canonical_request_text(old_result).encode('utf-8')).hexdigest()}
+    return {'chunk_id': row['chunk_id'], 'status': 'review_needed', 'origin': origin,
+            'result': old_result}, before
+
+
+def _artifact_stamp(path):
+    value = path.stat()
+    return (value.st_dev, value.st_ino, value.st_mode, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+
+
+def _check_reuse_dependencies(root, policy, actor, dependencies, *, current=None):
+    if not dependencies:
+        return
+    if current is not None:
+        _requalification_guard(root, policy, current)
+    for path, identity in dependencies:
+        _allowed(root, policy, actor, path, 'read')
+        if _artifact_stamp(path) != identity:
+            raise ValueError('reuse provenance changed')
+    policy.fresh()
+
+
 def _source_page(root, policy, context_id, config, ref, *, selected_digest=None):
     """Read only an explicitly selected, authorized canonical source page."""
     from wiki_core.context_selection import _metadata
@@ -531,10 +684,19 @@ def _write_once(root, policy, context_id, path, value, *, compact=False):
 def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
             source_ref, source_context, context_max_bytes=100_000, request_max_bytes=1_000_000,
             artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None,
-            csv_delimiter=None):
+            csv_delimiter=None, previous_request_id=None, candidate_chunk_ids=None):
     """Capture one authorized source and emit its bound contextual request."""
     request_limits(context_max_bytes, request_max_bytes)
     csv_delimiter = _csv_delimiter(source_ref, csv_delimiter)
+    if previous_request_id is None:
+        if candidate_chunk_ids is not None:
+            raise ValueError('historical candidate selection unavailable')
+    elif (not isinstance(previous_request_id, str) or not re.fullmatch(r'[0-9a-f]{64}', previous_request_id)
+            or not isinstance(candidate_chunk_ids, list) or not 1 <= len(candidate_chunk_ids) <= 32
+            or any(not isinstance(item, str) or not 1 <= len(item) <= 1024 for item in candidate_chunk_ids)
+            or len(candidate_chunk_ids) != len(set(candidate_chunk_ids))
+            or contains_access_secrets(candidate_chunk_ids)):
+        raise ValueError('historical candidate selection unavailable')
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
         entry_folder, entry_index, context_max_bytes, actor)
@@ -574,6 +736,16 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
                'quadrant_semantics', 'quadrant_boundary_rule', 'target_pages', 'input_stage_status')},
             context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
             source_authorization=auth, repository_context=repository_context)
+    selected_candidates = []
+    candidate_selection_valid = True
+    if previous_request_id is not None:
+        by_id = {}
+        for row in request['chunks']:
+            chunk_id = row['chunk_id']
+            by_id[chunk_id] = row if chunk_id not in by_id else None
+        candidate_selection_valid = all(by_id.get(chunk_id) is not None for chunk_id in candidate_chunk_ids)
+        if candidate_selection_valid:
+            selected_candidates = [by_id[chunk_id] for chunk_id in candidate_chunk_ids]
     request_id = _request_identity(request)
     request['protected_request_id'] = request_id
     enforce_request_budget(request, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)
@@ -644,6 +816,74 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         request_max_bytes=request_max_bytes, artifact_context=artifact_context,
         perspective_refs=perspective_refs, context_selection=context_selection,
         repository_selection=repository_selection, csv_delimiter=csv_delimiter)
+    prior_review = None
+    prior_dependencies = []
+    if previous_request_id is not None:
+        try:
+            root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
+                entry_folder, entry_index, context_max_bytes, actor)
+            source_path = _source(root, policy, context_id, source_ref, actor)
+            request_path = _request_path(paths, source_id, request_id, repository_context)
+            _allowed(root, policy, actor, request_path, 'read')
+            policy.fresh()
+            source_stamp, request_stamp = _artifact_stamp(source_path), _artifact_stamp(request_path)
+            policy.fresh()
+            root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
+            if (current != request or current_digest != source_digest or _artifact_stamp(source_path) != source_stamp
+                    or _artifact_stamp(request_path) != request_stamp):
+                raise ValueError('request authority changed')
+            cache = _STAGE_CACHE.get()
+            if cache is None:
+                raise ValueError('stage unavailable')
+            cache['candidate_guard'] = {'request_id': request_id, 'binding': binding,
+                'source_stamp': source_stamp, 'request_path': request_path, 'request_stamp': request_stamp,
+                'repository_selection': repository_selection}
+            prior_review = {'status': 'unavailable', 'previous_request_id': previous_request_id,
+                            'selected_chunk_ids': list(candidate_chunk_ids),
+                            'coverage': 'explicit historical candidates only; no current result inferred'}
+            if not candidate_selection_valid:
+                prior_review['reason'] = 'candidate_selection_changed'
+            selected = (_previous_request(root, binding, policy, actor, paths, request, previous_request_id)
+                        if candidate_selection_valid else None)
+            if selected is not None:
+                candidates = []
+                candidate_bytes = 0
+                for row in selected_candidates:
+                    selected_now = _previous_request(root, binding, policy, actor, paths, request, previous_request_id)
+                    if selected_now is None:
+                        break
+                    candidate, dependencies = _historical_candidate(root, policy, actor, paths, request, row, *selected_now)
+                    if candidate is not None:
+                        candidate_bytes += len(canonical_request_text(candidate).encode('utf-8'))
+                        if candidate_bytes > 2_000_000:
+                            candidates = []
+                            prior_dependencies = []
+                            prior_review['reason'] = 'candidate_response_budget_exceeded'
+                            break
+                        candidates.append(candidate)
+                        prior_dependencies.extend(dependencies)
+                if candidates:
+                    found = {item['chunk_id'] for item in candidates}
+                    prior_review.update(status='review_needed', candidates=candidates,
+                        unavailable_chunk_ids=[chunk_id for chunk_id in candidate_chunk_ids if chunk_id not in found])
+            root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
+            if current != request or current_digest != source_digest:
+                raise ValueError('request authority changed')
+            _check_reuse_dependencies(root, policy, actor, prior_dependencies, current=request)
+        except (ValueError, OSError):
+            # A missing, corrupt or changed historical candidate must not
+            # block the current request. Still fail if its live authority,
+            # source or selected context changed during the attempt.
+            try:
+                root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
+                if current != request or current_digest != source_digest:
+                    raise ValueError('request authority changed')
+            except (ValueError, OSError) as current_exc:
+                raise ProtectedPartialError('current request unavailable; partial effects may exist; inspect before retry') from current_exc
+            prior_review = {'status': 'unavailable', 'previous_request_id': previous_request_id,
+                            'selected_chunk_ids': list(candidate_chunk_ids),
+                            'coverage': 'historical candidate unavailable; current request unchanged'}
+            prior_dependencies = []
     response_request = copy.deepcopy(request)
     try:
         from wiki_core.llm.context_pass import validate_result
@@ -742,10 +982,28 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         if (stamp(_source(root, policy, context_id, source_ref, actor)) != source_stamp
                 or stamp(request_path) != request_stamp):
             raise ValueError('source or request changed')
+        try:
+            _check_reuse_dependencies(root, policy, actor, prior_dependencies, current=request)
+        except (ValueError, OSError):
+            # Historical review is optional. Recheck the live request before
+            # dropping the candidate, so authority changes still fail closed.
+            root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
+            if current != request or current_digest != source_digest:
+                raise ValueError('request authority changed')
+            prior_review = {'status': 'unavailable', 'previous_request_id': previous_request_id,
+                            'selected_chunk_ids': list(candidate_chunk_ids),
+                            'coverage': 'historical candidate changed; current request unchanged'}
         policy.fresh()
     except (ValueError, OSError, UnicodeError) as exc:
         raise ProtectedPartialError('cache readback unavailable; partial effects may exist; inspect before retry') from exc
+    if (prior_review is not None and len(canonical_request_text(
+            {'request': response_request, 'historical_review': prior_review}).encode('utf-8')) > 2_000_000):
+        prior_review = {'status': 'unavailable', 'previous_request_id': previous_request_id,
+                        'selected_chunk_ids': list(candidate_chunk_ids),
+                        'reason': 'candidate_response_budget_exceeded',
+                        'coverage': 'no historical candidate bodies returned'}
     return {'source_id': source_id, 'request_id': request_id, 'request': response_request,
+            **({'historical_review': prior_review} if prior_review is not None else {}),
             'cache_readback': 'exact authorized keys rechecked before response; retained request is unchanged',
             'result_budget': {'max_combined_result_bytes': 2_000_000, 'cached_result_bytes': cached_result_bytes,
                 'status': 'exceeded' if cached_result_bytes > 2_000_000 else 'within_limit',

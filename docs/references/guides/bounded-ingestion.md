@@ -262,6 +262,41 @@ reconciliation. It reads selected cache entries and can be expensive for many
 chunks or repositories. Consolidation enforces the combined limit before
 writing a packet or event; the separate inspection output limit also applies.
 
+An operator may explicitly supply `previous_request_id` and a list of one to
+32 `candidate_chunk_ids` to `prepare` to inspect historical candidates after the
+trusted approval advances. First prepare the current request to obtain its chunk
+IDs. Use the original request ID and current approved revision, with the same
+selected source and context.
+Before the old request can be opened, the trusted host must pin an exact
+`PreviousRequestGrant` in `CoordinationBinding`, naming the executor, integrator,
+source ref, source ID, previous request ID and previous policy revision. The
+host may set `WIKI_COORDINATION_PREVIOUS_REQUEST_GRANTS` to a JSON array of
+objects with those six keys: `executor`, `integrator`, `source_ref`, `source_id`,
+`request_id` and `policy_revision`. The payload's ID alone is never a grant.
+The trusted local CLI uses its process environment as host configuration and
+is not a security boundary against that local operator.
+There is no cache or request directory discovery. The host first authorizes the
+current request, then opens only the named prior request and its exact result
+keys. Candidate selection requires the same source, selected bodies and selectors, matching
+effective read scopes and bilateral grants for every selected reader, and an
+approved ancestor revision. Changed or ambiguous inputs, unavailable evidence,
+duplicate cache keys and previously reused results stay pending. Selected
+independent Git context and its host binding must also remain unchanged.
+
+Returned candidates contain the unchanged historical result, its prior request,
+policy revision and digests, and `status: review_needed`. No candidate is copied
+to the current cache, marked as a current result or incorporated into memory.
+Reviewing a candidate does not itself satisfy the current contextual-read gate;
+the current request still needs its own result bound to that request.
+An instruction may have required the old revision itself, so matching selected
+bodies and grants does not prove that its conclusions remain current. Missing
+candidates are reported, and a response over the 2 MB candidate budget omits
+candidate bodies rather than returning a partial set. This check does not block
+unrelated requests or decide whether a candidate may be reused. The surrounding
+`prepare` operation can still retain current capture and request artifacts and
+may report partial effects. The checks do not make the filesystem atomic or
+authenticate content against an operator who can alter protected files.
+
 To review retained data, use `--source-stage inspect` with the same selectors,
 limits, context selection, repository selection and integrator as the original
 request. Supply `view: "results"` and an explicit `chunk_ids` array of one to
