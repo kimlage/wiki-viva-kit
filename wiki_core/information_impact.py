@@ -26,7 +26,7 @@ def changed_fields(previous: str | None, current: str | None) -> set[str]:
     return fields
 
 
-def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str], *, legacy_authority_unavailable: bool = False, include_preserved: bool = False) -> list[dict]:
+def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str], *, legacy_authority_unavailable: bool = False, include_preserved: bool = False, preservation_reached: set[str] | None = None) -> list[dict]:
     """Select touched queries without treating preserved history as fresh or authorized."""
     from wiki_core.context_policy import within, is_context_instruction
     found = {}
@@ -37,19 +37,32 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                 for edge in edges
                 if 'query' in edge.get('requirement', {})}
     unchanged = query_keys(graphs[0][1]) & query_keys(graphs[1][1])
-    current_by_source = defaultdict(set)
-    current_queries = []
+    dependent_sources, dependent_scopes = set(), set()
+    changed_reader_sources, changed_reader_scopes = set(), set()
+    touched = changed | reached | (preservation_reached or set())
+    def scope_prefixes(paths):
+        prefixes = set()
+        for path in paths:
+            prefixes.add('.')
+            parts = path.split('/')
+            prefixes.update('/'.join(parts[:index]) for index in range(1, len(parts) + 1))
+        return prefixes
+    direct_scope_prefixes = scope_prefixes(changed | reached)
+    history_scope_prefixes = scope_prefixes(touched)
     for _origin, edges in graphs:
         for edge in edges:
-            if edge.get('temporal_use') in ('historical', 'as_observed'):
-                continue
-            current_by_source[edge['prerequisite']].add(edge['dependent'])
-            if 'query' in edge.get('requirement', {}):
-                current_queries.append((edge['dependent'], edge['requirement']['query']['scope']))
-    def possible_current_consumers(path):
+            query = edge.get('requirement', {}).get('query')
+            dependent_sources.add(edge['prerequisite'])
+            if query is not None: dependent_scopes.add(query['scope'])
+            if edge['dependent'] in touched:
+                changed_reader_sources.add(edge['prerequisite'])
+                if query is not None: changed_reader_scopes.add(query['scope'])
+    def matches_source_or_scope(path, sources, scopes):
         # No inference of independence from a projection's selected fields:
         # its output may still incorporate this historical interpretation.
-        return current_by_source[path] | {dependent for dependent, scope in current_queries if within(path, scope)}
+        if path in sources or '.' in scopes: return True
+        parts = path.split('/')
+        return any('/'.join(parts[:index]) in scopes for index in range(1, len(parts) + 1))
     legacy_policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
     for origin, edges in graphs:
         for edge in edges:
@@ -67,10 +80,12 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                                           ('authority_digest', r'[0-9a-f]{64}'),
                                           ('members_digest', r'[0-9a-f]{64}'),
                                           ('selected_digest', r'[0-9a-f]{64}'))))
-            current_consumers = possible_current_consumers(consumer) if pinned_history else set()
-            direct_change = (consumer in reached or consumer in changed or anchor in changed or anchor in reached
-                             or bool(current_consumers & (changed | reached))
-                             or any(within(p, scope) for p in changed | reached))
+            dependents = pinned_history and matches_source_or_scope(consumer, dependent_sources, dependent_scopes)
+            changed_reader = pinned_history and matches_source_or_scope(consumer, changed_reader_sources, changed_reader_scopes)
+            direct_change = (consumer in changed or consumer in reached or anchor in changed or anchor in reached
+                             or scope in direct_scope_prefixes)
+            if pinned_history:
+                direct_change = direct_change or consumer in touched or anchor in touched or changed_reader or scope in history_scope_prefixes
             if req.get('authority_format') == 'folder':
                 entry_folder = req['entry_folder']
                 def affects_folder_policy(path):
@@ -85,7 +100,7 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                 # exclude a changed path from its old normative inputs.
                 policy_changed = (legacy_policy_changed or (pinned_history and 'wiki.config.yaml' in changed)
                                   or (legacy_authority_unavailable and bool(changed)))
-            if pinned_history and key in unchanged and not direct_change and not current_consumers:
+            if pinned_history and key in unchanged and not direct_change and not dependents:
                 # This preserves an unchanged historical receipt only.
                 # Using it still requires current authorized revalidation.
                 if include_preserved and policy_changed:
@@ -95,7 +110,7 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
             if not (policy_changed or direct_change):
                 continue
             found[key] = {'path': consumer, 'requirement': req, 'origin': origin,
-                          **({'current_consumers_present': True} if current_consumers else {})}
+                          **({'dependent_consumers_present': True} if dependents else {})}
     return [found[key] for key in sorted(found)]
 
 
@@ -284,7 +299,7 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     # enumerate dynamic members. It must not certify only the anchor edge.
     affected = affected_dynamic_queries(current, base, changed, set(_typed_reasons),
                                         legacy_authority_unavailable=_legacy_authority_unavailable,
-                                        include_preserved=True)
+                                        include_preserved=True, preservation_reached=set(reasons))
     preserved = [row for row in affected if row.get('reason') == 'historical_query_preserved_unverified']
     pending.extend({'path': row['path'], 'seed': row['path'], 'fields': ['*'], 'causes': [], 'chain': [],
                     'state': 'review_pending', 'reason': row['reason'], 'priority': 'on_demand',

@@ -343,7 +343,8 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             initial_reached = {path for path, row in typed_reasons.items() if row.get('causes')}
             affected = affected_dynamic_queries(current, base, impact_changed,
                                                 initial_reached,
-                                                legacy_authority_unavailable=True)
+                                                legacy_authority_unavailable=True,
+                                                preservation_reached={row['path'] for row in result['included']})
             affected = filter_equivalent_config(affected, initial_reached)
             # An unbound historical receipt cannot certify a changed consumer
             # or its current dependents. The legacy scoped path can only queue
@@ -353,7 +354,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                 legacy_history_blockers.update(row['path'] for row in rows
                     if row['requirement'].get('temporal') == 'historical'
                     and row['requirement'].get('authority_format') != 'folder'
-                    and (row.get('current_consumers_present') or row['path'] in impact_changed))
+                    and (row.get('dependent_consumers_present') or row['path'] in impact_changed))
             remember_unqualified_history(affected)
             authorized_affected = set()
             def record_authorized_affected(rows):
@@ -421,7 +422,8 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                     query_sources = {path: set(values) for path, values in expanded.items()}
                     for path, values in sources.items(): query_sources.setdefault(path, set()).update(values)
                     affected = affected_dynamic_queries(current, base, impact_changed | set(query_sources), set(query_sources),
-                                                        legacy_authority_unavailable=True)
+                                                        legacy_authority_unavailable=True,
+                                                        preservation_reached={row['path'] for row in result['included']})
                     affected = filter_equivalent_config(affected, set(query_sources))
                     remember_unqualified_history(affected)
                     record_authorized_affected(affected)

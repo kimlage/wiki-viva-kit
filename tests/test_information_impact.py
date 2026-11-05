@@ -66,6 +66,24 @@ def test_unchanged_historical_query_is_preserved_without_granting_current_use(mo
     query_dependent['edges'] += operational_consumption_edges(Path('.'), 'reader.md',
         {'information_requirements': [next_query]}, '', lambda ref: [ref])
     assert affected_dynamic_queries(query_dependent, query_dependent, {'AGENTS.md'}, set())
+    historical_reader = deepcopy(dependent)
+    historical_reader['edges'][-1]['requirement']['temporal'] = 'historical'
+    assert not affected_dynamic_queries(historical_reader, historical_reader, set(), set())
+    assert affected_dynamic_queries(historical_reader, historical_reader, {'AGENTS.md'}, set())
+    assert affected_dynamic_queries(historical_reader, historical_reader, {'AGENTS.md', 'reader.md'}, set())
+    historical_reader['nodes']['reader.md'] = {'page_type': 'action', 'action_state': 'open'}
+    assert affected_dynamic_queries(historical_reader, historical_reader, {'AGENTS.md'}, set())
+    prior = deepcopy(original)
+    prior['nodes']['other.md'] = {'page_type': 'claim'}
+    prior['documents']['other.md'] = 'Historical source.'
+    earlier = {'target': 'other.md', 'fields': ['*'], 'temporal': 'historical', 'max_age_days': 30}
+    prior['edges'] += operational_consumption_edges(Path('.'), 'consumer.md', {'information_requirements': [earlier]},
+                                                    '', lambda ref: [ref])
+    revised = deepcopy(prior)
+    revised['documents']['other.md'] += ' Changed.'
+    reached = evaluate_information_impact(revised, prior, {'other.md', 'AGENTS.md'}, today=TODAY)
+    assert any(row['path'] == 'consumer.md' and row['reason'] == 'dynamic_query_requires_authorized_revalidation'
+               for row in reached['integrity_blockers'])
     outcome = assess_information_use(current, 'consumer.md', now=dt.datetime(2026, 11, 5, tzinfo=dt.timezone.utc))
     assert not outcome['ready']
     assert 'information_query_requires_authorized_revalidation' in outcome['requirements'][0]['blockers']
