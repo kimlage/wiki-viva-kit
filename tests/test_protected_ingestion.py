@@ -249,6 +249,9 @@ def test_rewritten_request_cannot_forge_source_chunks(prepared_repo):
     forged = json.loads(json.dumps(prepared['request']))
     forged['chunks'][0]['text'] = 'forged synthetic content'
     forged['protected_request_id'] = protected._request_identity(forged)
+    protected.enforce_request_budget(forged,
+        context_max_bytes=forged['request_limits']['context_max_bytes'],
+        request_max_bytes=forged['request_limits']['request_max_bytes'])
     config = load_config(root)
     paths = WikiPaths(root, replace(config, paths={**config.paths,
         'derived_root': config.paths['derived_root'] + '/.wiki-viva-protected'}))
