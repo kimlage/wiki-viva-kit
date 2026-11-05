@@ -85,6 +85,26 @@ def test_packet_rejects_unapproved_content_before_opening_evidence(repo, monkeyp
             entry_folder='alpha', trusted_binding=binding)
 
 
+def test_packet_rejects_history_from_changed_producer_owner(repo, monkeypatch):
+    evidence = setup_shared(repo)
+    old = git(repo, 'rev-parse', 'HEAD')
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    config['context_access']['beta']['owner'] = 'new beta owner'
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'change producer owner')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision == old and ref == 'beta/source.md'), 'previous owner evidence opened'
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    binding = CoordinationBinding(('alpha', 'beta'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    with pytest.raises(PolicyError, match='historical evidence read not authorized'):
+        build_packet(repo, folder_policy(repo), 'alpha', old, evidence, 100000,
+            task_id='cross', goal='review', output='alpha/output.md', integrator='operator',
+            entry_folder='alpha', trusted_binding=binding)
+
+
 @pytest.mark.parametrize('denied_before', [True, False])
 def test_impact_rechecks_historical_cross_owner_authority(repo, monkeypatch, denied_before):
     from wiki_core.context_requirements import assess_approved_impact

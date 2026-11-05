@@ -339,7 +339,23 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         if reader.revision!=policy.policy_revision: raise ImpactError('evidence revision not approved current base')
         if kind=='query':
             entry={'target':source,'query':candidate['query'],'reason':'canonical collection requirement','use':candidate['use'],'classification':candidate['classification']}
-            receipt,_,_=reproduce_query(policy,context,reader,entry,policy_revision=candidate.get('query_policy_revision'),expected_authority=candidate.get('authority_digest'),authority_format=candidate.get('authority_format'),entry_folder=candidate.get('entry_folder'),entry_index=candidate.get('entry_index'))
+            if getattr(policy, 'format_version', None) == 'folder':
+                from wiki_core.context_packet import qualify_folder_context
+                from wiki_core.context_selection import _equivalent_folder_authority
+                qualify_folder_context(root, policy, context, candidate['entry_folder'], candidate['entry_index'], 2_000_000)
+                _equivalent_folder_authority(policy, context, candidate['query_policy_revision'], entry,
+                                             candidate['entry_folder'], candidate['entry_index'])
+                candidate_receipt,_,_=reproduce_query(policy,context,RepositoryReader(root,candidate['after_revision']),entry,
+                    policy_revision=candidate['query_policy_revision'],expected_authority=candidate['authority_digest'],
+                    authority_format=candidate['authority_format'],entry_folder=candidate['entry_folder'],entry_index=candidate['entry_index'])
+                if (candidate_receipt['selected_digest'] != candidate['after_digest'] or
+                        candidate_receipt['members_digest'] != candidate['members_digest_after']):
+                    raise ImpactError('query candidate selection differs')
+                receipt,_,_=select_query(policy,context,reader,entry,entry_folder=candidate['entry_folder'],entry_index=candidate['entry_index'])
+                if receipt['authority_digest'] != candidate['authority_digest']:
+                    raise ImpactError('query candidate authority differs')
+            else:
+                receipt,_,_=reproduce_query(policy,context,reader,entry,policy_revision=candidate.get('query_policy_revision'),expected_authority=candidate.get('authority_digest'),authority_format=candidate.get('authority_format'),entry_folder=candidate.get('entry_folder'),entry_index=candidate.get('entry_index'))
             if selector!='query:'+receipt['query_id'] or candidate['members_digest_after']!=receipt['members_digest']:
                 raise ImpactError('query candidate selection differs')
             digest=receipt['selected_digest']

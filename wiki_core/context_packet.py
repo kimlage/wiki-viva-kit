@@ -384,7 +384,8 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
                     historical_policies[reader_.revision] = historical_policy(policy, reader_.revision, authority_format='folder')
                 prior = historical_policies[reader_.revision]
                 try:
-                    if (prior.owner_of(ref) != producer or any(
+                    if (prior.owner_of(ref) != producer or
+                            prior.contexts[producer]['owner'] != policy.contexts[producer]['owner'] or any(
                             prior.contexts[ctx]['owner'] != policy.contexts[ctx]['owner'] or
                             prior._connection(producer, ctx, ref, use or 'interpretation', classification or 'context',
                                 section=section, field=field, qualified=False) != 'approved'

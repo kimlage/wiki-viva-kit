@@ -304,6 +304,12 @@ def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impac
     monkeypatch.setattr(RepositoryReader,'read',guarded)
     with pytest.raises(ValueError):
         report_review(root,folder_policy(root),forged,disposition='still_valid',reason='Synthetic reported review',evidence_revision=after)
+    with (root/'finance/costs/result.md').open('a') as stream:
+        stream.write('\nReviewed interpretation.\n')
+    reviewed=commit(root)
+    updated=report_review(root,folder_policy(root),impact['candidates'][0],disposition='updated',
+        reason='Synthetic reported review',evidence_revision=reviewed)
+    assert updated['next_impact_allowed'] and updated['verification']=='reported_not_verified'
 
 @pytest.mark.parametrize('change',['addition','removal','entry','exit','selected','identity','outside','irrelevant_body'])
 def test_canonical_query_impact_does_not_depend_on_hub_edits(collection,change):
