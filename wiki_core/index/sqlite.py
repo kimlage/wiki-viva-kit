@@ -17,6 +17,9 @@ PAGE_SOURCE_PREFIX = "page:"
 
 def _load_chunks(path: Path) -> dict:
     """Validate complete inputs before opening the index write transaction."""
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(path):
+        raise ValueError('protected artifacts require bound dispatch')
     if path.is_symlink():
         raise ValueError("chunk artifact must not be a symbolic link")
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -88,6 +91,9 @@ def _incomplete_ids(documents: list[dict]) -> set[str]:
 
 
 def _connect(path: Path) -> sqlite3.Connection:
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(path):
+        raise ValueError('protected artifacts require bound dispatch')
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.execute(
@@ -284,6 +290,9 @@ def _page_index_matches(conn: sqlite3.Connection, signature: str | None) -> bool
 def search(db_path: Path, query: str, limit: int = 20, *, page_signature: str | None = None,
            wiki_root: Path | None = None) -> list[dict[str, object]]:
     """Search chunks by relevance (BM25). Returns [] for an empty query or missing index."""
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(db_path):
+        raise ValueError('protected artifacts require bound dispatch')
     if wiki_root is not None:
         from wiki_core.traversal import is_in_nested_git
         try:
@@ -329,6 +338,9 @@ def search_detailed(db_path: Path, query: str, limit: int = 20, *, source_ids=No
     match = sanitize_fts_query(query)
     result = dict(status="invalid_query", query=query, effective_query=match,
                   operator="AND", limit=limit, hits=[], indexed_source_ids=[])
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(db_path):
+        return {**result, 'status': 'index_error', 'error': 'protected_artifact_requires_bound_dispatch'}
     if not match or type(limit) is not int or not 1 <= limit <= 1000:
         return result
     if wiki_root is not None:
