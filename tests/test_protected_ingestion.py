@@ -691,15 +691,40 @@ def test_record_revalidates_after_last_full_reconstruction(prepared_repo, monkey
     def revoke(*values, **kwargs):
         value = original(*values, **kwargs)
         calls.append(True)
-        if len(calls) == 2:
+        if len(calls) == 3:
             git(root, 'update-ref', '-d', 'refs/remotes/origin/main')
         return value
     monkeypatch.setattr(protected, '_open_bound', revoke)
     with pytest.raises(protected.ProtectedPartialError):
         record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'],
                results=[_result_for(first['request'])])
-    assert len(calls) == 2
+    assert len(calls) == 3
     assert len(list((root / 'data/derived/wiki/.wiki-viva-protected/llm-cache').glob('*.json'))) == 1
+
+
+def test_record_detects_prior_result_changed_during_later_write(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    (root / 'source.txt').write_text(''.join(f'Synthetic evidence {i} with bounded detail.\n' for i in range(500)))
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    rows = first['request']['chunks'][:2]
+    assert len(rows) == 2
+    sample = _result_for(first['request'])
+    results = [{**sample, **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')}} for row in rows]
+    original = protected._write_once; writes = []
+    def mutate(*a, **kw):
+        value = original(*a, **kw)
+        if a[3].parent.name == 'llm-cache':
+            writes.append(a[3])
+            if len(writes) == 2:
+                writes[0].write_text(json.dumps({**results[0], 'synthetic_note': 'changed'}))
+        return value
+    monkeypatch.setattr(protected, '_write_once', mutate)
+    with pytest.raises(protected.ProtectedPartialError):
+        record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'], results=results)
+    assert len(writes) == 2 and all(path.exists() for path in writes)
 
 
 def test_record_batch_preserves_existing_result(prepared_repo):

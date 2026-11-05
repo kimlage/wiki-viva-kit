@@ -807,9 +807,10 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
         request_max_bytes=request_max_bytes, artifact_context=artifact_context, perspective_refs=perspective_refs,
         context_selection=context_selection, repository_selection=repository_selection)
     actor = context_id if artifact_context is None else artifact_context
-    root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes, actor)
-    repository_context = _repository(binding, policy, context_id, actor, repository_selection)
+    # Qualify the explicit selection and associations before opening any
+    # independent repository; its retained context also determines the path.
+    root, policy, config, paths, first_request, first_digest = _open_bound(root, binding, **options)
+    repository_context = first_request.get('repository_context')
     source_path = _source(root, policy, context_id, source_ref, actor)
     request_path = _request_path(paths, source_id, request_id, repository_context)
     _allowed(root, policy, actor, request_path, 'read')
@@ -821,7 +822,7 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
     source_stamp, request_stamp = stamp(source_path), stamp(request_path)
     policy.fresh()
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
-    if (request.get('repository_context') != repository_context or stamp(source_path) != source_stamp
+    if (request != first_request or digest != first_digest or stamp(source_path) != source_stamp
             or stamp(request_path) != request_stamp):
         raise ValueError('request authority changed')
     if (not isinstance(results, list) or not results or len(results) > 1000
@@ -872,15 +873,20 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
             guard(target)
             _write_once(root, policy, actor, target, result)
             guard(target)
+            written_stamp = stamp(target)
             if _read_json(root, policy, actor, target) != result:
                 raise ValueError('result differs after write')
             guard(target)
-            written.append(target)
+            if stamp(target) != written_stamp:
+                raise ValueError('result changed after write')
+            written.append((target, written_stamp))
         root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
         if current != request or current_digest != digest:
             raise ValueError('request authority changed')
-        for target in written:
+        for target, written_stamp in written:
             guard(target)
+            if stamp(target) != written_stamp:
+                raise ValueError('result changed after write')
         policy.fresh()
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
