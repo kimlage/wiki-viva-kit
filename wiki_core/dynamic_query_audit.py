@@ -65,19 +65,25 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
         raise ValueError('query context unavailable')
     base_reader, head_reader = RepositoryReader(root, base), RepositoryReader(root, head)
     normative = {p for c in policy.contexts.values() for k in ('instructions', 'skills', 'templates') for p in c[k]}
-    selected_indexes = set()
-    if folder_mode:
-        for context in policy.lineage(context_id):
-            context_root = context['root']
-            if policy._context_indexes.get(context_root): selected_indexes.add(policy._context_indexes[context_root])
-        selected_indexes.update(value['entry_index'] for value in getattr(policy, '_folder_qualifications', {}).values())
-    changed_policy = bool(normative & changed) or any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) or (folder_mode and (p == 'wiki.config.yaml' or p in selected_indexes)) for p in changed)
+    legacy_changed_policy = bool(normative & changed) or any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
     budget = read_budget if read_budget is not None else [32_000_000]
     outcomes = []
     pending_sources = pending_sources or {}
     selection_cache = _selection_cache if _selection_cache is not None else {}
     for row in affected:
         path, req = row['path'], row['requirement']
+        if folder_mode and req.get('authority_format') == 'folder':
+            entry_folder = req.get('entry_folder', '')
+            scope = req.get('query', {}).get('scope', '')
+            def affects_selected_policy(ref):
+                if ref == 'wiki.config.yaml': return True
+                if ref == req.get('entry_index'): return True
+                directory = ref.rsplit('/', 1)[0] if '/' in ref else '.'
+                structural = is_context_instruction(ref) or ref.rsplit('/', 1)[-1] in ('index.md', 'README.md')
+                return structural and (within(entry_folder, directory) or within(ref, scope))
+            changed_policy = any(affects_selected_policy(ref) for ref in changed)
+        else:
+            changed_policy = legacy_changed_policy
         requirement_id = hashlib.sha256(json.dumps(req, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode('utf-8')).hexdigest()
         if folder_mode:
             try:
