@@ -394,6 +394,9 @@ def test_cli_local_operator_prepare_record_consolidate(prepared_repo):
     assert call('record', {**base, **ids, 'results': [result]})['recorded'] == 1
     inspected = call('inspect', {**base, **ids, 'view': 'results', 'chunk_ids': [row['chunk_id']]})
     assert inspected['results'] == [{'chunk_id': row['chunk_id'], 'result': result}]
+    repeated = call('prepare', {**base, 'source_context': 'alpha'})
+    assert repeated['request_id'] == prepared['request_id']
+    assert repeated['request']['chunks'][0]['result_exists'] is True
     event = ('memories/system/ingestion/events/2026-11-04-' +
              hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
     output = call('consolidate', {**base, **ids, 'source_page': 'memories/sources/synthetic.md', 'event_target': event, 'date': '2026-11-04'})
@@ -898,6 +901,87 @@ def _result_for(request):
     return {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
             **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
             'perspectives_required': [], 'perspectives': {}}
+
+
+def test_prepare_rechecks_exact_cache_without_changing_retained_request(prepared_repo):
+    from wiki_core.llm.context_pass import canonical_request_text
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    directory = root / 'data/derived/wiki/.wiki-viva-protected'
+    request_path = next(directory.rglob('*' + first['request_id'] + '-llm-context-request.json'))
+    before = request_path.read_bytes()
+    record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'],
+           results=[_result_for(first['request'])])
+    again = prepare(root, binding, **args, source_context='system')
+    assert again['request_id'] == first['request_id']
+    assert request_path.read_bytes() == before
+    assert again['request']['chunks'][0]['result_exists'] is True
+    assert again['request']['chunks'][0]['result_source_id'] == first['source_id']
+    assert again['request']['cached_calls'] == 1 and again['request']['pending_llm_calls'] == 0
+    assert again['request']['byte_accounting']['request_bytes'] == len(canonical_request_text(again['request']).encode())
+
+
+@pytest.mark.parametrize('contents', ['null', '{broken'])
+def test_prepare_blocks_corrupt_cached_result(prepared_repo, contents):
+    from wiki_core.ingest.protected import ProtectedPartialError
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'],
+           results=[_result_for(first['request'])])
+    cache = root / 'data/derived/wiki/.wiki-viva-protected/llm-cache' / (first['request']['chunks'][0]['cache_key'] + '.json')
+    cache.write_text(contents)
+    with pytest.raises(ProtectedPartialError, match='cache readback unavailable'):
+        prepare(root, binding, **args, source_context='system')
+    assert cache.read_text() == contents
+
+
+def test_prepare_revalidates_after_cache_open(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'],
+           results=[_result_for(first['request'])])
+    read = protected._read_json
+    def revoke(*values, **kwargs):
+        result = read(*values, **kwargs)
+        if values[3].parent.name == 'llm-cache':
+            git(root, 'update-ref', '-d', 'refs/remotes/origin/main')
+        return result
+    monkeypatch.setattr(protected, '_read_json', revoke)
+    with pytest.raises(protected.ProtectedPartialError, match='cache readback unavailable'):
+        prepare(root, binding, **args, source_context='system')
+
+
+def test_prepare_checks_revocation_before_cache_open(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'],
+           results=[_result_for(first['request'])])
+    original = protected._open_bound
+    def revoke(*values, **kwargs):
+        result = original(*values, **kwargs)
+        git(root, 'update-ref', '-d', 'refs/remotes/origin/main')
+        return result
+    opened = []
+    read = Path.open
+    def spy(path, *values, **kwargs):
+        if path.parent.name == 'llm-cache':
+            opened.append(path)
+        return read(path, *values, **kwargs)
+    monkeypatch.setattr(protected, '_open_bound', revoke)
+    monkeypatch.setattr(Path, 'open', spy)
+    with pytest.raises(protected.ProtectedPartialError, match='cache readback unavailable'):
+        prepare(root, binding, **args, source_context='system')
+    assert opened == []
 
 
 def test_revocation_after_last_result_write_reports_partial(prepared_repo, monkeypatch):
