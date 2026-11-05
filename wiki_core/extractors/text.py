@@ -4,6 +4,7 @@ import csv
 import email
 import io
 import itertools
+import json
 import os
 import selectors
 import subprocess
@@ -64,13 +65,22 @@ def _extract_csv(path: Path) -> tuple[str, list[dict[str, object]], list[str]]:
         return _extract_csv_stream(handle, path.suffix)
 
 
+def _tabular_json_line(value):
+    """Serialize one logical row without introducing physical line breaks."""
+    text = json.dumps(value, ensure_ascii=False, separators=(',', ':'), allow_nan=False)
+    for separator in ('\u0085', '\u2028', '\u2029'):
+        text = text.replace(separator, f'\\u{ord(separator):04x}')
+    return text
+
+
 def _extract_csv_stream(handle, suffix: str, *, bounded: bool = False):
     rows: list[str] = []
     units: list[dict[str, object]] = []
     dialect = "excel-tab" if suffix.lower() == ".tsv" else "excel"
     size = 0
     for index, row in enumerate(csv.reader(handle, dialect=dialect), start=1):
-        line = " | ".join(row)
+        line = (_tabular_json_line({'row': index, 'cells': row}) if bounded
+                else " | ".join(row))
         size += len(line.encode('utf-8')) + 1
         if bounded and (index > 100_000 or size > 2_000_000):
             raise ValueError('extracted content exceeds protected limit')
@@ -118,13 +128,12 @@ def _extract_xlsx_captured(data: bytes):
                         expression = formula_cell.value
                         if not isinstance(expression, str):
                             raise ValueError('spreadsheet formula requires explicit review')
-                        cached_label = 'unavailable' if value is None else str(value)
-                        cells.append(f'[formula {expression}; cached value: {cached_label}]')
+                        cells.append({'formula': expression, 'cached_value': None if value is None else str(value)})
                     else:
                         cells.append('' if value is None else str(value))
                 if not any(cells):
                     continue
-                line = ' | '.join(cells)
+                line = _tabular_json_line({'sheet': sheet.title, 'row': row_index, 'cells': cells})
                 size += len(line.encode('utf-8')) + 1
                 if len(units) >= 100_000 or size > 2_000_000:
                     raise ValueError('extracted content exceeds protected limit')
@@ -187,6 +196,8 @@ def _extract_docx_captured(data: bytes):
     texts, units = [], []
     size = 0
     paragraph_index = table_index = 0
+    unsupported_inline = {qn('w:ins'), qn('w:del'), qn('w:moveFrom'), qn('w:moveTo'),
+        qn('w:sdt'), qn('w:customXml'), qn('w:smartTag'), qn('w:fldSimple')}
 
     def append(text, unit):
         nonlocal size
@@ -197,6 +208,8 @@ def _extract_docx_captured(data: bytes):
         units.append({**unit, 'text': text})
 
     for element in doc.element.body.iterchildren():
+        if any(descendant.tag in unsupported_inline for descendant in element.iter()):
+            raise ValueError('document revision or unsupported inline content requires explicit review')
         if element.tag == qn('w:p'):
             text = Paragraph(element, doc).text
             if text.strip():

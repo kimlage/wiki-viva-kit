@@ -173,7 +173,8 @@ def _capture(root, policy, context_id, source_ref, source_context, config, artif
                'token_estimate': c.token_estimate, 'text': c.text}
               for c in chunk_text(str(manifest['source_id']), extracted.text,
                   int(config.llm.get('chunk_target_tokens', 1200)),
-                  int(config.llm.get('chunk_overlap_tokens', 150)))]
+                  int(config.llm.get('chunk_overlap_tokens', 150)),
+                  preserve_lines=source_type in {'table', 'spreadsheet'})]
     if not chunks:
         raise ValueError('empty source requires explicit review')
     return source, digest, manifest, extracted, chunks
