@@ -131,6 +131,7 @@ def _equivalent_folder_authority(policy, context_id, policy_revision, entry):
             require_wiki_boundaries(root, files=(root / ref,))
             producer = policy.owner_of(ref)
             if (old.owner_of(ref) != producer or
+                    old.contexts[producer]['owner'] != policy.contexts[producer]['owner'] or
                     policy._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved' or
                     old._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved'):
                 raise ValueError('authority differs')

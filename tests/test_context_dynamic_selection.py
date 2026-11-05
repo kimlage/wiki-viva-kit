@@ -262,7 +262,8 @@ def test_real_protected_cli_http_preflight_and_canonical_revalidation(collection
     assert status==200 and checked['preflight']['state']=='independent_review_required'
     approve(root)
     command=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--repo',str(root),'--approved-revision',head,'revalidate','--consumer','finance/costs/result.md','--context','costs']
-    assert json.loads(subprocess.check_output(command))['equivalent']
+    # New CLI operations do not select the legacy YAML hierarchy as authority.
+    assert subprocess.run(command, capture_output=True).returncode != 0
     status,stale=srv.post('/api/coordination/protected/packet',payload,headers=headers)
     assert status==409 and stale['error_code']=='coordination_policy_unavailable' and 'packet' not in stale
 
