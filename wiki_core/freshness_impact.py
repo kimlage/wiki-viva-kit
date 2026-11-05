@@ -294,7 +294,12 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             raise ValueError("use-scoped impact does not accept per-proposal freshness waivers")
         from wiki_core.information_impact import evaluate_information_impact, typed_information_reach
         has_queries = any('query' in edge.get('requirement', {}) for graph in (base, current) for edge in graph['edges'])
-        impact_changed = changed | (_query_policy_change_marker(root, (base_sha, head), changed) if has_queries else set())
+        has_legacy_queries = any('query' in edge.get('requirement', {}) and edge['requirement'].get('authority_format') != 'folder'
+                                 for graph in (base, current) for edge in graph['edges'])
+        # Historical v1 receipts may still need their original normative
+        # declarations. New folder receipts derive their selected chain from
+        # physical paths and must not scan v1 manifests as authority.
+        impact_changed = changed | (_query_policy_change_marker(root, (base_sha, head), changed) if has_legacy_queries and not query_context else set())
         typed_reasons = typed_information_reach(current, base, impact_changed) if has_queries else {}
         result = evaluate_information_impact(current, base, impact_changed, today=today or dt.date.today(), _typed_reasons=typed_reasons)
         if any((query_context, query_policy_revision, query_head)):
@@ -302,17 +307,24 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                 raise ValueError('query audit requires exact context, approved base and HEAD')
             from wiki_core.information_impact import affected_dynamic_queries
             from wiki_core.dynamic_query_audit import revalidate_affected
-            affected = affected_dynamic_queries(current, base, impact_changed, set(typed_reasons))
+            from wiki_core.context_policy import load_policy
+            from wiki_core.context_packet import qualify_folder_context
+            closure_policy = load_policy(root, base_sha, 'wiki.config.yaml')
+            context_index = closure_policy._context_indexes.get(query_context)
+            if context_index is None: raise ValueError('query context requires authorized requalification')
+            try: qualify_folder_context(root, closure_policy, query_context, query_context, context_index, 2_000_000)
+            except (ValueError, KeyError, TypeError, OSError) as exc:
+                raise ValueError('query context requires authorized requalification') from exc
+            affected = affected_dynamic_queries(current, base, impact_changed,
+                                                {path for path, row in typed_reasons.items() if row.get('causes')})
             closure_budget = [32_000_000]
             selection_cache = {}  # Local to this exact, fenced audit only.
             outcomes = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
-                                           affected=affected, changed=impact_changed, current=current, read_budget=closure_budget, _selection_cache=selection_cache)
+                                           affected=affected, changed=impact_changed, current=current, read_budget=closure_budget, _selection_cache=selection_cache, policy=closure_policy)
             # Dynamic outcomes are review obligations, not edits to their pages.
             # Feed those obligations into typed dependencies and authorized
             # downstream queries until no new pending fields are discovered.
             from wiki_core.information_impact import propagate_pending_dependencies, authorized_typed_provenance
-            from wiki_core.context_policy import load_policy
-            closure_policy = load_policy(root, base_sha)
             pending_fields = {r['path']: set(r.get('fields', ['*'])) for r in outcomes if r['state'] == 'review_pending'}
             derived = {}; denied = set(); ordinary_sources = {}
             # The generic graph already propagated ordinary impacts. Use those
@@ -352,7 +364,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                     for path, fields in ordinary_sources.items(): query_sources.setdefault(path, set()).update(fields)
                     affected = affected_dynamic_queries(current, base, impact_changed | set(query_sources), set(query_sources))
                     more = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
-                        affected=affected, changed=impact_changed, current=current, pending_sources=query_sources, read_budget=closure_budget, _selection_cache=selection_cache)
+                        affected=affected, changed=impact_changed, current=current, pending_sources=query_sources, read_budget=closure_budget, _selection_cache=selection_cache, policy=closure_policy)
                     for row in more: all_outcomes[(row['path'], row['reason'], row.get('requirement_id'))] = row
                     new_fields = {p: set(v) for p, v in expanded.items()}
                     for row in more:

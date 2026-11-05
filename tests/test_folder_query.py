@@ -225,6 +225,9 @@ def test_folder_query_policy_change_selection_is_scoped_to_its_chain():
     assert affected_dynamic_queries(graph, graph, {'alpha/aux/AGENTS.md'}, set())
     assert affected_dynamic_queries(graph, graph, {'alpha/index.md'}, set())
     assert affected_dynamic_queries(graph, graph, {'wiki.config.yaml'}, set())
+    requirement['entry_index'] = 'alpha/CUSTOM.md'
+    assert affected_dynamic_queries(graph, graph, {'alpha/CUSTOM.md'}, set())
+    assert affected_dynamic_queries(graph, graph, {'beta/CUSTOM.md'}, set()) == []
 
 
 def test_changed_query_member_is_detected_across_policy_sha(query_repo):

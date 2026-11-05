@@ -55,7 +55,7 @@ def assess_approved_impact(root,policy,*,consumers,before,after,destination_cont
     policy.fresh()
     return result
 
-def requirements_from_result(root,policy,*,packet,result,output_path,proposal_head,temporal,max_age_days):
+def requirements_from_result(root,policy,*,packet,result,output_path,proposal_head,temporal,max_age_days,trusted_additional_readers=()):
     """Propose page requirements from reported reads; never write a page.
 
     Git bytes are verified at input, current base and proposal output. The task
@@ -65,6 +65,10 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     folder_mode = getattr(policy, 'format_version', None) == 'folder'
     if not isinstance(packet, dict) or folder_mode != (packet.get('authority_format') == 'folder'):
         raise RequirementError('packet authority format differs; requalification required')
+    packet_readers = packet.get('additional_readers', ())
+    if (not isinstance(trusted_additional_readers, (tuple, list)) or not isinstance(packet_readers, (tuple, list))
+            or tuple(packet_readers) != tuple(trusted_additional_readers)):
+        raise RequirementError('additional reader host binding unavailable')
     if temporal not in ('current','historical') or type(max_age_days) is not int or not 0<=max_age_days<=3650: raise RequirementError('invalid temporal policy')
     if not isinstance(proposal_head,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',proposal_head): raise RequirementError('fixed proposal SHA required')
     try: validate_result(result,packet)
@@ -84,10 +88,10 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     if folder_mode:
         from wiki_core.context_packet import build_packet, qualify_folder_context
         try:
-            qualify_folder_context(root, policy, packet['context_id'], packet['entry_folder'], packet['entry_index'], packet['max_bytes'])
+            qualify_folder_context(root, policy, packet['context_id'], packet['entry_folder'], packet['entry_index'], packet['max_bytes'],additional_readers=trusted_additional_readers)
             automatic = build_packet(root, policy, packet['context_id'], packet['content_revision'], [], packet['max_bytes'],
                 task_id=packet['task_id'], goal=packet['goal'], output=packet['output'], integrator=packet['integrator'],
-                omissions=packet['coverage']['missing'], entry_folder=packet['entry_folder'], entry_index=packet['entry_index'])
+                omissions=packet['coverage']['missing'], entry_folder=packet['entry_folder'], entry_index=packet['entry_index'],additional_readers=trusted_additional_readers)
             keys = ('kind', 'ref', 'producer', 'reason', 'section', 'field', 'use', 'classification')
             automatic_count = len(automatic['inputs'])
             if ([{key: row[key] for key in keys} for row in packet['inputs'][:automatic_count]] !=
@@ -104,6 +108,9 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     except PolicyError as exc: raise RequirementError('invalid output') from exc
     context=packet['context_id']
     if policy.owner_of(output_path)!=context or not policy.permits(context,'read',output_path): raise RequirementError('output not authorized')
+    for reader_context in trusted_additional_readers:
+        if policy._connection(context,reader_context,output_path,'interpretation','context',qualified=False) != 'approved':
+            raise RequirementError('additional reader not authorized for output')
     if folder_mode:
         from wiki_core.context_impact import _folder_ref
         try: _folder_ref(root, policy, output_path)
@@ -156,6 +163,11 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
             if policy.connection(item['producer'],context,item['ref'],item['use'],item['classification'],section=item['section'],field=item['field'])!='approved': raise RequirementError('evidence authorization unavailable')
         elif folder_mode and policy.connection(item['producer'],context,item['ref'],'interpretation','context')!='approved':
             raise RequirementError('mandatory input authorization unavailable')
+        for reader_context in trusted_additional_readers:
+            if policy._connection(item['producer'],reader_context,item['ref'],item['use'] or 'interpretation',
+                                  item['classification'] or 'context',section=item['section'],field=item['field'],
+                                  qualified=False) != 'approved':
+                raise RequirementError('additional reader input authorization unavailable')
         if folder_mode:
             try: _folder_ref(root, policy, item['ref'])
             except ImpactError as exc: raise RequirementError('reported input unavailable') from exc

@@ -157,6 +157,92 @@ def test_folder_packet_requires_authorization_before_bodies(repo, monkeypatch):
     assert opened == []
 
 
+def test_additional_reader_needs_exact_grants_before_context_body(repo, monkeypatch):
+    from wiki_core.context_packet import qualify_folder_context
+    from wiki_core.repository_reader import RepositoryReader
+    enable_alpha(repo)
+    opened = []
+    original = RepositoryReader.read
+    def spy(self, path, **kwargs):
+        opened.append(path)
+        return original(self, path, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', spy)
+    with pytest.raises(PolicyError, match='additional reader not authorized'):
+        qualify_folder_context(repo, folder_policy(repo), 'alpha', 'alpha/aux', 'alpha/index.md', 100000,
+                               additional_readers=('beta',))
+    assert opened == []
+
+
+def test_additional_reader_only_needs_grants_for_selected_chain(repo):
+    from wiki_core.context_packet import qualify_folder_context
+    enable_alpha(repo)
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    paths = [('.', 'AGENTS.md'), ('alpha', 'alpha/AGENTS.override.md'),
+             ('alpha', 'alpha/index.md'), ('alpha', 'alpha/aux/AGENTS.md')]
+    rules = [{'from_context': owner, 'to_context': 'beta', 'selector': ref,
+              'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
+             for owner, ref in paths]
+    config['context_access']['.']['exports'].append(rules[0])
+    config['context_access']['alpha']['exports'] = rules[1:]
+    config['context_access']['beta'] = {'owner': 'beta operator', 'imports': copy.deepcopy(rules),
+        'policy': {'read': ['.'], 'write': ['self'], 'capabilities': [], 'deny': {}, 'publication': []}}
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', 'wiki.config.yaml'); git(repo, 'commit', '-qm', 'authorize readers'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    policy = folder_policy(repo)
+    _, refs = qualify_folder_context(repo, policy, 'alpha', 'alpha/aux', 'alpha/index.md', 100000,
+                                     additional_readers=('beta',))
+    assert 'alpha/AGENTS.md' not in refs  # Unused behind the nonempty override.
+    assert policy._folder_qualifications[('alpha', 'alpha/aux', 'alpha/index.md')]['additional_readers'] == ('beta',)
+    selected = build_packet(repo, policy, 'alpha', 'HEAD', [], 100000, task_id='task', goal='goal',
+                            output='output', integrator='operator', entry_folder='alpha/aux',
+                            additional_readers=('beta',))
+    assert selected['additional_readers'] == ['beta']
+    schema = json.loads((Path(__file__).resolve().parents[1] /
+                         'docs/references/schemas/wiki-task-context-v1.schema.json').read_text())
+    validate(selected, schema)
+    with pytest.raises(IntegrationError, match='additional reader host binding unavailable'):
+        preflight(repo, policy, context_id='alpha', base='HEAD', head='HEAD', branch='wiki/example',
+                  packet=selected, result={})
+
+
+def test_additional_reader_needs_exact_grants_before_context_body(repo, monkeypatch):
+    from wiki_core.context_packet import qualify_folder_context
+    from wiki_core.repository_reader import RepositoryReader
+    enable_alpha(repo)
+    opened = []
+    original = RepositoryReader.read
+    def spy(self, path, **kwargs):
+        opened.append(path)
+        return original(self, path, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', spy)
+    with pytest.raises(PolicyError, match='additional reader not authorized'):
+        qualify_folder_context(repo, folder_policy(repo), 'alpha', 'alpha/aux', 'alpha/index.md', 100000,
+                               additional_readers=('beta',))
+    assert opened == []
+
+
+def test_additional_reader_only_needs_grants_for_selected_chain(repo):
+    from wiki_core.context_packet import qualify_folder_context
+    enable_alpha(repo)
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    paths = [('.', 'AGENTS.md'), ('alpha', 'alpha/AGENTS.override.md'),
+             ('alpha', 'alpha/index.md'), ('alpha', 'alpha/aux/AGENTS.md')]
+    rules = [{'from_context': owner, 'to_context': 'beta', 'selector': ref,
+              'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
+             for owner, ref in paths]
+    config['context_access']['.']['exports'].append(rules[0])
+    config['context_access']['alpha']['exports'] = rules[1:]
+    config['context_access']['beta'] = {'owner': 'beta operator', 'imports': copy.deepcopy(rules),
+        'policy': {'read': ['.'], 'write': ['self'], 'capabilities': [], 'deny': {}, 'publication': []}}
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', 'wiki.config.yaml'); git(repo, 'commit', '-qm', 'authorize readers'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    policy = folder_policy(repo)
+    _, refs = qualify_folder_context(repo, policy, 'alpha', 'alpha/aux', 'alpha/index.md', 100000,
+                                     additional_readers=('beta',))
+    assert 'alpha/AGENTS.md' not in refs  # Unused behind the nonempty override.
+    assert policy._folder_qualifications[('alpha', 'alpha/aux', 'alpha/index.md')]['additional_readers'] == ('beta',)
+
+
 def test_folder_packet_binds_auxiliary_chain_and_index(repo):
     enable_alpha(repo)
     value = packet(repo)

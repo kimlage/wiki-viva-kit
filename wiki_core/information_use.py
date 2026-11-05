@@ -311,7 +311,7 @@ def bind_normative_coverage(root, graph, policy, context_id, *, head):
     Unbound/other-owner edges have no proof. Proposed changes to a rule or a
     new requirement do not gain approval from this check.
     """
-    if getattr(policy, 'format_version', None):
+    if getattr(policy, 'format_version', None) not in (None, 'folder'):
         raise ValueError('v2 normative coverage is unavailable; v1 receipts require explicit migration')
     import subprocess
     import re
@@ -322,6 +322,10 @@ def bind_normative_coverage(root, graph, policy, context_id, *, head):
     from wiki_core.information_relations import information_requirements
     from wiki_core.repository_reader import RepositoryReader
     policy=policy.fresh()
+    folder_mode = getattr(policy, 'format_version', None) == 'folder'
+    if folder_mode:
+        from wiki_core.context_impact import _folder_context
+        _folder_context(root, policy, context_id)
     if Path(root).resolve()!=Path(policy._binding[0]) or not isinstance(head,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',head):
         raise ValueError('invalid normative binding')
     ancestor=subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),'merge-base','--is-ancestor',policy.policy_revision,head],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=local_git_environment())
@@ -335,7 +339,7 @@ def bind_normative_coverage(root, graph, policy, context_id, *, head):
         changed=[raw.decode('utf-8') for raw in diff.stdout.split(b'\0') if raw]
     except UnicodeError as exc:
         raise ValueError('normative instruction comparison unavailable') from exc
-    if any(is_context_instruction(path) for path in changed):
+    if not folder_mode and any(is_context_instruction(path) for path in changed):
         return {**graph,'normative_coverage':{},'normative_policy_revision':policy.policy_revision}
     reader=RepositoryReader(root,policy.policy_revision); coverage={}
     dependencies,_=dependency_edges(graph)
@@ -347,14 +351,31 @@ def bind_normative_coverage(root, graph, policy, context_id, *, head):
             if policy.owner_of(target)!=context_id or not policy.permits(context_id,'read',target): continue
             if req.get('target')!=source or req.get('fields')!=['*'] or req.get('temporal')!='current' or req.get('use')!='normative': continue
             if not normative_history(policy,context_id,source,req['consumed_revision'],authority_format=req.get('authority_format'),entry_folder=req.get('entry_folder'),entry_index=req.get('entry_index')): continue
+            if folder_mode:
+                selected = policy._folder_qualifications.get((context_id, req['entry_folder'], req['entry_index']))
+                if not selected: continue
+                related = set(selected['refs'])
+                parts = [] if req['entry_folder'] == '.' else req['entry_folder'].split('/')
+                for directory in ['.'] + ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]:
+                    prefix = '' if directory == '.' else directory + '/'
+                    override = prefix + 'AGENTS.override.md'
+                    related.add(override)
+                    if not selected['nonempty'].get(override): related.add(prefix + 'AGENTS.md')
+                if 'wiki.config.yaml' in changed: continue
+                if related.intersection(changed):
+                    coverage[key] = 'changed'
+                    continue
+                from wiki_core.context_packet import guard_folder_blob
+                guard_folder_blob(root, policy, source)
             metadata=_normative_metadata_unchanged(root,source,policy.policy_revision,head)
             if metadata=='changed': coverage[key]='changed'; continue
             if metadata!='equivalent': continue
-            approved=reader.read(target)
+            from wiki_core.context_packet import guarded_context_read
+            approved=guarded_context_read(reader,policy,target)
             declared=information_requirements(approved['frontmatter'],lambda ref:[ref])
             if req not in declared: continue
-            old=RepositoryReader(root,req['consumed_revision']).read(source)
-            now=reader.read(source)
+            old=guarded_context_read(RepositoryReader(root,req['consumed_revision']),policy,source)
+            now=guarded_context_read(reader,policy,source)
             if any(x.category=='secret' for x in scan_text(old['text']+'\n'+now['text'])): continue
             metadata=_normative_metadata_unchanged(root,source,policy.policy_revision,head)
             if metadata=='changed': coverage[key]='changed'; continue

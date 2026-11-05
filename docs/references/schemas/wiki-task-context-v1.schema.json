@@ -6,7 +6,8 @@
   "dependentRequired": {
     "authority_format": ["entry_folder", "entry_index"],
     "entry_folder": ["authority_format", "entry_index"],
-    "entry_index": ["authority_format", "entry_folder"]
+    "entry_index": ["authority_format", "entry_folder"],
+    "additional_readers": ["authority_format", "entry_folder", "entry_index"]
   },
   "required": [
     "schema_version",
@@ -44,6 +45,10 @@
     "entry_index": {
       "type": "string",
       "minLength": 1
+    },
+    "additional_readers": {
+      "type": "array", "minItems": 1, "maxItems": 8,
+      "uniqueItems": true, "items": {"type": "string", "minLength": 1}
     },
     "context_id": {
       "type": "string",

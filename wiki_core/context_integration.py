@@ -59,7 +59,7 @@ class _QueryReuse:
         return receipt
 
 
-def preflight(root, policy, *, context_id, base, head, branch, packet, result):
+def preflight(root, policy, *, context_id, base, head, branch, packet, result, trusted_additional_readers=()):
     """Return a review candidate, never an approval or merge authorization.
 
     External independent reviewer and final-head gates remain mandatory. The
@@ -72,6 +72,10 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     if not isinstance(packet, dict): raise IntegrationError('invalid task packet')
     if folder_mode != (packet.get('authority_format') == 'folder'):
         raise IntegrationError('packet authority format differs')
+    packet_readers = packet.get('additional_readers', ())
+    if (not isinstance(trusted_additional_readers, (tuple, list)) or not isinstance(packet_readers, (tuple, list))
+            or tuple(packet_readers) != tuple(trusted_additional_readers)):
+        raise IntegrationError('additional reader host binding unavailable')
     if not isinstance(branch,str) or not re.fullmatch(r'wiki/[A-Za-z0-9][A-Za-z0-9._-]*',branch) or '..' in branch or branch.endswith('.'):
         raise IntegrationError('invalid short branch')
     base_reader=RepositoryReader(root,base); proposal=RepositoryReader(root,head)
@@ -86,7 +90,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     if folder_mode:
         from wiki_core.context_packet import qualify_folder_context
         try:
-            _, qualified_refs = qualify_folder_context(root, policy, context_id, packet['entry_folder'], packet['entry_index'], packet['max_bytes'])
+            _, qualified_refs = qualify_folder_context(root, policy, context_id, packet['entry_folder'], packet['entry_index'], packet['max_bytes'],additional_readers=trusted_additional_readers)
             mandatory_refs = {item['ref'] for item in packet['inputs'] if item['kind'] == 'mandatory'}
             automatic = [(packet['entry_index'], 'selected context index')]
             automatic.extend((ref, 'qualified context boundary') for ref in qualified_refs
@@ -104,7 +108,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
             if item[k] is not None: entry[k]=item[k]
         evidence.append(entry)
     try:
-        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet),entry_folder=packet.get('entry_folder'),entry_index=packet.get('entry_index'))
+        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet),entry_folder=packet.get('entry_folder'),entry_index=packet.get('entry_index'),additional_readers=trusted_additional_readers)
     except (PolicyError, ValueError, KeyError, TypeError) as exc: raise IntegrationError('packet authorization cannot be reproduced') from exc
     if rebuilt!=packet: raise IntegrationError('packet contents cannot be reproduced')
     canonical_query_budget=[32_000_000]
@@ -145,6 +149,9 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
         if path in normative: raise IntegrationError('normative input requires separate policy review')
         if policy.owner_of(path)!=context_id or not policy.permits(context_id,'write',path): raise IntegrationError('write outside context')
         if not policy.permits(context_id,'read',path): raise IntegrationError('proposal read denied')
+        for reader_context in trusted_additional_readers:
+            if policy._connection(context_id,reader_context,path,'interpretation','context',qualified=False) != 'approved':
+                raise IntegrationError('additional reader not authorized for proposal')
         changes.append((status, path))
     if folder_mode:
         from wiki_core.traversal import require_wiki_boundaries

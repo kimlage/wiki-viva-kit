@@ -92,8 +92,12 @@ def guarded_context_read(reader, policy, ref, **selectors):
     return reader.read(ref, **selectors)
 
 
-def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes):
-    """Qualify only the selected physical lineage, after exact authorization."""
+def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes, *, additional_readers=()):
+    """Qualify the lineage after exact authorization for every reader.
+
+    The caller must independently bind every reader to its trusted host; this
+    function checks policy connections but does not establish actor authority.
+    """
     if getattr(policy, 'format_version', None) != 'folder' or not getattr(policy, '_binding', None):
         raise PolicyError('folder authority required')
     if Path(policy._binding[0]) != Path(root).resolve(): raise PolicyError('mismatched policy root')
@@ -106,6 +110,10 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
         raise PolicyError('entry folder unavailable') from exc
     if context_id not in policy.contexts or (entry_folder == '.' and context_id != '.'):
         raise PolicyError('entry context unavailable')
+    if (not isinstance(additional_readers, (list, tuple)) or len(additional_readers) > 8
+            or any(not isinstance(reader, str) or reader not in policy.contexts for reader in additional_readers)
+            or len(set(additional_readers)) != len(additional_readers)):
+        raise PolicyError('additional reader selection unavailable')
     if entry_folder != '.' and policy.owner_of(entry_folder) != context_id: raise PolicyError('entry context unavailable')
     entry_index = safe_path(entry_index)
     if str(PurePosixPath(entry_index).parent) != policy.contexts[context_id]['root']:
@@ -126,6 +134,9 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
         producer = policy.owner_of(ref)
         if policy._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved':
             raise PolicyError('context body not authorized')
+        for reader_context in additional_readers:
+            if policy._connection(producer, reader_context, ref, 'interpretation', 'context', qualified=False) != 'approved':
+                raise PolicyError('additional reader not authorized for context body')
         from wiki_core.traversal import require_wiki_boundaries
         try: require_wiki_boundaries(Path(root), files=(Path(root) / ref,))
         except (ValueError, OSError) as exc: raise PolicyError('context body unavailable') from exc
@@ -167,20 +178,20 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
     if not hasattr(policy, '_folder_qualifications'): policy._folder_qualifications = {}
     policy._folder_qualifications[(context_id, entry_folder, entry_index)] = {
         'context_id': context_id, 'entry_folder': entry_folder, 'entry_index': entry_index,
-        'refs': tuple(inspection_order), 'nonempty': nonempty}
+        'refs': tuple(inspection_order), 'nonempty': nonempty, 'additional_readers': tuple(additional_readers)}
     return reader, inspection_order
 
 
 def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
                  required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None, queries=(),
-                 entry_folder=None, entry_index=None):
+                 entry_folder=None, entry_index=None, additional_readers=()):
     if getattr(policy, 'format_version', None) not in (None, 'folder'):
         raise PolicyError('v2 policy requires a v2 packet; v1 receipts require explicit migration')
     if not all(isinstance(x, str) and x.strip() for x in (task_id, goal, output, integrator)): raise PolicyError('task identity, goal, output and integrator required')
     if not getattr(policy, '_binding', None) or Path(policy._binding[0]) != Path(root).resolve(): raise PolicyError('unbound or mismatched policy')
     policy = policy.fresh()
     folder_mode = getattr(policy, 'format_version', None) == 'folder'
-    if not folder_mode and (entry_folder is not None or entry_index is not None):
+    if not folder_mode and (entry_folder is not None or entry_index is not None or additional_readers):
         raise PolicyError('folder selection requires folder authority')
     if folder_mode:
         if entry_folder is None: raise PolicyError('entry folder required')
@@ -201,6 +212,8 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         entry_index = safe_path(entry_index)
         if str(PurePosixPath(entry_index).parent) != policy.contexts[context_id]['root']:
             raise PolicyError('entry index unavailable')
+        if additional_readers and queries:
+            raise PolicyError('additional reader query authorization requires explicit requalification')
     for value in (task_id, goal, output, integrator, context_id):
         if isinstance(value, str): _reject_secrets(value)
     if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
@@ -210,7 +223,8 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
     lineage = policy.lineage(context_id)
     if folder_mode:
-        policy_reader, qualification_refs = qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes)
+        policy_reader, qualification_refs = qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes,
+                                                                    additional_readers=additional_readers)
     else:
         policy_reader, qualification_refs = RepositoryReader(Path(root), policy.policy_revision), []
     if adapter_report is not None and not valid_adapter_report(adapter_report): raise PolicyError('invalid adapter report')
@@ -233,6 +247,10 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         denied = any(within(ref, scope) for scope in policy.effective[context_id]['deny']['read'])
         if denied or (kind != 'mandatory' and not policy.permits(context_id, 'read', ref)): raise PolicyError('read denied')
         if folder_mode:
+            for reader_context in additional_readers:
+                if policy._connection(producer, reader_context, ref, use or 'interpretation', classification or 'context',
+                                      section=section, field=field, qualified=False) != 'approved':
+                    raise PolicyError('additional reader not authorized for selected body')
             from wiki_core.traversal import require_wiki_boundaries
             try: require_wiki_boundaries(Path(root), files=(Path(root) / ref,))
             except (ValueError, OSError) as exc: raise PolicyError('context body unavailable') from exc
@@ -332,6 +350,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
             'capability_evidence': adapter_report, 'required_capabilities': list(required_capabilities), 'enforcement_claim': 'none; adapter report is supplied by the caller'}
     if folder_mode:
         packet.update(authority_format='folder', entry_folder=entry_folder, entry_index=entry_index)
+        if additional_readers: packet['additional_readers'] = list(additional_readers)
         if 'linked sources not inspected' not in packet['coverage']['missing']:
             packet['coverage']['missing'].append('linked sources not inspected')
     if query_selections:
