@@ -100,6 +100,8 @@ def authority_digest(policy, context_id, entry):
 
 def reproduce_query(policy, context_id, reader, entry, *, policy_revision, expected_authority, read_budget=None, _candidate_refs=None):
     """Check historical authority BEFORE reading, then use only current permission."""
+    if getattr(policy, 'format_version', None) == 'folder':
+        raise PolicyError('historical query authority requires requalification')
     entry=normalize_query(entry)
     if not isinstance(expected_authority,str) or not re.fullmatch(r'[0-9a-f]{64}',expected_authority):
         raise PolicyError('query authority changed or unavailable; requalification required')
