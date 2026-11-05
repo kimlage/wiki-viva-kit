@@ -10,7 +10,7 @@ import re
 import subprocess
 from pathlib import Path
 from markdown_it import MarkdownIt
-from wiki_core.context_policy import PolicyError, safe_path
+from wiki_core.context_policy import PolicyError, safe_path, policy_stage_cache
 from wiki_core.information_relations import dependency_edges
 from wiki_core.repository_reader import RepositoryReader, RepositoryReadError
 from wiki_core.content_sections import SectionError
@@ -97,7 +97,8 @@ def _folder_ref(root, policy, path):
     except (ValueError, OSError) as exc: raise ImpactError('selected content unavailable') from exc
 
 
-def assess_impact(root, policy, graph, *, before, after, destination_context, max_fanout=100, offset=0, expected_selection=None, trace=(), max_generation=8):
+@policy_stage_cache()
+def assess_impact(root, policy, graph, *, before, after, destination_context, max_fanout=100, offset=0, expected_selection=None, trace=(), max_generation=8, trusted_binding=None):
     """Compare exact consumed slices and return immediate review candidates.
 
     No transitive update, refresh, observation of facts or write occurs. A
@@ -110,6 +111,9 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
     if getattr(policy, 'format_version', None) not in (None, 'folder'): raise ImpactError('unsupported policy format')
     if not getattr(policy,'_binding',None) or Path(policy._binding[0]) != Path(root).resolve(): raise ImpactError('unbound policy')
     policy=policy.fresh()
+    if trusted_binding is not None:
+        from wiki_core.context_packet import _check_trusted_binding
+        _check_trusted_binding(root, policy, destination_context, trusted_binding)
     if destination_context not in policy.contexts: raise ImpactError('unknown destination')
     _folder_context(root, policy, destination_context)
     if type(max_fanout) is not int or not 1 <= max_fanout <= 1000: raise ImpactError('invalid fanout limit')
@@ -120,7 +124,7 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
     old=RepositoryReader(root,before); new=RepositoryReader(root,after); readers={old.revision:old}
     try: edges,_=dependency_edges(graph)
     except (KeyError,TypeError,AttributeError) as exc: raise ImpactError('malformed relation inventory') from exc
-    candidates={}; query_read_budget=[32_000_000]
+    candidates={}; query_read_budget=[32_000_000]; blocked_connection = False
     for e in edges:
         source=safe_path(e['prerequisite']); target=safe_path(e['dependent'])
         if policy.owner_of(target)!=destination_context: continue
@@ -166,17 +170,33 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             kind,name=('query',None) if query is not None else _selector(selector)
             classification=e.get('classification','internal'); use=e.get('use','interpret')
             if not isinstance(classification,str) or not classification or not isinstance(use,str) or not use: raise ImpactError('invalid use or classification')
-            if (getattr(policy, 'format_version', None) == 'folder' and source_owner != destination_context
-                    and policy._connection(source_owner, destination_context, source, use, classification,
-                        section=name if kind=='section' else None, field=name if kind=='field' else None,
-                        qualified=False) == 'approved'):
-                raise ImpactError('cross-context folder authority requires requalification')
+            if getattr(policy, 'format_version', None) == 'folder' and source_owner != destination_context:
+                declared = policy._connection(source_owner, destination_context, source, use, classification,
+                    section=name if kind=='section' else None, field=name if kind=='field' else None,
+                    qualified=False)
+                if declared == 'approved' and trusted_binding is None:
+                    raise ImpactError('cross-context folder authority requires requalification')
+                if declared != 'approved':
+                    blocked_connection = True
+                    continue
+                from wiki_core.context_packet import _qualify_trusted_producers
+                selector_options = ({'section': name} if kind == 'section' else {'field': name} if kind == 'field' else {})
+                try:
+                    _qualify_trusted_producers(root, policy, destination_context, [{
+                        'ref': source, 'producer': source_owner, 'reason': 'Declared impact input',
+                        'use': use, 'classification': classification, **selector_options}], 2_000_000,
+                        trusted_binding=trusted_binding)
+                except (ValueError, OSError):
+                    blocked_connection = True
+                    continue
             grant='approved' if normative else policy.connection(source_owner,destination_context,source,use,classification,section=name if kind=='section' else None,field=name if kind=='field' else None)
             if grant!='approved': continue
             _folder_ref(root, policy, source)
             _folder_ref(root, policy, target)
             before_digest=query_before['selected_digest'] if query is not None else _selected_digest(edge_old,source,selector,policy=policy)
             after_digest=query_after['selected_digest'] if query is not None else _selected_digest(new,source,selector,policy=policy)
+            if e.get('type') == 'source_ref' and before_digest == after_digest and before_digest is not None:
+                continue
             if (before_digest==after_digest and before_digest is not None and consumed_revision is not None
                     and (query is None or query_before['members_digest']==query_after['members_digest'])): continue
             rule=str(e.get('type','untyped_reference'))
@@ -204,10 +224,10 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
     if any(x.category=='secret' for x in scan_text(json.dumps(ordered,ensure_ascii=False))): raise ImpactError('secret detected in impact metadata')
     policy.fresh()
     end=min(offset+max_fanout,len(ordered))
-    return {'schema_version':'wiki.context-impact/v1','policy_revision':policy.policy_revision,'before_revision':old.revision,'after_revision':new.revision,'destination_context':destination_context,'candidates':ordered[offset:end],'authorized_remaining':len(ordered)-end,'selection_digest':selection,'next_offset':end if end<len(ordered) else None,'coverage':'authorized_edges_only; completeness not asserted','propagation':'one_hop_only'}
+    return {'schema_version':'wiki.context-impact/v1','policy_revision':policy.policy_revision,'before_revision':old.revision,'after_revision':new.revision,'destination_context':destination_context,'candidates':ordered[offset:end],'authorized_remaining':len(ordered)-end,'selection_digest':selection,'next_offset':end if end<len(ordered) else None,'coverage':'authorized_edges_only; completeness not asserted' + ('; some connections unavailable' if blocked_connection else ''),'propagation':'one_hop_only'}
 
 
-def report_review(root, policy, candidate, *, disposition, reason, evidence_revision):
+def report_review(root, policy, candidate, *, disposition, reason, evidence_revision, trusted_binding=None):
     """Prepare a reported disposition for an existing task, without writing it.
 
     It is not independent-review proof. A changed interpretation is detected
@@ -218,6 +238,9 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
     policy=policy.fresh()
     if disposition not in ('updated','still_valid','superseded','blocked') or not isinstance(reason,str) or not reason.strip(): raise ImpactError('invalid disposition')
     if not isinstance(candidate,dict) or candidate.get('state')!='review_pending': raise ImpactError('candidate is not reviewable')
+    if trusted_binding is not None:
+        from wiki_core.context_packet import _check_trusted_binding
+        _check_trusted_binding(root, policy, candidate.get('destination_context'), trusted_binding)
     folder_normative = getattr(policy, 'format_version', None) == 'folder' and candidate.get('source_kind') == 'mandatory'
     if folder_normative:
         revisions = (candidate.get('before_revision'), candidate.get('after_revision'))
@@ -241,6 +264,13 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         if candidate.get('source_kind')=='mandatory':
             grant='approved' if candidate['use']=='normative' and selector=='*' and _normative_review_authorized(policy,context,source,candidate['before_revision'],candidate) else 'denied'
         else:
+            if trusted_binding is not None and candidate['producer_context'] != context:
+                from wiki_core.context_packet import _qualify_trusted_producers
+                selector_options = ({'section': name} if kind == 'section' else {'field': name} if kind == 'field' else {})
+                _qualify_trusted_producers(root, policy, context, [{'ref': source,
+                    'producer': candidate['producer_context'], 'reason': 'Declared review input',
+                    'use': candidate['use'], 'classification': candidate['classification'], **selector_options}],
+                    2_000_000, trusted_binding=trusted_binding)
             grant=policy.connection(candidate['producer_context'],context,source,candidate['use'],candidate['classification'],section=name if kind=='section' else None,field=name if kind=='field' else None)
             if (getattr(policy, 'format_version', None) == 'folder' and candidate['producer_context'] not in policy._qualified_contexts
                     and policy._connection(candidate['producer_context'],context,source,candidate['use'],candidate['classification'],

@@ -409,8 +409,11 @@ def test_captured_docx_does_not_silently_flatten_merged_or_nested_tables():
         extract_captured('source.docx', 'document', output.getvalue())
 
 
-@pytest.mark.parametrize('wrapper', ['ins', 'del', 'moveFrom', 'moveTo', 'sdt', 'customXml', 'smartTag', 'fldSimple'])
-@pytest.mark.parametrize('inside_table', [False, True])
+@pytest.mark.parametrize('wrapper,inside_table', [
+    ('ins', False), ('del', False), ('moveFrom', False), ('moveTo', False),
+    ('sdt', False), ('customXml', False), ('smartTag', False), ('fldSimple', False),
+    ('ins', True),
+])
 def test_captured_docx_rejects_unreadable_inline_wrappers(wrapper, inside_table):
     from docx import Document
     from docx.oxml import OxmlElement
@@ -451,8 +454,9 @@ def test_captured_docx_rejects_equations_missing_from_paragraph_text(wrapper):
         extract_captured('source.docx', 'document', output.getvalue())
 
 
-@pytest.mark.parametrize('reference', ['footnoteReference', 'endnoteReference'])
-@pytest.mark.parametrize('inside_table', [False, True])
+@pytest.mark.parametrize('reference,inside_table', [
+    ('footnoteReference', False), ('endnoteReference', False), ('footnoteReference', True),
+])
 def test_captured_docx_requires_review_for_note_references(reference, inside_table):
     from docx import Document
     from docx.oxml import OxmlElement

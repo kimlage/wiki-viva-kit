@@ -1126,6 +1126,82 @@ def _approved_candidate_documents(root, policy, context_id, actor, revision, ref
     return documents
 
 
+def _connected_candidates(root, policy, context_id, actor, revision, request, explicit):
+    """Discover declared consumers inside selected hub directories, under current authority."""
+    from pathlib import PurePosixPath
+    from wiki_core.context_packet import guard_folder_blob, guarded_context_read
+    from wiki_core.context_selection import _metadata
+    from wiki_core.consolidate import _SOURCE_V2
+    from wiki_core.ingest.explicit_context import connected_ingestion_candidates
+    from wiki_core.information_relations import information_requirements
+    from wiki_core.repository_reader import RepositoryReader
+
+    packet = request['block_context_package']
+    targets = request.get('target_pages', [])
+    linked = connected_ingestion_candidates(packet, targets)
+    scopes = set()
+    for row in packet['inputs']:
+        if row.get('ref') not in targets:
+            continue
+        metadata = _metadata({'text': row['text']})
+        if metadata.get('page_type') in ('context_hub', 'moc', 'root_entity'):
+            parent = str(PurePosixPath(row['ref']).parent)
+            if parent != '.':
+                scopes.add(parent)
+    selected = list(dict.fromkeys([*explicit, *targets]))
+    reader = RepositoryReader(root, revision)
+    source_ref = request.get('source_authorization', {}).get('context_selection', {}).get('source_page')
+    source_id = _selected_source_page_id(request)
+    current_source = _SOURCE_V2.fullmatch(request['source_id'])
+    linked = set(linked) - set(selected)
+    candidates = sorted(set(linked) | {ref for ref in reader.paths if ref.endswith('.md')
+        and any(ref.startswith(scope + '/') for scope in scopes)})
+    missing = False
+    scanned = 0
+    remaining = 2_000_000
+    for ref in candidates:
+        if ref in selected:
+            continue
+        if scanned >= 1000 or len(selected) >= 128:
+            missing = True
+            break
+        try:
+            _allowed(root, policy, context_id, root / ref, 'read')
+            _allowed(root, policy, actor, root / ref, 'read')
+            guard_folder_blob(root, policy, ref)
+            size = reader.blob_size(ref)
+            if size > remaining:
+                missing = True
+                continue
+            doc = guarded_context_read(reader, policy, ref)
+            remaining -= size
+            scanned += 1
+            if contains_access_secrets(doc['text']):
+                missing = True
+                continue
+            values = _metadata(doc)
+            if not isinstance(values.get('page_id'), str) or not values['page_id'].strip():
+                if ref in linked:
+                    missing = True
+                continue
+            source_refs = values.get('source_refs', [])
+            source_refs = source_refs if isinstance(source_refs, list) else []
+            requirements = information_requirements(values, lambda target: [target])
+            related = any(item['temporal'] == 'current' and item['target'] in [source_ref, *targets]
+                          for item in requirements)
+            same_origin = any((previous := _SOURCE_V2.fullmatch(item)) and current_source
+                and previous.group(1, 2) == current_source.group(1, 2)
+                for item in source_refs if isinstance(item, str))
+            if (ref in linked or (source_id is not None and source_id in source_refs)
+                    or (source_ref is not None and source_ref in source_refs)
+                    or request['source_id'] in source_refs or same_origin or related):
+                selected.append(ref)
+        except (ValueError, OSError, KeyError, TypeError):
+            missing = True
+    policy.fresh()
+    return selected, missing or not scopes
+
+
 def _revalidate_candidate_scopes(root, policy, context_id, actor, refs):
     for ref in refs:
         _allowed(root, policy, context_id, root / ref, 'read')
@@ -1157,9 +1233,8 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     refs = [safe_path(x) for x in candidates]
     if len(refs) != len(set(refs)) or len(refs) > 128:
         raise ValueError('candidate unavailable')
-    from wiki_core.ingest.explicit_context import connected_ingestion_candidates
-    refs = list(dict.fromkeys([*refs, *connected_ingestion_candidates(
-        request['block_context_package'], request.get('target_pages', []))]))
+    refs, discovery_missing = _connected_candidates(root, policy, context_id, actor,
+        approved_revision, request, refs)
     if len(refs) > 128:
         raise ValueError('candidate limit exceeded')
     source_page = safe_path(source_page)
@@ -1215,6 +1290,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     aggregated['folder_request_id'] = request_id
     aggregated['source_hash_sha256'] = digest
     aggregated['_selected_source_page_id'] = _selected_source_page_id(request)
+    aggregated['_selected_source_page_ref'] = request.get('source_authorization', {}).get('context_selection', {}).get('source_page')
     if request.get('repository_context') is not None:
         selected = request['repository_context']
         rows = selected if isinstance(selected, list) else [selected]
@@ -1223,6 +1299,10 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
              'document_sha256', 'content_sha256')} for row in rows]
     candidate_documents = _approved_candidate_documents(root, policy, context_id, actor, approved_revision, refs)
     packet = build_packet(aggregated, root, config, paths, candidates=refs, candidate_documents=candidate_documents)
+    packet['impact']['coverage'] = 'selected_candidates_only'
+    packet['warnings'].append('Discovery is limited to authorized selected hub directories and explicit candidates; other consumers were not assessed.')
+    if discovery_missing:
+        packet['warnings'].append('Some hub discovery coverage is unavailable or exceeded a limit; review remains incomplete.')
     review_output = {'view': 'integration', 'source_id': source_id, 'request_id': request_id,
                      'packet': packet, 'event_status': 'not checked', 'integration': 'not assessed'}
     if len(canonical_request_text(review_output).encode('utf-8')) > 2_000_000:
@@ -1291,7 +1371,8 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
     return {'event': event_target, 'request_id': request_id,
-            'coverage': 'selected candidates and subjects linked by connected hubs; other sources not inspected',
+            'coverage': 'authorized selected hub directories and explicit candidates only; other consumers not assessed' +
+                ('; discovery incomplete' if discovery_missing else ''),
             'integration': 'pending review and incorporation',
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
@@ -1330,9 +1411,8 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     repository_context = request.get('repository_context')
     if view == 'integration':
-        from wiki_core.ingest.explicit_context import connected_ingestion_candidates
-        refs = list(dict.fromkeys([*refs, *connected_ingestion_candidates(
-            request['block_context_package'], request.get('target_pages', []))]))
+        refs, discovery_missing = _connected_candidates(root, policy, context_id, actor,
+            approved_revision, request, refs)
         if len(refs) > 128:
             raise ValueError('candidate limit exceeded')
     def stamp(path):
@@ -1422,6 +1502,7 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         aggregated['folder_request_id'] = request_id
         aggregated['source_hash_sha256'] = digest
         aggregated['_selected_source_page_id'] = _selected_source_page_id(request)
+        aggregated['_selected_source_page_ref'] = request.get('source_authorization', {}).get('context_selection', {}).get('source_page')
         if request.get('repository_context') is not None:
             selected_repos = request['repository_context']
             repo_rows = selected_repos if isinstance(selected_repos, list) else [selected_repos]
@@ -1431,13 +1512,17 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         guard(paths.extraction_events / f'protected-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}-integration-packet.json')
         documents = _approved_candidate_documents(root, policy, context_id, actor, approved_revision, refs)
         expected = build_packet(aggregated, root, config, paths, candidates=refs, candidate_documents=documents)
+        expected['impact']['coverage'] = 'selected_candidates_only'
+        expected['warnings'].append('Discovery is limited to authorized selected hub directories and explicit candidates; other consumers were not assessed.')
+        if discovery_missing:
+            expected['warnings'].append('Some hub discovery coverage is unavailable or exceeded a limit; review remains incomplete.')
         _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
         packet_path = paths.extraction_events / f'protected-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}-integration-packet.json'
         guard(packet_path, next_is_read=True)
         packet_stamp = stamp(packet_path)
         retained = _read_json(root, policy, actor, packet_path)
         if retained != expected or contains_access_secrets(retained):
-            raise ValueError('integration packet unavailable')
+            raise ValueError('integration packet unavailable: retained proposal cannot be requalified under current discovery; artifact preserved')
         guard(packet_path)
         if stamp(packet_path) != packet_stamp:
             raise ValueError('integration packet changed')

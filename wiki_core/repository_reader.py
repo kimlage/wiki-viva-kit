@@ -77,6 +77,7 @@ class RepositoryReader:
             else:
                 self._unsupported.append(path)
         self._documents: dict[str, dict] = {}
+        self._blob_sizes: dict[str, int] = {}
 
     @property
     def paths(self) -> tuple[str, ...]:
@@ -96,7 +97,10 @@ class RepositoryReader:
         path = canonical_path(path)
         if path not in self._entries:
             raise RepositoryReadError('repository file missing or unsupported')
-        return int(self._git('cat-file', '-s', self._entries[path]))
+        blob = self._entries[path]
+        if blob not in self._blob_sizes:
+            self._blob_sizes[blob] = int(self._git('cat-file', '-s', blob))
+        return self._blob_sizes[blob]
 
     def _git(self, *args: str) -> bytes:
         result = subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(self.root), *args], capture_output=True, env=local_git_environment())

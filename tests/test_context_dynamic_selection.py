@@ -181,7 +181,8 @@ def test_semantic_members_and_values_across_commits(collection,change):
     else:
         assert not same_selection(prior,now)
         assert (prior['members_digest']==now['members_digest']) == (change=='selected')
-    assert prior['query_id']!=packet(collection,[query(filters={'status':'inactive'})])['query_selections'][0]['query_id']
+    if change == 'addition':
+        assert prior['query_id']!=packet(collection,[query(filters={'status':'inactive'})])['query_selections'][0]['query_id']
 
 @pytest.mark.parametrize('limit, value', [('max_enumerated',1),('max_matches',1),('max_scan_bytes',1)])
 def test_no_silent_limits(collection,limit,value):

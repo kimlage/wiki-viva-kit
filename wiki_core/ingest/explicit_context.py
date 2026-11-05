@@ -259,9 +259,14 @@ def resolve_explicit_ingestion_context(packet, selection, config):
         gaps.append('Perspective ' + perspective + ' skipped; its justification requires review.')
     for ref in (source_config or {}).get('process_refs', []):
         gaps.append('Source process reference ' + ref + ' not inspected.')
-    for ref in (source_config or {}).get('target_pages', []):
-        if ref not in selected['target_pages']:
-            gaps.append('Source target ' + ref + ' not selected.')
+    target_ids = {parse_frontmatter(body(ref, 'target_page'))[0].get('page_id')
+                  for ref in selected['target_pages']}
+    for origin, fields in (('Source', (source or {}).get('values', {})),
+                           ('Source configuration', (config_page or {}).get('values', {})),
+                           ('Input channel', (channel_page or {}).get('values', {}))):
+        for ref in list_values(fields.get('target_pages')):
+            if ref not in selected['target_pages'] and ref not in target_ids:
+                gaps.append(origin + ' target ' + str(ref) + ' not selected.')
     if selected['target_pages']:
         gaps.append('Selected target pages are candidates; selection does not grant write access.')
     gaps.append('Other linked sources and unselected targets not inspected.')

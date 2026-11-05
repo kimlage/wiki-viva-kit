@@ -20,6 +20,11 @@ def connected(root):
         'memories/channel.md': ('channel', 'input_channel', {'target_pages': ['memories/hub.md']}, ''),
         'memories/hub.md': ('hub', 'context_hub', {}, '[Consumer](consumer.md)\n[Other](other.md)\n'),
         'memories/consumer.md': ('consumer', 'concept', {'source_refs': ['source-synthetic']}, ''),
+        'memories/unlinked.md': ('unlinked', 'concept', {'source_refs': ['source-synthetic']}, ''),
+        'memories/by-path.md': ('by-path', 'concept', {'source_refs': ['memories/sources/synthetic.md']}, ''),
+        'memories/requirement.md': ('requirement', 'concept', {'information_requirements': [{
+            'target': 'memories/sources/synthetic.md', 'fields': ['*'],
+            'temporal': 'current', 'max_age_days': 30}]}, ''),
         'memories/other.md': ('other', 'concept', {}, ''),
     }
     for path, (page_id, page_type, fields, body) in pages.items():
@@ -58,10 +63,11 @@ def test_source_connections_discover_hub_consumers_and_survive_readback(prepared
     readback = inspect(root, binding, **args, **ids, view='integration', candidates=[])
     impact = readback['packet']['impact']
     assert impact['must_update'] == ['memories/hub.md']
-    assert impact['should_review'] == ['memories/consumer.md']
+    assert impact['should_review'] == ['memories/by-path.md', 'memories/consumer.md', 'memories/requirement.md', 'memories/unlinked.md']
     assert 'memories/other.md' not in impact['must_update'] + impact['should_review']
     assert {row['path'] for row in readback['packet']['candidate_provenance']} == {
-        'memories/hub.md', 'memories/consumer.md', 'memories/other.md'}
+        'memories/hub.md', 'memories/by-path.md', 'memories/consumer.md', 'memories/other.md',
+        'memories/requirement.md', 'memories/unlinked.md'}
 
 
 def test_connected_configuration_is_authorized_before_read_or_capture(prepared_repo, monkeypatch):
@@ -83,3 +89,28 @@ def test_connected_configuration_is_authorized_before_read_or_capture(prepared_r
     with pytest.raises(ValueError):
         prepare(root, binding, **args, source_context='system')
     assert not (root / 'data/derived').exists()
+
+
+def test_discovery_does_not_open_denied_consumer(prepared_repo, monkeypatch):
+    root, _ = prepared_repo
+    binding, args = connected(root)
+    write(root, 'memories/private.md', '---\npage_id: private\npage_type: concept\nsource_refs: [source-synthetic]\n---\n')
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    config['context_access']['.']['policy']['deny'] = {'read': ['memories/private.md']}
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'deny consumer')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    args['approved_revision'] = git(root, 'rev-parse', 'HEAD')
+    request = prepare(root, binding, **args, source_context='system')['request']
+    from wiki_core.ingest.protected import _authority, _connected_candidates
+    from wiki_core.repository_reader import RepositoryReader
+    original = RepositoryReader.read
+    def guarded(reader, ref, *a, **kw):
+        assert ref != 'memories/private.md', 'denied consumer body opened'
+        return original(reader, ref, *a, **kw)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    _, policy, _, _ = _authority(root, binding, '.', args['approved_revision'], '.', 'index.md', 100000)
+    refs, missing = _connected_candidates(root, policy, '.', '.', args['approved_revision'], request, [])
+    assert 'memories/unlinked.md' in refs
+    assert 'memories/private.md' not in refs
+    assert missing

@@ -84,15 +84,40 @@ the matching ID and type and pass current policy; the paths grant no access.
 Skipped perspectives, unselected optional perspectives, linked sources and
 other gaps remain visible in packet coverage. Source frontmatter declaring a
 configuration or channel must match the selected context.
-Protected consolidation includes the declared targets and the subjects linked
-by connected hubs, alongside any explicit candidates. All are read from the approved
+Protected consolidation includes declared targets, subjects linked by connected
+hubs and declared consumers found inside selected hub directories, alongside
+explicit candidates. The bounded discovery checks current authority for both
+actors before each body read; missing access or a scan limit is reported as
+incomplete coverage. Consumers outside those directories are not assessed. All selected candidates are read from the approved
 commit, with each path, commit, Git blob and SHA-256 recorded in the integration
 packet. Unapproved working-tree edits do not influence candidate matching.
 Selected candidate boundaries and current authority are rechecked before
 effects and after readback; a late failure can leave partial artifacts.
+Retained packets created under an earlier candidate selection can fail current
+requalification; their bytes remain in place and are not silently accepted.
 Hub navigation discovers candidates, not factual dependencies. A sibling
 subject without a matching source reference or semantic relevance is not made
 an update obligation merely because it appears in the same hub.
+Current `information_requirements` targeting the selected source are review
+suggestions. A proposed event is not an approved change: after incorporation,
+use the existing context impact and review operations with approved before/after
+revisions to evaluate downstream requirements, owner by owner. Discovery alone
+does not establish a completed review or authorize propagation.
+For `wiki_context_flow.py impact`, omitting `--consumer` discovers current
+requirements in the working directory for the selected `--context`. Run it
+inside an authorized folder below the wiki root; `--before` must be an approved
+ancestor and `--after` the current approved revision. The result remains a
+one-hop review proposal with incomplete coverage outside that folder and owner.
+To record one returned `event_id` on an existing action, pass `--event-id`,
+`--action-id`, `--action-path`, `--profile` and the action's current
+`--expected-sha256` to the same impact command. The current binding, owner,
+write policy and approved coordinator route are checked again; missing access
+or a stale action is refused. New events require either approved action bytes
+or an exact, receipt-validated chain of review comments for current candidates;
+other working-tree changes are preserved and block the write. An identical retained event is reconciled without
+duplication. This comment requests review; it does not dispatch an executor,
+alter existing blockers or prove incorporation. Continue through the normal
+review, integration and readback gates.
 Among those candidates, a declared `source_refs` ID in the `source-v2` format
 with the same origin and a different content-hash prefix is suggested in
 `should_review`. If the source page was selected in the request, a candidate's

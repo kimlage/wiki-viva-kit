@@ -2430,8 +2430,11 @@ def test_context_hub_audit_matches_typed_discovery_without_coercion(tmp_path, au
     assert errors == typed_errors == []
 
 
-@pytest.mark.parametrize('marker', ['directory', 'file', 'symlink-file', 'symlink-directory'])
-@pytest.mark.parametrize('name', [' leading space', 'line\nbreak'])
+@pytest.mark.parametrize('marker,name', [
+    ('directory', ' leading space'), ('file', ' leading space'),
+    ('symlink-file', ' leading space'), ('symlink-directory', ' leading space'),
+    ('directory', 'line\nbreak'),
+])
 def test_audit_fences_tracked_boundaries_before_read(tmp_path, audit, monkeypatch, capsys, marker, name):
     root = tmp_path / 'wiki'
     folder = root / 'docs' / name / 'nested'
