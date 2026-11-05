@@ -2,6 +2,7 @@
 """Finite, read-only context impact and proposal preflight."""
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -10,12 +11,13 @@ from wiki_core.context_policy import load_policy, PolicyError
 from wiki_core.context_impact import assess_impact, report_review, ImpactError
 from wiki_core.context_integration import preflight, IntegrationError
 from wiki_core.context_requirements import assess_approved_impact, requirements_from_result, revalidate_approved_queries, RequirementError
+from wiki_core.git_env import local_git_environment, local_git_executable
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--repo',default='.')
+    p.add_argument('--repo',help='wiki Git root; defaults to the current Git root')
     p.add_argument('--approved-revision',required=True)
-    p.add_argument('--manifest',default='context.yaml')
+    p.add_argument('--manifest',choices=['wiki.config.yaml'],default='wiki.config.yaml')
     sub=p.add_subparsers(dest='command',required=True)
     impact=sub.add_parser('impact'); source=impact.add_mutually_exclusive_group(required=True); source.add_argument('--graph'); source.add_argument('--consumer',action='append'); impact.add_argument('--before',required=True); impact.add_argument('--after',required=True); impact.add_argument('--context',required=True); impact.add_argument('--limit',type=int,default=100); impact.add_argument('--offset',type=int,default=0); impact.add_argument('--selection'); impact.add_argument('--trace',default='[]')
     requirements=sub.add_parser('requirements'); requirements.add_argument('--packet',required=True); requirements.add_argument('--result',required=True); requirements.add_argument('--output',required=True); requirements.add_argument('--proposal-head',required=True); requirements.add_argument('--temporal',required=True,choices=['current','historical']); requirements.add_argument('--max-age-days',type=int,required=True)
@@ -24,6 +26,11 @@ def main():
     check=sub.add_parser('preflight'); check.add_argument('--context',required=True); check.add_argument('--base',required=True); check.add_argument('--head',required=True); check.add_argument('--branch',required=True); check.add_argument('--packet',required=True); check.add_argument('--result',required=True)
     args=p.parse_args()
     try:
+        if args.repo is None:
+            found=subprocess.run([local_git_executable(),'--no-lazy-fetch','-C',str(Path.cwd()),'rev-parse','--show-toplevel'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=local_git_environment())
+            if found.returncode: raise PolicyError('current Git root unavailable')
+            args.repo=found.stdout.decode('utf-8').strip()
+            if not args.repo: raise PolicyError('current Git root unavailable')
         policy=load_policy(args.repo,args.approved_revision,args.manifest)
         if args.command=='impact':
             options={'before':args.before,'after':args.after,'destination_context':args.context,'max_fanout':args.limit,'offset':args.offset,'expected_selection':args.selection,'trace':json.loads(args.trace)}
