@@ -141,7 +141,7 @@ def protected_source_stage(root, binding, stage, payload):
     are supplied as objects by the calling host rather than as unchecked paths.
     """
     common = {'context_id', 'approved_revision', 'entry_folder', 'entry_index', 'source_ref'}
-    optional = {'context_max_bytes', 'request_max_bytes', 'artifact_context'}
+    optional = {'context_max_bytes', 'request_max_bytes', 'artifact_context', 'perspective_refs'}
     if stage == 'prepare':
         required, permitted = common | {'source_context'}, common | {'source_context'} | optional
     elif stage == 'record':

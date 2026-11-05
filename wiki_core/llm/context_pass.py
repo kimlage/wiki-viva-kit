@@ -192,7 +192,7 @@ def preparation_blocker(exc: Exception, source_id: str, owner: str) -> dict:
          if code == "local_persistence_partial" else
          "The selected folder instructions and index are available without crossing a Git boundary."
          if code == "local_folder_unavailable" else
-         "The v4 deep-read prompt is installed and configured for approved requests."
+         "The prompt required by the selected approved route is installed and configured."
          if code == "approved_prompt_migration_required" else
          "Current approved context is readable and the complete untruncated request fits both explicit byte budgets."),
         status=status, interface="Calling harness task interface and coordinator task record")}
@@ -362,13 +362,14 @@ PERSPECTIVE_STATUSES = {
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 
 
-def require_approved_prompt_version(version: str) -> None:
+def require_approved_prompt_version(version: str, *, folder: bool = False) -> None:
     """Reject legacy or missing prompt guidance before approved source reads."""
     path = PROMPTS_DIR / f"context_deep_read.{version}.md"
-    if version != "v4" or path.is_symlink() or not path.is_file():
+    expected = "v5" if folder else "v4"
+    if version != expected or path.is_symlink() or not path.is_file():
         raise ContextRequestBlocked(
             "approved_prompt_migration_required",
-            "Approved ingestion requires the installed v4 deep-read prompt; migrate the configured prompt version before preparing this request.",
+            f"Approved ingestion requires the installed {expected} deep-read prompt; migrate the configured prompt version before preparing this request.",
         )
 
 
@@ -386,7 +387,7 @@ def load_prompt(name: str, version: str, *, allow_fallback: bool = True) -> str:
             raise OSError("prompt is a symlink")
         return path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise ContextRequestBlocked("approved_prompt_migration_required", "Approved ingestion requires the installed v4 deep-read prompt; restore it before preparing this request.") from exc
+        raise ContextRequestBlocked("approved_prompt_migration_required", f"Approved ingestion requires the installed {version} deep-read prompt; restore it before preparing this request.") from exc
 
 
 def result_path(cache_dir: Path, key: str) -> Path:
@@ -963,8 +964,11 @@ def build_context_request(
                 or source_authorization is not None)
     if approved:
         if prompt_name != "context_deep_read":
-            raise ContextRequestBlocked("approved_prompt_migration_required", "Approved ingestion requires the installed v4 deep-read prompt.")
-        require_approved_prompt_version(prompt_version)
+            raise ContextRequestBlocked("approved_prompt_migration_required", "Approved ingestion requires the installed deep-read prompt for the selected route.")
+        if (block_context_package or {}).get('authority_format') == 'folder':
+            require_approved_prompt_version(prompt_version, folder=True)
+        else:
+            require_approved_prompt_version(prompt_version)
     prompt_text = load_prompt(prompt_name, prompt_version, allow_fallback=not approved)
     result_required_keys = [*RESULT_REQUIRED_KEYS, "context_sha256", "chunk_hash_sha256"]
     if perspectives_required:
