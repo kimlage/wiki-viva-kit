@@ -542,6 +542,8 @@ def test_folder_requirements_revalidate_after_approved_proposal(repo):
     assert any(row['target'] == 'alpha/index.md' for row in output['information_requirements'])
     assert any(row.get('source_kind') == 'mandatory' and row['target'] == 'alpha/aux/AGENTS.md'
                and row['entry_folder'] == 'alpha/aux' for row in output['information_requirements'])
+    from wiki_core.information_relations import information_requirements
+    assert information_requirements({'information_requirements': output['information_requirements']}, lambda ref: [ref]) == output['information_requirements']
     schema = json.loads((Path(__file__).resolve().parents[1] /
                          'docs/references/schemas/wiki-context-requirements-v1.schema.json').read_text())
     validate(output, schema)
