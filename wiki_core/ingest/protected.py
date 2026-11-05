@@ -23,7 +23,7 @@ from wiki_core.context_packet import build_packet as context_packet, qualify_fol
 from wiki_core.context_policy import git_file, safe_path
 from wiki_core.coordination_context import _policy, ProtectedCoordinationError
 from wiki_core.detectors import scan_text
-from wiki_core.extractors.text import ExtractedDocument
+from wiki_core.extractors.text import extract_captured
 from wiki_core.llm import build_context_request
 from wiki_core.llm.context_pass import (CONTEXT_PASS_SCHEMA_VERSION, canonical_request_text,
     enforce_request_budget, result_matches_request, request_limits, require_approved_prompt_version)
@@ -132,7 +132,8 @@ def _capture(root, policy, context_id, source_ref, source_context, config, artif
         raise ValueError('source context unavailable')
     source = _source(root, policy, context_id, source_ref, artifact_context)
     source_type = classify_source(str(source))
-    if source_type != 'markdown':
+    supported = {'.md', '.markdown', '.txt', '.csv', '.tsv', '.xlsx', '.docx', '.eml', '.pdf'}
+    if source.suffix.lower() not in supported:
         raise ValueError('source format requires an authorized adapter')
     # Capture once into memory. Do not reopen the path inside format helpers:
     # the trusted ref may be revoked between separate reads.
@@ -140,19 +141,15 @@ def _capture(root, policy, context_id, source_ref, source_context, config, artif
     with source.open('rb') as stream:
         data = stream.read(16_000_001)
     policy.fresh()
-    if len(data) > 16_000_000 or b'\x00' in data:
+    if len(data) > 16_000_000:
         raise ValueError('source unavailable')
     digest = hashlib.sha256(data).hexdigest()
-    try:
-        text = data.decode('utf-8', errors='strict')
-    except UnicodeDecodeError as exc:
-        raise ValueError('source encoding requires an authorized adapter') from exc
-    extracted = ExtractedDocument(str(source), source_type, text,
-        [{'unit_id': 'full-text', 'kind': 'text', 'text': text}], [])
+    extracted = extract_captured(str(source), source_type, data)
+    policy.fresh()
     manifest = {'schema_version': 'wiki_source_manifest.v1', 'source_uri': str(source),
         'source_origin': source_origin(str(source), root), 'source_type': source_type,
         'context': source_context, 'captured_at': dt.datetime.now(dt.timezone.utc).isoformat(),
-        'risk_level': 'low', 'visibility_initial': 'private_self',
+        'risk_level': 'medium' if source_type in {'pdf', 'spreadsheet', 'document', 'email'} else 'low', 'visibility_initial': 'private_self',
         'privacy_policy': 'extract_private_operational_context_without_access_secrets',
         'absolute_path': str(source), 'exists': True, 'mime_type': mimetypes.guess_type(str(source))[0],
         'source_id': source_id_for(str(source), digest, root=root), 'hash_sha256': digest, 'size_bytes': len(data)}

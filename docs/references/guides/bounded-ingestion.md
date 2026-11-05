@@ -180,12 +180,18 @@ working-tree compatibility without those flags remains available. Existing
 v1 and mixed-cache artifacts are preserved, but examining the mixed artifacts
 under current authority requires a separately qualified historical route.
 
-This route supports local Markdown and text files up to 16 MB and explicitly
-selected candidates. The complete serialized request is also capped at 2 MB,
-which may require a smaller source, particularly when text needs JSON escaping.
-Text must be valid UTF-8; invalid encoding is rejected
-without replacement. PDF, spreadsheets and other formats require an authorized
-adapter that can extract from the captured bytes without reopening the source.
+This route supports local Markdown, text, CSV, TSV, XLSX, DOCX, EML and PDF
+sources up to 16 MB. Extraction consumes the authorized bytes captured in memory;
+the extractor does not reopen or stage the source. CSV and TSV require UTF-8,
+and email bodies require their declared encoding; invalid encoding is rejected.
+Office archives have bounded expanded size and spreadsheet dimensions. Extracted
+content from non-text formats is capped at 2 MB. PDF extraction requires the
+local `pdftotext` executable, runs with a 30-second timeout, and does not perform
+OCR. The extraction reflects the existing format-specific reader, not a guarantee
+that every attachment, image, sheet feature or embedded object was interpreted.
+Other formats still require an authorized adapter. The complete serialized
+request is also capped at 2 MB, which may require a smaller source, particularly
+when text needs JSON escaping. Candidates must be explicitly selected.
 It does not yet inspect linked sources, read independent Git repositories, expose
 an HTTP transport, or incorporate the event in memory. The existing
 `wiki_coordination.py` offers the three `--source-stage` operations to a trusted
