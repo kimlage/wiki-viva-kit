@@ -7,6 +7,7 @@ and recheck immediately before the actual effect.
 from __future__ import annotations
 
 import datetime as dt
+from collections import defaultdict, deque
 from wiki_core.information_relations import dependency_edges, semantic_equal
 from wiki_core.temporal import parse_temporal_value, TemporalEventError
 from wiki_core.git_env import local_git_environment, local_git_executable
@@ -61,10 +62,126 @@ def _evidence_issues(graph: dict, claim: str) -> set[str]:
     return issues
 
 
+def _current_dependency_consumers(graph: dict, requirements: list[dict], blocked: set[str]) -> set[str]:
+    nodes = graph['nodes']
+    if not blocked:
+        return set()
+    readers = defaultdict(set)
+    for edge in requirements:
+        req = edge.get('requirement')
+        kind = edge['type']
+        if kind == 'operational_prerequisite':
+            if req:
+                if req.get('temporal') != 'current' or set(req.get('fields', [])) <= {'status', 'field:status'}:
+                    continue
+            elif edge.get('authored_role') != 'operational_prerequisite':
+                continue
+        elif kind in ('projection', 'projection_state'):
+            if edge.get('field') != 'projection_inputs' and edge.get('authored_role') != kind:
+                continue
+            # These fields identify and locate the archived page; a declared
+            # body fallback or any factual field still requires review.
+            identity = {'status', 'page_id', 'page_type', 'context'}
+            consumed = {field.removeprefix('field:') for field in edge['consumed_fields']}
+            if consumed and consumed <= identity: continue
+        else:
+            continue
+        readers[edge['prerequisite']].add(edge['dependent'])
+    by_id = defaultdict(set)
+    for path, values in nodes.items():
+        if isinstance(values.get('page_id'), str): by_id[values['page_id']].add(path)
+    for path, values in nodes.items():
+        refs = values.get('evidence_refs', [])
+        if isinstance(refs, list):
+            for ref in refs:
+                if not isinstance(ref, str): continue
+                for source in ({ref} if ref in nodes else by_id.get(ref, set())):
+                    readers[source].add(path)
+    pending = deque(blocked)
+    while pending:
+        source = pending.popleft()
+        for reader in readers[source] - blocked:
+            blocked.add(reader)
+            pending.append(reader)
+    return blocked
+
+
+def archived_query_consumers(graph: dict, requirements: list[dict] | None = None) -> set[str]:
+    """Find current consumers of retired interpretations in the loaded graph only."""
+    requirements = requirements if requirements is not None else dependency_edges(graph)[0]
+    archived = {path for path, values in graph['nodes'].items()
+                if 'historical_query_receipts' in values and values['historical_query_receipts'] != []}
+    return _current_dependency_consumers(graph, requirements, archived)
+
+
+def incomplete_information_consumers(graph: dict, requirements: list[dict] | None = None) -> set[str]:
+    """Do not declare readiness when a loaded page's own requirements are absent."""
+    if graph.get('_requirements_complete') is True:
+        return set()
+    import json
+    from wiki_core.information_relations import information_requirements
+    requirements = requirements if requirements is not None else dependency_edges(graph)[0]
+    nodes = graph['nodes']
+    ids = defaultdict(list)
+    edges = defaultdict(list)
+    occurrences = defaultdict(set)
+    projections = set()
+    for path, values in nodes.items():
+        if isinstance(values.get('page_id'), str): ids[values['page_id']].append(path)
+    for edge in requirements:
+        if edge['type'] == 'operational_prerequisite' and edge.get('field') == 'information_requirements':
+            edges[edge['dependent']].append(edge.get('requirement'))
+        if edge.get('basis') == 'markdown_body':
+            occurrences[edge['dependent']].add((edge['type'], edge['prerequisite'], edge.get('body_offset')))
+        if edge.get('field') == 'projection_inputs': projections.add(edge['dependent'])
+    def resolve(ref):
+        return [ref] if ref in nodes else ids.get(ref, [])
+    incomplete = set()
+    for path, values in nodes.items():
+        try:
+            if 'information_requirements' in values:
+                raw = values['information_requirements']
+                if not isinstance(raw, list): raise ValueError('invalid requirements')
+                from wiki_core.context_policy import safe_path
+                information_requirements(values, lambda ref: [safe_path(ref)])
+                relevant = [row for row in raw if not isinstance(row, dict) or row.get('temporal') != 'historical']
+                relevant = [row for row in relevant if not isinstance(row, dict)
+                            or not isinstance(row.get('fields'), list)
+                            or not row['fields']
+                            or not set(row['fields']) <= {'status', 'field:status'}]
+                declared = information_requirements({'information_requirements': relevant}, resolve)
+                actual = [row for row in edges[path] if not isinstance(row, dict) or
+                          (row.get('temporal') != 'historical' and not set(row.get('fields', [])) <= {'status', 'field:status'})]
+                canonical = lambda rows: sorted(json.dumps(row, sort_keys=True, ensure_ascii=False) for row in rows)
+                if canonical(declared) != canonical(actual) or any(row['target'] not in graph['documents'] for row in declared):
+                    incomplete.add(path)
+            if values.get('projection_inputs') and path not in projections:
+                incomplete.add(path)
+            document = graph['documents'].get(path, '')
+            if 'wiki-link-role.' in document:
+                from pathlib import Path
+                from wiki_core.frontmatter import parse_frontmatter
+                from wiki_core.information_relations import _body_occurrences
+                _values, body = parse_frontmatter(document)
+                for edge in _body_occurrences(Path('.'), path, body, set()):
+                    if (edge['type'] in {'operational_prerequisite', 'projection', 'projection_state'}
+                            and (edge['type'], edge['target'], edge.get('body_offset')) not in occurrences[path]):
+                        incomplete.add(path)
+        except (ValueError, KeyError, TypeError):
+            incomplete.add(path)
+    return _current_dependency_consumers(graph, requirements, incomplete)
+
+
 def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> dict:
     if now.tzinfo is None:
         raise ValueError('information use requires an explicit timezone')
     requirements, _ = dependency_edges(graph)
+    archived = graph.get('_archived_query_consumers')
+    if archived is None:
+        archived = archived_query_consumers(graph, requirements)
+    incomplete = graph.get('_incomplete_information_consumers')
+    if incomplete is None:
+        incomplete = incomplete_information_consumers(graph, requirements)
     rows = []
     for edge in requirements:
         if edge['dependent'] != consumer or edge['type'] != 'operational_prerequisite':
@@ -90,6 +207,12 @@ def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> d
         elif not requirement:
             reasons.append('information_use_scope_unspecified')
         else:
+            if (requirement['temporal'] == 'current' and path in archived
+                    and not set(requirement['fields']) <= {'status', 'field:status'}):
+                reasons.append('information_archived_query_requires_review')
+            if (requirement['temporal'] == 'current' and path in incomplete
+                    and not set(requirement['fields']) <= {'status', 'field:status'}):
+                reasons.append('information_dependency_coverage_incomplete')
             if requirement['temporal'] == 'current' and graph.get('verification_coverage', {}).get(coverage_key(path, requirement['fields']),
                     graph.get('verification_coverage', {}).get(path)) is not True:
                 reasons.append('information_changed_since_verification')
@@ -152,9 +275,12 @@ def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> d
                        policy_revision=graph.get('normative_policy_revision') if status=='equivalent' else None,
                        review='not_assessed',fact_freshness='not_assessed')
         rows.append(row)
+    errors = list(graph['errors'])
+    if consumer in archived: errors.append('information_archived_query_requires_review')
+    if consumer in incomplete and not errors: errors.append('information_dependency_coverage_incomplete')
     return {'schema_version': 'wiki_information_use.v1', 'consumer': consumer,
-            'requirements': rows, 'ready': not graph['errors'] and all(row['ready'] for row in rows),
-            'relation_errors': graph['errors']}
+            'requirements': rows, 'ready': not errors and all(row['ready'] for row in rows),
+            'relation_errors': sorted(set(errors))}
 
 
 def verification_covers_content(root, path: str, fields: list[str], evidence: list[str]) -> bool:
@@ -245,7 +371,9 @@ def bind_verification_coverage(root, graph: dict) -> dict:
         # Only authorized, loaded provenance may enter a filesystem/Git read.
         # A changed leaf cannot inherit the verification of its unchanged claim.
         coverage[key]=(valid and verification_covers_content(root,path,requirement['fields'],sorted(expanded)))
-    return {**graph,'nodes':nodes,'verification_coverage':coverage}
+    bound = {**graph,'nodes':nodes,'verification_coverage':coverage}
+    return {**bound, '_archived_query_consumers': tuple(sorted(archived_query_consumers(bound, dependencies))),
+            '_incomplete_information_consumers': tuple(sorted(incomplete_information_consumers(bound, dependencies)))}
 
 
 def normative_key(consumer, requirement):

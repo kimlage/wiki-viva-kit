@@ -295,7 +295,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     if information_policy == "use_scoped":
         if documentary_only or freshness_reviews:
             raise ValueError("use-scoped impact does not accept per-proposal freshness waivers")
-        from wiki_core.information_impact import evaluate_information_impact, typed_information_reach
+        from wiki_core.information_impact import evaluate_information_impact, typed_information_reach, historical_query_retirements
         has_queries = any('query' in edge.get('requirement', {}) for graph in (base, current) for edge in graph['edges'])
         has_legacy_queries = any('query' in edge.get('requirement', {}) and edge['requirement'].get('authority_format') != 'folder'
                                  for graph in (base, current) for edge in graph['edges'])
@@ -303,7 +303,9 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
         # declarations. New folder receipts derive their selected chain from
         # physical paths and must not scan v1 manifests as authority.
         impact_changed = changed | (_query_policy_change_marker(root, (base_sha, head), changed) if has_legacy_queries and not query_context else set())
-        typed_reasons = typed_information_reach(current, base, impact_changed) if has_queries else {}
+        retired, _archive_errors = historical_query_retirements(current, base)
+        typed_reasons = typed_information_reach(current, base, impact_changed,
+            force_all={path for path, _requirement in retired}) if has_queries else {}
         result = evaluate_information_impact(current, base, impact_changed, today=today or dt.date.today(), _typed_reasons=typed_reasons)
         if any((query_context, query_policy_revision, query_head)):
             if not all((query_context, query_policy_revision, query_head)) or query_policy_revision != base_sha or query_head != head:
@@ -343,13 +345,24 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                                                 initial_reached,
                                                 legacy_authority_unavailable=True)
             affected = filter_equivalent_config(affected, initial_reached)
+            # A folder audit cannot revalidate an unbound legacy declaration.
+            # A removed legacy query must not become an on-demand warning unless
+            # the explicit historical retirement already matched the base.
+            live_queries = {(edge['source'], json.dumps(edge['requirement'], sort_keys=True, ensure_ascii=False))
+                            for edge in current['edges'] if 'query' in edge.get('requirement', {})}
+            unretired_legacy_removals = {row['path'] for row in affected
+                if row['origin'] == 'base' and row['requirement'].get('authority_format') != 'folder'
+                and (row['path'], json.dumps(row['requirement'], sort_keys=True, ensure_ascii=False)) not in live_queries}
             authorized_affected = set()
+            archived_candidates = set()
             def record_authorized_affected(rows):
                 for row in rows:
+                    key = (row['path'], json.dumps(row['requirement'], sort_keys=True, ensure_ascii=False))
+                    if row.get('archived_candidate'): archived_candidates.add(key)
                     try:
                         path = row['path']
                         if closure_policy.owner_of(path) == query_context and closure_policy.permits(query_context, 'read', path):
-                            authorized_affected.add((path, json.dumps(row['requirement'], sort_keys=True, ensure_ascii=False)))
+                            authorized_affected.add(key)
                     except (ValueError, KeyError, TypeError):
                         continue
             record_authorized_affected(affected)
@@ -438,7 +451,14 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                 return ('immediate' if path in urgent_derived or
                         current['nodes'].get(path, {}).get('action_state') in {'open', 'in_progress'} else 'on_demand')
             closure_policy.fresh()
-            result['integrity_blockers'] = [r for r in result['integrity_blockers'] if r['reason'] != 'dynamic_query_requires_authorized_revalidation']
+            unqualified_archives = {path for path, _requirement in archived_candidates - authorized_affected}
+            retained_queries = unretired_legacy_removals | unqualified_archives
+            result['integrity_blockers'] = [r for r in result['integrity_blockers']
+                if r['reason'] != 'dynamic_query_requires_authorized_revalidation' or r['path'] in retained_queries]
+            existing_blocked = {row['path'] for row in result['integrity_blockers']
+                                if row['reason'] == 'dynamic_query_requires_authorized_revalidation'}
+            result['integrity_blockers'].extend({'path': path, 'reason': 'dynamic_query_requires_authorized_revalidation'}
+                                                for path in sorted(retained_queries - existing_blocked))
             result['integrity_blockers'].extend(r for r in all_outcomes.values() if r['state'] == 'unknown')
             result['integrity_blockers'].extend({'path': p, 'reason': 'dynamic_impact_authority_boundary'} for p in sorted(denied))
             result['pending_reviews'].extend(r for r in all_outcomes.values() if r['state'] == 'review_pending')

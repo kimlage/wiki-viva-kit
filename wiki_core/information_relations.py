@@ -235,7 +235,7 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
                 edges.append(occurrence)
     return {"documents": {p.path: (root / p.path).read_bytes().decode("utf-8") for p in pages},
             "nodes": {p.path: p.values for p in pages}, "edges": edges,
-            "errors": sorted(set(errors))}
+            "errors": sorted(set(errors)), "_requirements_complete": True}
 
 
 def semantic_equal(before: Any, after: Any) -> bool:

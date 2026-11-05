@@ -25,10 +25,77 @@ def changed_fields(previous: str | None, current: str | None) -> set[str]:
     return fields
 
 
+def historical_query_retirements(current: dict, base: dict) -> tuple[set[tuple[str, str]], list[str]]:
+    """Recognize an explicit, lossless retirement without revalidating history."""
+    from wiki_core.information_relations import information_requirements
+    before, after = base.get('nodes', {}), current.get('nodes', {})
+    paths = {path for graph in (before, after) for path, values in graph.items()
+             if 'historical_query_receipts' in values}
+    by_id = defaultdict(list)
+    for path, values in before.items():
+        if isinstance(values.get('page_id'), str): by_id[values['page_id']].append(path)
+    def resolve(ref):
+        return [ref] if ref in before else by_id.get(ref, [])
+    retired, errors = set(), []
+    for path in sorted(paths):
+        old, new = before.get(path, {}), after.get(path, {})
+        prior = old.get('historical_query_receipts', [])
+        records = new.get('historical_query_receipts', [])
+        if not isinstance(prior, list) or not isinstance(records, list) or len(records) > 64:
+            errors.append(f'{path}: invalid historical query archive')
+            continue
+        if 'historical_query_receipts' in new and not records:
+            errors.append(f'{path}: historical query archive cannot be empty')
+            continue
+        if len(records) < len(prior) or not semantic_equal(records[:len(prior)], prior):
+            errors.append(f'{path}: historical query archive must be preserved')
+            continue
+        if records and (new.get('status') != 'superseded' or new.get('action_state') in {'open', 'in_progress'}):
+            errors.append(f'{path}: historical query archive requires a superseded, inactive page')
+            continue
+        old_requirements = old.get('information_requirements', [])
+        new_requirements = new.get('information_requirements', [])
+        if not isinstance(old_requirements, list) or not isinstance(new_requirements, list):
+            errors.append(f'{path}: invalid historical query retirement')
+            continue
+        for record in records[len(prior):]:
+            if (not isinstance(record, dict) or set(record) != {'requirement', 'reason'}
+                    or not isinstance(record['reason'], str) or not record['reason'].strip()
+                    or len(record['reason']) > 500 or not isinstance(record['requirement'], dict)):
+                errors.append(f'{path}: invalid historical query retirement')
+                continue
+            requirement = record['requirement']
+            matches = [row for row in old_requirements if semantic_equal(row, requirement)]
+            if (len(matches) != 1 or any(semantic_equal(row, requirement) for row in new_requirements)
+                    or requirement.get('temporal') != 'historical' or requirement.get('authority_format') == 'folder'
+                    or 'query' not in requirement):
+                errors.append(f'{path}: archived query must exactly replace an inactive legacy requirement')
+                continue
+            try:
+                normalized = information_requirements({'information_requirements': [requirement]}, resolve)[0]
+            except (ValueError, KeyError, TypeError):
+                errors.append(f'{path}: invalid archived query requirement')
+                continue
+            key = (path, json.dumps(normalized, sort_keys=True, ensure_ascii=False))
+            if key in retired:
+                errors.append(f'{path}: duplicate archived query requirement')
+                continue
+            retired.add(key)
+    return retired, errors
+
+
 def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str], *, legacy_authority_unavailable: bool = False) -> list[dict]:
     """Select query declarations touched by paths or dependency closure, without reading members."""
     from wiki_core.context_policy import within, is_context_instruction
+    from wiki_core.information_use import archived_query_consumers
     found = {}
+    retired, _ = historical_query_retirements(current, base)
+    archived = archived_query_consumers(current)
+    archived_scopes = set()
+    for path in archived:
+        archived_scopes.add('.')
+        parts = path.split('/')
+        archived_scopes.update('/'.join(parts[:index]) for index in range(1, len(parts) + 1))
     legacy_policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
     for origin, graph in (('base', base), ('current', current)):
         for edge in dependency_edges(graph, origin=origin)[0]:
@@ -36,6 +103,13 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
             if 'query' not in req:
                 continue
             consumer, anchor, scope = edge['dependent'], req['target'], req['query']['scope']
+            key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
+            if origin == 'base' and key in retired:
+                continue
+            query = req['query']
+            status_only = query.get('field') == 'status' and set(query.get('filters', {})) <= {'status'}
+            archived_candidate = (req.get('temporal') == 'current'
+                                  and (anchor in archived or (not status_only and scope in archived_scopes)))
             if req.get('authority_format') == 'folder':
                 entry_folder = req['entry_folder']
                 def affects_folder_policy(path):
@@ -49,11 +123,11 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                 # A folder audit cannot inspect an unbound legacy manifest to
                 # exclude a changed path from its old normative inputs.
                 policy_changed = legacy_policy_changed or (legacy_authority_unavailable and bool(changed))
-            if not (policy_changed or consumer in reached or consumer in changed or anchor in changed or anchor in reached
+            if not (archived_candidate or policy_changed or consumer in reached or consumer in changed or anchor in changed or anchor in reached
                     or any(within(p, scope) for p in changed | reached)):
                 continue
-            key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
-            found[key] = {'path': consumer, 'requirement': req, 'origin': origin}
+            found[key] = {'path': consumer, 'requirement': req, 'origin': origin,
+                          **({'archived_candidate': True} if archived_candidate else {})}
     return [found[key] for key in sorted(found)]
 
 
@@ -163,7 +237,7 @@ def propagate_pending_dependencies(current, base, pending_fields, policy, contex
     return fields, reached, denied
 
 
-def _information_reach(current, base, changed):
+def _information_reach(current, base, changed, *, force_all=frozenset()):
     """Return existing field-sensitive traversal without any content reads."""
     changed = changed | (set(base['nodes']) - set(current['nodes']))
     seeds = changed & (set(current['nodes']) | set(base['nodes']))
@@ -176,7 +250,8 @@ def _information_reach(current, base, changed):
             adjacency[edge['prerequisite']].append(edge)
     for edges in adjacency.values():
         edges.sort(key=lambda edge: json.dumps(edge, sort_keys=True))
-    fields = {p: changed_fields(base['documents'].get(p), current['documents'].get(p)) for p in seeds}
+    fields = {p: ({'*'} if p in force_all else changed_fields(base['documents'].get(p), current['documents'].get(p)))
+              for p in seeds}
     reasons = {p: {'path': p, 'seed': p, 'distance': 0, 'fields': sorted(fields[p]), 'chain': []} for p in seeds}
     work = deque(sorted(seeds))
     incoming = defaultdict(list)
@@ -210,9 +285,9 @@ def _information_reach(current, base, changed):
     return seeds, reasons, adjacency, nonpropagating
 
 
-def typed_information_reach(current, base, changed):
+def typed_information_reach(current, base, changed, *, force_all=frozenset()):
     """Reach over explicitly declared current consumption only."""
-    return _information_reach(typed_consumption_graph(current), typed_consumption_graph(base), changed)[1]
+    return _information_reach(typed_consumption_graph(current), typed_consumption_graph(base), changed, force_all=force_all)[1]
 
 
 def evaluate_information_impact(current: dict, base: dict, changed: set[str], *, today: dt.date, _typed_reasons=None) -> dict:
@@ -221,10 +296,12 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     Current-use prerequisites are checked separately at execution; this does
     not imply that a review or external verification occurred.
     """
-    seeds, reasons, adjacency, nonpropagating = _information_reach(current, base, changed)
+    retired, archive_errors = historical_query_retirements(current, base)
+    retired_paths = {path for path, _requirement in retired}
+    seeds, reasons, adjacency, nonpropagating = _information_reach(current, base, changed, force_all=retired_paths)
     if _typed_reasons is None:
         has_queries = any('query' in edge.get('requirement', {}) for graph in (base, current) for edge in graph['edges'])
-        _typed_reasons = typed_information_reach(current, base, changed) if has_queries else {}
+        _typed_reasons = typed_information_reach(current, base, changed, force_all=retired_paths) if has_queries else {}
     pending = []
     for path, reason in sorted(reasons.items()):
         if path not in current['nodes']:
@@ -242,6 +319,22 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     # enumerate dynamic members. It must not certify only the anchor edge.
     affected = affected_dynamic_queries(current, base, changed, set(_typed_reasons))
     dynamic_blockers = [{'path':row['path'],'reason':'dynamic_query_requires_authorized_revalidation'} for row in affected]
+    pending.extend({'path': path, 'seed': path, 'fields': ['*'], 'causes': [], 'chain': [],
+                    'state': 'review_pending', 'reason': 'historical_query_retired', 'priority': 'on_demand',
+                    'verification_performed': False} for path in sorted(retired_paths))
+    from wiki_core.information_use import archived_query_consumers
+    archived_sources = {path for path, values in current['nodes'].items()
+                        if 'historical_query_receipts' in values and values['historical_query_receipts'] != []}
+    for path in sorted(archived_query_consumers(current) - archived_sources):
+        values = current['nodes'].get(path, {})
+        if values.get('action_state') in {'open', 'in_progress'}:
+            dynamic_blockers.append({'path': path, 'reason': 'retired_query_active_consumer_requires_review'})
+        elif path in changed:
+            dynamic_blockers.append({'path': path, 'reason': 'retired_query_current_consumer_requires_review'})
+        else:
+            pending.append({'path': path, 'seed': path, 'fields': ['*'], 'causes': [], 'chain': [],
+                'state': 'review_pending', 'reason': 'retired_query_consumer_requires_review',
+                'priority': 'on_demand', 'verification_performed': False})
     # A manifest change can revoke or remove an inherited normative input even
     # when neither its body nor its consumer changed. The global caller-trust
     # audit cannot prove the new authority; preserve a visible review obligation.
@@ -261,5 +354,5 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     return {'schema_version': 'wiki_information_impact.v1', 'seeds': sorted(seeds),
             'included': [reasons[p] for p in sorted(reasons)], 'pending_reviews': pending,
             'integrity_blockers': [{'path': p, 'reason': 'missing_evidence'} for p in missing_used] + dynamic_blockers,
-            'relation_errors': current['errors'], 'nonpropagating_relations': nonpropagating,
-            'ok': not missing_used and not dynamic_blockers and not current['errors']}
+            'relation_errors': current['errors'] + archive_errors, 'nonpropagating_relations': nonpropagating,
+            'ok': not missing_used and not dynamic_blockers and not current['errors'] and not archive_errors}

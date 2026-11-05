@@ -225,3 +225,23 @@ Cycles are deduplicated and finite limits (including the shared query
 read budget) fail closed. Validated query selections are reused only within the
 same fenced audit operation; failed proofs are not cached. The surrounding audit remains global `caller_trust`;
 the query binding is not an ACL for the global graph or its output.
+
+## Retiring an obsolete historical query
+
+A historical v1 query may be retired when its page becomes `superseded` and
+inactive. Move the complete, unchanged requirement from
+`information_requirements` into `historical_query_receipts` as an item with
+`requirement` and a nonempty `reason`. The audit compares it with the approved
+base in use-scoped impact mode, rejects invented, altered, duplicated or subsequently edited records,
+and reports the retirement without revalidating the old selection. A current
+query or a folder-authority receipt cannot use this transition.
+
+Review affected consumers as part of the proposal. The audit blocks active or
+newly changed current consumers and reports unchanged inactive consumers for
+on-demand review. It also checks authorized dynamic selections for archived
+members and filter candidates. The information-use check
+blocks current consumption of the archived interpretation, including explicit
+current dependencies already present in its loaded graph; it permits an
+explicit historical use and a status-only selection. This check does not grant
+access or establish that a historical result remains true. Other integration
+paths must still enforce their own authorized readset and review gates.

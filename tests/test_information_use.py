@@ -58,6 +58,38 @@ def test_current_use_without_revision_coverage_is_not_verified():
     assert not assess_information_use(g,'action',now=NOW)['ready']
 
 
+def test_partial_graph_does_not_claim_transitive_readiness():
+    from wiki_core.markdown_link_roles import declare_link_role
+    g=graph()
+    g['nodes']['claim']['information_requirements'] = [{'target':'unloaded','fields':['*'],
+                                                       'temporal':'current','max_age_days':1}]
+    result=assess_information_use(g,'action',now=NOW)
+    assert 'information_dependency_coverage_incomplete' in result['requirements'][0]['blockers']
+    g['nodes']['claim'].pop('information_requirements')
+    g['documents']['claim'] = declare_link_role('[Archived](archived.md)', 'operational_prerequisite')
+    result=assess_information_use(g,'action',now=NOW)
+    assert 'information_dependency_coverage_incomplete' in result['requirements'][0]['blockers']
+
+
+def test_archived_query_taints_explicit_content_and_evidence_but_not_identity_projection():
+    from wiki_core.information_use import archived_query_consumers
+    g=graph()
+    g['nodes']['claim']['historical_query_receipts'] = [{'reason': 'synthetic history'}]
+    g['nodes']['action'] = {'page_type': 'action', 'action_state': 'open', 'evidence_refs': ['claim']}
+    g['edges'][0]['requirement']['temporal'] = 'historical'
+    assert 'action' in archived_query_consumers(g)  # Evidence remains a separate current occurrence.
+    assert not assess_information_use(g, 'action', now=NOW)['ready']
+    g['nodes']['action']['evidence_refs'] = []
+    g['edges'][0] = {'source':'action', 'target':'claim', 'type':'operational_prerequisite',
+                     'authored_role':'operational_prerequisite'}
+    assert 'action' in archived_query_consumers(g)
+    g['edges'][0] = {'source':'action', 'target':'claim', 'type':'projection', 'field':'projection_inputs',
+                     'consumed_fields':['page_id','context']}
+    assert 'action' not in archived_query_consumers(g)
+    g['edges'][0]['consumed_fields'] = ['title']
+    assert 'action' in archived_query_consumers(g)
+
+
 def test_self_evidence_or_closed_claim_cycle_cannot_certify_current_use():
     g=graph();g['nodes']['claim']['evidence_refs']=['claim']
     result=assess_information_use(g,'action',now=NOW)

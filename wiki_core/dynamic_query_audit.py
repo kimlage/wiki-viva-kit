@@ -93,6 +93,7 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
     outcomes = []
     pending_sources = pending_sources or {}
     selection_cache = _selection_cache if _selection_cache is not None else {}
+    archived_consumers = None
     for row in affected:
         path, req = row['path'], row['requirement']
         if folder_mode and req.get('authority_format') == 'folder':
@@ -211,6 +212,17 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
                     checks = (prior, at_base) if at_head is None else (prior, at_base, at_head)
                     if any(path in {m['ref'] for m in selection['members']} for selection in checks):
                         raise PolicyError('query consumer cannot be a member')
+                    if req.get('temporal') == 'current' and at_head is not None:
+                        if archived_consumers is None:
+                            from wiki_core.information_use import archived_query_consumers
+                            archived_consumers = archived_query_consumers(current)
+                        q = req['query']
+                        status_only = q.get('field') == 'status' and set(q.get('filters', {})) <= {'status'}
+                        if (req['target'] in archived_consumers or
+                                (not status_only and any(m['ref'] in archived_consumers for m in at_head['members'])) or
+                                (set(q.get('filters', {})) - {'status', 'page_id', 'page_type', 'context'}
+                                 and any(ref in archived_consumers for ref, _has_id in head_candidates))):
+                            raise PolicyError('current query consumes an archived interpretation')
                     selection_cache[proof_key] = proof
                     cached = ('selection', prior, at_base, at_head, head_candidates)
                 # Cache only successfully established proof within this audit operation.
