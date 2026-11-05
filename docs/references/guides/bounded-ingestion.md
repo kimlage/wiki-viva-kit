@@ -143,14 +143,18 @@ by the payload. Result objects arrive from that host; these operations do not
 call a model. They use the existing `WikiPaths` layout under the reserved
 `.wiki-viva-protected` component within the configured Git-ignored derived root.
 The selected source, every retained artifact and event destination must satisfy
-the current policy. A context cannot write a derived artifact belonging to a
-different owner; such a request remains unavailable until a separately authorized
-integrator path exists. Each stage revalidates the source, selected context and
-revision. A failed write may leave partial effects and explicitly reports that
-inspection is needed before retry.
+the current policy. A context cannot write an artifact belonging to a different
+owner. An explicitly selected ancestor integrator may do so only when both
+contexts are in the host binding and exact bilateral connections authorize the
+integrator to read the selected source and every applicable instruction/index.
+Source pages and candidates also require the relevant read connections. Each
+stage revalidates the source, selected context and revision. A failed write may
+leave partial effects and explicitly reports that inspection is needed before
+retry.
 
 This route supports local Markdown and text files up to 16 MB and explicitly
-selected candidates. PDF, spreadsheets and other formats require an authorized
+selected candidates. Text must be valid UTF-8; invalid encoding is rejected
+without replacement. PDF, spreadsheets and other formats require an authorized
 adapter that can extract from the captured bytes without reopening the source.
 It does not yet inspect linked sources, read independent Git repositories, expose
 an HTTP transport, or incorporate the event in memory. The existing

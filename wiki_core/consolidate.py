@@ -526,6 +526,8 @@ def build_event_markdown(
     event_dir: Path | None = None,
     root: Path | None = None,
     impact: dict[str, object] | None = None,
+    yaml_safe: bool = False,
+    protected_provenance: dict[str, str] | None = None,
 ) -> str:
     """The normalized event, generated from the recorded deep read."""
     source_page = str(source_page or "").strip() or None
@@ -589,7 +591,12 @@ def build_event_markdown(
         import os
 
         href = os.path.relpath(root / source_page, event_dir).replace(os.sep, "/")
-        source_rows.append(s["row_source_page"].format(label=source_page, href=href))
+        label = source_page
+        if yaml_safe:
+            from urllib.parse import quote
+            href = quote(href, safe='/._-')
+            label = label.replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]')
+        source_rows.append(s["row_source_page"].format(label=label, href=href))
     source_rows.append(s["row_source_id"].format(source_id=source_id))
     source_rows.append(s["row_generated"].format(script=script_href))
     manifest_ref = None
@@ -604,12 +611,15 @@ def build_event_markdown(
     if impact.get('coverage') == 'explicit_candidates_only':
         source_rows.append('- Impact coverage: only explicitly selected candidates; global catalog and FTS were not searched.')
 
+    def scalar(value):
+        return json.dumps(str(value), ensure_ascii=False) if yaml_safe else str(value)
+
     fm: list[str] = [
         "---",
         f"event_id: evt-{name}",
         f"page_id: evento-{name}" if config.language in {"es", "pt"} else f"page_id: event-{name}",
         "page_type: ingestion_event",
-        f"context: {context}",
+        f"context: {scalar(context)}",
         "visibility: private_self",
         f"updated_at: {date.isoformat()}",
         f"stale_after_days: {freshness_for(context, 'ingestion_event', config)}",
@@ -619,7 +629,7 @@ def build_event_markdown(
     # hierarchical parent of every ingestion event. Keep the normalized event
     # under its canonical source so the journey is registry -> source -> event
     # without flattening the event ledger.
-    fm.append(f"moc_parent: {canonical_source_parent}")
+    fm.append(f"moc_parent: {scalar(canonical_source_parent)}")
     fm.extend(
         [
             "gate: github_pr",
@@ -628,7 +638,13 @@ def build_event_markdown(
         ]
     )
     if source_ref:
-        fm.append(f"source_ref: {source_ref}")
+        fm.append(f"source_ref: {scalar(source_ref)}")
+    if protected_provenance is not None:
+        required = {'source_locator', 'policy_revision', 'executor_context', 'integrator_context', 'source_page_association'}
+        if (not yaml_safe or set(protected_provenance) != required
+                or any(not isinstance(v, str) or not v for v in protected_provenance.values())):
+            raise ValueError('protected provenance unavailable')
+        fm.append('protected_provenance: ' + json.dumps(protected_provenance, ensure_ascii=False, sort_keys=True))
     if request_id:
         source_hash = aggregated.get('source_hash_sha256')
         if not isinstance(source_hash, str) or not re.fullmatch(r'[0-9a-f]{64}', source_hash):
@@ -656,12 +672,12 @@ def build_event_markdown(
         fm.append("affected_pages:")
         if must_update:
             fm.append("  must_update:")
-            fm.extend(f"    - {page}" for page in must_update)
+            fm.extend(f"    - {scalar(page)}" for page in must_update)
         else:
             fm.append("  must_update: []")
         if should_review:
             fm.append("  should_review:")
-            fm.extend(f"    - {page}" for page in should_review)
+            fm.extend(f"    - {scalar(page)}" for page in should_review)
         else:
             fm.append("  should_review: []")
     else:
