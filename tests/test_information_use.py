@@ -22,15 +22,30 @@ def test_discovery_timestamp_is_not_claim_verification():
 
 def test_future_expired_missing_unconfirmed_and_catalogue_are_not_usable():
     for delta in [{'verified_at':'2026-10-31'},{'verified_at':'2026-01-01'}, {'confidence':'inferred'},
+                  {'status':'superseded'},
                   {'evidence_refs':['absent']},{'page_type':'source'},{'valid_to':'2026-10-29'},
                   {'verified_at':'2026-10'},{'valid_from':'2026-11-01'}]:
         g=graph();g['nodes']['claim'].update(delta)
         assert not assess_information_use(g,'action',now=NOW)['ready'],delta
 
 def test_historical_use_can_inspect_an_old_observation_without_freshening_it():
-    g=graph();g['nodes']['claim']['verified_at']='2026-01-01';g['edges'][0]['requirement']['temporal']='historical'
+    g=graph();g['nodes']['claim']['verified_at']='2026-01-01';g['nodes']['claim']['status']='superseded';g['edges'][0]['requirement']['temporal']='historical'
     assert assess_information_use(g,'action',now=NOW)['ready']
     assert g['nodes']['claim']['verified_at']=='2026-01-01'
+
+
+def test_current_use_cannot_rely_on_superseded_evidence():
+    g=graph();g['nodes']['evidence']={'page_type':'source','status':'superseded'}
+    result=assess_information_use(g,'action',now=NOW)
+    assert 'information_superseded_evidence' in result['requirements'][0]['blockers']
+    g['edges'][0]['requirement']['temporal']='historical'
+    assert assess_information_use(g,'action',now=NOW)['ready']
+
+def test_current_status_only_can_describe_superseded_claim():
+    g=graph();g['nodes']['claim']['status']='superseded';g['edges'][0]['requirement']['fields']=['status']
+    assert assess_information_use(g,'action',now=NOW)['ready']
+    g['nodes']['evidence']={'page_type':'source','status':'superseded'}
+    assert not assess_information_use(g,'action',now=NOW)['ready']
 
 def test_validity_is_rechecked_when_time_advances():
     g=graph();g['nodes']['claim']['valid_to']='2026-10-30T12:00:05Z'

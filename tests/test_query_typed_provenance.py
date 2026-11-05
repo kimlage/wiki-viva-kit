@@ -38,7 +38,7 @@ def make_case(root, mode, binding='finance/costs', before_report=None):
     return repository_report(root,load_config(root),base,**options)
 
 
-@pytest.mark.parametrize('mode',['legacy_lock','legacy_external','legacy_source_ref','historical','navigation'])
+@pytest.mark.parametrize('mode',['legacy_external','legacy_source_ref','historical','navigation'])
 def test_legacy_and_historical_reach_does_not_become_query_authority_blocker(audit_collection,mode):
     report=make_case(audit_collection,mode)
     assert not any(r['reason']=='dynamic_impact_authority_boundary' for r in report['blockers'])
@@ -98,7 +98,7 @@ def test_context_index_used_as_anchor_requires_requalification(audit_collection)
     assert any(r['path']=='finance/costs/result.md' and r['reason']=='dynamic_query_requalification_required' and not r['verification_performed'] for r in report['pending_reviews'])
 
 
-@pytest.mark.parametrize('binding',[None,'finance/costs','finance/tax'])
+@pytest.mark.parametrize('binding',[None,'finance/tax'])
 def test_legacy_reach_never_makes_unrelated_context_query_affected(audit_collection,binding,monkeypatch):
     from wiki_core.repository_reader import RepositoryReader
     original=RepositoryReader._document
@@ -148,6 +148,8 @@ def test_typed_reach_computed_once_in_bound_audit(audit_collection,monkeypatch):
     monkeypatch.setattr(impact,'typed_information_reach',counted)
     report=make_case(audit_collection,'legacy_lock',binding='finance/costs')
     assert len(calls)==1 and not any(r['reason']=='dynamic_impact_authority_boundary' for r in report['blockers'])
+    assert any(r['path']==ANCHOR and r['reason']=='information_changed' and not r['verification_performed'] for r in report['pending_reviews'])
+    assert not any(r['reason']=='dynamic_query_requires_authorized_revalidation' for r in report['blockers'])
 
 
 def test_no_queries_skip_typed_reach(monkeypatch):

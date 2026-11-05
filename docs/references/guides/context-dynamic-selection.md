@@ -225,3 +225,10 @@ Cycles are deduplicated and finite limits (including the shared query
 read budget) fail closed. Validated query selections are reused only within the
 same fenced audit operation; failed proofs are not cached. The surrounding audit remains global `caller_trust`;
 the query binding is not an ACL for the global graph or its output.
+
+A legacy historical query may be removed when an active page becomes
+superseded and any action is terminal. The audit requires the exact current
+`origin/main` base, where the previous declaration remains in Git. It reports
+retirement without revalidation or renewed source freshness, and identifies
+affected current consumers and queries for review. Current and folder-authority
+queries do not use this retirement path.

@@ -12,6 +12,7 @@ import json
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.information_relations import dependency_edges, semantic_equal
+from wiki_core.action_state import TERMINAL_ACTION_STATES
 
 
 def changed_fields(previous: str | None, current: str | None) -> set[str]:
@@ -25,10 +26,39 @@ def changed_fields(previous: str | None, current: str | None) -> set[str]:
     return fields
 
 
-def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str], *, legacy_authority_unavailable: bool = False) -> list[dict]:
+def retired_legacy_queries(current: dict, base: dict, changed: set[str], *, approved_base: bool = False) -> set[tuple[str, str]]:
+    """A superseded page may drop its old historical query, kept in Git history."""
+    if not changed or not approved_base:
+        return set()
+    candidates = [edge for edge in dependency_edges(base, origin='base')[0]
+                  if 'query' in edge.get('requirement', {})
+                  and edge['requirement'].get('authority_format') != 'folder'
+                  and edge['requirement'].get('temporal') == 'historical'
+                  and edge['dependent'] in changed]
+    if not candidates:
+        return set()
+    current_edges = dependency_edges(current)[0]
+    live = {(edge['dependent'], json.dumps(edge['requirement'], sort_keys=True, ensure_ascii=False))
+            for edge in current_edges if 'query' in edge.get('requirement', {})}
+    retired = set()
+    for edge in candidates:
+        req, path = edge.get('requirement', {}), edge['dependent']
+        key = (path, json.dumps(req, sort_keys=True, ensure_ascii=False))
+        before = base.get('nodes', {}).get(path, {})
+        after = current.get('nodes', {}).get(path, {})
+        is_action = (before.get('page_type') == 'action' or after.get('page_type') == 'action'
+                     or before.get('action_state') is not None or after.get('action_state') is not None)
+        if (before.get('status') == 'active' and after.get('status') == 'superseded'
+                and (not is_action or after.get('action_state') in TERMINAL_ACTION_STATES) and key not in live):
+            retired.add(key)
+    return retired
+
+
+def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str], *, legacy_authority_unavailable: bool = False, _retirement_approved: bool = False) -> list[dict]:
     """Select query declarations touched by paths or dependency closure, without reading members."""
     from wiki_core.context_policy import within, is_context_instruction
     found = {}
+    retired = retired_legacy_queries(current, base, changed, approved_base=_retirement_approved)
     legacy_policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
     for origin, graph in (('base', base), ('current', current)):
         for edge in dependency_edges(graph, origin=origin)[0]:
@@ -36,6 +66,9 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
             if 'query' not in req:
                 continue
             consumer, anchor, scope = edge['dependent'], req['target'], req['query']['scope']
+            key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
+            if origin == 'base' and key in retired:
+                continue
             if req.get('authority_format') == 'folder':
                 entry_folder = req['entry_folder']
                 def affects_folder_policy(path):
@@ -52,7 +85,6 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
             if not (policy_changed or consumer in reached or consumer in changed or anchor in changed or anchor in reached
                     or any(within(p, scope) for p in changed | reached)):
                 continue
-            key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
             found[key] = {'path': consumer, 'requirement': req, 'origin': origin}
     return [found[key] for key in sorted(found)]
 
@@ -77,6 +109,20 @@ def explicit_current_consumption(edge):
 def typed_consumption_graph(graph):
     """Project existing graph edges without reading or changing canonical data."""
     return {**graph, 'edges': [edge for edge in graph['edges'] if explicit_current_consumption(edge)]}
+
+
+def retirement_current_graph(current, retired_paths):
+    """Follow only live uses of retired content, allowing status-only reads."""
+    def consumes_retired_status_only(edge):
+        req = edge.get('requirement')
+        if not isinstance(req, dict): return False
+        fields = req.get('fields')
+        return (edge.get('type') == 'operational_prerequisite' and edge.get('target') in retired_paths
+                and req.get('temporal') == 'current' and 'query' not in req
+                and isinstance(fields, list) and bool(fields)
+                and all(isinstance(field, str) for field in fields)
+                and set(fields) <= {'status', 'field:status'})
+    return {**current, 'edges': [edge for edge in current['edges'] if not consumes_retired_status_only(edge)]}
 
 
 def authorized_pending_edge(edge, policy, context_id):
@@ -163,7 +209,7 @@ def propagate_pending_dependencies(current, base, pending_fields, policy, contex
     return fields, reached, denied
 
 
-def _information_reach(current, base, changed):
+def _information_reach(current, base, changed, *, force_all=frozenset()):
     """Return existing field-sensitive traversal without any content reads."""
     changed = changed | (set(base['nodes']) - set(current['nodes']))
     seeds = changed & (set(current['nodes']) | set(base['nodes']))
@@ -176,7 +222,8 @@ def _information_reach(current, base, changed):
             adjacency[edge['prerequisite']].append(edge)
     for edges in adjacency.values():
         edges.sort(key=lambda edge: json.dumps(edge, sort_keys=True))
-    fields = {p: changed_fields(base['documents'].get(p), current['documents'].get(p)) for p in seeds}
+    fields = {p: ({'*'} if p in force_all else changed_fields(base['documents'].get(p), current['documents'].get(p)))
+              for p in seeds}
     reasons = {p: {'path': p, 'seed': p, 'distance': 0, 'fields': sorted(fields[p]), 'chain': []} for p in seeds}
     work = deque(sorted(seeds))
     incoming = defaultdict(list)
@@ -210,12 +257,12 @@ def _information_reach(current, base, changed):
     return seeds, reasons, adjacency, nonpropagating
 
 
-def typed_information_reach(current, base, changed):
+def typed_information_reach(current, base, changed, *, force_all=frozenset()):
     """Reach over explicitly declared current consumption only."""
-    return _information_reach(typed_consumption_graph(current), typed_consumption_graph(base), changed)[1]
+    return _information_reach(typed_consumption_graph(current), typed_consumption_graph(base), changed, force_all=force_all)[1]
 
 
-def evaluate_information_impact(current: dict, base: dict, changed: set[str], *, today: dt.date, _typed_reasons=None) -> dict:
+def evaluate_information_impact(current: dict, base: dict, changed: set[str], *, today: dt.date, _typed_reasons=None, _retirement_approved=False) -> dict:
     """Propagate global impact while discovering queries from typed reach only.
 
     Current-use prerequisites are checked separately at execution; this does
@@ -240,8 +287,26 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
                             'verification_performed': False})
     # This already-materialized graph has no current context authority to
     # enumerate dynamic members. It must not certify only the anchor edge.
-    affected = affected_dynamic_queries(current, base, changed, set(_typed_reasons))
+    retired = retired_legacy_queries(current, base, changed, approved_base=_retirement_approved)
+    retired_paths = {path for path, _query in retired}
+    if retired_paths:
+        retirement_current = retirement_current_graph(current, retired_paths)
+        retirement_base = {**base, 'nodes': {path: values for path, values in base['nodes'].items()
+                                             if path in current['nodes'] or path in retired_paths},
+                           'edges': retirement_current['edges']}
+        retirement_reach = typed_information_reach(retirement_current, retirement_base, retired_paths, force_all=retired_paths)
+        _typed_reasons = {**_typed_reasons, **retirement_reach}
+    affected = affected_dynamic_queries(current, base, changed, set(_typed_reasons), _retirement_approved=_retirement_approved)
     dynamic_blockers = [{'path':row['path'],'reason':'dynamic_query_requires_authorized_revalidation'} for row in affected]
+    for path in sorted(retired_paths):
+        pending.append({'path': path, 'seed': path, 'fields': ['*'], 'causes': [], 'chain': [],
+                        'state': 'review_pending', 'reason': 'legacy_query_retired', 'priority': 'on_demand',
+                        'verification_performed': False})
+    if retired_paths:
+        dynamic_blockers.extend({'path': path, 'reason': 'legacy_query_current_consumer_requires_review'}
+            for path, row in sorted(retirement_reach.items()) if row.get('causes')
+            and (current['nodes'].get(path, {}).get('page_type') in {'claim', 'action', 'decision'}
+                 or current['nodes'].get(path, {}).get('information_role') == 'factual_unit'))
     # A manifest change can revoke or remove an inherited normative input even
     # when neither its body nor its consumer changed. The global caller-trust
     # audit cannot prove the new authority; preserve a visible review obligation.

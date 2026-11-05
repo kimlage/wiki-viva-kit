@@ -32,7 +32,7 @@ jobs:
           test "$(node --version)" = "v22.22.3"
           test "$(npm --version)" = "10.9.8"
       - name: Tests
-        run: python3 -m pytest -q -W error tests/
+        run: python3 .github/scripts/run_python_tests.py --workers 4
       - name: Exact-base page graph and impact evidence
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
