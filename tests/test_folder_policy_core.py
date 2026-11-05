@@ -354,18 +354,22 @@ def test_explicit_evidence_reason_may_match_automatic_label(repo):
 
 
 @pytest.mark.parametrize('change', ['delete', 'empty'])
-def test_context_index_boundary_change_needs_separate_review(repo, change):
+@pytest.mark.parametrize('index_name', ['index.md', 'README.md'])
+def test_context_index_boundary_change_needs_separate_review(repo, change, index_name):
     enable_alpha(repo)
+    if index_name == 'README.md':
+        (repo / 'alpha/index.md').rename(repo / 'alpha/README.md')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'use readme index'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     policy = folder_policy(repo)
     base = git(repo, 'rev-parse', 'HEAD')
     selected = packet(repo)
     git(repo, 'checkout', '-qb', 'wiki/folder-index-change')
-    if change == 'delete': (repo / 'alpha/index.md').unlink()
-    else: write(repo, 'alpha/index.md', '  \n')
+    if change == 'delete': (repo / 'alpha' / index_name).unlink()
+    else: write(repo, 'alpha/' + index_name, '  \n')
     git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'change context boundary')
     result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed', 'task_id': 'task',
               'context_id': 'alpha', 'packet_digest': selected['packet_digest'],
-              'changes': [{'path': 'alpha/index.md', 'action': 'deleted' if change == 'delete' else 'modified'}],
+              'changes': [{'path': 'alpha/' + index_name, 'action': 'deleted' if change == 'delete' else 'modified'}],
               'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': selected['coverage']['missing']}, 'blockers': []}
     with pytest.raises(IntegrationError, match='context boundary change'):
         preflight(repo, policy, context_id='alpha', base=base, head=git(repo, 'rev-parse', 'HEAD'),
