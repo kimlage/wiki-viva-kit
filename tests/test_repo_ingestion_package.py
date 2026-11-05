@@ -443,6 +443,8 @@ def test_selected_request_budget_checked_before_read(approved, repo, monkeypatch
 
 def test_later_events_preserve_each_git_revision_without_inventing_dates(approved, repo, monkeypatch, tmp_path, capsys):
     import datetime
+    import hashlib
+    import subprocess
     from tests.test_local_result_cache import module, result_for
     from wiki_core.frontmatter import parse_frontmatter
     from wiki_core.paths import WikiPaths
@@ -490,7 +492,22 @@ def test_later_events_preserve_each_git_revision_without_inventing_dates(approve
         assert 'captured_at' not in fm and 'verified_at' not in fm
         assert fm['updated_at'].isoformat() == '2030-01-02'
         assert fm['manifest_ref'] == result.manifest_path
+        assert fm['source_hash_sha256'] == hashlib.sha256(source.read_bytes()).hexdigest()
         text = event.read_text()
         assert str(repo) not in text and 'Useful content.' not in text and 'Updated evidence.' not in text
         packet = next(paths.extraction_events.glob(f"*-{request['folder_request_id']}-integration-packet.json"))
-        assert json.loads(packet.read_text())['independent_git_sources'] == fm['independent_git_sources']
+        packet_data = json.loads(packet.read_text())
+        assert packet_data['independent_git_sources'] == fm['independent_git_sources']
+        assert packet_data['source_hash_sha256'] == fm['source_hash_sha256']
+    # Derived manifests and packets are gitignored; the committed event must
+    # retain the source digest in a genuinely clean clone.
+    git(root, 'add', str(paths.ingest_events_dir.relative_to(root)))
+    git(root, 'commit', '-qm', 'synthetic contextual events')
+    clone = tmp_path / 'clean-clone'
+    subprocess.run(['git', 'clone', '--quiet', '--no-local', str(root), str(clone)], check=True)
+    for _, result, request in chosen_requests:
+        original = next(paths.ingest_events_dir.glob(f"*-{request['folder_request_id']}.md"))
+        clone_event = clone / original.relative_to(root)
+        clone_fm, _ = parse_frontmatter(clone_event)
+        assert clone_fm['source_hash_sha256'] == hashlib.sha256(source.read_bytes()).hexdigest()
+        assert not (clone / result.manifest_path).exists()
