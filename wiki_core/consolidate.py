@@ -527,7 +527,7 @@ def build_event_markdown(
     root: Path | None = None,
     impact: dict[str, object] | None = None,
     yaml_safe: bool = False,
-    protected_provenance: dict[str, str] | None = None,
+    protected_provenance: dict[str, object] | None = None,
 ) -> str:
     """The normalized event, generated from the recorded deep read."""
     source_page = str(source_page or "").strip() or None
@@ -641,8 +641,12 @@ def build_event_markdown(
         fm.append(f"source_ref: {scalar(source_ref)}")
     if protected_provenance is not None:
         required = {'source_locator', 'policy_revision', 'executor_context', 'integrator_context', 'source_page_association'}
-        if (not yaml_safe or set(protected_provenance) != required
-                or any(not isinstance(v, str) or not v for v in protected_provenance.values())):
+        limitations = protected_provenance.get('extraction_limitations', [])
+        if (not yaml_safe or not required <= set(protected_provenance)
+                or set(protected_provenance) - (required | {'extraction_limitations'})
+                or any(not isinstance(protected_provenance[k], str) or not protected_provenance[k] for k in required)
+                or not isinstance(limitations, list) or len(limitations) > 16
+                or any(not isinstance(item, str) or not item or len(item) > 1024 for item in limitations)):
             raise ValueError('protected provenance unavailable')
         fm.append('protected_provenance: ' + json.dumps(protected_provenance, ensure_ascii=False, sort_keys=True))
     if request_id:
