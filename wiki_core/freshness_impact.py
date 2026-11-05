@@ -316,9 +316,31 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             try: qualify_folder_context(root, closure_policy, query_context, query_context, context_index, 2_000_000)
             except (ValueError, KeyError, TypeError, OSError) as exc:
                 raise ValueError('query context requires authorized requalification') from exc
+            def filter_equivalent_config(rows, reached):
+                if 'wiki.config.yaml' not in impact_changed: return rows
+                from wiki_core.dynamic_query_audit import _proposed_folder_authority_equivalent
+                from wiki_core.context_policy import PolicyError
+                def identity(row):
+                    return (row['path'], json.dumps(row['requirement'], sort_keys=True, ensure_ascii=False))
+                otherwise_affected = {identity(row) for row in affected_dynamic_queries(
+                    current, base, impact_changed - {'wiki.config.yaml'}, reached, legacy_authority_unavailable=True)}
+                retained = []
+                for row in rows:
+                    req, path = row['requirement'], row['path']
+                    if req.get('authority_format') == 'folder' and identity(row) not in otherwise_affected:
+                        try:
+                            if (closure_policy.owner_of(path) == query_context and closure_policy.permits(query_context, 'read', path)
+                                    and _proposed_folder_authority_equivalent(root, closure_policy, head, query_context, req)):
+                                continue
+                        except (PolicyError, ValueError, KeyError, TypeError, OSError):
+                            pass
+                    retained.append(row)
+                return retained
+            initial_reached = {path for path, row in typed_reasons.items() if row.get('causes')}
             affected = affected_dynamic_queries(current, base, impact_changed,
-                                                {path for path, row in typed_reasons.items() if row.get('causes')},
+                                                initial_reached,
                                                 legacy_authority_unavailable=True)
+            affected = filter_equivalent_config(affected, initial_reached)
             authorized_affected = set()
             def record_authorized_affected(rows):
                 for row in rows:
@@ -386,6 +408,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                     for path, values in sources.items(): query_sources.setdefault(path, set()).update(values)
                     affected = affected_dynamic_queries(current, base, impact_changed | set(query_sources), set(query_sources),
                                                         legacy_authority_unavailable=True)
+                    affected = filter_equivalent_config(affected, set(query_sources))
                     record_authorized_affected(affected)
                     more = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
                         affected=affected, changed=impact_changed, current=current, pending_sources=query_sources, read_budget=closure_budget, _selection_cache=selection_cache, policy=closure_policy)
