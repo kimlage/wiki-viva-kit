@@ -137,7 +137,7 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             if source_owner != destination_context: raise ImpactError('query scope not authorized')
             try:
                 req=e['requirement']
-                query_before,_,_=reproduce_query(policy,destination_context,edge_old,requirement_query(req),policy_revision=req.get('query_policy_revision'),expected_authority=req.get('authority_digest'),read_budget=query_read_budget)
+                query_before,_,_=reproduce_query(policy,destination_context,edge_old,requirement_query(req),policy_revision=req.get('query_policy_revision'),expected_authority=req.get('authority_digest'),read_budget=query_read_budget,authority_format=req.get('authority_format'),entry_folder=req.get('entry_folder'),entry_index=req.get('entry_index'))
                 query_after,_,_=select_query(policy,destination_context,new,requirement_query(req),read_budget=query_read_budget)
                 if target in {m['ref'] for m in [*query_before['members'],*query_after['members']]}: raise ImpactError('query consumer cannot be a member')
                 if any(query_before[k]!=req.get(k) for k in ('members_digest','selected_digest')):
@@ -165,11 +165,14 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             target_digest=_selected_digest(new,target,'*')
             key=(target,edge_old.revision,new.revision,rule,source,selector,use,classification,target_digest)
             if normative: key += ('mandatory',)
+            if query is not None and query_before.get('authority_format'): key += tuple(query_before[k] for k in ('authority_format','entry_folder','entry_index'))
             event_id=hashlib.sha256(json.dumps(key,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
             cycle=event_id in trace or len(trace)>=max_generation
             candidates[key]={'event_id':event_id, 'trace':list(trace) if cycle else [*trace,event_id], 'generation':len(trace), 'target':target,'destination_context':destination_context,'source':source,'producer_context':source_owner,'selector':selector,'rule':rule,'use':use,'classification':classification,'before_revision':edge_old.revision,'after_revision':new.revision,'before_digest':before_digest,'after_digest':after_digest,'target_digest':target_digest, **({'source_kind':'mandatory'} if normative else {}), 'state':'blocked_cycle_limit' if cycle else ('blocked_missing_target' if target_digest is None else ('blocked_unpinned_dependency' if consumed_revision is None else ('blocked_missing_source' if before_digest is None and after_digest is None else 'review_pending'))),'interpretation':'independent','fact_freshness':'not_assessed'}
             if query is not None:
                 candidates[key].update(query_policy_revision=query_after['policy_revision'], authority_digest=query_after['authority_digest'],query=query, members_digest_before=query_before['members_digest'], members_digest_after=query_after['members_digest'])
+                if query_after.get('authority_format'):
+                    candidates[key].update({k:query_after[k] for k in ('authority_format','entry_folder','entry_index')})
     # Avoid silently omitting work: return an explicit continuation offset and
     # total only for the authorized candidate set.
     ordered=[candidates[k] for k in sorted(candidates)]
@@ -201,12 +204,17 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         if 'source_kind' in candidate:
             if candidate['source_kind'] != 'mandatory': raise ImpactError('invalid candidate source kind')
             key += ('mandatory',)
+        if candidate.get('authority_format'): key += tuple(candidate[k] for k in ('authority_format','entry_folder','entry_index'))
         expected=hashlib.sha256(json.dumps(key,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
         if expected!=candidate['event_id'] or policy.owner_of(target)!=context or policy.owner_of(source)!=candidate['producer_context'] or not policy.permits(context,'read',target): raise ImpactError('invalid candidate')
         if candidate.get('source_kind')=='mandatory':
             grant='approved' if candidate['use']=='normative' and selector=='*' and normative_history(policy,context,source,candidate['before_revision']) else 'denied'
         else:
             grant=policy.connection(candidate['producer_context'],context,source,candidate['use'],candidate['classification'],section=name if kind=='section' else None,field=name if kind=='field' else None)
+            if (getattr(policy, 'format_version', None) == 'folder' and candidate['producer_context'] not in policy._qualified_contexts
+                    and policy._connection(candidate['producer_context'],context,source,candidate['use'],candidate['classification'],
+                        section=name if kind=='section' else None,field=name if kind=='field' else None,qualified=False) == 'approved'):
+                raise ImpactError('cross-context folder authority requires requalification')
         if grant!='approved': raise ImpactError('candidate authorization no longer current')
         _folder_ref(root, policy, source)
         _folder_ref(root, policy, target)
@@ -214,7 +222,7 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         if reader.revision!=policy.policy_revision: raise ImpactError('evidence revision not approved current base')
         if kind=='query':
             entry={'target':source,'query':candidate['query'],'reason':'canonical collection requirement','use':candidate['use'],'classification':candidate['classification']}
-            receipt,_,_=reproduce_query(policy,context,reader,entry,policy_revision=candidate.get('query_policy_revision'),expected_authority=candidate.get('authority_digest'))
+            receipt,_,_=reproduce_query(policy,context,reader,entry,policy_revision=candidate.get('query_policy_revision'),expected_authority=candidate.get('authority_digest'),authority_format=candidate.get('authority_format'),entry_folder=candidate.get('entry_folder'),entry_index=candidate.get('entry_index'))
             if selector!='query:'+receipt['query_id'] or candidate['members_digest_after']!=receipt['members_digest']:
                 raise ImpactError('query candidate selection differs')
             digest=receipt['selected_digest']

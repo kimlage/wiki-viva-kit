@@ -137,3 +137,53 @@ def test_impact_does_not_read_a_nested_repository(repo, monkeypatch):
                       edge(source='alpha/clone/source.md', consumed=before), before=before, after=after,
                       destination_context='alpha')
     assert 'alpha/clone/source.md' not in opened
+
+
+def test_impact_cannot_skip_auxiliary_instructions(repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    child = 'alpha/aux/child'
+    write(repo, 'alpha/aux/AGENTS.md', '# Auxiliary instruction\n')
+    write(repo, child + '/AGENTS.md', '# Child instruction\n')
+    write(repo, child + '/index.md', '# Child index\n')
+    write(repo, child + '/source.md', '# Source before\n')
+    write(repo, child + '/result.md', '# Interpretation\n')
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    def grant(owner, ref):
+        return {'from_context': owner, 'to_context': child, 'selector': ref,
+                'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
+    grants = [grant('.', 'AGENTS.md'), grant('alpha', 'alpha/AGENTS.md'), grant('alpha', 'alpha/index.md')]
+    config['context_access']['.']['exports'].append(grants[0])
+    config['context_access']['alpha']['exports'] = grants[1:]
+    config['context_access'][child] = {'owner': 'child operator',
+        'policy': {'read': ['.'], 'write': ['self'], 'capabilities': [], 'deny': {}, 'publication': []},
+        'imports': grants}
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config)); git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'child without auxiliary grant'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    before, after = change(repo, child + '/source.md')
+    opened = []
+    original = RepositoryReader.read
+    def spy(self, path, **kwargs):
+        opened.append(path)
+        return original(self, path, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', spy)
+    with pytest.raises(ImpactError, match='authorized requalification'):
+        assess_impact(repo, load_policy(repo, after, 'wiki.config.yaml'),
+                      edge(target=child + '/result.md', source=child + '/source.md', consumed=before),
+                      before=before, after=after, destination_context=child)
+    assert 'alpha/aux/AGENTS.md' not in opened
+    auxiliary = grant('alpha', 'alpha/aux/AGENTS.md')
+    config['context_access']['alpha']['exports'].append(auxiliary)
+    config['context_access'][child]['imports'].append(copy.deepcopy(auxiliary))
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config)); git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'authorize auxiliary'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    allowed = git(repo, 'rev-parse', 'HEAD')
+    candidate = assess_impact(repo, load_policy(repo, allowed, 'wiki.config.yaml'),
+        edge(target=child + '/result.md', source=child + '/source.md', consumed=before),
+        before=before, after=allowed, destination_context=child)['candidates'][0]
+    config['context_access']['alpha']['exports'].pop()
+    config['context_access'][child]['imports'].pop()
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config)); git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'revoke auxiliary'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    revoked = git(repo, 'rev-parse', 'HEAD')
+    opened.clear()
+    with pytest.raises(ImpactError, match='authorized requalification'):
+        report_review(repo, load_policy(repo, revoked, 'wiki.config.yaml'), candidate,
+                      disposition='still_valid', reason='review', evidence_revision=revoked)
+    assert 'alpha/aux/AGENTS.md' not in opened

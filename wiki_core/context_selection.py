@@ -102,22 +102,91 @@ def authority_digest(policy, context_id, entry):
     return digest(authority)
 
 
-def reproduce_query(policy, context_id, reader, entry, *, policy_revision, expected_authority, read_budget=None, _candidate_refs=None, authority_format=None):
+def _equivalent_folder_authority(policy, context_id, policy_revision, entry):
+    """Prove relevant historical authority without granting historical access.
+
+    Only metadata and Git object IDs for the already authorized physical
+    instruction/index chain are compared. Current grants still govern every
+    subsequent body read; no source freshness is asserted.
+    """
+    qualification = getattr(policy, '_folder_qualification', None)
+    if not isinstance(qualification, dict) or qualification.get('context_id') != context_id:
+        raise PolicyError('historical query authority requires requalification')
+    old = historical_policy(policy, policy_revision, authority_format='folder')
+    if (context_id not in old.contexts or
+            [c['id'] for c in old.lineage(context_id)] != [c['id'] for c in policy.lineage(context_id)]):
+        raise PolicyError('historical query authority requires requalification')
+    from wiki_core.repository_reader import RepositoryReader
+    from wiki_core.traversal import require_wiki_boundaries
+    root = Path(policy._binding[0])
+    current_reader = RepositoryReader(root, policy.policy_revision)
+    old_reader = RepositoryReader(root, policy_revision)
+    refs = qualification.get('refs', ())
+    if not isinstance(refs, tuple) or not refs: raise PolicyError('historical query authority requires requalification')
+    for ref in refs:
+        if (ref not in current_reader._entries or ref not in old_reader._entries or
+                current_reader._entries[ref] != old_reader._entries[ref]):
+            raise PolicyError('historical query authority requires requalification')
+        try:
+            require_wiki_boundaries(root, files=(root / ref,))
+            producer = policy.owner_of(ref)
+            if (old.owner_of(ref) != producer or
+                    policy._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved' or
+                    old._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved'):
+                raise ValueError('authority differs')
+        except (ValueError, KeyError, OSError) as exc:
+            raise PolicyError('historical query authority requires requalification') from exc
+    # An old override that was absent from the current qualified chain would
+    # have changed native precedence, even if the current ordinary AGENTS is
+    # byte-identical. An unused ordinary file behind a nonempty override is
+    # not relevant to the selected chain.
+    parts = [] if qualification['entry_folder'] == '.' else qualification['entry_folder'].split('/')
+    for directory in ['.'] + ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]:
+        prefix = '' if directory == '.' else directory + '/'
+        override = prefix + 'AGENTS.override.md'
+        ordinary = prefix + 'AGENTS.md'
+        if override not in refs and override in old_reader._entries:
+            raise PolicyError('historical query authority requires requalification')
+        if override not in refs or not qualification.get('nonempty', {}).get(override):
+            if (ordinary in current_reader._entries) != (ordinary in old_reader._entries):
+                raise PolicyError('historical query authority requires requalification')
+    # This marking is internal to the metadata comparison. It does not escape
+    # as a bound policy and is never used to authorize historical blob reads.
+    old._qualified_contexts.add(context_id)
+    if authority_digest(old, context_id, entry) != authority_digest(policy, context_id, entry):
+        raise PolicyError('historical query authority requires requalification')
+    policy.fresh()
+    return old
+
+
+def reproduce_query(policy, context_id, reader, entry, *, policy_revision, expected_authority, read_budget=None, _candidate_refs=None, authority_format=None, entry_folder=None, entry_index=None):
     """Check historical authority BEFORE reading, then use only current permission."""
     folder_mode = getattr(policy, 'format_version', None) == 'folder'
     if not folder_mode and authority_format is not None:
         raise PolicyError('query receipt authority format differs')
-    if folder_mode and (authority_format != 'folder' or policy_revision != policy.policy_revision):
+    if folder_mode and authority_format != 'folder':
         raise PolicyError('historical query authority requires requalification')
     entry=normalize_query(entry)
     if not isinstance(expected_authority,str) or not re.fullmatch(r'[0-9a-f]{64}',expected_authority):
         raise PolicyError('query authority changed or unavailable; requalification required')
+    if not isinstance(policy_revision,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',policy_revision):
+        raise PolicyError('query policy revision unavailable')
     # Content must already have existed when its claimed policy was approved.
     if (not getattr(policy, '_binding', None) or subprocess.run(
             [local_git_executable(), '--no-lazy-fetch', '-C', str(policy._binding[0]), 'merge-base', '--is-ancestor', reader.revision, policy_revision],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=local_git_environment()).returncode):
         raise PolicyError('query content is not an ancestor of its policy')
-    old=policy if folder_mode else historical_policy(policy,policy_revision)
+    if folder_mode:
+        if (not isinstance(entry_folder, str) or not isinstance(entry_index, str)
+                or Path(reader.root).resolve() != Path(policy._binding[0]).resolve()):
+            raise PolicyError('historical query authority requires requalification')
+        from wiki_core.context_packet import qualify_folder_context
+        try: qualify_folder_context(Path(policy._binding[0]), policy, context_id, entry_folder, entry_index, 2_000_000)
+        except (ValueError, KeyError, TypeError, OSError) as exc:
+            raise PolicyError('historical query authority requires requalification') from exc
+    old=(_equivalent_folder_authority(policy, context_id, policy_revision, entry)
+         if folder_mode and policy_revision != policy.policy_revision else
+         policy if folder_mode else historical_policy(policy,policy_revision))
     if (authority_digest(old,context_id,entry)!=expected_authority
             or authority_digest(policy,context_id,entry)!=expected_authority):
         raise PolicyError('query authority changed or unavailable; requalification required')
@@ -243,6 +312,8 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None, _candid
     if folder_mode:
         still_current()
         receipt['authority_format'] = 'folder'
+        receipt['entry_folder'] = policy._folder_qualification['entry_folder']
+        receipt['entry_index'] = policy._folder_qualification['entry_index']
         receipt['coverage'] = 'authorized_owner_scope_excluding_nested_repositories_and_symlinks'
     return receipt, anchor, inputs
 
@@ -275,10 +346,12 @@ def revalidate_packet_queries(policy, packet, historical, current, *, read_budge
     for row in rows:
         if (packet.get('authority_format') == 'folder') != (row.get('authority_format') == 'folder'):
             raise PolicyError('query receipt authority format differs')
+        if row.get('authority_format') == 'folder' and (row.get('entry_folder') != packet.get('entry_folder') or row.get('entry_index') != packet.get('entry_index')):
+            raise PolicyError('query receipt folder selection differs')
         if packet.get('authority_format') is None and row.get('authority_format') is not None:
             raise PolicyError('query receipt authority format differs')
         if row.get('policy_revision')!=packet['policy_revision']: raise PolicyError('query policy revision differs from packet')
-        prior, anchor, members = reproduce_query(policy, packet['context_id'], historical, row['request'], policy_revision=row.get('policy_revision'), expected_authority=row.get('authority_digest'), read_budget=read_budget, authority_format=row.get('authority_format'))
+        prior, anchor, members = reproduce_query(policy, packet['context_id'], historical, row['request'], policy_revision=row.get('policy_revision'), expected_authority=row.get('authority_digest'), read_budget=read_budget, authority_format=row.get('authority_format'), entry_folder=row.get('entry_folder'), entry_index=row.get('entry_index'))
         if prior != row: raise PolicyError('query receipt cannot be reproduced')
         now, _, _ = select_query(policy, packet['context_id'], current, row['request'], read_budget=read_budget)
         if not same_selection(row, now): raise PolicyError('query selection changed since task')

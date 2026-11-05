@@ -187,11 +187,17 @@
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
           },
+          "authority_format": {"const": "folder"},
+          "entry_folder": {"type": "string", "minLength": 1},
+          "entry_index": {"type": "string", "minLength": 1},
           "source_kind": {
             "const": "mandatory"
           }
         },
         "dependentRequired": {
+          "authority_format": ["query", "members_digest", "selected_digest", "query_policy_revision", "authority_digest", "entry_folder", "entry_index"],
+          "entry_folder": ["authority_format", "entry_index"],
+          "entry_index": ["authority_format", "entry_folder"],
           "query": [
             "members_digest",
             "selected_digest",

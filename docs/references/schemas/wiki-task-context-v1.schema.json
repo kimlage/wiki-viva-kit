@@ -510,6 +510,9 @@
           "excluded_anchor"
         ],
         "properties": {
+          "authority_format": {"const": "folder"},
+          "entry_folder": {"type": "string", "minLength": 1},
+          "entry_index": {"type": "string", "minLength": 1},
           "request": {
             "type": "object",
             "additionalProperties": false,
@@ -656,7 +659,7 @@
             "pattern": "^[a-f0-9]{64}$"
           },
           "coverage": {
-            "const": "complete_only_within_current_authorized_owner_scope"
+            "enum": ["complete_only_within_current_authorized_owner_scope", "authorized_owner_scope_excluding_nested_repositories_and_symlinks"]
           },
           "enumerated": {
             "type": "integer",
@@ -675,6 +678,11 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "dependentRequired": {
+          "authority_format": ["entry_folder", "entry_index"],
+          "entry_folder": ["authority_format", "entry_index"],
+          "entry_index": ["authority_format", "entry_folder"]
         }
       }
     }

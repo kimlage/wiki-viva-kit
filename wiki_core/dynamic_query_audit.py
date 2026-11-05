@@ -113,9 +113,11 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
                     if git('merge-base', '--is-ancestor', req['consumed_revision'], req['query_policy_revision']).returncode:
                         raise PolicyError('query content is not an ancestor of its policy')
                     if folder_mode:
-                        if req['query_policy_revision'] != policy.policy_revision:
-                            raise PolicyError('historical query authority requires requalification')
-                        historical = policy
+                        from wiki_core.context_packet import qualify_folder_context
+                        from wiki_core.context_selection import _equivalent_folder_authority
+                        qualify_folder_context(root, policy, context_id, req['entry_folder'], req['entry_index'], 2_000_000)
+                        historical = (policy if req['query_policy_revision'] == policy.policy_revision else
+                                      _equivalent_folder_authority(policy, context_id, req['query_policy_revision'], entry))
                     else:
                         historical = historical_policy(policy, req['query_policy_revision'])
                     if authority_digest(historical, context_id, entry) != req['authority_digest']:
@@ -127,13 +129,13 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
                         'query_policy_revision', 'authority_digest', 'members_digest', 'selected_digest')
                     proof_key = ('query', base, head, context_id, changed_policy,
                         json.dumps({**{k: req[k] for k in proof_fields},
-                                    **({'authority_format': req.get('authority_format')} if folder_mode else {})},
+                                    **({k: req.get(k) for k in ('authority_format','entry_folder','entry_index')} if folder_mode else {})},
                                    sort_keys=True, ensure_ascii=False))
                     proof = selection_cache.get(proof_key)
                     if proof is None:
                         prior_candidates = []
                         prior, _, _ = reproduce_query(policy, context_id, RepositoryReader(root, req['consumed_revision']), entry,
-                            policy_revision=req['query_policy_revision'], expected_authority=req['authority_digest'], read_budget=budget, _candidate_refs=prior_candidates, authority_format=req.get('authority_format'))
+                            policy_revision=req['query_policy_revision'], expected_authority=req['authority_digest'], read_budget=budget, _candidate_refs=prior_candidates, authority_format=req.get('authority_format'), entry_folder=req.get('entry_folder'), entry_index=req.get('entry_index'))
                         if any(prior[k] != req[k] for k in ('members_digest', 'selected_digest')):
                             raise PolicyError('query receipt cannot be reproduced')
                         if base_reader.revision == req['consumed_revision']:
