@@ -106,3 +106,31 @@ def test_nested_integrator_partition_rechecks_both_actors(prepared_repo, monkeyp
     git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     with pytest.raises(ValueError):
         record(root, binding, **{**args, 'approved_revision': git(root, 'rev-parse', 'HEAD')}, **ids, results=[])
+
+
+@pytest.mark.parametrize('mode', ['shared', 'by_source_v1'])
+def test_reincluded_json_is_blocked_before_any_capture_write(prepared_repo, mode):
+    root, _ = prepared_repo
+    write(root, '.gitignore', 'data/derived/**\n!data/derived/**/\n!data/derived/**/*.json\n')
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    config['llm'] = {'protected_cache_mode': mode}
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'reinclude protected json')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    with pytest.raises(ValueError, match='ignored and untracked'):
+        prepare(root, binding, context_id='.', approved_revision=git(root, 'rev-parse', 'HEAD'),
+                entry_folder='.', entry_index='index.md', source_ref='source.txt',
+                source_context='system', context_selection={'omit_root_entity': True})
+    assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
+
+
+def test_tracked_artifact_is_not_considered_protected_by_ignore(prepared_repo):
+    from wiki_core.ingest.protected import _check_ignored
+
+    root, _ = prepared_repo
+    ref = 'data/derived/wiki/.wiki-viva-protected/source-text/tracked.json'
+    write(root, ref, '{}')
+    git(root, 'add', '-f', ref)
+    with pytest.raises(ValueError, match='ignored and untracked'):
+        _check_ignored(root, [root / ref])

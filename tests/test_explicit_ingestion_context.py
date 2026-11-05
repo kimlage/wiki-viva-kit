@@ -66,6 +66,7 @@ def test_explicit_target_mode_preserves_declared_context_and_records_omissions(p
     import datetime as dt
     import hashlib
     from wiki_core.coordination_context import CoordinationBinding
+    from wiki_core.ingest.cache_partition import partition_component
     from wiki_core.ingest.protected import prepare, record, consolidate, inspect
     from wiki_core.repository_reader import RepositoryReader
     from tests.test_protected_ingestion import _result_for
@@ -79,10 +80,11 @@ def test_explicit_target_mode_preserves_declared_context_and_records_omissions(p
           '---\npage_id: channel-a\npage_type: input_channel\n'
           'target_pages: [alpha/index.md, beta/index.md]\n---\n# Channel\n')
     write(root, 'alpha/index.md',
-          '---\npage_id: alpha\npage_type: context_hub\n---\n# Alpha\n')
+          '---\npage_id: beta/index.md\npage_type: context_hub\n---\n# Alpha\n')
     write(root, 'beta/index.md',
           '---\npage_id: beta\npage_type: context_hub\n---\n# UNAUTHORIZED SENTINEL\n')
     cfg = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    cfg['llm'] = {'protected_cache_mode': 'by_source_v1'}
     cfg['context_access']['alpha']['policy']['read'] = ['.']
     root_rule = {'from_context': '.', 'to_context': 'alpha', 'selector': 'AGENTS.md',
                  'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
@@ -110,6 +112,8 @@ def test_explicit_target_mode_preserves_declared_context_and_records_omissions(p
     args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
                 source_ref='source.txt', context_selection=selection)
     prepared = prepare(root, binding, **args, source_context='synthetic')
+    partition = root / 'data/derived/wiki/.wiki-viva-protected' / partition_component('.', '.', 'source.txt')
+    assert (partition / 'source-manifests' / (prepared['source_id'] + '.json')).is_file()
     request = prepared['request']
     assert request['target_pages'] == ['alpha/index.md']
     assert request['source_authorization']['context_selection']['target_selection'] == 'explicit'
@@ -141,6 +145,21 @@ def test_explicit_target_mode_preserves_declared_context_and_records_omissions(p
         prepare(root, binding, **{**args, 'context_selection': {k: v for k, v in selection.items()
                                                                  if k != 'target_selection'}},
                 source_context='synthetic')
+    no_list = {k: v for k, v in selection.items() if k != 'target_pages'}
+    with pytest.raises(ValueError):
+        prepare(root, binding, **{**args, 'context_selection': no_list}, source_context='synthetic')
+    from pathlib import Path
+    from wiki_core.traversal import is_protected_artifact
+    original_open = Path.open
+    def no_artifact(path, *values, **kwargs):
+        if is_protected_artifact(path):
+            pytest.fail('artifact read without explicit target list')
+        return original_open(path, *values, **kwargs)
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, 'open', no_artifact)
+        with pytest.raises(ValueError):
+            inspect(root, binding, **{**args, 'context_selection': no_list}, **ids,
+                    view='results', chunk_ids=[row['chunk_id']])
 
 
 def test_target_selection_mode_is_explicit_and_validated(selected_repo):
@@ -152,6 +171,8 @@ def test_target_selection_mode_is_explicit_and_validated(selected_repo):
     assert connected_ingestion_selection(initial, base)['target_pages'] == ['target.md']
     explicit = {**base, 'target_selection': 'explicit', 'target_pages': []}
     assert connected_ingestion_selection(initial, explicit)['target_pages'] == []
+    with pytest.raises(ExplicitContextError, match='requires target_pages'):
+        _selection({**base, 'target_selection': 'explicit'})
     assert 'target_selection' not in _selection(base)
     for invalid in ('other', None, False, ['explicit']):
         with pytest.raises(ExplicitContextError, match='invalid target selection'):
@@ -159,6 +180,7 @@ def test_target_selection_mode_is_explicit_and_validated(selected_repo):
 
 
 def test_unselected_declared_path_is_not_hidden_by_another_page_id(selected_repo):
+    from wiki_core.ingest.explicit_context import connected_ingestion_selection
     repo, config = selected_repo
     write(repo, 'target.md', '---\npage_id: beta/index.md\npage_type: note\n---\n# Target\n')
     write(repo, 'channel.md', '---\npage_id: channel-a\npage_type: input_channel\n'
@@ -170,6 +192,8 @@ def test_unselected_declared_path_is_not_hidden_by_another_page_id(selected_repo
                  'target_selection': 'explicit', 'target_pages': ['target.md']}
     resolved = resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
     assert any('beta/index.md not selected' in gap for gap in resolved['context_omissions'])
+    declared = {**selection, 'target_selection': 'declared'}
+    assert 'beta/index.md' in connected_ingestion_selection(packet_for(repo, declared), declared)['target_pages']
 
 
 def test_global_root_only_when_explicit_and_omission_is_recorded(selected_repo):

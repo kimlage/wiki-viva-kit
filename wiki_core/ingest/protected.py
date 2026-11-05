@@ -557,6 +557,22 @@ def _json_text(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + '\n'
 
 
+def _check_ignored(root, paths):
+    """Reject tracked or unignored artifact paths, not just a generic probe."""
+    refs = {safe_path(Path(path).relative_to(root).as_posix()) for path in paths}
+    if not refs:
+        return
+    from wiki_core.traversal import is_protected_artifact
+    if any(not is_protected_artifact(Path(ref)) for ref in refs):
+        raise ValueError('protected cache path unavailable')
+    encoded = b''.join(ref.encode('utf-8') + b'\0' for ref in sorted(refs))
+    result = subprocess.run([local_git_executable(), '-C', str(root), 'check-ignore', '-z', '--stdin'],
+        input=encoded, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=local_git_environment())
+    if result.returncode not in (0, 1) or set(result.stdout.split(b'\0')) - {b''} != {
+            ref.encode('utf-8') for ref in refs}:
+        raise ValueError('protected artifacts must be ignored and untracked')
+
+
 def _write_once(root, policy, context_id, path, value, *, compact=False):
     _allowed(root, policy, context_id, path, 'write')
     _allowed(root, policy, context_id, path, 'read')
@@ -565,6 +581,7 @@ def _write_once(root, policy, context_id, path, value, *, compact=False):
     path.parent.mkdir(parents=True, exist_ok=True)
     policy.fresh()
     try:
+        _check_ignored(root, [path])
         policy.fresh()
         with path.open('x', encoding='utf-8') as stream:
             stream.write(payload)
@@ -638,11 +655,12 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         raise ValueError('capture exceeds protected retention limit')
     artifact_paths = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
         paths.chunks / f'{source_id}.json', _request_path(paths, source_id, request_id, repository_context)]
+    cache_paths = [paths.llm_cache / (row['cache_key'] + '.json') for row in request['chunks']]
+    _check_ignored(root, [*artifact_paths, *cache_paths])
     for path in artifact_paths:
         _allowed(root, policy, actor, path, 'read')
         _allowed(root, policy, actor, path, 'write')
-    for row in request['chunks']:
-        path = paths.llm_cache / (row['cache_key'] + '.json')
+    for path in cache_paths:
         _allowed(root, policy, actor, path, 'read')
         _allowed(root, policy, actor, path, 'write')
     # Revalidate the current authority and source before the first side effect.
@@ -916,6 +934,7 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
     for row in rows:
         rows_by_key.setdefault(row['cache_key'], []).append(row)
     batch_result_bytes = 0
+    result_paths = []
     for result in results:
         if not isinstance(result, dict) or 'protected_historical_review' in result:
             raise ValueError('result unavailable')
@@ -932,8 +951,10 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
             raise ValueError('result unavailable')
         keys.add(key)
         target = paths.llm_cache / (key + '.json')
+        result_paths.append(target)
         _allowed(root, policy, actor, target, 'read')
         _allowed(root, policy, actor, target, 'write')
+    _check_ignored(root, result_paths)
     from wiki_core.llm.context_pass import validate_result
     if any(validate_result(result) for result in results):
         raise ValueError('result unavailable')
@@ -1280,6 +1301,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     packet_path = paths.extraction_events / f'protected-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}-integration-packet.json'
     _allowed(root, policy, actor, packet_path, 'read')
     _allowed(root, policy, actor, packet_path, 'write')
+    _check_ignored(root, [packet_path])
     for row in request['chunks']:
         cache_path = paths.llm_cache / (row['cache_key'] + '.json')
         _allowed(root, policy, actor, cache_path, 'read')

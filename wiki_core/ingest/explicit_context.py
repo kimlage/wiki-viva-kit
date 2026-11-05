@@ -39,6 +39,8 @@ def _selection(selection):
         mode = selection['target_selection']
         if mode not in ('declared', 'explicit'):
             raise ExplicitContextError('invalid target selection')
+        if mode == 'explicit' and 'target_pages' not in selection:
+            raise ExplicitContextError('explicit target selection requires target_pages')
         clean['target_selection'] = mode
     for name in ('source_page', 'source_config', 'input_channel', 'root_entity'):
         value = selection.get(name)
@@ -108,10 +110,10 @@ def connected_ingestion_selection(packet, selection):
     def path(value):
         if not isinstance(value, str) or not value:
             return None
-        if len(by_id.get(value, [])) == 1:
-            return by_id[value][0]
         if value.endswith('.md'):
             return canonical_path(value)
+        if len(by_id.get(value, [])) == 1:
+            return by_id[value][0]
         return None  # An unresolved page ID is not permission to scan the wiki.
 
     def values(role):

@@ -66,6 +66,10 @@ Source pages and candidates also require the relevant read connections. Each
 stage revalidates the source, selected context and revision. A failed write may
 leave partial effects and explicitly reports that inspection is needed before
 retry.
+Before retaining protected JSON, the stage checks the actual artifact paths
+against Git's ignore rules and refuses tracked or unignored paths. It repeats
+that check at each write. A later ignore change or a forced Git add can still
+expose files; the application boundary does not replace filesystem controls.
 
 An installation can opt into source-scoped artifact locations with
 `llm.protected_cache_mode: by_source_v1` in its approved configuration. For

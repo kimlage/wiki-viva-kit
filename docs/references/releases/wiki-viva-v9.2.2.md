@@ -3,7 +3,11 @@
 Protected ingestion can select a subset of declared targets while recording
 the omitted declarations. It also supports an opt-in artifact namespace per
 source and actor pair, with the existing per-path authorization checks. A
-selected foreign context is requalified for subsequent candidate checks.
+selected foreign context is requalified for subsequent inspection and
+consolidation candidate checks. The separate repository `compare` stage can
+still deny a selected foreign context before that requalification.
+Protected writes now check each actual artifact path is ignored and untracked,
+including when a Git ignore rule re-includes JSON files.
 
 External sources still require an authorized provider adapter and a local
 capture. The protected pipeline validates the local capture; it does not
