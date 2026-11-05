@@ -74,7 +74,8 @@ need a separately qualified adapter.
 The read-only `compare` source stage requires the same original request and
 selection, plus a separately host-pinned current selection for the same
 repository identity and path. The explicitly selected source page must declare
-that repository; each candidate must be authorized independently. It compares
+that repository; each candidate must be authorized independently and is read
+from the approved wiki commit rather than an unapproved working-tree edit. It compares
 only that file and returns an on-demand review suggestion for declared current
 requirements. It does not write pages, prove file consumption or assert that a
 proposal was reviewed. Missing grants, stale policy or unavailable results
