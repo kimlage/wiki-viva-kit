@@ -63,17 +63,38 @@ def _selected_digest(reader, path, selector):
         raise ImpactError('selected content unavailable') from exc
 
 
+def _folder_context(root, policy, context):
+    """Qualify only the requested destination before applying its grants."""
+    if getattr(policy, 'format_version', None) != 'folder': return
+    from wiki_core.context_packet import qualify_folder_context
+    index = 'index.md' if context == '.' else context + '/index.md'
+    try: qualify_folder_context(root, policy, context, context, index, 2_000_000)
+    except (ValueError, KeyError, TypeError, OSError) as exc:
+        raise ImpactError('folder context requires authorized requalification') from exc
+
+
+def _folder_ref(root, policy, path):
+    if getattr(policy, 'format_version', None) != 'folder': return
+    from wiki_core.traversal import require_wiki_boundaries
+    try: require_wiki_boundaries(root, files=(Path(root) / path,))
+    except (ValueError, OSError) as exc: raise ImpactError('selected content unavailable') from exc
+
+
 def assess_impact(root, policy, graph, *, before, after, destination_context, max_fanout=100, offset=0, expected_selection=None, trace=(), max_generation=8):
     """Compare exact consumed slices and return immediate review candidates.
 
     No transitive update, refresh, observation of facts or write occurs. A
     blocked edge is redacted completely; no protected count/path is returned.
     The graph must be the existing authorized relation inventory for this view.
+    Folder mode currently evaluates one qualified owner. An explicitly granted
+    cross-context edge requires separate requalification; it is not reported as
+    absent merely because the producer is not yet qualified.
     """
-    if getattr(policy, 'format_version', None): raise ImpactError('v2 impact is unavailable; v1 receipts require explicit migration')
+    if getattr(policy, 'format_version', None) not in (None, 'folder'): raise ImpactError('unsupported policy format')
     if not getattr(policy,'_binding',None) or Path(policy._binding[0]) != Path(root).resolve(): raise ImpactError('unbound policy')
     policy=policy.fresh()
     if destination_context not in policy.contexts: raise ImpactError('unknown destination')
+    _folder_context(root, policy, destination_context)
     if type(max_fanout) is not int or not 1 <= max_fanout <= 1000: raise ImpactError('invalid fanout limit')
     if type(offset) is not int or offset < 0: raise ImpactError('invalid offset')
     if not isinstance(trace, (list, tuple)) or len(trace)>64 or any(not isinstance(x,str) or not re.fullmatch(r'[0-9a-f]{64}',x) for x in trace): raise ImpactError('invalid trace')
@@ -127,8 +148,15 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             kind,name=('query',None) if query is not None else _selector(selector)
             classification=e.get('classification','internal'); use=e.get('use','interpret')
             if not isinstance(classification,str) or not classification or not isinstance(use,str) or not use: raise ImpactError('invalid use or classification')
+            if (getattr(policy, 'format_version', None) == 'folder' and source_owner != destination_context
+                    and policy._connection(source_owner, destination_context, source, use, classification,
+                        section=name if kind=='section' else None, field=name if kind=='field' else None,
+                        qualified=False) == 'approved'):
+                raise ImpactError('cross-context folder authority requires requalification')
             grant='approved' if normative else policy.connection(source_owner,destination_context,source,use,classification,section=name if kind=='section' else None,field=name if kind=='field' else None)
             if grant!='approved': continue
+            _folder_ref(root, policy, source)
+            _folder_ref(root, policy, target)
             before_digest=query_before['selected_digest'] if query is not None else _selected_digest(edge_old,source,selector)
             after_digest=query_after['selected_digest'] if query is not None else _selected_digest(new,source,selector)
             if (before_digest==after_digest and before_digest is not None and consumed_revision is not None
@@ -160,13 +188,14 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
     It is not independent-review proof. A changed interpretation is detected
     from approved Git bytes; only that new change may seed a further impact run.
     """
-    if getattr(policy, 'format_version', None): raise ImpactError('v2 review is unavailable; v1 receipts require explicit migration')
+    if getattr(policy, 'format_version', None) not in (None, 'folder'): raise ImpactError('unsupported policy format')
     if not getattr(policy,'_binding',None) or Path(policy._binding[0]) != Path(root).resolve(): raise ImpactError('unbound policy')
     policy=policy.fresh()
     if disposition not in ('updated','still_valid','superseded','blocked') or not isinstance(reason,str) or not reason.strip(): raise ImpactError('invalid disposition')
     if not isinstance(candidate,dict) or candidate.get('state')!='review_pending': raise ImpactError('candidate is not reviewable')
     try:
         target=safe_path(candidate['target']); source=safe_path(candidate['source']); context=candidate['destination_context']
+        _folder_context(root, policy, context)
         selector=candidate['selector']; kind,name=('query',None) if 'query' in candidate else _selector(selector)
         key=(target,candidate['before_revision'],candidate['after_revision'],candidate['rule'],source,selector,candidate['use'],candidate['classification'],candidate['target_digest'])
         if 'source_kind' in candidate:
@@ -179,6 +208,8 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         else:
             grant=policy.connection(candidate['producer_context'],context,source,candidate['use'],candidate['classification'],section=name if kind=='section' else None,field=name if kind=='field' else None)
         if grant!='approved': raise ImpactError('candidate authorization no longer current')
+        _folder_ref(root, policy, source)
+        _folder_ref(root, policy, target)
         reader=RepositoryReader(root,evidence_revision)
         if reader.revision!=policy.policy_revision: raise ImpactError('evidence revision not approved current base')
         if kind=='query':
