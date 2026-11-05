@@ -304,7 +304,9 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
         # physical paths and must not scan v1 manifests as authority.
         impact_changed = changed | (_query_policy_change_marker(root, (base_sha, head), changed) if has_legacy_queries and not query_context else set())
         typed_reasons = typed_information_reach(current, base, impact_changed) if has_queries else {}
-        result = evaluate_information_impact(current, base, impact_changed, today=today or dt.date.today(), _typed_reasons=typed_reasons)
+        result = evaluate_information_impact(current, base, impact_changed, today=today or dt.date.today(),
+                                             _typed_reasons=typed_reasons,
+                                             _legacy_authority_unavailable=bool(query_context))
         if any((query_context, query_policy_revision, query_head)):
             if not all((query_context, query_policy_revision, query_head)) or query_policy_revision != base_sha or query_head != head:
                 raise ValueError('query audit requires exact context, approved base and HEAD')

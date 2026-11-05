@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import defaultdict, deque
 import datetime as dt
 import json
+import re
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.information_relations import dependency_edges, semantic_equal
@@ -25,17 +26,36 @@ def changed_fields(previous: str | None, current: str | None) -> set[str]:
     return fields
 
 
-def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str], *, legacy_authority_unavailable: bool = False) -> list[dict]:
-    """Select query declarations touched by paths or dependency closure, without reading members."""
+def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str], *, legacy_authority_unavailable: bool = False, include_preserved: bool = False) -> list[dict]:
+    """Select touched queries without treating preserved history as fresh or authorized."""
     from wiki_core.context_policy import within, is_context_instruction
     found = {}
+    graphs = [(origin, dependency_edges(graph, origin=origin)[0])
+              for origin, graph in (('base', base), ('current', current))]
+    def query_keys(edges):
+        return {(edge['dependent'], json.dumps(edge['requirement'], sort_keys=True, ensure_ascii=False))
+                for edge in edges
+                if 'query' in edge.get('requirement', {})}
+    unchanged = query_keys(graphs[0][1]) & query_keys(graphs[1][1])
     legacy_policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
-    for origin, graph in (('base', base), ('current', current)):
-        for edge in dependency_edges(graph, origin=origin)[0]:
+    for origin, edges in graphs:
+        for edge in edges:
             req = edge.get('requirement', {})
             if 'query' not in req:
                 continue
             consumer, anchor, scope = edge['dependent'], req['target'], req['query']['scope']
+            key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
+            direct_change = (consumer in reached or consumer in changed or anchor in changed or anchor in reached
+                             or any(within(p, scope) for p in changed | reached))
+            pinned_history = (req.get('authority_format') != 'folder'
+                              and req.get('temporal') == 'historical'
+                              and all(isinstance(req.get(field), str) and re.fullmatch(pattern, req[field])
+                                      for field, pattern in (
+                                          ('consumed_revision', r'[0-9a-f]{40}|[0-9a-f]{64}'),
+                                          ('query_policy_revision', r'[0-9a-f]{40}|[0-9a-f]{64}'),
+                                          ('authority_digest', r'[0-9a-f]{64}'),
+                                          ('members_digest', r'[0-9a-f]{64}'),
+                                          ('selected_digest', r'[0-9a-f]{64}'))))
             if req.get('authority_format') == 'folder':
                 entry_folder = req['entry_folder']
                 def affects_folder_policy(path):
@@ -49,10 +69,15 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                 # A folder audit cannot inspect an unbound legacy manifest to
                 # exclude a changed path from its old normative inputs.
                 policy_changed = legacy_policy_changed or (legacy_authority_unavailable and bool(changed))
-            if not (policy_changed or consumer in reached or consumer in changed or anchor in changed or anchor in reached
-                    or any(within(p, scope) for p in changed | reached)):
+            if pinned_history and key in unchanged and not direct_change:
+                # This preserves an unchanged historical receipt only.
+                # Using it still requires current authorized revalidation.
+                if include_preserved and policy_changed:
+                    found[key] = {'path': consumer, 'requirement': req, 'origin': origin,
+                                  'reason': 'historical_query_preserved_unverified'}
                 continue
-            key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
+            if not (policy_changed or direct_change):
+                continue
             found[key] = {'path': consumer, 'requirement': req, 'origin': origin}
     return [found[key] for key in sorted(found)]
 
@@ -215,7 +240,7 @@ def typed_information_reach(current, base, changed):
     return _information_reach(typed_consumption_graph(current), typed_consumption_graph(base), changed)[1]
 
 
-def evaluate_information_impact(current: dict, base: dict, changed: set[str], *, today: dt.date, _typed_reasons=None) -> dict:
+def evaluate_information_impact(current: dict, base: dict, changed: set[str], *, today: dt.date, _typed_reasons=None, _legacy_authority_unavailable=False) -> dict:
     """Propagate global impact while discovering queries from typed reach only.
 
     Current-use prerequisites are checked separately at execution; this does
@@ -240,8 +265,15 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
                             'verification_performed': False})
     # This already-materialized graph has no current context authority to
     # enumerate dynamic members. It must not certify only the anchor edge.
-    affected = affected_dynamic_queries(current, base, changed, set(_typed_reasons))
-    dynamic_blockers = [{'path':row['path'],'reason':'dynamic_query_requires_authorized_revalidation'} for row in affected]
+    affected = affected_dynamic_queries(current, base, changed, set(_typed_reasons),
+                                        legacy_authority_unavailable=_legacy_authority_unavailable,
+                                        include_preserved=True)
+    preserved = [row for row in affected if row.get('reason') == 'historical_query_preserved_unverified']
+    pending.extend({'path': row['path'], 'seed': row['path'], 'fields': ['*'], 'causes': [], 'chain': [],
+                    'state': 'review_pending', 'reason': row['reason'], 'priority': 'on_demand',
+                    'verification_performed': False} for row in preserved)
+    dynamic_blockers = [{'path':row['path'],'reason':'dynamic_query_requires_authorized_revalidation'}
+                        for row in affected if row.get('reason') != 'historical_query_preserved_unverified']
     # A manifest change can revoke or remove an inherited normative input even
     # when neither its body nor its consumer changed. The global caller-trust
     # audit cannot prove the new authority; preserve a visible review obligation.

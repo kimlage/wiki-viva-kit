@@ -138,6 +138,50 @@ def test_legacy_query_receipt_stays_unqualified_in_folder_audit(query_repo, monk
                for row in output['blockers'] + output['pending_reviews'])
 
 
+def test_unchanged_legacy_history_warns_without_replay_in_scoped_audit(query_repo, monkeypatch):
+    import shutil
+    root, _ = query_repo
+    # Keep the synthetic tracked member visible in both graph snapshots.
+    shutil.rmtree(root / 'alpha/items/clone/.git')
+    prepare_consumer(root)
+    path = root / 'alpha/consumer.md'
+    raw = path.read_text().split('---\n', 2)
+    data = yaml.safe_load(raw[1])
+    receipt = data['information_requirements'][0]
+    for key in ('authority_format', 'entry_folder', 'entry_index'):
+        receipt.pop(key)
+    receipt['temporal'] = 'historical'
+    path.write_text('---\n' + yaml.safe_dump(data) + '---\n' + raw[2])
+    git(root, 'add', 'alpha/consumer.md'); git(root, 'commit', '-qm', 'preserve historical receipt')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    base = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-qb', 'wiki/preserved-history')
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    config['presentation'] = {'theme': 'synthetic'}
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'unrelated config')
+    head = git(root, 'rev-parse', 'HEAD')
+    import wiki_core.dynamic_query_audit as qa
+    import wiki_core.freshness_impact as impact
+    from scripts import wiki_audit as audit
+    monkeypatch.setattr(qa, 'reproduce_query', lambda *args, **kwargs: pytest.fail('historical receipt replayed'))
+    monkeypatch.setattr(audit, 'ROOT', root)
+    reports = []
+    def capture(*args, **kwargs):
+        report = repository_report(*args, **kwargs)
+        reports.append(report)
+        return report
+    monkeypatch.setattr(impact, 'repository_report', capture)
+    errors, warnings = [], []
+    audit.audit_freshness_budget(errors, warnings, load_config(root), base_ref=base,
+                                 query_context='alpha', query_policy_revision=base, query_head=head)
+    assert not errors
+    assert 'alpha/consumer.md: historical query preserved; authorized revalidation not performed' in warnings
+    assert reports[0]['query_revalidation']['affected'] == 0
+    assert any(row['reason'] == 'historical_query_preserved_unverified' and not row['verification_performed']
+               for row in reports[0]['pending_reviews'])
+
+
 @pytest.mark.parametrize('also_change_selected', [False, True])
 def test_legacy_query_requalifies_when_unbound_rule_changes(query_repo, monkeypatch, also_change_selected):
     root, _ = query_repo

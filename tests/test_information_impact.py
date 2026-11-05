@@ -5,6 +5,59 @@ from wiki_core.freshness_impact import evaluate_impact
 
 TODAY = dt.date(2026, 10, 30)
 
+def test_unchanged_historical_query_is_preserved_without_granting_current_use(monkeypatch):
+    from copy import deepcopy
+    from pathlib import Path
+    from wiki_core.information_impact import affected_dynamic_queries
+    from wiki_core.information_relations import operational_consumption_edges
+    from wiki_core.information_use import assess_information_use
+    from wiki_core.repository_reader import RepositoryReader
+
+    monkeypatch.setattr(RepositoryReader, 'read', lambda *args, **kwargs: (_ for _ in ()).throw(
+        AssertionError('historical body must not be read')))
+
+    requirement = {
+        'target': 'archive/index.md', 'fields': ['*'], 'temporal': 'historical', 'max_age_days': 90,
+        'consumed_revision': 'a' * 40, 'query_policy_revision': 'b' * 40,
+        'use': 'interpretation', 'classification': 'synthetic',
+        'authority_digest': 'c' * 64, 'members_digest': 'd' * 64, 'selected_digest': 'e' * 64,
+        'query': {'scope': 'archive/items', 'filters': {'status': 'active'},
+                  'max_enumerated': 20, 'max_matches': 10, 'max_scan_bytes': 100000},
+    }
+    edges = operational_consumption_edges(Path('.'), 'consumer.md', {'information_requirements': [requirement]},
+                                          '', lambda ref: [ref])
+    assert len(edges) == 1
+    original = {'edges': edges, 'nodes': {'archive/index.md': {'page_type': 'source_catalog'},
+                                           'consumer.md': {'page_type': 'concept'}},
+                'documents': {'archive/index.md': 'Synthetic catalog', 'consumer.md': 'Historical note'}, 'errors': []}
+    current = deepcopy(original)
+    assert affected_dynamic_queries(current, original, {'AGENTS.md'}, set()) == []
+    assert affected_dynamic_queries(current, original, {'AGENTS.md'}, set(), legacy_authority_unavailable=True) == []
+    report = evaluate_information_impact(current, original, {'AGENTS.md'}, today=TODAY)
+    assert not report['integrity_blockers']
+    assert any(row['reason'] == 'historical_query_preserved_unverified' and not row['verification_performed']
+               for row in report['pending_reviews'])
+    for path in ('consumer.md', 'archive/index.md', 'archive/items/member.md'):
+        assert affected_dynamic_queries(current, original, {'AGENTS.md', path}, set())
+        assert affected_dynamic_queries(current, original, {'AGENTS.md'}, {path})
+    altered = deepcopy(current)
+    altered['edges'][0]['requirement']['selected_digest'] = 'f' * 64
+    assert affected_dynamic_queries(altered, original, {'AGENTS.md'}, set())
+    assert affected_dynamic_queries({'edges': []}, original, {'AGENTS.md'}, set())
+    incomplete = deepcopy(original)
+    del incomplete['edges'][0]['requirement']['authority_digest']
+    assert affected_dynamic_queries(incomplete, incomplete, {'AGENTS.md'}, set())
+    live = deepcopy(original)
+    live['edges'][0]['requirement']['temporal'] = 'current'
+    assert affected_dynamic_queries(live, live, {'AGENTS.md'}, set())
+    folder = deepcopy(original)
+    folder['edges'][0]['requirement'].update(authority_format='folder', entry_folder='archive', entry_index='archive/index.md')
+    assert affected_dynamic_queries(folder, folder, {'archive/AGENTS.md'}, set())
+    outcome = assess_information_use(current, 'consumer.md', now=dt.datetime(2026, 11, 5, tzinfo=dt.timezone.utc))
+    assert not outcome['ready']
+    assert 'information_query_requires_authorized_revalidation' in outcome['requirements'][0]['blockers']
+
+
 def graph():
     nodes = {p: {'updated_at': '2026-01-01', 'stale_after_days': 10}
              for p in ['action', 'queue', 'panel', 'review', *[f'source{i}' for i in range(12)]]}
