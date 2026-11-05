@@ -18,6 +18,10 @@
     "merge"
   ],
   "properties": {
+    "coverage_missing": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
     "schema_version": {
       "const": "wiki.context-integration/v1"
     },

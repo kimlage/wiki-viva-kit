@@ -320,5 +320,10 @@ def validate_result(result, packet):
     declared = {json.dumps(item, sort_keys=True) for item in packet['declared_read_set']}
     observed = {json.dumps(item, sort_keys=True) for item in result['read_coverage']['observed_refs']}
     if queries and result['status'] == 'completed' and observed != declared: raise PolicyError('query task must report every delivered input')
+    if packet.get('authority_format') == 'folder' and result['status'] == 'completed' and observed != declared:
+        raise PolicyError('folder task must report every delivered input')
+    if packet.get('authority_format') == 'folder' and result['status'] == 'completed':
+        if not set(packet['coverage']['missing']).issubset(result['read_coverage']['missing']):
+            raise PolicyError('folder task must preserve missing coverage')
     if not observed.issubset(declared): raise PolicyError('result reports undeclared reads')
     return True

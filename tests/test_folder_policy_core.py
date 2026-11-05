@@ -224,6 +224,39 @@ def test_evidence_under_nested_git_is_not_read(repo, monkeypatch):
     assert 'alpha/clone/record.md' not in opened
 
 
+def test_preflight_rejects_whole_diff_before_reading_nested_clone(repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    enable_alpha(repo)
+    write(repo, 'alpha/clone/record.md', '# Tracked before clone\n')
+    write(repo, 'alpha/a-safe.md', '# Original\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'tracked sources'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    policy = folder_policy(repo)
+    base = git(repo, 'rev-parse', 'HEAD')
+    selected = packet(repo)
+    git(repo, 'checkout', '-qb', 'wiki/folder-clone-diff')
+    write(repo, 'alpha/clone/record.md', '# Proposed inside clone\n')
+    write(repo, 'alpha/a-safe.md', '# Proposed ordinary file\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'two changes')
+    head = git(repo, 'rev-parse', 'HEAD')
+    git(repo / 'alpha/clone', 'init', '-q')
+    result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
+              'task_id': 'task', 'context_id': 'alpha', 'packet_digest': selected['packet_digest'],
+              'changes': [{'path': 'alpha/clone/record.md', 'action': 'modified'},
+                          {'path': 'alpha/a-safe.md', 'action': 'modified'}],
+              'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': selected['coverage']['missing']}, 'blockers': []}
+    opened = []
+    original = RepositoryReader.read
+    def spy(self, path, **kwargs):
+        opened.append(path)
+        return original(self, path, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', spy)
+    with pytest.raises(IntegrationError, match='crosses repository boundary'):
+        preflight(repo, policy, context_id='alpha', base=base, head=head,
+                  branch='wiki/folder-clone-diff', packet=selected, result=result)
+    assert 'alpha/clone/record.md' not in opened
+    assert 'alpha/a-safe.md' not in opened
+
+
 def test_folder_packet_preflight_requires_exact_current_inputs(repo):
     enable_alpha(repo)
     policy = folder_policy(repo)
@@ -236,11 +269,23 @@ def test_folder_packet_preflight_requires_exact_current_inputs(repo):
     result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
               'task_id': 'task', 'context_id': 'alpha', 'packet_digest': selected['packet_digest'],
               'changes': [{'path': 'alpha/output.md', 'action': 'created'}],
-              'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': []}, 'blockers': []}
+              'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': selected['coverage']['missing']}, 'blockers': []}
     output = preflight(repo, policy, context_id='alpha', base=base, head=head,
                        branch='wiki/folder-task', packet=selected, result=result)
     assert output['state'] == 'independent_review_required'
     assert output['review'] == output['merge'] == 'not_performed'
+    assert output['coverage_missing'] == ['linked sources not inspected']
+    schema = json.loads((__import__('pathlib').Path(__file__).resolve().parents[1] /
+                         'docs/references/schemas/wiki-context-integration-v1.schema.json').read_text())
+    validate(output, schema)
+    no_read = copy.deepcopy(result); no_read['read_coverage']['observed_refs'] = []
+    with pytest.raises(IntegrationError, match='invalid task result'):
+        preflight(repo, policy, context_id='alpha', base=base, head=head,
+                  branch='wiki/folder-task', packet=selected, result=no_read)
+    no_missing = copy.deepcopy(result); no_missing['read_coverage']['missing'] = []
+    with pytest.raises(IntegrationError, match='invalid task result'):
+        preflight(repo, policy, context_id='alpha', base=base, head=head,
+                  branch='wiki/folder-task', packet=selected, result=no_missing)
     git(repo, 'update-ref', 'refs/remotes/origin/main', head)
     with pytest.raises(ValueError, match='not current trusted approval'):
         preflight(repo, policy, context_id='alpha', base=base, head=head,
@@ -259,7 +304,46 @@ def test_folder_preflight_rejects_config_authority_change(repo):
     result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
               'task_id': 'task', 'context_id': 'alpha', 'packet_digest': selected['packet_digest'],
               'changes': [{'path': 'wiki.config.yaml', 'action': 'modified'}],
-              'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': []}, 'blockers': []}
+              'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': selected['coverage']['missing']}, 'blockers': []}
     with pytest.raises(IntegrationError, match='policy change'):
         preflight(repo, policy, context_id='alpha', base=base, head=head,
                   branch='wiki/folder-policy-change', packet=selected, result=result)
+
+
+def test_explicit_evidence_reason_may_match_automatic_label(repo):
+    enable_alpha(repo)
+    write(repo, 'alpha/evidence.md', '# evidence\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'source'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    policy = folder_policy(repo)
+    base = git(repo, 'rev-parse', 'HEAD')
+    evidence = [{'ref': 'alpha/evidence.md', 'producer': 'alpha', 'reason': 'selected context index',
+                 'use': 'interpretation', 'classification': 'context'}]
+    selected = build_packet(repo, policy, 'alpha', base, evidence, 100000, task_id='task',
+                            goal='goal', output='output', integrator='operator', entry_folder='alpha/aux')
+    git(repo, 'checkout', '-qb', 'wiki/folder-reason')
+    write(repo, 'alpha/output.md', '# result\n'); git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'output')
+    result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed', 'task_id': 'task',
+              'context_id': 'alpha', 'packet_digest': selected['packet_digest'],
+              'changes': [{'path': 'alpha/output.md', 'action': 'created'}],
+              'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': selected['coverage']['missing']}, 'blockers': []}
+    assert preflight(repo, policy, context_id='alpha', base=base, head=git(repo, 'rev-parse', 'HEAD'),
+                     branch='wiki/folder-reason', packet=selected, result=result)['state'] == 'independent_review_required'
+
+
+@pytest.mark.parametrize('change', ['delete', 'empty'])
+def test_context_index_boundary_change_needs_separate_review(repo, change):
+    enable_alpha(repo)
+    policy = folder_policy(repo)
+    base = git(repo, 'rev-parse', 'HEAD')
+    selected = packet(repo)
+    git(repo, 'checkout', '-qb', 'wiki/folder-index-change')
+    if change == 'delete': (repo / 'alpha/index.md').unlink()
+    else: write(repo, 'alpha/index.md', '  \n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'change context boundary')
+    result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed', 'task_id': 'task',
+              'context_id': 'alpha', 'packet_digest': selected['packet_digest'],
+              'changes': [{'path': 'alpha/index.md', 'action': 'deleted' if change == 'delete' else 'modified'}],
+              'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': selected['coverage']['missing']}, 'blockers': []}
+    with pytest.raises(IntegrationError, match='context boundary change'):
+        preflight(repo, policy, context_id='alpha', base=base, head=git(repo, 'rev-parse', 'HEAD'),
+                  branch='wiki/folder-index-change', packet=selected, result=result)
