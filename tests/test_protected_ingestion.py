@@ -372,26 +372,21 @@ def test_event_cannot_be_instruction_file(prepared_repo):
     assert not (root / 'memories/AGENTS.md').exists()
 
 
-@pytest.mark.parametrize('implicit_cwd', [False, True])
-def test_cli_local_operator_prepare_record_consolidate(prepared_repo, implicit_cwd):
+def test_cli_local_operator_prepare_record_consolidate(prepared_repo):
     import os
     from pathlib import Path
     root, _ = prepared_repo
     sha = _nested_integrator_repo(root)
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
     env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
-    if implicit_cwd:
-        env['WIKI_COORDINATION_ALLOWED_CONTEXTS'] = 'alpha,.'
     def call(stage, payload):
-        context_args = [] if implicit_cwd else ['--context-id', 'alpha']
         completed = subprocess.run([sys.executable, str(script), '--root', str(root),
-            *context_args, '--integrator-context', '.', '--approved-revision', sha, '--source-stage', stage],
+            '--context-id', 'alpha', '--integrator-context', '.', '--approved-revision', sha, '--source-stage', stage],
             input=json.dumps(payload), text=True, capture_output=True, check=True,
-            cwd=root / 'alpha' if implicit_cwd else root, env=env)
+            cwd=root, env=env)
         return json.loads(completed.stdout)['result']
-    base = {'source_ref': 'alpha/source.txt', 'context_selection': {'omit_root_entity': True}}
-    if not implicit_cwd:
-        base.update(entry_folder='alpha', entry_index='alpha/index.md')
+    base = {'source_ref': 'alpha/source.txt', 'context_selection': {'omit_root_entity': True},
+            'entry_folder': 'alpha', 'entry_index': 'alpha/index.md'}
     prepared = call('prepare', {**base, 'source_context': 'alpha'})
     request = prepared['request']; row = request['chunks'][0]
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
@@ -460,13 +455,25 @@ def test_source_stage_cwd_uses_selected_source_configuration(prepared_repo):
         output = subprocess.run(command + [name], cwd=root / 'alpha', env=env, input=json.dumps(data),
                                 text=True, capture_output=True, check=True)
         return json.loads(output.stdout)['result']
-    assert stage('record', {**base, **ids, 'results': [_result_for(request)]})['recorded'] == 1
+    result = _result_for(request)
+    assert stage('record', {**base, **ids, 'results': [result]})['recorded'] == 1
+    row = request['chunks'][0]
+    inspected = stage('inspect', {**base, **ids, 'view': 'results', 'chunk_ids': [row['chunk_id']]})
+    assert inspected['results'] == [{'chunk_id': row['chunk_id'], 'result': result}]
+    repeated = stage('prepare', {**base, 'source_context': 'alpha'})
+    assert repeated['request_id'] == prepared['request_id']
+    assert repeated['request']['chunks'][0]['result_exists'] is True
     event = ('memories/system/ingestion/events/2026-11-04-' + hashlib.sha256(ids['source_id'].encode()).hexdigest()
              + '-' + ids['request_id'] + '.md')
     proposal = stage('consolidate', {**base, **ids, 'source_page': 'memories/sources/synthetic.md',
                                      'event_target': event, 'date': '2026-11-04'})
     assert proposal['integration'] == 'pending review and incorporation'
     assert (root / event).is_file()
+    inspected = stage('inspect', {**base, **ids, 'view': 'integration', 'candidates': []})
+    assert inspected['packet']['source_id'] == prepared['source_id']
+    assert inspected['packet']['source_hash_sha256'] == request['source_hash_sha256']
+    assert inspected['event_status'] == 'not checked'
+    assert inspected['integration'] == 'not assessed'
 
 
 def test_source_stage_cwd_never_creates_authorization(prepared_repo):

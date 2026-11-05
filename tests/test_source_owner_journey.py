@@ -56,17 +56,30 @@ def test_source_hub_owner_review_and_denied_binding(prepared_repo, monkeypatch):
     binding = CoordinationBinding(('.', child), 'refs/remotes/origin/main', 'wiki.config.yaml')
     prepared = prepare(root, binding, **args, source_context='system')
     request = prepared['request']; chunk = request['chunks'][0]
+    selection = request['source_authorization']['context_selection']
+    assert selection['source_config'] == 'memories/config.md'
+    assert selection['input_channel'] == 'memories/channel.md'
+    assert request['target_pages'] == ['memories/hub.md']
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{k: request[k] for k in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
         **{k: chunk[k] for k in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
         'perspectives_required': [], 'perspectives': {}, 'entities': [], 'claims': []}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
-    record(root, binding, **args, **ids, results=[result])
+    assert record(root, binding, **args, **ids, results=[result])['recorded'] == 1
     event = ('memories/system/ingestion/events/2026-11-04-' + hashlib.sha256(ids['source_id'].encode()).hexdigest()
              + '-' + ids['request_id'] + '.md')
-    consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
-                event_target=event, date=dt.date(2026, 11, 4))
-    assert inspect(root, binding, **args, **ids, view='integration', candidates=[])['integration'] == 'not assessed'
+    output = consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
+                         event_target=event, date=dt.date(2026, 11, 4))
+    assert output['integration'] == 'pending review and incorporation'
+    readback = inspect(root, binding, **args, **ids, view='integration', candidates=[])
+    assert readback['integration'] == 'not assessed'
+    impact = readback['packet']['impact']
+    assert impact['must_update'] == ['memories/hub.md']
+    assert impact['should_review'] == ['memories/by-path.md', 'memories/consumer.md', 'memories/requirement.md', 'memories/unlinked.md']
+    assert 'memories/other.md' not in impact['must_update'] + impact['should_review']
+    assert {row['path'] for row in readback['packet']['candidate_provenance']} == {
+        'memories/hub.md', 'memories/by-path.md', 'memories/consumer.md', 'memories/other.md',
+        'memories/requirement.md', 'memories/unlinked.md'}
     branch = git(root, 'branch', '--show-current')
     git(root, 'checkout', '-qb', 'wiki/synthetic-integrate')
     for ref in ('memories/sources/synthetic.md', 'memories/hub.md'):

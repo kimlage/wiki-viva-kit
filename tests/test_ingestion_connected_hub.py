@@ -1,16 +1,11 @@
 """A registered source keeps its declared routing through folder ingestion."""
-import datetime as dt
-import hashlib
-import json
-from pathlib import Path
-
 import pytest
 import yaml
 
 from tests.test_protected_ingestion import prepared_repo
 from tests.test_folder_policy_core import repo, write, git
 from wiki_core.coordination_context import CoordinationBinding
-from wiki_core.ingest.protected import prepare, record, consolidate, inspect
+from wiki_core.ingest.protected import prepare
 
 
 def connected(root):
@@ -37,37 +32,6 @@ def connected(root):
         entry_folder='.', entry_index='index.md', source_ref='source.txt',
         context_selection={'source_page': 'memories/sources/synthetic.md', 'omit_root_entity': True})
     return binding, args
-
-
-def test_source_connections_discover_hub_consumers_and_survive_readback(prepared_repo):
-    root, _ = prepared_repo
-    binding, args = connected(root)
-    prepared = prepare(root, binding, **args, source_context='system')
-    request = prepared['request']
-    selection = request['source_authorization']['context_selection']
-    assert selection['source_config'] == 'memories/config.md'
-    assert selection['input_channel'] == 'memories/channel.md'
-    assert request['target_pages'] == ['memories/hub.md']
-    sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
-    row = request['chunks'][0]
-    result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
-        **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-        'perspectives_required': [], 'perspectives': {}, 'entities': [], 'claims': []}
-    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
-    assert record(root, binding, **args, **ids, results=[result])['recorded'] == 1
-    event = ('memories/system/ingestion/events/2026-11-04-'
-        + hashlib.sha256(ids['source_id'].encode()).hexdigest() + '-' + ids['request_id'] + '.md')
-    output = consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
-        event_target=event, date=dt.date(2026, 11, 4))
-    assert output['integration'] == 'pending review and incorporation'
-    readback = inspect(root, binding, **args, **ids, view='integration', candidates=[])
-    impact = readback['packet']['impact']
-    assert impact['must_update'] == ['memories/hub.md']
-    assert impact['should_review'] == ['memories/by-path.md', 'memories/consumer.md', 'memories/requirement.md', 'memories/unlinked.md']
-    assert 'memories/other.md' not in impact['must_update'] + impact['should_review']
-    assert {row['path'] for row in readback['packet']['candidate_provenance']} == {
-        'memories/hub.md', 'memories/by-path.md', 'memories/consumer.md', 'memories/other.md',
-        'memories/requirement.md', 'memories/unlinked.md'}
 
 
 def test_connected_configuration_is_authorized_before_read_or_capture(prepared_repo, monkeypatch):
