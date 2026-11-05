@@ -133,6 +133,31 @@ approved-policy arguments. Automatic discovery does not select the root index;
 choose it explicitly when the root is the intended context. The physical entry
 folder and selected index are retained and revalidated before writes.
 
+### Host-bound protected source preparation
+
+The existing in-process host binding can call
+`wiki_core.coordination_context.protected_source_stage` for `prepare`, `record`
+and `consolidate`, with an explicitly authorized folder, approved revision,
+source and artifact owner. The binding is fixed by the host and is not selected
+by the payload. Result objects arrive from that host; these operations do not
+call a model. They use the existing `WikiPaths` layout under the reserved
+`.wiki-viva-protected` component within the configured Git-ignored derived root.
+The selected source, every retained artifact and event destination must satisfy
+the current policy. A context cannot write a derived artifact belonging to a
+different owner; such a request remains unavailable until a separately authorized
+integrator path exists. Each stage revalidates the source, selected context and
+revision. A failed write may leave partial effects and explicitly reports that
+inspection is needed before retry.
+
+This route supports local files up to 16 MB and explicitly selected candidates.
+It does not yet inspect linked sources, read independent Git repositories, expose
+an HTTP/CLI transport, or incorporate the event in memory. Regular compatibility
+search, audit, GC and result recording do not open the reserved new artifacts;
+their coverage does not include them. The older shared caches are not migrated
+or classified by this route. Their compatibility readers still require separate
+review before treating historical approved material as protected. A reserved
+name is a routing convention, not an access grant or a filesystem ACL.
+
 For example, from the wiki root, enter the chosen context and prepare a source
 using paths anchored to that root (replace the example paths and context):
 

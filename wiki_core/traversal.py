@@ -10,6 +10,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+PROTECTED_ARTIFACT_COMPONENT = '.wiki-viva-protected'
+
+
+def is_protected_artifact(path: Path) -> bool:
+    """Reserved application route; the name itself does not grant access."""
+    return any(part.casefold() == PROTECTED_ARTIFACT_COMPONENT for part in Path(path).parts)
+
 
 def is_in_nested_git(path: Path, *, wiki_root: Path) -> bool:
     """Check a selected path without crossing a nested Git or symlink boundary."""
@@ -47,7 +54,7 @@ def require_wiki_boundaries(wiki_root: Path, *, directories=(), files=()) -> Non
     for path in files:
         if is_in_nested_git(selected(path), wiki_root=resolved_root):
             raise ValueError('derived_path_crosses_repository_boundary')
-def require_wiki_path(root: Path, relative: str) -> Path:
+def require_wiki_path(root: Path, relative: str, *, allow_protected: bool = False) -> Path:
     """Select a local path without crossing symlinks or a nested Git root.
 
     The supplied root is trusted and may itself be relative. This does not
@@ -55,6 +62,8 @@ def require_wiki_path(root: Path, relative: str) -> Path:
     """
     from wiki_core.context_policy import safe_path
     relative = safe_path(relative, allow_root=True)
+    if is_protected_artifact(Path(relative)) and not allow_protected:
+        raise ValueError('protected_artifact_requires_bound_dispatch')
     current = Path(root).resolve(strict=True)
     if not current.is_dir():
         raise ValueError('wiki root unavailable')
@@ -99,6 +108,8 @@ def wiki_files(base: Path, *, wiki_root: Path | None = None, suffix: str | None 
     boundary. A separately selected repository can be traversed as its own root.
     """
     base = Path(base)
+    if is_protected_artifact(base):
+        return []
     if wiki_root is None and '..' in base.parts:
         return []
     if wiki_root is not None:
@@ -127,6 +138,7 @@ def wiki_files(base: Path, *, wiki_root: Path | None = None, suffix: str | None 
         current = Path(directory)
         subdirs[:] = sorted(name for name in subdirs
                            if name != '.git'
+                           and name.casefold() != PROTECTED_ARTIFACT_COMPONENT
                            and not (current / name).is_symlink()
                            and not os.path.lexists(current / name / '.git'))
         for name in sorted(files):

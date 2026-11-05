@@ -213,6 +213,10 @@ def _retained_local_request(paths: WikiPaths, source_id: str, max_bytes: int, re
 def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: bool = False,
                     current_request: dict | None = None, limits: dict | None = None, owner: str = "Context owner/integrator", before_write=None,
                     preserve_existing: bool = False) -> int:
+    from wiki_core.traversal import is_protected_artifact
+    if payload_path != '-' and is_protected_artifact(Path(payload_path)):
+        return _blocked(ContextRequestBlocked('protected_result_unavailable',
+            'Protected artifacts require bound dispatch.'), 'requested-input', owner)
     if preserve_existing:
         try:
             from wiki_core.context_selection import strict_json_loads
