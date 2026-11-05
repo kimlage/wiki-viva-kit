@@ -1281,6 +1281,26 @@ def _result_for(request):
             'perspectives_required': [], 'perspectives': {}}
 
 
+def test_budget_check_requires_original_source_and_request_ids(prepared_repo):
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    original = prepare(root, binding, **args, source_context='system')
+    assert original['result_budget']['status'] == 'within_limit'
+    assert original['request']['pending_llm_calls'] > 0
+    directory = root / 'data/derived/wiki/.wiki-viva-protected'
+    retained = next(directory.rglob('*' + original['request_id'] + '-llm-context-request.json'))
+    old_bytes = retained.read_bytes()
+    (root / 'source.txt').write_text('A different synthetic source requiring a new interpretation.\n')
+    current = prepare(root, binding, **args, source_context='system')
+    assert current['source_id'] != original['source_id']
+    assert current['request_id'] != original['request_id']
+    assert current['result_budget']['status'] == 'within_limit'
+    assert current['request']['pending_llm_calls'] > 0
+    assert retained.read_bytes() == old_bytes
+    assert list(directory.rglob('*' + current['request_id'] + '-llm-context-request.json'))
+
+
 def test_prepare_rechecks_exact_cache_without_changing_retained_request(prepared_repo):
     from wiki_core.llm.context_pass import canonical_request_text
     root, sha = prepared_repo

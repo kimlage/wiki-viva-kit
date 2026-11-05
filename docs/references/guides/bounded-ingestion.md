@@ -224,18 +224,25 @@ These checks are not an atomic filesystem transaction: if a change is detected
 after a write, the operation reports possible partial effects for inspection.
 
 `prepare` reports `result_budget`, including the 2 MB combined review limit and
-the bytes of the exact selected cached results observed in its readback; future
-results are not counted. An `exceeded` status warns that those observed results
-already exceed the limit. The route rechecks each selected result or absence
+the bytes of the exact selected cached results observed in its readback. A
+`within_limit` status covers only those existing results; missing and future
+results are not counted and can later exceed the limit. An `exceeded` status
+warns that the observed results already exceed it. The route rechecks each selected result or absence
 before returning, but the cache can change after that check; it is not an atomic
 snapshot or filesystem access control.
 After every `record` batch, `result_budget` reports the bytes in that submitted
 batch and explicitly marks the aggregate as unchecked. This count is not a net
 increase: an identical result might already have been recorded. `record` checks
 the written batch without scanning previous results. To check the current
-aggregate on demand, repeat `prepare` with the same selectors and limits; this
-reads the selected cache and can be expensive for many chunks or repositories.
-Consolidation enforces the combined limit before writing a packet or event.
+aggregate on demand, repeat `prepare` with the same selectors and limits, then
+compare **both** returned `source_id` and `request_id` to the original IDs. Use
+the reported aggregate for the original request only when both match. Identical
+selectors do not guarantee identical IDs: a changed source can produce a new
+capture and request. `prepare` is not a read-only check; it can retain new
+capture and request artifacts, and a failure can leave partial effects requiring
+reconciliation. It reads selected cache entries and can be expensive for many
+chunks or repositories. Consolidation enforces the combined limit before
+writing a packet or event; the separate inspection output limit also applies.
 
 To review retained data, use `--source-stage inspect` with the same selectors,
 limits, context selection, repository selection and integrator as the original

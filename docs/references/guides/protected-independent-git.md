@@ -69,7 +69,10 @@ the trusted host must protect the repository and storage while operating.
 Protected cache guards also recheck selected repository storage around reads.
 Each check walks bounded object-store metadata, so many chunks or a large store
 can make preparation, recording and inspection expensive. To check the
-cumulative review budget, rerun `prepare` on demand for the selected request.
+cumulative review budget, follow the [source guide](bounded-ingestion.md):
+rerun `prepare` with the same selectors and limits and compare both returned
+IDs to the original request. A changed source can create a different request
+and new artifacts; failure can leave partial effects.
 Metadata at the object-store
 root does not prove that nested entries remain unchanged.
 Local Git configuration is read with a 100 KB cap and a conservative lexical
