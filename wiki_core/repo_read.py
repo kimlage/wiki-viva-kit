@@ -35,7 +35,15 @@ class _LocalRepositoryReader(RepositoryReader):
     """Disable lazy promisor fetches, replacement refs and environment redirection."""
     def __init__(self, root, revision, *, exact_path=None, before_access=None):
         self._before_access = before_access
+        self._size_cache = {}
         super().__init__(root, revision, exact_path=exact_path, before_tree=before_access)
+
+    def blob_size(self, path):
+        # A pinned Git object ID has immutable size; actual body I/O still
+        # performs the live host/policy guard in _git immediately beforehand.
+        if path not in self._size_cache:
+            self._size_cache[path] = super().blob_size(path)
+        return self._size_cache[path]
 
     def _git(self, *args: str) -> bytes:
         if self._before_access is not None: self._before_access()

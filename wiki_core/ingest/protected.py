@@ -8,11 +8,14 @@ from __future__ import annotations
 import hashlib
 import datetime as dt
 import json
+import copy
 import mimetypes
 import re
 import subprocess
 import tempfile
+from contextvars import ContextVar
 from dataclasses import replace
+from functools import wraps
 from pathlib import Path
 
 import yaml
@@ -30,7 +33,7 @@ from wiki_core.llm.context_pass import (CONTEXT_PASS_SCHEMA_VERSION, canonical_r
 from wiki_core.paths import WikiPaths
 from wiki_core.repo_read import contains_access_secrets
 from wiki_core.repo_host import (selected_repository, authorize_repository_event,
-    authorize_repository_grant, _selection_ids)
+    authorize_repository_grant, check_repository_storage, _selection_ids)
 from wiki_core.source_manifest import classify_source, source_id_for, source_origin, chunk_document
 from wiki_core.traversal import (PROTECTED_ARTIFACT_COMPONENT, require_wiki_boundaries,
     require_wiki_path)
@@ -42,6 +45,22 @@ class ProtectedPartialError(ValueError):
 
 
 FOLDER_PROMPT_VERSION = 'v5'
+_STAGE_CACHE = ContextVar('wiki_protected_source_stage_cache', default=None)
+
+
+def _scoped_stage(operation):
+    @wraps(operation)
+    def invoke(*args, **kwargs):
+        from wiki_core.context_policy import policy_stage_cache
+        if _STAGE_CACHE.get() is not None:
+            return operation(*args, **kwargs)
+        token = _STAGE_CACHE.set({'authorities': {}, 'packets': {}, 'repositories': {}})
+        try:
+            with policy_stage_cache():
+                return operation(*args, **kwargs)
+        finally:
+            _STAGE_CACHE.reset(token)
+    return invoke
 
 
 def _format_omissions(source_ref):
@@ -58,6 +77,12 @@ def _format_omissions(source_ref):
 def _authority(root, binding, context_id, approved_revision, entry_folder, entry_index, budget,
                artifact_context=None):
     root = Path(root).resolve(strict=True)
+    cache = _STAGE_CACHE.get()
+    key = (str(root), binding, context_id, approved_revision, entry_folder, entry_index, budget, artifact_context)
+    if cache is not None and key in cache['authorities']:
+        cached = cache['authorities'][key]
+        cached[1].fresh()
+        return cached
     policy = _policy(root, binding, context_id, approved_revision)
     if getattr(policy, 'format_version', None) != 'folder':
         raise ProtectedCoordinationError('coordination_policy_unavailable')
@@ -86,7 +111,10 @@ def _authority(root, binding, context_id, approved_revision, entry_folder, entry
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=local_git_environment())
     if ignored.returncode != 0:
         raise ValueError('protected cache must be excluded from Git')
-    return root, policy, config, WikiPaths(root, config)
+    result = root, policy, config, WikiPaths(root, config)
+    if cache is not None:
+        cache['authorities'][key] = result
+    return result
 
 
 def _allowed(root, policy, context_id, path, action):
@@ -227,7 +255,18 @@ def _repository(binding, policy, context_id, actor, selection):
     # Qualify every requested grant before opening any selected Git repository.
     for item in ids:
         authorize_repository_grant(binding, policy, context_id, actor, item)
-    rows = [selected_repository(binding, policy, context_id, actor, item) for item in ids]
+    cache = _STAGE_CACHE.get()
+    rows = []
+    for item in ids:
+        key = (binding, policy.policy_revision, context_id, actor, item)
+        if cache is not None and key in cache['repositories']:
+            check_repository_storage(binding, policy, context_id, actor, item)
+            row = copy.deepcopy(cache['repositories'][key])
+        else:
+            row = selected_repository(binding, policy, context_id, actor, item)
+            if cache is not None:
+                cache['repositories'][key] = copy.deepcopy(row)
+        rows.append(row)
     return rows[0] if isinstance(selection, str) else rows
 
 
@@ -266,6 +305,13 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
     from wiki_core.ingest.explicit_context import (explicit_ingestion_evidence,
         resolve_explicit_ingestion_context, _selection)
     selection = _selection(selection)
+    cache = _STAGE_CACHE.get()
+    key = canonical_request_text({'root': str(root), 'revision': revision, 'context_id': context_id,
+        'actor': actor, 'folder': folder, 'index': index, 'budget': budget, 'task_id': task_id,
+        'selection': selection, 'perspective_refs': perspective_refs, 'source_ref': source_ref})
+    if cache is not None and key in cache['packets']:
+        policy.fresh()
+        return copy.deepcopy(cache['packets'][key])
     evidence = explicit_ingestion_evidence(policy, selection)
     def build(rows, omissions):
         return context_packet(root, policy, context_id, revision, rows, budget,
@@ -280,11 +326,18 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
     optional_gaps = ['Optional perspective ' + item + ' not selected.'
                      for item in projected['perspectives_optional'] if item not in paths]
     format_gaps = _format_omissions(source_ref)
-    packet = build(evidence + lenses, projected['context_omissions'] + optional_gaps + format_gaps)
+    if lenses:
+        packet = build(evidence + lenses, projected['context_omissions'] + optional_gaps + format_gaps)
+    else:
+        from wiki_core.context_packet import _packet_with_omissions
+        packet = _packet_with_omissions(preliminary, projected['context_omissions'] + optional_gaps + format_gaps, policy)
     projected = resolve_explicit_ingestion_context(packet, selection, config)
     projected['context_omissions'] += optional_gaps + format_gaps
     _check_perspective_packet(packet, paths)
-    return packet, projected, selection, required, optional, paths
+    result = packet, projected, selection, required, optional, paths
+    if cache is not None:
+        cache['packets'][key] = copy.deepcopy(result)
+    return result
 
 
 def _read_json(root, policy, context_id, path, *, max_bytes=2_000_000):
@@ -600,6 +653,103 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
 
+def compare_repositories(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
+                         source_ref, source_id, request_id, repository_selection,
+                         previous_repository_selection, current_repository_selection, source_page, candidates,
+                         context_selection=None, perspective_refs=None, artifact_context=None,
+                         context_max_bytes=100_000, request_max_bytes=1_000_000):
+    """Compare explicitly authorized revisions; report suggestions, never effects or consumption."""
+    from wiki_core.consolidate import compare_repository_candidates
+    from wiki_core.context_selection import _metadata
+    from wiki_core.llm.context_pass import validate_result
+    from wiki_core.repo_read import remote_identity
+    actor = context_id if artifact_context is None else artifact_context
+    root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
+        entry_folder, entry_index, context_max_bytes, actor)
+    ids = _selection_ids(repository_selection)
+    if previous_repository_selection not in ids or not isinstance(current_repository_selection, str):
+        raise ValueError('repository comparison unavailable')
+    grants = {item: authorize_repository_grant(binding, policy, context_id, actor, item)
+              for item in dict.fromkeys(ids + [current_repository_selection])}
+    previous_grant, current_grant = grants[previous_repository_selection], grants[current_repository_selection]
+    if (previous_grant.root != current_grant.root
+            or previous_grant._physical_root != current_grant._physical_root
+            or previous_grant._physical_storage != current_grant._physical_storage
+            or previous_grant.identity != current_grant.identity or previous_grant.path != current_grant.path):
+        raise ValueError('repository comparison unavailable')
+    if (not isinstance(candidates, list) or not 1 <= len(candidates) <= 128
+            or any(not isinstance(ref, str) for ref in candidates)):
+        raise ValueError('repository comparison unavailable')
+    source_page = safe_path(source_page)
+    refs = [safe_path(ref) for ref in candidates]
+    if len(set([source_page, *refs])) != len(refs) + 1 or contains_access_secrets([source_page, refs]):
+        raise ValueError('repository comparison unavailable')
+    if not isinstance(context_selection, dict) or context_selection.get('source_page') != source_page:
+        raise ValueError('repository comparison requires the selected source page')
+    for ref in [source_page, *refs]:
+        if not ref.endswith('.md'):
+            raise ValueError('repository comparison unavailable')
+        _allowed(root, policy, context_id, root / ref, 'read')
+        _allowed(root, policy, actor, root / ref, 'read')
+    options = dict(context_id=context_id, approved_revision=approved_revision, entry_folder=entry_folder,
+        entry_index=entry_index, source_ref=source_ref, source_id=source_id, request_id=request_id,
+        context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes, artifact_context=artifact_context,
+        perspective_refs=perspective_refs, context_selection=context_selection, repository_selection=repository_selection)
+    root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
+    retained = request.get('repository_context')
+    rows = retained if isinstance(retained, list) else [retained]
+    old = [row for row in rows if isinstance(row, dict) and row.get('selection_id') == previous_repository_selection]
+    if len(old) != 1: raise ValueError('repository comparison unavailable')
+    old = old[0]
+    current = selected_repository(binding, policy, context_id, actor, current_repository_selection)
+    if (old['repository_identity'], old['path']) != (current['repository_identity'], current['path']):
+        raise ValueError('repository comparison unavailable')
+    for row in request['chunks']:
+        result = _read_json(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'))
+        if contains_access_secrets(result) or validate_result(result) or not result_matches_request(result, request, row):
+            raise ValueError('recorded result unavailable')
+    metadata = []
+    page_hashes = []
+    remaining = 1_000_000
+    for ref in [source_page, *refs]:
+        path = _allowed(root, policy, actor, root / ref, 'read')
+        policy.fresh()
+        with path.open('rb') as stream: raw = stream.read(remaining + 1)
+        policy.fresh()
+        if len(raw) > remaining: raise ValueError('repository comparison unavailable')
+        remaining -= len(raw)
+        page_hashes.append(hashlib.sha256(raw).hexdigest())
+        metadata.append(_metadata({'text': raw.decode('utf-8')}))
+    selected_pages = [row for row in request['block_context_package']['inputs']
+                      if row.get('ref') == source_page and row.get('reason') == 'Explicit ingestion source_page']
+    if len(selected_pages) != 1 or selected_pages[0]['document_sha256'] != page_hashes[0]:
+        raise ValueError('repository source association changed')
+    source = metadata[0]
+    locator = source.get('source_locator')
+    if (source.get('page_type') != 'source' or source.get('platform') != 'repo' or not isinstance(locator, str)
+            or remote_identity(locator if '://' in locator or '@' in locator else 'https://' + locator)[0] != old['repository_identity']):
+        raise ValueError('repository source association unavailable')
+    changed = old['content_sha256'] != current['content_sha256']
+    result = compare_repository_candidates(source_page, refs, metadata[1:], changed)
+    _, policy, _, _, again, repeated_digest = _open_bound(root, binding, **options)
+    if (again != request or repeated_digest != digest
+            or selected_repository(binding, policy, context_id, actor, current_repository_selection) != current):
+        raise ValueError('repository comparison changed')
+    for ref, expected in zip([source_page, *refs], page_hashes):
+        path = _allowed(root, policy, actor, root / ref, 'read')
+        policy.fresh()
+        with path.open('rb') as stream: raw = stream.read(1_000_001)
+        policy.fresh()
+        if len(raw) > 1_000_000 or hashlib.sha256(raw).hexdigest() != expected:
+            raise ValueError('repository comparison changed')
+    return {'repository_comparison': {'identity': old['repository_identity'], 'path': old['path'],
+        'before_revision': old['revision'], 'after_revision': current['revision'],
+        'before_digest': old['content_sha256'], 'after_digest': current['content_sha256'], 'changed': changed},
+        'source_page': source_page, 'candidates': result,
+        'coverage': 'explicit_candidates_only; selected_repository_only; file_consumption_unknown',
+        'effect': 'manual_suggestion_only; no_gate_effect', 'review': 'not_performed', 'write': 'not_performed'}
+
+
 def consolidate(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
                 source_ref, source_id, request_id, source_page, event_target, date,
                 candidates=(), context_max_bytes=100_000, request_max_bytes=1_000_000,
@@ -737,3 +887,10 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
             'coverage': 'explicit candidates only; linked sources not inspected',
             'integration': 'pending review and incorporation',
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
+
+
+# Cache is scoped to one operation, never shared across requests or threads.
+prepare = _scoped_stage(prepare)
+record = _scoped_stage(record)
+consolidate = _scoped_stage(consolidate)
+compare_repositories = _scoped_stage(compare_repositories)

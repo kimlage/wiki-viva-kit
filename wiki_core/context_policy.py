@@ -6,6 +6,9 @@ configured trusted ref must be maintained by an independent approval process.
 """
 from __future__ import annotations
 import datetime as dt
+import copy
+from contextlib import contextmanager
+from contextvars import ContextVar
 import re
 import subprocess
 from pathlib import Path, PurePosixPath
@@ -14,6 +17,22 @@ from wiki_core.git_env import local_git_environment, local_git_executable, local
 from wiki_core.git_safety import GitSafetyError
 
 class PolicyError(ValueError): pass
+
+
+_POLICY_STAGE_CACHE = ContextVar('wiki_policy_stage_cache', default=None)
+
+
+@contextmanager
+def policy_stage_cache():
+    """Reuse immutable-SHA policy data only within one trusted stage."""
+    if _POLICY_STAGE_CACHE.get() is not None:
+        yield
+        return
+    token = _POLICY_STAGE_CACHE.set({})
+    try:
+        yield
+    finally:
+        _POLICY_STAGE_CACHE.reset(token)
 
 class UniqueLoader(yaml.SafeLoader): pass
 
@@ -214,11 +233,19 @@ class ContextPolicy:
 
 def load_policy(root, approved_revision, manifest_path='context.yaml', *, trusted_ref='refs/remotes/origin/main'):
     root=Path(root).resolve(); manifest_path=safe_path(manifest_path)
-    sha=revision(root,approved_revision)
+    cache = _POLICY_STAGE_CACHE.get()
+    # A full SHA previously validated in this stage needs no second resolution;
+    # the trusted ref is still resolved before every reuse.
+    sha = approved_revision if cache is not None and isinstance(approved_revision, str) and re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', approved_revision) else revision(root,approved_revision)
     if sha!=revision(root,trusted_ref): raise PolicyError('policy revision is not current trusted approval ref')
+    key = (str(root), sha, manifest_path, trusted_ref)
+    if cache is not None and key in cache:
+        return copy.deepcopy(cache[key])
     policy = (_folder_policy_at(root, sha) if manifest_path == 'wiki.config.yaml'
               else _policy_at(root, sha, manifest_path))
     policy._binding=(str(root),trusted_ref,manifest_path)
+    if cache is not None:
+        cache[key] = copy.deepcopy(policy)
     return policy
 
 

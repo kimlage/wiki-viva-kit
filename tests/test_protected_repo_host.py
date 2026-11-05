@@ -139,6 +139,56 @@ def test_two_explicit_repositories_share_one_bound_request(configured):
     assert 'example.test/team/independent' in event and 'example.test/team/second' in event
 
 
+def test_protected_repo_comparison_only_suggests_selected_relevant_changes(configured, monkeypatch):
+    from wiki_core.ingest.protected import compare_repositories
+    root, external, binding, args = configured
+    source_page = 'memories/sources/synthetic.md'
+    write(root, source_page, '---\npage_id: source-synthetic\npage_type: source\nplatform: repo\n'
+        'source_locator: example.test/team/independent\n---\n# Source\n')
+    write(root, 'memories/candidate.md', '---\npage_id: candidate\npage_type: note\ninformation_requirements:\n'
+        '- target: memories/sources/synthetic.md\n  fields: [body]\n  temporal: current\n  max_age_days: 30\n---\n# Candidate\n')
+    write(root, 'memories/unrelated.md', '---\npage_id: unrelated\npage_type: note\n---\n# Unrelated\n')
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'selected source and candidates')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    args = {**args, 'approved_revision': git(root, 'rev-parse', 'HEAD'),
+            'context_selection': {'omit_root_entity': True, 'source_page': source_page}}
+    prepared = prepare(root, binding, **args, source_context='system')
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    assert record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])['recorded'] == 1
+    write(external, 'unrelated.md', '# unrelated change\n')
+    git(external, 'add', '.'); git(external, 'commit', '-qm', 'unrelated')
+    new_grant = replace(binding.repository_grants[0], selection_id='current', revision=git(external, 'rev-parse', 'HEAD'))
+    host = CoordinationBinding(binding.contexts, binding.trusted_ref, binding.manifest,
+                               (*binding.repository_grants, new_grant))
+    options = {**args, **ids, 'previous_repository_selection': 'guide', 'current_repository_selection': 'current',
+               'source_page': source_page, 'candidates': ['memories/candidate.md', 'memories/unrelated.md']}
+    with monkeypatch.context() as patch:
+        import wiki_core.ingest.protected as protected
+        patch.setattr(protected, 'selected_repository', lambda *a, **k: pytest.fail('Git opened before all grants'))
+        with pytest.raises(ValueError):
+            compare_repositories(root, binding, **options)
+        other = root.parent / (root.name + '-same-origin')
+        other.mkdir(); git(other, 'init', '-q')
+        foreign = replace(binding.repository_grants[0], selection_id='foreign', root=other.resolve())
+        different = CoordinationBinding(binding.contexts, binding.trusted_ref, binding.manifest,
+                                        (*binding.repository_grants, foreign))
+        with pytest.raises(ValueError):
+            compare_repositories(root, different, **{**options, 'current_repository_selection': 'foreign'})
+    unrelated = compare_repositories(root, host, **options)
+    assert not unrelated['repository_comparison']['changed']
+    assert all(row['state'] == 'unknown' for row in unrelated['candidates'])
+    write(external, 'guide.md', '# Synthetic guide\nChanged selected evidence.\n')
+    git(external, 'add', '.'); git(external, 'commit', '-qm', 'selected change')
+    new_grant = replace(new_grant, revision=git(external, 'rev-parse', 'HEAD'))
+    host = CoordinationBinding(binding.contexts, binding.trusted_ref, binding.manifest,
+                               (*binding.repository_grants, new_grant))
+    changed = compare_repositories(root, host, **options)
+    assert changed['repository_comparison']['changed']
+    assert [row['state'] for row in changed['candidates']] == ['review_pending', 'unknown']
+    assert all(row['file_consumption'] == 'unknown' for row in changed['candidates'])
+    assert changed['write'] == 'not_performed' and changed['review'] == 'not_performed'
+
+
 def test_missing_or_wrong_grant_fails_before_any_external_git_or_source(configured, monkeypatch):
     root, external, binding, args = configured
     import wiki_core.repo_read as repo_read

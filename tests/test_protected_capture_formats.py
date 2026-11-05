@@ -279,7 +279,7 @@ def test_tabular_chunker_rejects_oversize_row_instead_of_splitting(text):
     from wiki_core.chunking import chunk_text
 
     line = json.dumps({'row': 1, 'cells': [text]}, ensure_ascii=False)
-    with pytest.raises(ValueError, match='tabular row exceeds chunk budget'):
+    with pytest.raises(ValueError, match='tabular row exceeds estimated limit'):
         chunk_text('source', line, target_tokens=1, preserve_lines=True)
 
 
@@ -288,10 +288,18 @@ def test_oversize_tabular_source_is_rejected_before_artifact_creation(prepared_r
     source = root / 'large.csv'
     source.write_text('x' * 32_001, encoding='utf-8')
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
-    with pytest.raises(ValueError, match='tabular row exceeds chunk budget'):
+    with pytest.raises(ValueError, match='tabular row exceeds estimated limit'):
         prepare(root, binding, context_id='.', approved_revision=sha, entry_folder='.',
                 entry_index='index.md', source_ref=source.name, source_context='system')
     assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
+
+
+def test_one_token_target_still_uses_documented_minimum_word_estimate():
+    from wiki_core.chunking import chunk_text
+    text = 'x' * 100
+    assert chunk_text('source', text, target_tokens=1, preserve_lines=True)[0].text == text
+    with pytest.raises(ValueError, match='estimated limit'):
+        chunk_text('source', 'x' * 601, target_tokens=1, preserve_lines=True)
 
 
 def test_captured_email_preserves_plain_and_html_alternatives():

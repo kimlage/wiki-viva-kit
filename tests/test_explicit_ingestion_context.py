@@ -78,6 +78,40 @@ def test_global_root_only_when_explicit_and_omission_is_recorded(selected_repo):
         packet_for(repo, {'root_entity': 'global-root.md', 'omit_root_entity': True})
 
 
+def test_packet_omissions_reframe_matches_rebuilding_and_rejects_tamper(selected_repo):
+    from wiki_core.context_packet import _packet_with_omissions
+    repo, _ = selected_repo
+    selection = {'omit_root_entity': True}
+    policy = load_policy(repo, 'HEAD', 'wiki.config.yaml')
+    initial = build_packet(repo, policy, '.', 'HEAD', explicit_ingestion_evidence(policy, selection),
+        100_000, entry_folder='.', entry_index='index.md', task_id='task', goal='interpret',
+        output='proposal', integrator='synthetic')
+    omissions = ['Synthetic explicit coverage gap.']
+    updated = _packet_with_omissions(initial, omissions, policy)
+    rebuilt = build_packet(repo, policy, '.', 'HEAD', explicit_ingestion_evidence(policy, selection),
+        100_000, entry_folder='.', entry_index='index.md', task_id='task', goal='interpret',
+        output='proposal', integrator='synthetic', omissions=omissions)
+    assert updated == rebuilt
+    initial['inputs'][0]['text'] = 'tampered'
+    with pytest.raises(PolicyError): _packet_with_omissions(initial, omissions, policy)
+
+
+def test_stage_policy_cache_does_not_share_qualified_or_mutated_state(selected_repo):
+    from wiki_core.context_policy import policy_stage_cache
+    repo, _ = selected_repo
+    with policy_stage_cache():
+        first = load_policy(repo, 'HEAD', 'wiki.config.yaml')
+        first._qualified_contexts.add('.')
+        first.contexts['.']['owner'] = 'untrusted mutation'
+        second = load_policy(repo, first.policy_revision, 'wiki.config.yaml')
+        assert not second._qualified_contexts
+        assert second.contexts['.']['owner'] != 'untrusted mutation'
+        write(repo, 'new.md', '# New approved ref\n')
+        git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'advance')
+        git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+        with pytest.raises(PolicyError): first.fresh()
+
+
 def test_declared_config_and_channel_must_match_explicit_selected_bodies(selected_repo):
     repo, config = selected_repo
     selection = {'source_page': 'source-page.md', 'omit_root_entity': True}
