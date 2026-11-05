@@ -4,6 +4,7 @@ entity mention->link warn, the source registry, and the gate pending guard."""
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -213,17 +214,15 @@ def test_operational_concept_links_accepts_markdown_links(tmp_path, monkeypatch)
 def test_tracked_files_skip_deleted_paths(tmp_path, monkeypatch):
     audit = _load_audit()
     _write(tmp_path / "memories/people/ana.md", "# Ana\n")
+    deleted = tmp_path / "memories/people/deleted.md"
+    _write(deleted, "# Deleted\n")
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "memories/people"], cwd=tmp_path, check=True)
+    deleted.unlink()
     monkeypatch.setattr(audit, "ROOT", tmp_path)
-
-    def fake_git(args):
-        if args == ["ls-files"]:
-            return "memories/people/ana.md\nmemories/people/deleted.md"
-        if args == ["ls-files", "--others", "--exclude-standard"]:
-            return ""
-        return ""
-
-    monkeypatch.setattr(audit, "run_git", fake_git)
+    audit._audit_git_inventory.cache_clear()
     audit.tracked_files.cache_clear()
+    assert "memories/people/deleted.md" in audit._audit_git_inventory()
     assert audit.tracked_files() == ["memories/people/ana.md"]
 
 
