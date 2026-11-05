@@ -152,10 +152,15 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
                         raise PolicyError('query content is not an ancestor of its policy')
                     if folder_mode:
                         from wiki_core.context_packet import qualify_folder_context
-                        from wiki_core.context_selection import _equivalent_folder_authority
+                        from wiki_core.context_selection import _equivalent_folder_chain
                         qualify_folder_context(root, policy, context_id, req['entry_folder'], req['entry_index'], 2_000_000)
                         historical = (policy if req['query_policy_revision'] == policy.policy_revision else
-                                      _equivalent_folder_authority(policy, context_id, req['query_policy_revision'], entry, req['entry_folder'], req['entry_index']))
+                                      _equivalent_folder_chain(policy, context_id, req['query_policy_revision'], req['entry_folder'], req['entry_index']))
+                        # A replacement is evaluated separately with current
+                        # authority. Check the old receipt's recorded metadata
+                        # without requiring old and current grants to match or
+                        # opening blobs whose access may have been revoked.
+                        historical._qualified_contexts.add(context_id)
                     else:
                         historical = historical_policy(policy, req['query_policy_revision'])
                     if authority_digest(historical, context_id, entry) != req['authority_digest']:
