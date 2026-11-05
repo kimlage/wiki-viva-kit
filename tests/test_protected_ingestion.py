@@ -1011,6 +1011,29 @@ def test_prepare_checks_revocation_before_cache_open(prepared_repo, monkeypatch)
     assert opened == []
 
 
+def test_prepare_rechecks_cache_boundary_after_read(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    result = _result_for(first['request'])
+    record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'], results=[result])
+    cache = root / 'data/derived/wiki/.wiki-viva-protected/llm-cache'
+    read = protected._read_json
+    def replace_directory(*values, **kwargs):
+        observed = read(*values, **kwargs)
+        if values[3].name == result['cache_key'] + '.json':
+            moved = cache.parent / 'moved-cache'
+            cache.rename(moved)
+            cache.symlink_to(moved, target_is_directory=True)
+        return observed
+    monkeypatch.setattr(protected, '_read_json', replace_directory)
+    with pytest.raises(protected.ProtectedPartialError, match='cache readback unavailable'):
+        prepare(root, binding, **args, source_context='system')
+    assert cache.is_symlink()
+
+
 def test_revocation_after_last_result_write_reports_partial(prepared_repo, monkeypatch):
     from wiki_core.ingest import protected
     root, sha = prepared_repo
