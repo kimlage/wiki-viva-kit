@@ -11,6 +11,7 @@ from jsonschema import validate
 from wiki_core.context_policy import PolicyError, load_policy, historical_policy
 from wiki_core.context_packet import build_packet
 from wiki_core.context_integration import preflight, IntegrationError
+from wiki_core.context_requirements import requirements_from_result, RequirementError
 
 
 def git(root, *args):
@@ -412,3 +413,45 @@ def test_legacy_receipts_require_requalification_without_read(repo):
     with pytest.raises(PolicyError, match='requires requalification'):
         reproduce_query(policy, 'alpha', None, {}, policy_revision=policy.policy_revision,
                         expected_authority='0' * 64)
+
+
+def test_folder_requirements_revalidate_after_approved_proposal(repo):
+    enable_alpha(repo)
+    selected = packet(repo)
+    git(repo, 'checkout', '-qb', 'wiki/folder-requirements')
+    write(repo, 'alpha/output.md', '# Approved synthetic interpretation\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'proposal')
+    head = git(repo, 'rev-parse', 'HEAD')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
+              'task_id': 'task', 'context_id': 'alpha', 'packet_digest': selected['packet_digest'],
+              'changes': [{'path': 'alpha/output.md', 'action': 'created'}],
+              'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': selected['coverage']['missing']}, 'blockers': []}
+    output = requirements_from_result(repo, folder_policy(repo), packet=selected, result=result,
+                                      output_path='alpha/output.md', proposal_head=head,
+                                      temporal='current', max_age_days=30)
+    assert output['read_claim'] == 'reported_not_verified' and output['write'] == 'not_performed'
+    assert output['coverage_missing'] == ['linked sources not inspected']
+    assert any(row['target'] == 'alpha/index.md' for row in output['information_requirements'])
+    schema = json.loads((Path(__file__).resolve().parents[1] /
+                         'docs/references/schemas/wiki-context-requirements-v1.schema.json').read_text())
+    validate(output, schema)
+
+
+def test_folder_requirements_refuse_changed_authority_inputs(repo):
+    enable_alpha(repo)
+    selected = packet(repo)
+    git(repo, 'checkout', '-qb', 'wiki/folder-stale')
+    write(repo, 'alpha/output.md', '# Proposed result\n')
+    write(repo, 'alpha/AGENTS.override.md', '# Changed instruction\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'changed instructions')
+    head = git(repo, 'rev-parse', 'HEAD')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
+              'task_id': 'task', 'context_id': 'alpha', 'packet_digest': selected['packet_digest'],
+              'changes': [{'path': 'alpha/output.md', 'action': 'created'}],
+              'read_coverage': {'observed_refs': selected['declared_read_set'], 'missing': selected['coverage']['missing']}, 'blockers': []}
+    with pytest.raises(RequirementError, match='reported input changed'):
+        requirements_from_result(repo, folder_policy(repo), packet=selected, result=result,
+                                 output_path='alpha/output.md', proposal_head=head,
+                                 temporal='current', max_age_days=30)

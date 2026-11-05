@@ -6,6 +6,7 @@ import yaml
 
 from wiki_core.context_impact import ImpactError, assess_impact, report_review
 from wiki_core.context_policy import load_policy
+from wiki_core.context_requirements import assess_approved_impact
 
 
 def git(root, *args):
@@ -61,6 +62,23 @@ def test_folder_impact_and_report_are_review_only(repo):
                            reason='synthetic review', evidence_revision=after)
     assert review['verification'] == 'reported_not_verified'
     assert not review['next_impact_allowed']
+
+
+def test_folder_approved_markdown_requirement_is_selected(repo):
+    consumed = git(repo, 'rev-parse', 'HEAD')
+    requirement = {'target': 'alpha/source.md', 'fields': ['*'], 'temporal': 'current',
+                   'max_age_days': 30, 'consumed_revision': consumed,
+                   'use': 'interpret', 'classification': 'internal'}
+    page = {'page_id': 'synthetic-interpretation', 'page_type': 'claim',
+            'information_requirements': [requirement]}
+    write(repo, 'alpha/result.md', '---\n' + yaml.safe_dump(page) + '---\nInterpretation\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'record requirement'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    before, after = change(repo)
+    result = assess_approved_impact(repo, load_policy(repo, after, 'wiki.config.yaml'),
+                                    consumers=['alpha/result.md'], before=before, after=after,
+                                    destination_context='alpha')
+    assert [row['target'] for row in result['candidates']] == ['alpha/result.md']
+    assert result['candidates'][0]['state'] == 'review_pending'
 
 
 def test_cross_context_grant_still_requires_requalification(repo, monkeypatch):
