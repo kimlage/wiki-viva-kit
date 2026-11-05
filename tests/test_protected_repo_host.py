@@ -134,6 +134,35 @@ def test_unselected_missing_repository_does_not_block_host_or_selected_read(conf
             prepare(root, host, **{**args, 'repository_selection': ['guide', 'missing']}, source_context='system')
 
 
+def test_selected_repository_root_swap_after_pin_is_denied_before_git(configured, monkeypatch):
+    root, external, binding, args = configured
+    prepare(root, binding, **args, source_context='system')
+    external.rename(external.with_name(external.name + '-preserved'))
+    external.mkdir()
+    import wiki_core.repo_read as repo_read
+    monkeypatch.setattr(repo_read, '_git', lambda *a, **k: pytest.fail('Git opened after root swap'))
+    with pytest.raises(ValueError):
+        prepare(root, binding, **args, source_context='system')
+
+
+def test_revocation_during_storage_walk_stops_before_external_git(configured, monkeypatch):
+    root, _, binding, args = configured
+    write(root, 'advance.md', '# New policy revision\n')
+    git(root, 'add', 'advance.md'); git(root, 'commit', '-qm', 'advance')
+    next_revision = git(root, 'rev-parse', 'HEAD')
+    import wiki_core.repo_host as host
+    import wiki_core.repo_read as repo_read
+    original = host._storage_identity
+    def revoke(*a, **kw):
+        result = original(*a, **kw)
+        git(root, 'update-ref', 'refs/remotes/origin/main', next_revision)
+        return result
+    monkeypatch.setattr(host, '_storage_identity', revoke)
+    monkeypatch.setattr(repo_read, '_git', lambda *a, **k: pytest.fail('external Git opened after revocation'))
+    with pytest.raises(ValueError):
+        prepare(root, binding, **args, source_context='system')
+
+
 def test_two_explicit_repositories_share_one_bound_request(configured):
     root, external, binding, args = configured
     second = root.parent / (root.name + '-second')

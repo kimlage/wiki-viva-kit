@@ -183,8 +183,9 @@ def _capture(root, policy, context_id, source_ref, source_context, config, artif
         raise ValueError('source context unavailable')
     source = _source(root, policy, context_id, source_ref, artifact_context)
     cache = _STAGE_CACHE.get()
-    key = (str(root), policy.policy_revision, context_id, source_ref, source_context, artifact_context,
-           config.llm.get('chunk_target_tokens', 1200), config.llm.get('chunk_overlap_tokens', 150))
+    key = ((str(root), policy.policy_revision, context_id, source_ref, source_context, artifact_context,
+            config.llm.get('chunk_target_tokens', 1200), config.llm.get('chunk_overlap_tokens', 150))
+           if cache is not None else None)
     if cache is not None and expected_digest is not None and key in cache['captures']:
         captured = cache['captures'][key]
         policy.fresh()

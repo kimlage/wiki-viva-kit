@@ -107,7 +107,9 @@ def _policy(root, binding, context_id, approved_revision):
 
 
 def prepare_packet(root, binding, payload):
-    if binding is not None and binding.manifest != 'wiki.config.yaml':
+    if binding is None:
+        raise ProtectedCoordinationError('coordination_not_available')
+    if binding.manifest != 'wiki.config.yaml':
         raise ProtectedCoordinationError('coordination_v1_retired')
     required_payload={'context_id','approved_revision','content_revision','task'}
     folder_mode = binding is not None and binding.manifest == 'wiki.config.yaml'

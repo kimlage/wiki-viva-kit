@@ -56,6 +56,10 @@ and the Git installation. A configured origin only checks local routing; it is
 not proof of the remote repository's identity. Other links and files are not
 inspected by this selection.
 
+The source stage still requires a separately authorized repository-local
+`source_ref`. Selected independent Git files are interpretation evidence;
+the adapter does not capture a Git blob as the primary source.
+
 This adapter requires an ordinary `.git` directory inside the selected root.
 It rejects gitfiles/worktrees, `commondir`, object alternates, symlinked or
 hard-linked Git object storage, and object stores with more than 100,000
