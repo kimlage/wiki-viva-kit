@@ -84,9 +84,10 @@ packets. Historical v1 receipts keep their original identities and revision;
 where the original manifest cannot be established they require requalification,
 not an assumed mapping to a folder.
 
-Migration is not complete: the older approved ingestion flags and the default
-host v1 coordination binding can still use `context.yaml` for new operations.
-The folder-policy and host-bound source routes have separate entry points; see
+The older approved ingestion flags and new packet composition under a v1 host
+binding are refused. Configured hosts default to folder mode; an explicitly
+selected v1 binding cannot create a new packet and historical checks are
+separate. The folder-policy and host-bound source routes have separate entry points; see
 [bounded ingestion](bounded-ingestion.md) and
 [protected coordination](context-coordination-protected.md).
 
@@ -108,10 +109,12 @@ Overflow is an error. Owner-only dynamic collections use the explicit
 [anchored query contract](context-dynamic-selection.md); caller-supplied query
 fingerprints remain refused. The builder computes and binds selection receipts,
 including empty sets, and preserves predicates in canonical requirements.
-Nested independent Git repositories are excluded from ordinary wiki traversal;
-the local repository reader is explicit. The current host-bound folder source
-stages do not yet include that independent Git selection, even though the
-separate working-tree folder route can include an explicitly selected file.
+Nested independent Git repositories are excluded from ordinary wiki traversal.
+The local reader uses an explicit selection under caller permissions. Protected
+folder source stages can also include exact Git evidence pinned by the trusted
+host, subject to separate grants; see [protected independent Git](protected-independent-git.md).
+The selection does not authorize access, establish remote identity or prove
+file consumption.
 
 ## Coordination and ingestion
 
@@ -132,10 +135,10 @@ The host-bound folder source stages prepare, record and consolidate with the
 same approved physical context; they do not perform a model call, review or
 incorporation. The separately authorized working-tree folder route is not an
 approved-policy packet, and neither route silently falls back to the other.
-The existing [wiki_ingest.py](../../../scripts/wiki_ingest.py) approval flags
-still invoke the v1 manifest route; that is an operational migration gap, not
-proof that v1 is historical only. The [bounded ingestion guide](bounded-ingestion.md)
-documents both routes, their byte limits, partial coverage and blockers.
+The existing [wiki_ingest.py](../../../scripts/wiki_ingest.py) approved-v1
+flags are refused for new operations; local working-tree compatibility remains
+separate. The [bounded ingestion guide](bounded-ingestion.md) documents the
+available routes, their byte limits, partial coverage and blockers.
 
 The synthetic CLI regression in the kit source checkout (`tests/test_coordination.py`) compared
 serialized output on the same fixture: 27 snapshot payloads totaling 45,766 bytes

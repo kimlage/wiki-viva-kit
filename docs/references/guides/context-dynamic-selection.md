@@ -41,7 +41,9 @@ another context or a denied prefix is refused. A valid broader owner scope
 excludes subcontexts and denied paths before opening or counting their blobs.
 This initial query interface offers no cross-owner collection imports, even
 when an exact evidence connection exists. Use the existing exact selector for
-an approved import.
+an approved import. A folder packet with additional readers currently refuses
+queries and requires separate requalification; an allowlist is not itself a
+grant to expand the query.
 
 The universe is tracked, regular, safe UTF-8 Markdown inside that authorized
 scope, with page identity in frontmatter. Markdown without frontmatter/page ID

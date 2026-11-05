@@ -23,7 +23,7 @@ python3 scripts/wiki_coordination.py --root REPO --context-id CONTEXT \
 
 The older profile/snapshot coordinator remains a separate `caller_trust` compatibility mode. It may read a broad catalogue and is not an owner-scoped authorization boundary. It must not be presented as the protected route or used as its fallback.
 
-For source ingestion, follow the separate [bounded ingestion guide](bounded-ingestion.md): select an authorized source, folder, approved revision and, where needed, explicitly authorized integrator. The host-bound folder stages have separate selectors and byte budgets. Unsupported formats, linked sources and independent Git inputs remain outside that protected route until a qualified adapter is available. The older approved ingestion flags still use v1 authority for new operations; their migration remains open.
+For source ingestion, follow the separate [bounded ingestion guide](bounded-ingestion.md): select an authorized source, folder, approved revision and, where needed, explicitly authorized integrator. Host-bound stages have separate selectors and byte budgets. Selected independent Git files require exact host-pinned grants and remain evidence, not the primary source. Other linked sources are not automatically inspected; unsupported formats remain blocked. Older approved-v1 ingestion flags are refused for new operations.
 
 ## 3. Execute in a short worktree
 

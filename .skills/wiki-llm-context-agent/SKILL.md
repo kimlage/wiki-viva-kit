@@ -14,120 +14,62 @@ agent that runs this repo, perform the deep reading, write the result, and then
 consolidate and INTEGRATE what you read into the target wiki pages — the work
 does not end at the cache. There is no embedded Python LLM client — by design.
 
-The honesty gate: as long as there is a chunk without a valid recorded result and
-`required_context_pass: true` in `wiki.config.yaml`, the auditor fails. A complex
-source is not consolidated without the deep reading. And the consolidation gate
-([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) `--check`, in
-CI) fails while there is a source with a complete deep read but no closed event:
-ingesting = integrating.
+The shared-cache checks report missing deep reads and unconsolidated events
+within their actual coverage. Protected source artifacts use a separate cache
+and are not inspected by generic audit or consolidation scans. Inspect their
+bound request, results and event through the protected stages; a green generic
+check does not prove the protected source was read or incorporated.
 
 ## Flow
 
-For the approved folder-policy route, use the `prepare`, `record` and
-`consolidate` stages described in [bounded ingestion](../../docs/references/guides/bounded-ingestion.md#host-bound-protected-source-preparation).
-Read the returned request and bind result objects to its chunks; recording and
-event preparation do not perform review or incorporation. The stage requires
-the same selected folder, index, source, policy revision, limits and authorized
-integrator throughout. The approved source route currently accepts UTF-8
-Markdown/text only; its independent Git and linked-source coverage is incomplete.
-The CLI is a trusted local operator adapter, not an ACL. The `wiki_ingest.py`
-and `wiki_llm_context_pass.py` approval-flag commands below still select the
-older v1 `context.yaml` route, which remains operational and is not proof of a
-completed migration. Use the separately described working-tree route only when
-its actual scope is authorized; it does not apply the folder policy.
+1. Start with the validated task packet and the authorized folder. Read the
+   applicable instructions, context index and selected bodies. Missing or
+   omitted context remains a coverage gap; links and packet hashes do not
+   grant access or prove the agent read the content.
+2. For an approved folder-policy source, use the `prepare` stage through the
+   existing trusted host or the trusted-local-operator interface in
+   [wiki_coordination.py](../../scripts/wiki_coordination.py). Select the
+   source, current policy revision, entry folder/index, explicit context inputs,
+   any required perspective paths and authorized integrator. Choose budgets
+   appropriate to the harness. Follow [bounded ingestion](../../docs/references/guides/bounded-ingestion.md#host-bound-protected-source-preparation)
+   for the stage payloads, supported formats and exact coverage limitations.
+   Unsupported or unavailable inputs block; no route silently falls back.
+3. Inspect the returned request and its `coverage`, `source_id`, `request_id`,
+   prompt and chunk identities. If the business root was omitted or linked
+   sources were not inspected, do not decide a task that needs those inputs.
+   For independent Git evidence, select only grants already pinned by the host;
+   paths, configured origin and receipts do not grant access. See
+   [protected independent Git](../../docs/references/guides/protected-independent-git.md).
+4. Read each chunk and context body, then produce one result per chunk using the
+   keys and cache identities in the request. Approved folder requests require
+   the [v5 prompt](../../wiki_core/llm/prompts/context_deep_read.v5.md); a
+   consumer pinned to an older prompt must update its approved configuration
+   and re-emit the request. Preserve older captures and results.
+5. Submit the result objects through `--source-stage record` with the same
+   source, context selection, policy, limits and integrator. Repeat any
+   perspective and host-pinned repository selections. If a source, binding or
+   selection changes, re-prepare and read the new request. A failed write may
+   leave partial effects; inspect the reported state before retrying.
+6. Use `--source-stage consolidate` with the same selectors, an authorized
+   source page, canonical event target and explicitly selected candidates.
+   Git-derived events need the host's separate publication grant. The event and
+   packet are proposal material; neither proves review or incorporation.
+   The optional `compare` stage gives a manual review suggestion for selected
+   repository evidence, with file consumption remaining unknown.
+7. The authorized integrator reviews the proposal, updates the appropriate
+   targets, records `consolidated_into`, runs the applicable gates on the exact
+   proposed SHA and follows the repository's PR policy. Read back the result
+   after an authorized integration. An event, cache result or green low-level
+   test is not a completed ingestion.
 
-The following numbered flow describes the older v1 and working-tree interfaces;
-the host-bound folder source stages have distinct request/result selectors and
-do not use the shared-cache check or consolidation commands below.
-
-1. Use the task's validated packet and selected root/channel/template inputs.
-   An authorized coordinator can compile/check [the input stage](../../scripts/wiki_input_stage.py)
-   when routing requires it; a scoped executor does not read the full global
-   catalog or every front as mandatory context. Missing required inputs return
-   a blocker instead of expanding the task's readset. An explicitly omitted
-   business root remains missing coverage; do not decide a question that needs
-   it, and do not omit mandatory lineage rules.
-2. Use the canonical [ingestion entry](../../scripts/wiki_ingest.py) to extract,
-   scan and prepare the full request before persistence:
-   ```bash
-   python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000
-   ```
-   These positive byte ceilings bound context and complete canonical UTF-8
-   request respectively; they do not guarantee a model token window. Select a
-   ceiling compatible with the actual harness. Approved context failure never
-   falls back to working-tree compatibility. See [bounded ingestion](../../docs/references/guides/bounded-ingestion.md).
-   For a separately authorized local folder entry, select `--folder FOLDER` or
-   start in the nested directory, and follow that guide's local route. It reads
-   the physical instruction chain and selected index, reports unresolved source
-   configuration and linked inputs, and cannot be combined with approved-policy
-   flags. It does not establish policy authorization or native session loading.
-3. Read the emitted request from the configured extraction-events directory.
-   Mandatory context appears once, followed by every extracted chunk with
-   `chunk_id`, `cache_key`, `text` and `result_exists`. In approved v1, actual
-   policy and required perspective bodies accompany the root entity, channel and
-   targets. The local folder request instead reports unresolved inputs as stated
-   above; inspect its selected bodies and coverage.
-   [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) can re-emit
-   or check the existing extraction using the same source, approval, context
-   and limits. Oversize is a recoverable blocker; obtain an explicit smaller
-   source/stage or an authorized ceiling rather than truncating content.
-4. For each chunk with `result_exists: false`, do the deep reading following the
-   `prompt` of the package and the template
-   [context_deep_read.v4.md](../../wiki_core/llm/prompts/context_deep_read.v4.md).
-   Produce one object per chunk with the keys of `result_required_keys`
-   (use the `cache_key` of the chunk itself).
-5. Record the results:
-   ```bash
-   python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000 --record-result RESULT.json
-   ```
-   Accepts a single object or an array. The script validates the schema (including
-   non-empty quadrants and `sensitivity.has_pii`) and writes the result to the LLM
-   pass cache (`llm-cache/`).
-   For the local folder route, use the same source, folder, index and limits;
-   Git-bound recording also requires the exact retained request and the same
-   repository selections. Do not use the approved-route command above as a
-   substitute. The guide describes the separate local cache and revalidation.
-6. Confirm the gate:
-   ```bash
-   python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000 --check
-   ```
-   It should return `ok: true` / exit 0. For the local route, repeat the same
-   source, context, folder, index, limits, profile and each `--repo` selection
-   used for the result, as applicable, instead of approved-policy arguments.
-   This checks the recomposed request; it does not select the retained
-   `--request`, which is used for recording.
-7. Consolidate and INTEGRATE — the work does NOT end at `--record-result`.
-   Generate the normalized event and the integration packet with
-   [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
-   ```bash
-   python3 scripts/wiki_consolidate.py --source <source_id> --emit-event --packet
-   # optional: --source-page <path> / --source-ref <page_id> of the source's canonical page
-   ```
-   `--emit-event` generates the normalized event from the deep read recorded in
-   the llm cache (quadrants filled, candidate claims/decisions/actions and
-   `consolidated_into: []` for you to close); `--packet` emits the integration
-   packet (gitignored) with related pages, root impact, target pages,
-   overlapping claims, and potential conflicts per claim/entity.
-   For a local folder request, select its exact `--request` and explicitly
-   selected `--candidate` pages as described in the guide; packet coverage is
-   limited to those candidates. Recording and packet preparation are not review
-   or integration.
-8. Guided by the packet, INTEGRATE for real: update the target hubs/concepts
-   incrementally first; create/update load-bearing relation pages only when the
-   detail needs its own page and give each one a `moc_parent` hub (with the conflict
-   fields `supersedes`/`superseded_by`/`conflicts_with`/`conflict_resolution`
-   when claims collide); resolve or record EVERY conflict and ambiguity; fill in
-   the event's `consolidated_into` (each non-source target must reference the
-   source in `source_refs`; source identity targets use event/lifecycle closure
-   and never self-reference). Close with the gates green:
-   ```bash
-   python3 scripts/wiki_audit.py --check
-   python3 scripts/wiki_consolidate.py --check
-   python3 scripts/wiki_quality_report.py --check
-   ```
-   Only then does the source page receive `ingestion_state: ingested` +
-   `last_ingested_at` + a line in the ingestion log, the source registry is
-   regenerated, and the change goes out in a PR.
+For a separately authorized working-tree folder route, use
+[wiki_ingest.py](../../scripts/wiki_ingest.py) with `--folder` or a nested
+working directory and follow the local selection and cache instructions in the
+guide. That route does not enforce the approved folder policy. Its
+[wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) recording and
+check commands are separate from the host-bound stages. Old approved-v1 flags
+on those commands are refused for new operations; retained historical artifacts
+are not deleted or automatically requalified.
 
 ## Rules
 
