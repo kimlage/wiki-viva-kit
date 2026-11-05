@@ -84,13 +84,18 @@ def _keys(obj, allowed, required, label):
     if not isinstance(obj,dict) or set(obj)-set(allowed) or set(required)-set(obj): raise PolicyError('invalid '+label+' fields')
 
 class ContextPolicy:
-    def __init__(self, document, policy_revision):
+    def __init__(self, document, policy_revision, *, folder_ids=False):
         _keys(document,{'schema_version','contexts'},{'schema_version','contexts'},'document')
         if document['schema_version']!='wiki.context/v1' or not isinstance(document['contexts'],list): raise PolicyError('invalid context document')
         self.policy_revision=policy_revision; self.contexts={}; self.effective={}; self._binding=None
         for c in document['contexts']:
             _keys(c,{'id','parent','root','purpose','owner','instructions','skills','templates','policy','imports','exports','workflow','defaults'}, {'id','parent','root','purpose','owner','instructions','skills','templates','policy','imports','exports'},'context')
-            if not isinstance(c['id'],str) or not re.fullmatch(r'[a-z0-9][a-z0-9/_-]*',c['id']) or c['id'] in self.contexts: raise PolicyError('invalid or duplicate context id')
+            if folder_ids:
+                safe_path(c['id'], allow_root=True)
+                if c['id'] != c['root']: raise PolicyError('folder context identity differs from path')
+            elif not isinstance(c['id'],str) or not re.fullmatch(r'[a-z0-9][a-z0-9/_-]*',c['id']):
+                raise PolicyError('invalid or duplicate context id')
+            if c['id'] in self.contexts: raise PolicyError('invalid or duplicate context id')
             if not all(isinstance(c[k],str) and c[k].strip() for k in ('purpose','owner')): raise PolicyError('purpose and owner required')
             safe_path(c['root'],allow_root=True)
             for k in ('instructions','skills','templates'):
@@ -200,9 +205,85 @@ def load_policy(root, approved_revision, manifest_path='context.yaml', *, truste
     root=Path(root).resolve(); manifest_path=safe_path(manifest_path)
     sha=revision(root,approved_revision)
     if sha!=revision(root,trusted_ref): raise PolicyError('policy revision is not current trusted approval ref')
-    policy = _policy_at(root, sha, manifest_path)
+    policy = (_folder_policy_at(root, sha) if manifest_path == 'wiki.config.yaml'
+              else _policy_at(root, sha, manifest_path))
     policy._binding=(str(root),trusted_ref,manifest_path)
     return policy
+
+
+def _folder_policy_at(root, sha):
+    """Build context ownership from approved Git paths and explicit access data.
+
+    The existing wiki configuration may contain sparse ``context_access``
+    entries keyed by physical folder. These entries contain access rules only;
+    they do not define folders, ancestry or instruction files. Missing entries
+    grant nothing. This is a policy model, not a sandbox or a native-session
+    discovery claim.
+    """
+    try:
+        config = yaml.load(git_file(root, sha, 'wiki.config.yaml'), Loader=UniqueLoader)
+    except (yaml.YAMLError, UnicodeError) as exc:
+        raise PolicyError('invalid wiki configuration') from exc
+    if not isinstance(config, dict): raise PolicyError('invalid wiki configuration')
+    access = config.get('context_access', {})
+    if not isinstance(access, dict): raise PolicyError('invalid context access')
+
+    raw = _git(root, 'ls-tree', '-r', '-z', sha)
+    names = set()
+    for entry in raw.split(b'\0'):
+        if not entry: continue
+        try:
+            metadata, name = entry.split(b'\t', 1)
+            mode, kind, _oid = metadata.split(b' ', 2)
+            path = name.decode('utf-8')
+        except (ValueError, UnicodeError) as exc:
+            raise PolicyError('invalid Git tree entry') from exc
+        if PurePosixPath(path).name not in ('AGENTS.md', 'AGENTS.override.md', 'index.md'):
+            continue
+        safe_path(path)
+        if mode not in (b'100644', b'100755') or kind != b'blob':
+            raise PolicyError('unsafe context tree entry')
+        names.add(path)
+
+    def selected_instruction(folder):
+        prefix = '' if folder == '.' else folder + '/'
+        return next((prefix + n for n in ('AGENTS.override.md', 'AGENTS.md')
+                     if prefix + n in names), None)
+
+    if selected_instruction('.') is None: raise PolicyError('root instructions unavailable')
+    folders = {'.'}
+    for path in names:
+        if PurePosixPath(path).name != 'index.md': continue
+        folder = str(PurePosixPath(path).parent)
+        if folder != '.' and selected_instruction(folder): folders.add(folder)
+    for folder in access:
+        safe_path(folder, allow_root=True)
+        if folder not in folders: raise PolicyError('access entry has no context folder')
+
+    contexts = []
+    for folder in sorted(folders, key=lambda value: (value.count('/'), value)):
+        spec = access.get(folder, {})
+        _keys(spec, {'owner', 'policy', 'imports', 'exports'}, set(), 'context access')
+        owner = spec.get('owner', 'unassigned')
+        policy = spec.get('policy', {})
+        _keys(policy, {'read', 'write', 'capabilities', 'deny', 'publication'}, set(), 'policy')
+        # Missing values are empty, not inherited grants. Denies continue to
+        # accumulate through ContextPolicy._resolve.
+        policy = {key: policy.get(key, {} if key == 'deny' else [])
+                  for key in ('read', 'write', 'capabilities', 'deny', 'publication')}
+        if owner == 'unassigned' and any(policy[key] for key in ('read', 'write', 'capabilities', 'publication')):
+            raise PolicyError('explicit owner required for access')
+        ancestors = [candidate for candidate in folders if candidate != folder and within(folder, candidate)]
+        parent = max(ancestors, key=lambda value: len(value) if value != '.' else 0) if ancestors else None
+        contexts.append({'id': folder, 'parent': parent, 'root': folder,
+            'purpose': 'See the context instructions.', 'owner': owner,
+            'instructions': [selected_instruction(folder)], 'skills': [], 'templates': [],
+            'policy': policy, 'imports': spec.get('imports', []), 'exports': spec.get('exports', [])})
+    result = ContextPolicy({'schema_version': 'wiki.context/v1', 'contexts': contexts}, sha, folder_ids=True)
+    # Existing packet/integration paths must not silently reinterpret v1.
+    # A caller must use the folder-aware versioned interfaces when available.
+    result.format_version = 'folder'
+    return result
 
 
 def _policy_at(root, sha, manifest_path):

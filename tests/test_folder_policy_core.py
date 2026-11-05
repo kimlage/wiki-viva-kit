@@ -1,0 +1,120 @@
+import copy
+import subprocess
+
+import pytest
+import yaml
+
+from wiki_core.context_policy import PolicyError, load_policy
+from wiki_core.context_packet import build_packet
+
+
+def git(root, *args):
+    return subprocess.check_output(['git', '-C', str(root), *args], stderr=subprocess.PIPE).decode().strip()
+
+
+def write(root, name, text):
+    path = root / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding='utf-8')
+
+
+@pytest.fixture
+def repo(tmp_path):
+    git(tmp_path, 'init', '-q')
+    git(tmp_path, 'config', 'user.name', 'Synthetic')
+    git(tmp_path, 'config', 'user.email', 'synthetic@example.invalid')
+    write(tmp_path, 'AGENTS.md', '# Root\n')
+    write(tmp_path, 'alpha/AGENTS.md', '# Alpha old\n')
+    write(tmp_path, 'alpha/AGENTS.override.md', '# Alpha override\n')
+    write(tmp_path, 'alpha/index.md', '# Alpha index\n')
+    write(tmp_path, 'alpha/aux/AGENTS.md', '# Auxiliary, no index\n')
+    write(tmp_path, 'alpha/child/AGENTS.md', '# Child\n')
+    write(tmp_path, 'alpha/child/index.md', '# Child index\n')
+    write(tmp_path, 'beta/AGENTS.md', '# Beta\n')
+    write(tmp_path, 'beta/index.md', '# Beta index\n')
+    grants = {'read': ['self'], 'write': ['self'], 'capabilities': [], 'deny': {}, 'publication': []}
+    access = {'.': {'owner': 'root operator', 'policy': copy.deepcopy(grants)},
+              'alpha': {'owner': 'alpha operator', 'policy': copy.deepcopy(grants)}}
+    write(tmp_path, 'wiki.config.yaml', yaml.safe_dump({'repo_id': 'synthetic', 'context_access': access}))
+    git(tmp_path, 'add', '.')
+    git(tmp_path, 'commit', '-qm', 'approved synthetic tree')
+    git(tmp_path, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    return tmp_path
+
+
+def folder_policy(repo):
+    return load_policy(repo, 'HEAD', 'wiki.config.yaml')
+
+
+def test_physical_contexts_override_and_auxiliary_with_no_grant(repo):
+    policy = folder_policy(repo)
+    assert set(policy.contexts) == {'.', 'alpha', 'alpha/child', 'beta'}
+    assert [c['id'] for c in policy.lineage('alpha/child')] == ['.', 'alpha', 'alpha/child']
+    assert policy.contexts['alpha']['instructions'] == ['alpha/AGENTS.override.md']
+    assert policy.owner_of('alpha/aux/data.md') == 'alpha'
+    assert policy.owner_of('alpha/child/data.md') == 'alpha/child'
+    assert policy.permits('alpha', 'read', 'alpha/data.md')
+    assert not policy.permits('alpha/child', 'read', 'alpha/child/data.md')
+    assert not policy.permits('beta', 'read', 'beta/data.md')
+    assert policy.connection('alpha/child', 'alpha', 'alpha/child/data.md', 'interpret', 'internal') == 'denied'
+    assert policy.format_version == 'folder'
+    with pytest.raises(PolicyError, match='v2 policy requires a v2 packet'):
+        build_packet(repo, policy, 'alpha', 'HEAD', [], 100000,
+                     task_id='x', goal='x', output='x', integrator='x')
+
+
+def test_working_tree_changes_are_not_an_approved_hierarchy(repo):
+    original = folder_policy(repo)
+    write(repo, 'alpha/child/AGENTS.override.md', '# Unapproved\n')
+    write(repo, 'alpha/aux/index.md', '# Unapproved index\n')
+    again = folder_policy(repo)
+    assert again.contexts == original.contexts
+    assert again.contexts['alpha/child']['instructions'] == ['alpha/child/AGENTS.md']
+
+
+def test_access_requires_exact_bilateral_rule_without_a_second_tree(repo):
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    rule = {'from_context': 'alpha', 'to_context': '.', 'selector': 'alpha/a.md',
+            'use': 'interpret', 'classification': 'internal', 'expires': '2099-01-01'}
+    config['context_access']['.']['imports'] = [rule]
+    config['context_access']['alpha']['exports'] = [copy.deepcopy(rule)]
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'explicit connection'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    policy = folder_policy(repo)
+    assert policy.connection('alpha', '.', 'alpha/a.md', 'interpret', 'internal') == 'approved'
+    assert policy.connection('alpha', '.', 'alpha/a.md', 'other', 'internal') == 'pending'
+    assert policy.connection('beta', '.', 'beta/a.md', 'interpret', 'internal') == 'denied'
+
+
+def test_access_configuration_cannot_redeclare_hierarchy(repo):
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    config['context_access']['alpha']['parent'] = '.'
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'invalid hierarchy'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    with pytest.raises(PolicyError, match='context access fields'): folder_policy(repo)
+
+
+def test_missing_owner_and_stale_scope_are_refused(repo):
+    grants = {'read': ['self']}
+    write(repo, 'wiki.config.yaml', yaml.safe_dump({'context_access': {'beta': {'policy': grants}}}))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'owner absent'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    with pytest.raises(PolicyError, match='explicit owner'): folder_policy(repo)
+    write(repo, 'wiki.config.yaml', yaml.safe_dump({'context_access': {'missing': {'owner': 'nobody'}}}))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'stale selector'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    with pytest.raises(PolicyError, match='no context folder'): folder_policy(repo)
+
+
+def test_current_approval_must_remain_pinned(repo):
+    policy = folder_policy(repo)
+    write(repo, 'new.md', '# change\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'new revision'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    with pytest.raises(PolicyError, match='not current trusted approval'): policy.fresh()
+
+
+def test_tracked_symlink_cannot_define_context(repo):
+    path = repo / 'bad' / 'AGENTS.md'
+    path.parent.mkdir()
+    path.symlink_to('../AGENTS.md')
+    write(repo, 'bad/index.md', '# Bad\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'invalid instruction'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    with pytest.raises(PolicyError, match='unsafe context tree entry'): folder_policy(repo)
