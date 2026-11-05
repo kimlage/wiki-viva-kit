@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import stat
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
@@ -125,11 +127,16 @@ def _read_json(path: Path) -> dict[str, Any] | None:
 
 def _chunk_payloads(paths: WikiPaths) -> list[dict[str, Any]]:
     payloads: list[dict[str, Any]] = []
-    from wiki_core.traversal import is_protected_artifact, wiki_files
+    from wiki_core.traversal import is_protected_artifact, require_wiki_boundaries, wiki_files
     if is_protected_artifact(paths.chunks):
         raise ValueError('protected artifacts require bound dispatch')
-    if not paths.chunks.exists():
+    require_wiki_boundaries(paths.root, directories=(paths.chunks,))
+    try:
+        mode = paths.chunks.stat().st_mode
+    except FileNotFoundError:
         return payloads
+    if not stat.S_ISDIR(mode):
+        raise NotADirectoryError(paths.chunks)
     for path in wiki_files(paths.chunks, wiki_root=paths.root, suffix='.json'):
         data = _read_json(path)
         if not isinstance(data, dict):
@@ -362,11 +369,13 @@ def build_quality_report(
     model_profile = str(config.llm.get("default_model_profile", "deep_context"))
     requests = {}
     from wiki_core.traversal import require_wiki_boundaries
+    require_wiki_boundaries(paths.root, directories=(paths.extraction_events,))
     try:
-        require_wiki_boundaries(paths.root, directories=(paths.extraction_events,))
-        request_paths = [p for p in paths.extraction_events.glob('*-llm-context-request.json')
-                         if not p.is_symlink() and p.is_file()]
-    except (ValueError, OSError):
+        with os.scandir(paths.extraction_events) as entries:
+            request_paths = [Path(entry.path) for entry in entries
+                             if entry.name.endswith('-llm-context-request.json')
+                             and entry.is_file(follow_symlinks=False)]
+    except FileNotFoundError:
         request_paths = []
     for request_path in sorted(request_paths):
         try:

@@ -171,6 +171,22 @@ def test_quality_rejects_legacy_cache_symlink_before_read(tmp_path: Path, monkey
         build_quality_report(tmp_path, cfg)
 
 
+@pytest.mark.parametrize('directory', ['chunks', 'extraction-events'])
+def test_quality_rejects_a_selected_nested_repository(tmp_path: Path, directory: str) -> None:
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    (tmp_path / 'data/derived/wiki' / directory / '.git').mkdir(parents=True)
+    with pytest.raises(ValueError, match='derived_path_crosses_repository_boundary'):
+        build_quality_report(tmp_path, WikiConfig(contexts=('example',)))
+
+
+def test_quality_validates_folder_request_identity(tmp_path: Path) -> None:
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    name = f"folder-{'a' * 64}-{'b' * 64}-llm-context-request.json"
+    _write(tmp_path / 'data/derived/wiki/extraction-events' / name, '{"chunks": []}')
+    with pytest.raises(ValueError, match='local request identity'):
+        build_quality_report(tmp_path, WikiConfig(contexts=('example',)))
+
+
 def test_quality_report_surfaces_unclosed_synthetic_event(tmp_path: Path) -> None:
     _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", "- Ready.\n"))
     _write(
