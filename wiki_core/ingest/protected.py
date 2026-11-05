@@ -282,7 +282,7 @@ def _request_path(paths, source_id, request_id, repository_context=None):
     return paths.extraction_events / f'protected-{source}-{selection}{request_id}-llm-context-request.json'
 
 
-def _repository(binding, policy, context_id, actor, selection, *, fast_single_cached=False):
+def _repository(binding, policy, context_id, actor, selection):
     if selection is None:
         return None
     ids = _selection_ids(selection)
@@ -293,17 +293,11 @@ def _repository(binding, policy, context_id, actor, selection, *, fast_single_ca
     for item in ids:
         check_repository_storage(binding, policy, context_id, actor, item)
     cache = _STAGE_CACHE.get()
-    single_cached = (fast_single_cached and len(ids) == 1 and cache is not None and all(
-        (binding, policy.policy_revision, context_id, actor, item) in cache['repositories'] for item in ids))
     rows = []
     for item in ids:
         key = (binding, policy.policy_revision, context_id, actor, item)
         if cache is not None and key in cache['repositories']:
-            # For one cached selection, the preceding pass checked its storage
-            # immediately before this in-memory copy. Multiple selections may
-            # involve intervening storage walks or Git I/O.
-            if not single_cached:
-                check_repository_storage(binding, policy, context_id, actor, item)
+            check_repository_storage(binding, policy, context_id, actor, item)
             row = copy.deepcopy(cache['repositories'][key])
         else:
             row = selected_repository(binding, policy, context_id, actor, item)
@@ -650,7 +644,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             _allowed(root, policy, actor, current_request, 'read')
             if stamp(current_source) != source_stamp or stamp(current_request) != request_stamp:
                 raise ValueError('source or request changed')
-            if _repository(binding, policy, context_id, actor, repository_selection, fast_single_cached=True) != repository_context:
+            if _repository(binding, policy, context_id, actor, repository_selection) != repository_context:
                 raise ValueError('repository selection changed')
             _allowed(root, policy, actor, path, 'read')
             policy.fresh()

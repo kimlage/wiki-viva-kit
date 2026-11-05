@@ -194,6 +194,47 @@ def test_revocation_during_storage_walk_stops_before_external_git(configured, mo
         prepare(root, binding, **args, source_context='system')
 
 
+@pytest.mark.parametrize('stage', ['prepare', 'inspect'])
+def test_storage_changed_between_guard_checks_blocks_cache_open(configured, monkeypatch, stage):
+    import sys
+    import wiki_core.repo_host as host
+    import wiki_core.ingest.protected as protected
+    from tests.test_protected_ingestion import protected_source_stage
+    from wiki_core.coordination_context import ProtectedCoordinationError
+    root, external, binding, args = configured
+    prepared = prepare(root, binding, **args, source_context='system')
+    result = _result_for(prepared['request'])
+    ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
+    record(root, binding, **args, **ids, results=[result])
+    original_repo, original_scan, original_open = protected._repository, host._storage_identity, Path.open
+    state = {'armed': False, 'changed': False, 'opened': False}
+    def repo_call(*a, **kw):
+        if sys._getframe(1).f_code.co_name == ('guard_cache' if stage == 'prepare' else 'guard') and not state['changed']:
+            state['armed'] = True
+        return original_repo(*a, **kw)
+    def scan(*a, **kw):
+        identity = original_scan(*a, **kw)
+        if state['armed'] and not state['changed']:
+            (external / '.git/objects/synthetic-bad-link').symlink_to(root / 'source.txt')
+            state['changed'] = True
+        return identity
+    def spy(path, *a, **kw):
+        if path.parent.name == 'llm-cache':
+            state['opened'] = True
+        return original_open(path, *a, **kw)
+    monkeypatch.setattr(protected, '_repository', repo_call)
+    monkeypatch.setattr(host, '_storage_identity', scan)
+    monkeypatch.setattr(Path, 'open', spy)
+    if stage == 'prepare':
+        with pytest.raises(protected.ProtectedPartialError):
+            prepare(root, binding, **args, source_context='system')
+    else:
+        with pytest.raises(ProtectedCoordinationError):
+            protected_source_stage(root, binding, 'inspect', {**args, **ids, 'view': 'results',
+                'chunk_ids': [result['chunk_id']]})
+    assert state['changed'] and not state['opened']
+
+
 def test_two_explicit_repositories_share_one_bound_request(configured):
     root, external, binding, args = configured
     second = root.parent / (root.name + '-second')
