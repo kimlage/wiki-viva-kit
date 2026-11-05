@@ -386,6 +386,10 @@ def test_legacy_history_is_read_without_mapping_old_identity(tmp_path):
     history = historical_policy(current, old)
     assert set(history.contexts) == {'old-root'}
     assert set(current.contexts) == {'.'}
+    # Both files coexist at the new revision. The receipt format, never file
+    # presence, chooses which historical policy is reconstructed.
+    assert set(historical_policy(current, git(tmp_path, 'rev-parse', 'HEAD')).contexts) == {'old-root'}
+    assert set(historical_policy(current, git(tmp_path, 'rev-parse', 'HEAD'), authority_format='folder').contexts) == {'.'}
     assert history._binding is None
     with pytest.raises(PolicyError, match='unbound'):
         build_packet(tmp_path, history, 'old-root', old, [], 100000,
