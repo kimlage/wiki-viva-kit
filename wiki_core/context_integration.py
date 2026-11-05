@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 from wiki_core.context_policy import PolicyError, safe_path, is_context_instruction
-from wiki_core.context_packet import build_packet, validate_result
+from wiki_core.context_packet import build_packet, validate_result, guarded_context_read
 from wiki_core.repository_reader import RepositoryReader
 from wiki_core.git_env import local_git_environment, local_git_executable
 from wiki_core.detectors import scan_text
@@ -52,7 +52,8 @@ class _QueryReuse:
             receipt, _, _ = reproduce_query(self.policy, self.context_id, reader, normalized,
                 policy_revision=policy_revision, expected_authority=expected_authority, read_budget=self.budget, authority_format=authority_format, entry_folder=entry_folder, entry_index=entry_index)
         else:
-            receipt, _, _ = select_query(self.policy, self.context_id, reader, normalized, read_budget=self.budget)
+            receipt, _, _ = select_query(self.policy, self.context_id, reader, normalized, read_budget=self.budget,
+                                         entry_folder=entry_folder, entry_index=entry_index)
         if len(self.cache) < 96:
             self.cache[key] = (deepcopy(receipt), before - self.budget[0])
         return receipt
@@ -115,7 +116,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     # A historical read may still be used only if its selected bytes remain
     # identical at the current approved base; no fallback to a larger slice.
     for item in packet['inputs']:
-        try: now=base_reader.read(item['ref'],section=item['section'],field=item['field'])
+        try: now=guarded_context_read(base_reader,policy,item['ref'],section=item['section'],field=item['field'])
         except ValueError as exc: raise IntegrationError('consumed input unavailable at approved base') from exc
         if now['content_digest']!=item['sha256']: raise IntegrationError('consumed input changed since task')
     raw=_git(root,'diff','--no-ext-diff','--no-textconv','--no-renames','--name-status','-z',base_reader.revision,proposal.revision).split(b'\0')
@@ -148,7 +149,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
         except (ValueError, OSError) as exc: raise IntegrationError('proposal crosses repository boundary') from exc
     for status, path in changes:
         if status!='D':
-            try: proposed_file=proposal.read(path); text=proposed_file['text']
+            try: proposed_file=guarded_context_read(proposal,policy,path); text=proposed_file['text']
             except ValueError as exc: raise IntegrationError('unsupported or unsafe proposed file') from exc
             if any(x.category=='secret' for x in scan_text(text)): raise IntegrationError('secret detected in proposal')
             if folder_mode and Path(path).name == 'index.md':
@@ -156,10 +157,10 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                 prefix = '' if folder == '.' else folder + '/'
                 if (status == 'M' and any(prefix + name in base_reader.paths or prefix + name in proposal.paths
                                           for name in ('AGENTS.override.md', 'AGENTS.md'))
-                        and bool(base_reader.read(path)['text'].strip()) != bool(text.strip())):
+                        and bool(guarded_context_read(base_reader,policy,path)['text'].strip()) != bool(text.strip())):
                     raise IntegrationError('context boundary change requires separate policy review')
             if path.endswith('.md'):
-                prior=base_reader.read(path)['frontmatter'] if path in base_reader.paths else {}
+                prior=guarded_context_read(base_reader,policy,path)['frontmatter'] if path in base_reader.paths else {}
                 raw_before=prior.get('information_requirements',[])
                 raw_after=proposed_file['frontmatter'].get('information_requirements',[])
                 has_query=isinstance(raw_after,list) and any(isinstance(r,dict) and 'query' in r for r in raw_after)
@@ -183,7 +184,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                                 observed={k:item[k] for k in ('ref','section','field','revision')} if item else None
                                 if item is None or observed not in result['read_coverage']['observed_refs']:
                                     raise IntegrationError('existing normative requirement requires reported read')
-                                try: previous_rule=RepositoryReader(root,consumed).read(ref)
+                                try: previous_rule=guarded_context_read(RepositoryReader(root,consumed),policy,ref)
                                 except ValueError as exc: raise IntegrationError('existing normative input unavailable') from exc
                                 if previous_rule['content_digest']!=item['sha256']:
                                     raise IntegrationError('existing normative requirement changed; reread and update')
@@ -192,8 +193,8 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                                     consumed_reader=query_reuse.reader(requirement['consumed_revision'])
                                     entry=requirement_query(requirement)
                                     old_query=query_reuse.get('historical',consumed_reader,entry,policy_revision=requirement['query_policy_revision'],expected_authority=requirement['authority_digest'],authority_format=requirement.get('authority_format'),entry_folder=requirement.get('entry_folder'),entry_index=requirement.get('entry_index'))
-                                    now_query=query_reuse.get('base',base_reader,entry)
-                                    proposed_query=query_reuse.get('proposal',proposal,entry)
+                                    now_query=query_reuse.get('base',base_reader,entry,entry_folder=requirement.get('entry_folder'),entry_index=requirement.get('entry_index'))
+                                    proposed_query=query_reuse.get('proposal',proposal,entry,entry_folder=requirement.get('entry_folder'),entry_index=requirement.get('entry_index'))
                                     if path in {m['ref'] for m in [*old_query['members'],*now_query['members'],*proposed_query['members']]}: raise IntegrationError('query consumer cannot be a member')
                                     if not same_selection(old_query,proposed_query): raise IntegrationError('query selection changed in proposal')
                                     if any(old_query[k]!=requirement[k] for k in ('members_digest','selected_digest')) or not same_selection(old_query,now_query):

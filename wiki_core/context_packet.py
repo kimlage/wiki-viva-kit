@@ -73,6 +73,25 @@ def _context_view(policy, context_id):
             'boundary': 'Path scopes are ceilings. Only the canonical owner may write; cross-context reads require exact current bilateral approval. This is not sandbox enforcement.'}
 
 
+def guard_folder_blob(root, policy, ref):
+    """Recheck the pinned approval and repository boundary immediately before a read."""
+    from wiki_core.context_policy import revision
+    from wiki_core.traversal import require_wiki_boundaries
+    binding = getattr(policy, '_binding', None)
+    if not binding or Path(binding[0]) != Path(root).resolve(): raise PolicyError('folder authority unavailable')
+    if revision(root, binding[1]) != policy.policy_revision: raise PolicyError('folder policy changed during read')
+    try: require_wiki_boundaries(Path(root), files=(Path(root) / ref,))
+    except (ValueError, OSError) as exc: raise PolicyError('context body unavailable') from exc
+
+
+def guarded_context_read(reader, policy, ref, **selectors):
+    """Recheck freshness and Git boundary; caller must authorize the ref first."""
+    if getattr(policy, 'format_version', None) == 'folder':
+        guard_folder_blob(reader.root, policy, ref)
+        return reader.read(ref, before_blob=lambda path: guard_folder_blob(reader.root, policy, path), **selectors)
+    return reader.read(ref, **selectors)
+
+
 def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes):
     """Qualify only the selected physical lineage, after exact authorization."""
     if getattr(policy, 'format_version', None) != 'folder' or not getattr(policy, '_binding', None):
@@ -103,6 +122,7 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
     nonempty = {}
     def inspect_authorized(ref):
         nonlocal qualification_bytes
+        guard_folder_blob(root, policy, ref)
         producer = policy.owner_of(ref)
         if policy._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved':
             raise PolicyError('context body not authorized')
@@ -114,7 +134,8 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
             if qualification_bytes > max_bytes: raise PolicyError('context qualification exceeds byte budget')
             inspected.add(ref)
             inspection_order.append(ref)
-        item = reader.read(ref)
+        guard_folder_blob(root, policy, ref)
+        item = reader.read(ref, before_blob=lambda path: guard_folder_blob(root, policy, path))
         _reject_secrets(item['text'])
         nonempty[ref] = bool(item['text'].strip())
         return item['text']
@@ -143,9 +164,10 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
         if refs: any(inspect_authorized(ref).strip() for ref in refs)
     policy.fresh()
     policy._qualified_contexts.update(context['id'] for context in lineage)
-    policy._folder_qualification = {'context_id': context_id, 'entry_folder': entry_folder,
-                                    'entry_index': entry_index, 'refs': tuple(inspection_order),
-                                    'nonempty': nonempty}
+    if not hasattr(policy, '_folder_qualifications'): policy._folder_qualifications = {}
+    policy._folder_qualifications[(context_id, entry_folder, entry_index)] = {
+        'context_id': context_id, 'entry_folder': entry_folder, 'entry_index': entry_index,
+        'refs': tuple(inspection_order), 'nonempty': nonempty}
     return reader, inspection_order
 
 
@@ -213,7 +235,12 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
             from wiki_core.traversal import require_wiki_boundaries
             try: require_wiki_boundaries(Path(root), files=(Path(root) / ref,))
             except (ValueError, OSError) as exc: raise PolicyError('context body unavailable') from exc
-        item = reader_.read(ref, section=section, field=field)
+        if folder_mode:
+            guard_folder_blob(root, policy, ref)
+            item = reader_.read(ref, section=section, field=field,
+                                before_blob=lambda path: guard_folder_blob(root, policy, path))
+        else:
+            item = reader_.read(ref, section=section, field=field)
         text = item['text']
         if not isinstance(text, str): raise PolicyError('reader returned non-text')
         _reject_secrets(text)
@@ -283,7 +310,9 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         add(reader, ref, e['reason'], 'evidence', e.get('section'), e.get('field'), e['producer'], e['use'], e['classification'])
     query_selections = []
     for entry in queries:
-        receipt, anchor, members = select_query(policy, context_id, reader, entry)
+        receipt, anchor, members = select_query(policy, context_id, reader, entry,
+                                                entry_folder=entry_folder if folder_mode else None,
+                                                entry_index=entry_index if folder_mode else None)
         if receipt['query_id'] in {r['query_id'] for r in query_selections}: raise PolicyError('duplicate query')
         for item in [anchor, *members]:
             section = entry['query'].get('section') if item is not anchor else None

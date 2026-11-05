@@ -102,14 +102,14 @@ def authority_digest(policy, context_id, entry):
     return digest(authority)
 
 
-def _equivalent_folder_authority(policy, context_id, policy_revision, entry):
+def _equivalent_folder_authority(policy, context_id, policy_revision, entry, entry_folder, entry_index):
     """Prove relevant historical authority without granting historical access.
 
     Only metadata and Git object IDs for the already authorized physical
     instruction/index chain are compared. Current grants still govern every
     subsequent body read; no source freshness is asserted.
     """
-    qualification = getattr(policy, '_folder_qualification', None)
+    qualification = getattr(policy, '_folder_qualifications', {}).get((context_id, entry_folder, entry_index))
     if not isinstance(qualification, dict) or qualification.get('context_id') != context_id:
         raise PolicyError('historical query authority requires requalification')
     old = historical_policy(policy, policy_revision, authority_format='folder')
@@ -185,13 +185,13 @@ def reproduce_query(policy, context_id, reader, entry, *, policy_revision, expec
         try: qualify_folder_context(Path(policy._binding[0]), policy, context_id, entry_folder, entry_index, 2_000_000)
         except (ValueError, KeyError, TypeError, OSError) as exc:
             raise PolicyError('historical query authority requires requalification') from exc
-    old=(_equivalent_folder_authority(policy, context_id, policy_revision, entry)
+    old=(_equivalent_folder_authority(policy, context_id, policy_revision, entry, entry_folder, entry_index)
          if folder_mode and policy_revision != policy.policy_revision else
          policy if folder_mode else historical_policy(policy,policy_revision))
     if (authority_digest(old,context_id,entry)!=expected_authority
             or authority_digest(policy,context_id,entry)!=expected_authority):
         raise PolicyError('query authority changed or unavailable; requalification required')
-    receipt,anchor,members=select_query(policy,context_id,reader,entry,read_budget=read_budget,_candidate_refs=_candidate_refs)
+    receipt,anchor,members=select_query(policy,context_id,reader,entry,read_budget=read_budget,_candidate_refs=_candidate_refs,entry_folder=entry_folder,entry_index=entry_index)
     receipt['policy_revision']=policy_revision
     return receipt,anchor,members
 
@@ -212,7 +212,7 @@ def _metadata(item):
     return values
 
 
-def select_query(policy, context_id, reader, entry, *, read_budget=None, _candidate_refs=None):
+def select_query(policy, context_id, reader, entry, *, read_budget=None, _candidate_refs=None, entry_folder=None, entry_index=None):
     """Apply current owner/read authorization before opening candidate blobs."""
     folder_mode = getattr(policy, 'format_version', None) == 'folder'
     if getattr(policy, 'format_version', None) and not folder_mode:
@@ -222,6 +222,14 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None, _candid
         if (not binding or Path(binding[0]).resolve() != Path(reader.root).resolve()
                 or context_id not in getattr(policy, '_qualified_contexts', ())):
             raise PolicyError('qualified folder authority unavailable')
+        qualifications = getattr(policy, '_folder_qualifications', {})
+        if entry_folder is None and entry_index is None:
+            selected = [value for key, value in qualifications.items() if key[0] == context_id]
+            if len(selected) != 1: raise PolicyError('folder query selection is ambiguous')
+            qualification = selected[0]
+        else:
+            qualification = qualifications.get((context_id, entry_folder, entry_index))
+            if qualification is None: raise PolicyError('qualified folder selection unavailable')
         policy.fresh()
     entry = normalize_query(entry)
     target = entry['target']; q = entry['query']; scope = q['scope']
@@ -259,7 +267,7 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None, _candid
             read_budget[0] -= size
     admit(target)
     verify_read(target)
-    anchor = reader.read(target)
+    anchor = reader.read(target, before_blob=verify_read) if folder_mode else reader.read(target)
     metadata = _metadata(anchor)
     if metadata.get('page_type') not in ('context_hub', 'ontology_index', 'source_catalog', 'root_entity') or not isinstance(metadata.get('page_id'), str) or not metadata['page_id'].strip() or any(ord(c)<32 for c in metadata['page_id']):
         raise PolicyError('query anchor must identify an existing collection contract')
@@ -285,7 +293,8 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None, _candid
         reject_secrets(path)
         admit(path)
         verify_read(path)
-        item = reader.read(path); fm = _metadata(item)
+        item = reader.read(path, before_blob=verify_read) if folder_mode else reader.read(path)
+        fm = _metadata(item)
         page_id = fm.get('page_id')
         if _candidate_refs is not None: _candidate_refs.append((path, page_id is not None))
         if page_id is None: continue  # Non-page Markdown is not a collection member.
@@ -299,7 +308,8 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None, _candid
         if not all(matches(k, v) for k, v in q['filters'].items()): continue
         if len(members) >= q['max_matches']: raise PolicyError('query match limit exceeded')
         verify_read(path)
-        selected = reader.read(path, section=q.get('section'), field=q.get('field'))
+        selected = (reader.read(path, section=q.get('section'), field=q.get('field'), before_blob=verify_read)
+                    if folder_mode else reader.read(path, section=q.get('section'), field=q.get('field')))
         reject_secrets(selected['text'])
         members.append({'ref': path, 'page_id': page_id})
         inputs.append(selected)
@@ -313,8 +323,8 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None, _candid
     if folder_mode:
         still_current()
         receipt['authority_format'] = 'folder'
-        receipt['entry_folder'] = policy._folder_qualification['entry_folder']
-        receipt['entry_index'] = policy._folder_qualification['entry_index']
+        receipt['entry_folder'] = qualification['entry_folder']
+        receipt['entry_index'] = qualification['entry_index']
         receipt['coverage'] = 'authorized_owner_scope_excluding_nested_repositories_and_symlinks'
     return receipt, anchor, inputs
 
@@ -354,7 +364,8 @@ def revalidate_packet_queries(policy, packet, historical, current, *, read_budge
         if row.get('policy_revision')!=packet['policy_revision']: raise PolicyError('query policy revision differs from packet')
         prior, anchor, members = reproduce_query(policy, packet['context_id'], historical, row['request'], policy_revision=row.get('policy_revision'), expected_authority=row.get('authority_digest'), read_budget=read_budget, authority_format=row.get('authority_format'), entry_folder=row.get('entry_folder'), entry_index=row.get('entry_index'))
         if prior != row: raise PolicyError('query receipt cannot be reproduced')
-        now, _, _ = select_query(policy, packet['context_id'], current, row['request'], read_budget=read_budget)
+        now, _, _ = select_query(policy, packet['context_id'], current, row['request'], read_budget=read_budget,
+                                 entry_folder=row.get('entry_folder'), entry_index=row.get('entry_index'))
         if not same_selection(row, now): raise PolicyError('query selection changed since task')
         refreshed.append(now)
         entry = row['request']; q = entry['query']

@@ -415,6 +415,89 @@ def test_legacy_receipts_require_requalification_without_read(repo):
                         expected_authority='0' * 64)
 
 
+def test_schedule_without_host_binding_blocks_before_opening_request(repo, tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    missing = tmp_path / 'does-not-exist.json'
+    command = [sys.executable, str(root / 'scripts/wiki_context_schedule.py'), '--repo', str(repo),
+               '--approved-revision', git(repo, 'rev-parse', 'HEAD'), '--request', str(missing)]
+    result = subprocess.run(command, capture_output=True, text=True)
+    assert result.returncode != 0
+    assert 'trusted host binding and requalification; request not opened' in result.stderr
+
+
+def revoked_policy_commit(repo):
+    base = git(repo, 'rev-parse', 'HEAD')
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    config['context_access']['alpha']['policy']['read'] = []
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', 'wiki.config.yaml'); git(repo, 'commit', '-qm', 'revoke alpha read')
+    revoked = git(repo, 'rev-parse', 'HEAD')
+    git(repo, 'checkout', '-q', '--detach', base)
+    return revoked
+
+
+def test_qualification_stops_after_policy_moves(repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    enable_alpha(repo)
+    revoked = revoked_policy_commit(repo)
+    opened = []
+    original = RepositoryReader.read
+    def move_after_first(self, path, **kwargs):
+        opened.append(path)
+        result = original(self, path, **kwargs)
+        if path == 'AGENTS.md': git(repo, 'update-ref', 'refs/remotes/origin/main', revoked)
+        return result
+    monkeypatch.setattr(RepositoryReader, 'read', move_after_first)
+    with pytest.raises(PolicyError, match='policy changed|not current trusted approval'):
+        packet(repo)
+    assert opened == ['AGENTS.md']
+
+
+def test_builder_stops_when_policy_moves_after_qualification(repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    enable_alpha(repo)
+    revoked = revoked_policy_commit(repo)
+    original = RepositoryReader.read
+    root_reads = 0
+    moved = False
+    opened_after_move = []
+    def move_during_builder(self, path, **kwargs):
+        nonlocal root_reads, moved
+        if moved: opened_after_move.append(path)
+        result = original(self, path, **kwargs)
+        if path == 'AGENTS.md':
+            root_reads += 1
+            if root_reads == 2:
+                git(repo, 'update-ref', 'refs/remotes/origin/main', revoked)
+                moved = True
+        return result
+    monkeypatch.setattr(RepositoryReader, 'read', move_during_builder)
+    with pytest.raises(PolicyError, match='policy changed|not current trusted approval'):
+        packet(repo)
+    assert moved and opened_after_move == []
+
+
+def test_qualification_rechecks_after_blob_size(repo, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    enable_alpha(repo)
+    revoked = revoked_policy_commit(repo)
+    original_size = RepositoryReader.blob_size
+    original_read = RepositoryReader.read
+    opened = []
+    def move_after_size(self, path):
+        size = original_size(self, path)
+        if path == 'alpha/AGENTS.override.md': git(repo, 'update-ref', 'refs/remotes/origin/main', revoked)
+        return size
+    def spy(self, path, **kwargs):
+        opened.append(path)
+        return original_read(self, path, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'blob_size', move_after_size)
+    monkeypatch.setattr(RepositoryReader, 'read', spy)
+    with pytest.raises(PolicyError, match='policy changed|not current trusted approval'):
+        packet(repo)
+    assert 'alpha/AGENTS.override.md' not in opened
+
+
 def test_folder_requirements_revalidate_after_approved_proposal(repo):
     enable_alpha(repo)
     selected = packet(repo)

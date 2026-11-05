@@ -110,21 +110,12 @@ def test_validation_secret_and_foreign_owner(case):
     with pytest.raises(PolicyError): evaluate_wake(p,s,w,observation)
 
 
-def test_cli_bounded_readonly(case):
+def test_cli_does_not_use_legacy_authority(case):
     p,s,w,_,path=case
     request=path/'request.json'; request.write_text(json.dumps({'schedule':s,'wake':w}))
     args=[sys.executable,str(BASE/'scripts/wiki_context_schedule.py'),'--repo',str(path),'--approved-revision',p.policy_revision,'--request',str(request)]
     result=subprocess.run(args,capture_output=True,text=True)
-    assert result.returncode==0, result.stderr
-    assert json.loads(result.stdout)['execution_authorized'] is False
-    s['enabled']=False
-    request.write_text(json.dumps({'schedule':s,'wake':w}))
-    result=subprocess.run(args,capture_output=True,text=True)
-    assert result.returncode==0
-    assert json.loads(result.stdout)['decision']=='no-op'
-    assert json.loads(result.stdout)['llm_calls']==0
-    request.write_text(' '*65537)
-    assert subprocess.run(args,capture_output=True).returncode==1
+    assert result.returncode != 0
 
 
 def test_stale_declaration_and_input_limits(case):
