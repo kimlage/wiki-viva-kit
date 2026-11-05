@@ -225,11 +225,19 @@ used at consolidation, including `[]` when none were selected. The operation
 revalidates the binding, current policy, source and selected data, reconstructs
 the packet from authorized results and approved candidate revisions, and refuses
 a mismatch. It does not check whether an event was written or a proposal was
-reviewed or incorporated. Results are limited to 2 MB combined; the serialized
-returned object is limited by `max_output_bytes` (default 1 MB, at most 2 MB).
+reviewed or incorporated. The combined results are limited to 2 MB during both
+consolidation and inspection. Consolidation checks this and the size of the
+inspection result before writing an event or packet. Older packets above either
+limit remain preserved and cannot be
+reconstructed by this inspection route. The canonical serialized `result`
+object, excluding the surrounding stage and CLI envelope, is limited by
+`max_output_bytes` (default 1 MB, at most 2 MB).
 An unavailable, invalid or over-budget selection fails without partial output.
 These checks bind the result to the request but do not authenticate its author
 or protect its semantic contents against an actor able to edit protected files.
+Inspection requires the original approved revision to remain the current trusted
+ref; it does not requalify an older request against a newer policy. Reading an
+integrated wiki page is a separate operation.
 
 ## Working-tree folder entry
 

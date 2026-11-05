@@ -44,6 +44,10 @@ class ProtectedPartialError(ValueError):
     """A failed operation may have retained some artifacts; inspect before retry."""
 
 
+class ProtectedResultBudgetError(ValueError):
+    """Selected results exceed the aggregate review limit."""
+
+
 FOLDER_PROMPT_VERSION = 'v5'
 _STAGE_CACHE = ContextVar('wiki_protected_source_stage_cache', default=None)
 
@@ -602,8 +606,9 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
     # The retained request is immutable.  Project only exact authorized cache
-    # keys into the response, and revalidate both authority and source around
-    # every attempted open.  A corrupt result is not evidence of a cache miss.
+    # keys into the response. Revalidate authority and physical identities on
+    # each open and hash/reconstruct the source and request around the batch.
+    # A corrupt result is not evidence of a cache miss.
     options = dict(context_id=context_id, approved_revision=approved_revision,
         entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
         source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
@@ -614,19 +619,43 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     try:
         from wiki_core.llm.context_pass import validate_result
         missing = object()
+        def stamp(path):
+            value = path.stat()
+            return (value.st_dev, value.st_ino, value.st_mode, value.st_size,
+                    value.st_mtime_ns, value.st_ctime_ns)
+        root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
+            entry_folder, entry_index, context_max_bytes, actor)
+        source_path = _source(root, policy, context_id, source_ref, actor)
+        request_path = _request_path(paths, source_id, request_id, repository_context)
+        _allowed(root, policy, actor, request_path, 'read')
+        policy.fresh()
+        source_stamp, request_stamp = stamp(source_path), stamp(request_path)
+        policy.fresh()
+        root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
+        if (current != request or current_digest != source_digest or stamp(source_path) != source_stamp
+                or stamp(request_path) != request_stamp):
+            raise ValueError('request authority changed')
+        def guard_cache(path):
+            nonlocal root, policy, config, paths
+            root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
+                entry_folder, entry_index, context_max_bytes, actor)
+            current_source = _source(root, policy, context_id, source_ref, actor)
+            current_request = _request_path(paths, source_id, request_id, repository_context)
+            _allowed(root, policy, actor, current_request, 'read')
+            if stamp(current_source) != source_stamp or stamp(current_request) != request_stamp:
+                raise ValueError('source or request changed')
+            if _repository(binding, policy, context_id, actor, repository_selection) != repository_context:
+                raise ValueError('repository selection changed')
+            _allowed(root, policy, actor, path, 'read')
+            policy.fresh()
         for row in response_request['chunks']:
-            root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
-            if current != request or current_digest != source_digest:
-                raise ValueError('request authority changed')
             target = paths.llm_cache / (row['cache_key'] + '.json')
+            guard_cache(target)
             try:
                 result = _read_json(root, policy, actor, target)
             except FileNotFoundError:
                 result = missing
-            root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
-            if current != request or current_digest != source_digest:
-                raise ValueError('request authority changed')
-            _allowed(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'), 'read')
+            guard_cache(target)
             if result is not missing:
                 if (contains_access_secrets(result) or validate_result(result)
                         or not result_matches_request(result, request, row)):
@@ -645,6 +674,9 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             raise ValueError('request authority changed')
         for row in response_request['chunks']:
             _allowed(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'), 'read')
+        if (stamp(_source(root, policy, context_id, source_ref, actor)) != source_stamp
+                or stamp(request_path) != request_stamp):
+            raise ValueError('source or request changed')
         policy.fresh()
     except (ValueError, OSError, UnicodeError) as exc:
         raise ProtectedPartialError('cache readback unavailable; partial effects may exist; inspect before retry') from exc
@@ -985,13 +1017,18 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     for row in request['chunks']:
         cache_path = paths.llm_cache / (row['cache_key'] + '.json')
         _allowed(root, policy, actor, cache_path, 'read')
+    result_bytes = 0
     def read_bound_result(row):
+        nonlocal result_bytes
         from wiki_core.llm.context_pass import validate_result
         cache_path = paths.llm_cache / (row['cache_key'] + '.json')
         result = _read_json(root, policy, actor, cache_path)
         if (contains_access_secrets(result) or validate_result(result)
                 or not result_matches_request(result, request, row)):
             raise ValueError('result unavailable')
+        result_bytes += len(_json_text(result).encode('utf-8'))
+        if result_bytes > 2_000_000:
+            raise ProtectedResultBudgetError('combined results exceed 2 MB review limit')
         return result
     aggregated = aggregate_results(request, paths.llm_cache, root=root, result_reader=read_bound_result)
     aggregated['folder_request_id'] = request_id
@@ -1004,6 +1041,10 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
              'document_sha256', 'content_sha256')} for row in rows]
     candidate_documents = _approved_candidate_documents(root, policy, context_id, actor, approved_revision, refs)
     packet = build_packet(aggregated, root, config, paths, candidates=refs, candidate_documents=candidate_documents)
+    review_output = {'view': 'integration', 'source_id': source_id, 'request_id': request_id,
+                     'packet': packet, 'event_status': 'not checked', 'integration': 'not assessed'}
+    if len(canonical_request_text(review_output).encode('utf-8')) > 2_000_000:
+        raise ProtectedResultBudgetError('integration review output exceeds 2 MB limit')
     markdown = build_event_markdown(aggregated, config=config, context=request['source_context'],
         date=date, source_page=source_page, source_type=classify_source(source_ref),
         event_dir=target.parent, root=root, yaml_safe=True,
@@ -1128,15 +1169,15 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         current_root, current_policy, _, current_paths, _, _ = refresh()
         remaining = 2_000_000 - total
         if remaining <= 0:
-            raise ValueError('inspection budget exceeded')
+            raise ProtectedResultBudgetError('combined results exceed 2 MB review limit')
         result = _read_json(current_root, current_policy, actor,
-                            current_paths.llm_cache / (row['cache_key'] + '.json'), max_bytes=remaining)
+                            current_paths.llm_cache / (row['cache_key'] + '.json'))
         if (contains_access_secrets(result) or validate_result(result)
                 or not result_matches_request(result, request, row)):
             raise ValueError('result unavailable')
         total += len(_json_text(result).encode('utf-8'))
         if total > 2_000_000:
-            raise ValueError('inspection budget exceeded')
+            raise ProtectedResultBudgetError('combined results exceed 2 MB review limit')
         current_root, current_policy, _, current_paths, _, _ = refresh()
         _allowed(current_root, current_policy, actor,
                  current_paths.llm_cache / (row['cache_key'] + '.json'), 'read')
@@ -1165,7 +1206,7 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         if retained != expected or contains_access_secrets(retained):
             raise ValueError('integration packet unavailable')
         output = {'view': view, 'source_id': source_id, 'request_id': request_id, 'packet': retained,
-                  'event_status': 'not checked', 'integration': 'pending review and incorporation'}
+                  'event_status': 'not checked', 'integration': 'not assessed'}
     if len(canonical_request_text(output).encode('utf-8')) > max_output_bytes:
         raise ValueError('inspection output budget exceeded')
     root, policy, _, paths, _, _ = refresh()

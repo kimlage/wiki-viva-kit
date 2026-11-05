@@ -221,6 +221,8 @@ def protected_source_stage(root, binding, stage, payload):
         raise
     except protected.ProtectedPartialError as exc:
         raise ProtectedCoordinationError('coordination_partial_effects') from exc
+    except protected.ProtectedResultBudgetError as exc:
+        raise ProtectedCoordinationError('coordination_result_budget_exceeded') from exc
     except (ValueError, OSError, KeyError, TypeError) as exc:
         raise ProtectedCoordinationError() from exc
 
@@ -236,6 +238,7 @@ def blocker_response(error: ProtectedCoordinationError):
         'coordination_budget_exceeded': ('The selected task packet exceeds its byte budget.', 'Reduce the authorized selection or revise the packet limit, then retry.', 'The complete packet fits the chosen byte limit.'),
         'coordination_preflight_unavailable': ('The proposal did not satisfy the current preflight.', 'Revalidate the packet, result, branch and current base.', 'The exact proposal satisfies the current preflight.'),
         'coordination_partial_effects': ('Some artifacts may have been retained before the operation stopped.', 'Inspect and reconcile the selected artifacts before retrying.', 'Possible partial effects have been inspected and resolved.'),
+        'coordination_result_budget_exceeded': ('The selected results or review output exceed the 2 MB review limit.', 'Select a smaller source and prepare a new request.', 'The selected results and review output fit the review limit.'),
         'coordination_v1_retired': ('New v1 packet composition is retired.', 'Use a host-bound folder context.', 'A current folder binding is available.'),
     }
     reason, action, resume=messages.get(error.code,('The selected input is unavailable or unauthorized.','Verify the selected inputs and current policy.','All required inputs are authorized and available.'))
