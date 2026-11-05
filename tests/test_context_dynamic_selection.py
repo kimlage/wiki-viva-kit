@@ -654,6 +654,38 @@ def test_revoked_query_can_only_be_replaced_by_current_authorized_receipt(audit_
     assert repository_report(audit_collection,config,revocation,query_context=AUDIT_CONTEXT,query_policy_revision=revocation,query_head=head)['blockers']
 
 
+@pytest.mark.parametrize('forged_old_authority', [False, True])
+def test_requalified_query_replaces_receipt_after_approved_instruction_change(audit_collection, monkeypatch, forged_old_authority):
+    from wiki_core.freshness_impact import repository_report
+    configure_audit(audit_collection)
+    commit(audit_collection)
+    old_packet = folder_packet(audit_collection)
+    old_requirement = folder_requirement(old_packet)
+    if forged_old_authority:
+        old_requirement['authority_digest'] = '0'*64
+    declare(audit_collection, old_requirement)
+    commit(audit_collection)
+    (audit_collection/'AGENTS.md').write_text('# Updated approved instructions\n')
+    approved = commit(audit_collection)
+    current = folder_packet(audit_collection)
+    git(audit_collection, 'checkout', '-qb', 'wiki/requalify-after-rule-change')
+    declare(audit_collection, folder_requirement(current))
+    git(audit_collection, 'add', '.')
+    git(audit_collection, 'commit', '-qm', 'replace query receipt')
+    head = git(audit_collection, 'rev-parse', 'HEAD')
+    original = RepositoryReader._document
+    def guard(reader, path, *args, **kwargs):
+        assert not (reader.revision == old_packet['policy_revision'] and path in {'AGENTS.md', ANCHOR, SCOPE+'/first.md'}), 'historical body opened'
+        return original(reader, path, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, '_document', guard)
+    report = repository_report(audit_collection, load_config(audit_collection), approved,
+        query_context=AUDIT_CONTEXT, query_policy_revision=approved, query_head=head)
+    if forged_old_authority:
+        assert report['blockers']
+    else:
+        assert not report['blockers'], report['blockers']
+
+
 def test_query_graph_bytes_and_parsed_metadata_must_match_head(collection):
     from wiki_core.dynamic_query_audit import revalidate_affected
     p=packet(collection);declare(collection,requirement(p)); base=commit(collection)
