@@ -43,6 +43,13 @@ python3 scripts/wiki_context_flow.py --repo REPO --approved-revision APPROVED_SH
 
 Preflight checks current policy, selected bytes and read claims, owner/write scope, active normative files, new requirement declarations and Git branch identity. It neither runs the proposal code nor approves, tests, publishes or merges it. Browser-supplied capability reports do not authorize this route. An independent reviewer must review the final HEAD, including any integration edit, and applicable gates must be tied to that HEAD and configuration. A failed or skipped gate is not a pass.
 
+If a packet retains additional readers, a trusted local CLI operator explicitly
+repeats each one with `--additional-reader CONTEXT` on both `preflight` and
+`requirements`. The selection must match the packet, and current policy still
+checks its exact connections; packet metadata is not a grant. This CLI trusts
+the local operator's selection and is not a host allowlist or an ACL. The
+protected host interface instead checks readers against its fixed binding.
+
 An authorized external Git integrator serializes the merge under the repository's existing PR policy. Keep one integrator per target until a provider-enforced current-base queue or equivalent is qualified. Recheck base and exact HEAD immediately before the effect. If either advances, rebuild the packet and result against the current approved base, reconcile the actual read set, rerun preflight and obtain renewed independent review when necessary. Branches and worktrees are not confidentiality boundaries or merge locks.
 
 ## 5. Read back and assess impact
