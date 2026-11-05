@@ -652,16 +652,14 @@ def _folder_documents(root: Path, folder: str, index_path: str | None, max_bytes
     directory = require_wiki_path(root, folder)
     if not directory.is_dir():
         raise ValueError('selected context folder unavailable')
-    if index_path is None:
-        if folder == '.':
-            raise ValueError('root context requires an explicit index')
-        index_path = folder + '/index.md'
-    index_path = safe_path(index_path)
-    if not within(index_path, folder):
-        raise ValueError('selected index is outside the context folder')
+    if index_path is None and folder == '.':
+        raise ValueError('root context requires an explicit index')
+    if index_path is not None:
+        index_path = safe_path(index_path)
     parts = [] if folder == '.' else folder.split('/')
     directories = ['.'] + ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]
     documents = []
+    instruction_dirs = []
     remaining = max_bytes
 
     def read(ref):
@@ -691,11 +689,35 @@ def _folder_documents(root: Path, folder: str, index_path: str | None, max_bytes
                 break
         if selected is not None:
             ref, text, size = selected
+            instruction_dirs.append(directory_ref)
             remaining -= size
             documents.append({'path': ref, 'page_id': None, 'text': text,
                               'content_sha256': sha256_text(text), 'origin': 'working_tree'})
     if not documents:
         raise ValueError('context instructions unavailable')
+    # A folder is an implicit context only when it has both its own
+    # instructions and an index. An auxiliary directory can contribute
+    # instructions without becoming the indexed context.
+    def nearest_index():
+        for directory_ref in reversed(instruction_dirs):
+            if directory_ref == '.':
+                continue  # Root entry needs an explicitly selected index.
+            ref = directory_ref + '/index.md'
+            path = require_wiki_path(root, ref)
+            if path.exists():
+                if not path.is_file():
+                    raise ValueError('selected context index unavailable')
+                return ref
+        raise ValueError('selected context index unavailable')
+
+    if index_path is None:
+        index_path = nearest_index()
+    elif not within(index_path, folder):
+        # An ancestor index is valid only as the current nearest context, or
+        # as an explicitly selected root index. Recheck on every reconstruction.
+        is_root_index = '/' not in index_path and '.' in instruction_dirs
+        if not is_root_index and index_path != nearest_index():
+            raise ValueError('selected index is outside the context folder')
     if any(item['path'] == index_path for item in documents):
         raise ValueError('index must be distinct from instructions')
     selected_index = read(index_path)

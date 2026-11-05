@@ -317,15 +317,19 @@ def test_selected_source_never_opens_nested_repo_or_symlink(approved, monkeypatc
     assert result.blocked and not result.written
 
 
-def test_auxiliary_without_index_blocks_and_explains_explicit_ancestor(approved):
+def test_auxiliary_without_index_inherits_nearest_indexed_context(approved):
     root, source, _, _ = approved
     (root / 'area' / 'aux').mkdir(parents=True)
     (root / 'area' / 'AGENTS.md').write_text('Parent guidance')
     (root / 'area' / 'index.md').write_text('Parent index')
     (root / 'area' / 'aux' / 'AGENTS.md').write_text('Auxiliary guidance')
     result = run(str(source), 'system', root, load_config(root), entry_folder='area/aux')
-    assert result.blocked and result.context_error_code == 'local_folder_unavailable'
-    assert 'indexed ancestor' in json.dumps(result.blockers)
+    assert not result.blocked
+    package = json.loads((root / result.request_path).read_text())['block_context_package']
+    assert package['entry_folder'] == 'area/aux'
+    assert package['entry_index'] == 'area/index.md'
+    assert [d['path'] for d in package['documents']] == [
+        'AGENTS.md', 'area/AGENTS.md', 'area/aux/AGENTS.md', 'area/index.md']
 
 
 def test_external_local_source_stays_blocked(approved, tmp_path_factory):
@@ -600,3 +604,128 @@ def test_local_request_with_larger_budget_is_readable_when_under_retention_limit
     paths = WikiPaths(root, config)
     request = load_local_request(paths, root / result.request_path)
     assert request['request_limits']['request_max_bytes'] == 3_000_000
+
+
+def test_auxiliary_index_without_instructions_is_not_an_implicit_context(approved, monkeypatch):
+    root, _, _, _ = approved
+    auxiliary = root / 'area/aux'
+    auxiliary.mkdir(parents=True)
+    (root / 'area/AGENTS.md').write_text('Area guidance')
+    (root / 'area/index.md').write_text('Area index')
+    child_index = auxiliary / 'index.md'
+    child_index.write_text('Unselected child index')
+    original = Path.open
+    def guard(path, *args, **kwargs):
+        if path == child_index:
+            pytest.fail('opened unselected child index')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guard)
+    package = context_pass.ingestion_block_context(root, load_config(root), {}, [], entry_folder='area/aux')
+    assert package['entry_folder'] == 'area/aux' and package['entry_index'] == 'area/index.md'
+    assert child_index.relative_to(root).as_posix() not in [d['path'] for d in package['documents']]
+
+
+def test_auxiliary_override_and_new_child_context_revalidation(approved):
+    root, _, _, _ = approved
+    auxiliary = root / 'area/aux'
+    auxiliary.mkdir(parents=True)
+    (root / 'area/AGENTS.md').write_text('Area guidance')
+    (root / 'area/index.md').write_text('Area index')
+    (auxiliary / 'AGENTS.md').write_text('Shadowed')
+    (auxiliary / 'AGENTS.override.md').write_text('Auxiliary override')
+    config = load_config(root)
+    initial = context_pass.ingestion_block_context(root, config, {}, [], entry_folder='area/aux')
+    assert initial['entry_folder'] == 'area/aux' and initial['entry_index'] == 'area/index.md'
+    assert [d['path'] for d in initial['documents']] == [
+        'AGENTS.md', 'area/AGENTS.md', 'area/aux/AGENTS.override.md', 'area/index.md']
+    (auxiliary / 'index.md').write_text('Child context index')
+    current = context_pass.ingestion_block_context(root, config, {}, [], entry_folder='area/aux')
+    assert current['entry_index'] == 'area/aux/index.md'
+    with pytest.raises(ValueError, match='outside'):
+        context_pass.ingestion_block_context(root, config, {}, [], entry_folder='area/aux',
+                                             entry_index=initial['entry_index'])
+
+
+def test_nested_folder_can_select_root_index_explicitly_without_implicit_root(approved):
+    root, _, _, _ = approved
+    auxiliary = root / 'aux'
+    auxiliary.mkdir()
+    (root / 'index.md').write_text('Root context index')
+    config = load_config(root)
+    with pytest.raises(ValueError, match='index unavailable'):
+        context_pass.ingestion_block_context(root, config, {}, [], entry_folder='aux')
+    selected = context_pass.ingestion_block_context(root, config, {}, [], entry_folder='aux', entry_index='index.md')
+    assert selected['entry_folder'] == 'aux' and selected['entry_index'] == 'index.md'
+
+
+@pytest.mark.parametrize('boundary', ['git_file', 'git_directory', 'symlink'])
+def test_auxiliary_discovery_refuses_repository_boundaries_before_opening(approved, monkeypatch, boundary):
+    root, source, _, _ = approved
+    area = root / 'area'
+    area.mkdir()
+    (area / 'AGENTS.md').write_text('Area guidance')
+    (area / 'index.md').write_text('Area index')
+    auxiliary = area / 'aux'
+    if boundary == 'symlink':
+        other = root / 'outside'
+        other.mkdir()
+        (other / 'AGENTS.md').write_text('Never open')
+        auxiliary.symlink_to(other, target_is_directory=True)
+    else:
+        auxiliary.mkdir()
+        (auxiliary / 'AGENTS.md').write_text('Never open')
+        if boundary == 'git_file':
+            (auxiliary / '.git').write_text('gitdir: elsewhere')
+        else:
+            (auxiliary / '.git').mkdir()
+    from wiki_core.ingest import pipeline
+    monkeypatch.setattr(pipeline, 'build_manifest', lambda *_a, **_kw: pytest.fail('source opened'))
+    result = run(str(source), 'system', root, load_config(root), entry_folder='area/aux', record_score=False)
+    assert result.blocked and not result.written
+
+
+def test_invalid_explicit_index_does_not_fall_back_to_ancestor(approved):
+    root, _, _, _ = approved
+    auxiliary = root / 'area/aux'
+    auxiliary.mkdir(parents=True)
+    (root / 'area/AGENTS.md').write_text('Area guidance')
+    (root / 'area/index.md').write_text('Area index')
+    with pytest.raises(ValueError, match='index unavailable'):
+        context_pass.ingestion_block_context(root, load_config(root), {}, [], entry_folder='area/aux',
+                                             entry_index='area/aux/missing.md')
+
+
+def test_cli_from_auxiliary_preserves_physical_folder_and_ancestor_index(approved):
+    root, source, _, _ = approved
+    auxiliary = root / 'area/aux'
+    auxiliary.mkdir(parents=True)
+    (root / 'area/AGENTS.md').write_text('Area guidance')
+    (root / 'area/index.md').write_text('Area index')
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_ingest.py'
+    result = subprocess.run([sys.executable, str(script), '--root', str(root), '--source', str(source),
+        '--context', 'system', '--no-score'], cwd=auxiliary, capture_output=True, text=True)
+    assert result.returncode == 0
+    request = json.loads((root / json.loads(result.stdout)['request_path']).read_text())
+    package = request['block_context_package']
+    assert package['entry_folder'] == 'area/aux' and package['entry_index'] == 'area/index.md'
+
+
+def test_context_emerging_during_ingestion_blocks_before_write(approved, monkeypatch):
+    from wiki_core.ingest import pipeline
+    from wiki_core.paths import WikiPaths
+    root, source, _, _ = approved
+    auxiliary = root / 'area/aux'
+    auxiliary.mkdir(parents=True)
+    (root / 'area/AGENTS.md').write_text('Area guidance')
+    (root / 'area/index.md').write_text('Area index')
+    (auxiliary / 'AGENTS.override.md').write_text('Auxiliary guidance')
+    original = pipeline.build_context_request
+    def add_child_context(*args, **kwargs):
+        request = original(*args, **kwargs)
+        (auxiliary / 'index.md').write_text('New context index')
+        return request
+    monkeypatch.setattr(pipeline, 'build_context_request', add_child_context)
+    config = load_config(root)
+    result = run(str(source), 'system', root, config, entry_folder='area/aux', record_score=False)
+    assert result.blocked and not result.written
+    assert not WikiPaths(root, config).derived_root.exists()

@@ -123,11 +123,15 @@ context. Compatibility is not evidence of approved policy or source freshness.
 For a local folder entry, start in the nested directory or select it explicitly
 with `--folder FOLDER`; paths are relative to the wiki root. The request includes
 the physical ancestor `AGENTS.override.md`/`AGENTS.md` chain and the selected
-folder's `index.md`. Use `--index PATH` to choose another index inside the folder;
+nearest context's `index.md`. An implicit context has both its own nonempty
+instructions and an index; an auxiliary folder still contributes any physical
+instructions along the way. A child with only an index does not become a new
+context. Use `--index PATH` to choose another index inside the folder;
 the root requires an explicit index. Missing instructions or index, symlinks and
 nested Git roots block preparation. A selected folder cannot be mixed with
-approved-policy arguments. Starting inside an auxiliary directory without its
-own index requires explicitly selecting the intended context folder.
+approved-policy arguments. Automatic discovery does not select the root index;
+choose it explicitly when the root is the intended context. The physical entry
+folder and selected index are retained and revalidated before writes.
 
 This is local context preparation, not proof of native instruction discovery,
 an ACL or a sandbox. The selected entry reads its instructions and index without
