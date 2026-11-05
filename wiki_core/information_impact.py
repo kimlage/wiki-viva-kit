@@ -47,7 +47,7 @@ def retired_legacy_queries(current: dict, base: dict, changed: set[str], *, appr
         before = base.get('nodes', {}).get(path, {})
         after = current.get('nodes', {}).get(path, {})
         is_action = (before.get('page_type') == 'action' or after.get('page_type') == 'action'
-                     or after.get('action_state') is not None)
+                     or before.get('action_state') is not None or after.get('action_state') is not None)
         if (before.get('status') == 'active' and after.get('status') == 'superseded'
                 and (not is_action or after.get('action_state') in TERMINAL_ACTION_STATES) and key not in live):
             retired.add(key)
