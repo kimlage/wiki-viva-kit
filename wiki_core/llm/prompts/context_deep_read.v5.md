@@ -115,7 +115,8 @@ For a required perspective with no relevant material:
 For a protected folder request, return the result objects to the trusted host.
 The local trusted operator can use the source-stage record command with a JSON
 object on stdin containing the same entry folder, index, source ref, source ID,
-request ID, selected perspective refs, byte limits and result objects:
+request ID, explicit context selection (including the chosen business root or
+explicit omission), selected perspective refs, byte limits and result objects:
 
 ```bash
 python3 scripts/wiki_coordination.py --context-id CONTEXT_ID \

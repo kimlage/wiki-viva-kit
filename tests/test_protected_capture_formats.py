@@ -10,7 +10,7 @@ from tests.test_protected_ingestion import prepared_repo
 from tests.test_folder_policy_core import repo
 from wiki_core.coordination_context import CoordinationBinding
 from wiki_core.extractors.text import extract_captured, extract_source
-from wiki_core.ingest.protected import prepare, record, consolidate
+from tests.test_protected_ingestion import prepare, record, consolidate
 
 
 def pdf_bytes():
@@ -98,6 +98,19 @@ def test_protected_stage_with_captured_formats(prepared_repo, suffix, kind):
     result = consolidate(root, binding, source_page='memories/sources/synthetic.md', event_target=event,
                          date=datetime.date(2026, 11, 4), **options, **ids)
     assert f'source_type: {kind}' in (root / result['event']).read_text()
+    from wiki_core.frontmatter import parse_frontmatter
+    from wiki_core.ingest.protected import _format_omissions
+    expected = _format_omissions(path.name)
+    assert all(item in request['block_context_package']['coverage']['missing'] for item in expected)
+    metadata, _ = parse_frontmatter(root / result['event'])
+    assert metadata['protected_provenance']['extraction_limitations'] == expected
+    derived = root / 'data/derived/wiki/.wiki-viva-protected'
+    manifest = json.loads((derived / 'source-manifests' / (output['source_id'] + '.json')).read_text())
+    chunks = json.loads((derived / 'chunks' / (output['source_id'] + '.json')).read_text())
+    extracted = json.loads((derived / 'source-text' / (output['source_id'] + '.json')).read_text())
+    assert manifest['extraction_limitations'] == chunks['extraction_limitations'] == expected
+    assert manifest['extraction_complete'] is chunks['extraction_complete'] is (not bool(expected))
+    assert extracted['warnings'] == expected
 
 
 def test_strict_encoding_and_archive_limit():

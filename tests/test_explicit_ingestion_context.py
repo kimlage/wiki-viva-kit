@@ -11,6 +11,7 @@ from wiki_core.context_packet import build_packet
 from wiki_core.context_policy import PolicyError, load_policy
 from wiki_core.ingest.explicit_context import (ExplicitContextError,
     explicit_ingestion_evidence, resolve_explicit_ingestion_context)
+from tests.test_protected_ingestion import prepared_repo
 
 
 @pytest.fixture
@@ -112,3 +113,70 @@ def test_explicit_context_does_not_bypass_reader_grants(selected_repo):
     # No beta grant/qualification: the packet builder denies the selector.
     with pytest.raises(PolicyError):
         packet_for(repo, selection)
+
+
+def test_arbitrary_note_cannot_be_business_root(selected_repo):
+    repo, config = selected_repo
+    selection = {'root_entity': 'target.md'}
+    with pytest.raises(ExplicitContextError, match='root type'):
+        resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
+
+
+def test_skipped_perspective_and_pending_reason_remain_visible(selected_repo):
+    repo, config = selected_repo
+    path = repo / 'source-config.md'
+    path.write_text(path.read_text().replace('perspectives_required: [source-lens]',
+        'perspectives_required: [source-lens]\nperspectives_skip_with_reason: [source-lens]'))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'skip with review pending')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    selection = {'source_page': 'source-page.md', 'source_config': 'source-config.md',
+                 'input_channel': 'channel.md', 'omit_root_entity': True}
+    result = resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
+    assert result['perspectives_skipped'] == ['source-lens']
+    assert any('source-lens' in gap and 'justification requires review' in gap
+               for gap in result['context_omissions'])
+
+
+def test_selected_context_is_requalified_across_source_stages(prepared_repo, monkeypatch):
+    from wiki_core.coordination_context import CoordinationBinding
+    from wiki_core.ingest.protected import prepare, record, consolidate
+    from pathlib import Path
+    import datetime
+    import hashlib
+    root, _ = prepared_repo
+    write(root, 'memories/sources/synthetic.md', '---\npage_id: source-synthetic\npage_type: source\nconfig_ref: memories/config.md\n---\n# Source\n')
+    write(root, 'memories/config.md', '---\npage_id: config\npage_type: source_config\ninput_channel_ref: channel\nperspectives_required: [lens]\n---\n# Config\n')
+    write(root, 'memories/channel.md', '---\npage_id: channel\npage_type: input_channel\n---\n# Channel\n')
+    write(root, 'memories/lens.md', '---\npage_id: lens\npage_type: perspective\n---\n# Lens\nHonor limitations.\n')
+    write(root, 'memories/template.md', '# Explicit template\n')
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'selected context')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    selection = {'omit_root_entity': True, 'source_page': 'memories/sources/synthetic.md',
+        'source_config': 'memories/config.md', 'input_channel': 'memories/channel.md',
+        'templates': ['memories/template.md']}
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+        source_ref='source.txt', context_selection=selection, perspective_refs={'lens': 'memories/lens.md'})
+    prepared = prepare(root, binding, **args, source_context='system')
+    request = prepared['request']; row = request['chunks'][0]
+    assert request['perspectives_required'] == ['lens']
+    assert request['input_channel']['page_id'] == 'channel'
+    assert any('intentionally omitted' in gap for gap in request['block_context_package']['coverage']['missing'])
+    assert any(row['ref'] == 'memories/template.md' for row in request['block_context_package']['inputs'])
+    sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
+    result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
+        **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
+        'perspectives_required': ['lens'], 'perspectives': {'lens': {'status': 'extracted'}}}
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    with monkeypatch.context() as patch:
+        import wiki_core.ingest.protected as protected
+        patch.setattr(protected, '_read_json', lambda *a, **k: pytest.fail('request opened with changed selection'))
+        with pytest.raises(ValueError):
+            record(root, binding, **{**args, 'context_selection': {'omit_root_entity': True}}, **ids, results=[result])
+    assert record(root, binding, **args, **ids, results=[result])['recorded'] == 1
+    event = ('memories/system/ingestion/events/2026-11-04-' +
+        hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    output = consolidate(root, binding, **args, **ids, source_page=selection['source_page'],
+        event_target=event, date=datetime.date(2026, 11, 4))
+    assert output['integration'] == 'pending review and incorporation'

@@ -121,6 +121,8 @@ def resolve_explicit_ingestion_context(packet, selection, config):
     config_page = page('source_config', 'source_config')
     channel_page = page('input_channel', 'input_channel')
     root_page = page('root_entity')
+    if root_page and root_page['page_type'] not in ('root_entity', 'context_hub'):
+        raise ExplicitContextError('selected business root type is not qualified')
     # Validate every explicitly requested body even when it is only a template
     # or destination candidate. A link from a page never counts as a read.
     for name, role in (('templates', 'template'), ('target_pages', 'target_page')):
@@ -168,6 +170,13 @@ def resolve_explicit_ingestion_context(packet, selection, config):
         gaps.append('Source configuration not selected; other source links not inspected.')
     if not channel_page:
         gaps.append('Input channel not selected.')
+    for perspective in perspectives['skipped']:
+        gaps.append('Perspective ' + perspective + ' skipped; its justification requires review.')
+    for ref in (source_config or {}).get('process_refs', []):
+        gaps.append('Source process reference ' + ref + ' not inspected.')
+    for ref in (source_config or {}).get('target_pages', []):
+        if ref not in selected['target_pages']:
+            gaps.append('Source target ' + ref + ' not selected.')
     if selected['target_pages']:
         gaps.append('Selected target pages are candidates; selection does not grant write access.')
     gaps.append('Other linked sources and unselected targets not inspected.')
@@ -176,6 +185,7 @@ def resolve_explicit_ingestion_context(packet, selection, config):
         'quadrant_boundary_rule': _quadrant_boundary_rule(config),
         'target_pages': list(selected['target_pages']),
         'perspectives_required': perspectives['required'], 'perspectives_optional': perspectives['optional'],
+        'perspectives_skipped': perspectives['skipped'],
         'input_stage_status': 'explicit_authorized_refs_only', 'context_omissions': gaps,
         'source_page_association': 'operator_selected_unverified' if source else 'not_selected',
         'source_config_association': ('declared_reference_matched' if config_ref else

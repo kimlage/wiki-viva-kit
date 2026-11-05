@@ -90,23 +90,33 @@ def folder_prepare(folder_approved, **limits):
     root, _, sha, binding = folder_approved
     return prepare(root, binding, context_id='.', approved_revision=sha,
         entry_folder='.', entry_index='index.md', source_ref='source.md',
-        source_context='system', **limits)
+        source_context='system', context_selection={'omit_root_entity': True}, **limits)
 
 
-def test_exact_utf8_request_keeps_all_chunks_and_one_required_context(approved):
-    root, _, _, _ = approved
-    result = execute(approved)
-    raw = (root / result.request_path).read_bytes()
-    request = json.loads(raw)
-    assert raw == canonical_request_text(request).encode('utf-8')
+def test_exact_utf8_request_keeps_all_chunks_and_one_required_context(folder_approved):
+    from wiki_core.ingest.protected import prepare
+    root, _, _, binding = folder_approved
+    (root / 'memories').mkdir(exist_ok=True)
+    (root / 'memories/root.md').write_text('---\npage_id: root\npage_type: root_entity\n---\n# Root\n')
+    (root / 'memories/lens.md').write_text('---\npage_id: lens\npage_type: perspective\n---\nPreserve exceções e qualificadores.\n')
+    (root / 'template.rules.md').write_text('Template aplicável: preserve condições.\n')
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    config['root_entity'] = {'page': 'memories/root.md', 'perspective_bundle': {'required': ['lens'], 'optional': []}}
+    (root / 'wiki.config.yaml').write_text(yaml.safe_dump(config))
+    sha = approve_files(root)
+    request = prepare(root, binding, context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+        source_ref='source.md', source_context='system', request_max_bytes=256_000,
+        context_selection={'root_entity': 'memories/root.md', 'templates': ['template.rules.md']},
+        perspective_refs={'lens': 'memories/lens.md'})['request']
+    raw = canonical_request_text(request).encode('utf-8')
     assert len(raw) == request['byte_accounting']['request_bytes'] <= 256_000
     assert len(raw) > len(raw.decode('utf-8'))
-    assert len(request['chunks']) == result.chunk_count > 1
+    assert len(request['chunks']) > 1
     assert request['request_limits'] == {'context_max_bytes': 100_000, 'request_max_bytes': 256_000}
     assert all('block_context_package' not in row for row in request['chunks'])
     inputs = request['block_context_package']['inputs']
     assert len([row for row in inputs if row['ref'] == 'AGENTS.md']) == 1
-    assert 'Obedeça toda a regra' in next(row['text'] for row in inputs if row['ref'] == 'AGENTS.md')
+    assert 'Preserve synthetic' in next(row['text'] for row in inputs if row['ref'] == 'AGENTS.md')
     assert 'Preserve exceções' in next(row['text'] for row in inputs if row['ref'] == 'memories/lens.md')
     assert 'Template aplicável' in next(row['text'] for row in inputs if row['ref'] == 'template.rules.md')
     assert request['source_authorization']['use'] == 'interpretation'
@@ -138,7 +148,8 @@ def test_request_limits_change_cache_identity_and_canonical_cli_records_current_
     root, _, sha, _ = folder_approved
     script = BASE / 'scripts/wiki_coordination.py'
     base = {'entry_folder': '.', 'entry_index': 'index.md', 'source_ref': 'source.md',
-            'context_max_bytes': 20_000, 'request_max_bytes': 40_000}
+            'context_max_bytes': 20_000, 'request_max_bytes': 40_000,
+            'context_selection': {'omit_root_entity': True}}
     def call(stage, payload):
         return subprocess.run([sys.executable, str(script), '--root', str(root), '--context-id', '.',
             '--approved-revision', sha, '--source-stage', stage], input=json.dumps(payload),
@@ -185,7 +196,8 @@ def test_exact_request_boundary_accepts_all_bytes_and_one_byte_less_preserves_pr
 def test_canonical_cli_reports_revoked_context_without_overwriting_previous_request(folder_approved):
     root, _, sha, _ = folder_approved
     script = BASE / 'scripts/wiki_coordination.py'
-    payload = {'entry_folder': '.', 'entry_index': 'index.md', 'source_ref': 'source.md', 'source_context': 'system'}
+    payload = {'entry_folder': '.', 'entry_index': 'index.md', 'source_ref': 'source.md', 'source_context': 'system',
+               'context_selection': {'omit_root_entity': True}}
     def call(revision):
         return subprocess.run([sys.executable, str(script), '--root', str(root), '--context-id', '.',
             '--approved-revision', revision, '--source-stage', 'prepare'], input=json.dumps(payload),
@@ -234,7 +246,8 @@ def test_denied_or_external_source_never_reaches_extractor_or_catalog(folder_app
     for target in ('source.md', 'https://synthetic.invalid/source', '../outside.md'):
         with pytest.raises(ValueError):
             protected.prepare(root, binding, context_id='.', approved_revision=sha, entry_folder='.',
-                entry_index='index.md', source_ref=target, source_context='system')
+                entry_index='index.md', source_ref=target, source_context='system',
+                context_selection={'omit_root_entity': True})
     assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
 
 
@@ -286,7 +299,8 @@ def test_imported_source_requires_exact_bilateral_source_classification(prepared
     sha = approve_files(root)
     binding = CoordinationBinding(('alpha', '.'), 'refs/remotes/origin/main', 'wiki.config.yaml')
     args = dict(context_id='alpha', approved_revision=sha, entry_folder='alpha', entry_index='alpha/index.md',
-        source_ref='alpha/source.txt', source_context='alpha', artifact_context='.')
+        source_ref='alpha/source.txt', source_context='alpha', artifact_context='.',
+        context_selection={'omit_root_entity': True})
     original_open = Path.open
     def forbidden_open(path, *args, **kwargs):
         if path == root / 'alpha/source.txt': pytest.fail('source read without exact classification')
@@ -305,29 +319,30 @@ def test_imported_source_requires_exact_bilateral_source_classification(prepared
     assert request['block_context_package']['additional_readers'] == ['.']
 
 
-def test_approved_routing_delivers_only_applicable_channel_config_and_template_bodies(approved, monkeypatch):
-    import wiki_core.ingest.pipeline as pipeline
-    root, source, _, _ = approved
-    source.write_text('---\npage_id: synthetic-source\npage_type: source\nconfig_ref: memories/source-config.md\n---\n' + source.read_text())
-    (root / 'memories/source-config.md').write_text('---\npage_id: source-config\npage_type: source_config\ninput_channel_ref: channel\n---\nRegra específica da fonte: mantenha os qualificadores.\n')
-    (root / 'memories/channel.md').write_text('---\npage_id: channel\npage_type: input_channel\ncontext: system\n---\nCanal aplicável: leia o recorte com evidência.\n')
-    stage = root / 'memories/system/input-stage.md'; stage.parent.mkdir()
+def test_approved_routing_delivers_only_applicable_channel_config_and_template_bodies(folder_approved, monkeypatch):
+    from wiki_core.ingest.protected import prepare
+    from wiki_core.repository_reader import RepositoryReader
+    root, _, _, binding = folder_approved
+    (root / 'memories/system').mkdir(parents=True)
+    (root / 'memories/source.md').write_text('---\npage_id: source\npage_type: source\nconfig_ref: memories/source-config.md\n---\n# Source\n')
+    (root / 'memories/source-config.md').write_text('---\npage_id: config\npage_type: source_config\ninput_channel_ref: channel\n---\nRegra específica da fonte.\n')
+    (root / 'memories/channel.md').write_text('---\npage_id: channel\npage_type: input_channel\n---\nCanal aplicável.\n')
+    (root / 'template.rules.md').write_text('Template aplicável.\n')
+    stage = root / 'memories/system/input-stage.md'
     marker = 'UNRELATED_GLOBAL_CATALOG_BODY'
     stage.write_text('---\npage_id: global-stage\npage_type: source_catalog\n---\n' + marker * 8000)
     sha = approve_files(root)
-    def forbidden(*args, **kwargs):
-        pytest.fail('approved ingestion opened global routing')
-    monkeypatch.setattr(pipeline, 'input_context_for_source', forbidden)
-    monkeypatch.setattr(pipeline, 'find_source_config', forbidden)
-    result = run(str(source), 'system', root, load_config(root), approved_revision=sha, policy_context='root')
-    assert not result.blocked
-    request_text = (root / result.request_path).read_text()
-    request = json.loads(request_text)
+    monkeypatch.setattr(RepositoryReader, 'catalogue', lambda *a, **k: pytest.fail('global catalog opened'))
+    selection = {'omit_root_entity': True, 'source_page': 'memories/source.md',
+        'source_config': 'memories/source-config.md', 'input_channel': 'memories/channel.md',
+        'templates': ['template.rules.md']}
+    request = prepare(root, binding, context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+        source_ref='source.md', source_context='system', context_selection=selection)['request']
     texts = {row['ref']: row['text'] for row in request['block_context_package']['inputs']}
     assert 'Regra específica da fonte' in texts['memories/source-config.md']
     assert 'Canal aplicável' in texts['memories/channel.md']
     assert 'Template aplicável' in texts['template.rules.md']
-    assert marker not in request_text and stage.relative_to(root).as_posix() not in texts
+    assert marker not in json.dumps(request) and stage.relative_to(root).as_posix() not in texts
     assert request['input_stage_status'] == 'explicit_authorized_refs_only'
 
 
@@ -343,42 +358,45 @@ def test_canonical_cli_root_relative_source_keeps_legacy_mode_explicit(approved,
     assert 'source_authorization' not in request
 
 
-def test_child_can_explicitly_omit_business_root_without_waiving_lineage_rules(approved, monkeypatch, capsys):
-    root, _, _, _ = approved
-    area = root / 'area'; area.mkdir()
-    local = area / 'source.md'; local.write_text('# Local source\nOnly authorized local evidence.\n')
-    (area / 'hub.md').write_text('---\npage_id: local-root\npage_type: context_hub\n---\n# Local business root\nPurpose of this local task.\n')
-    (area / 'rules.md').write_text('Child rule: preserve the exact scope.\n')
-    child = {'schema_version': 'wiki.context/v1', 'id': 'child', 'parent': 'root', 'root': 'area',
-        'purpose': 'Independent local reading', 'owner': 'Child owner', 'instructions': ['area/rules.md'],
-        'skills': [], 'templates': [], 'imports': [], 'exports': [], 'policy': {'read': ['self']}}
-    (area / 'context.yaml').write_text(yaml.safe_dump(child)); sha = approve_files(root)
-    config = load_config(root)
-    default = run(str(local), 'system', root, config, approved_revision=sha, policy_context='child')
-    assert default.blocked and default.context_error_code == 'context_read_denied'
-    omitted = run(str(local), 'system', root, config, approved_revision=sha, policy_context='child', omit_root_entity=True)
-    assert not omitted.blocked
-    request = json.loads((root / omitted.request_path).read_text()); packet = request['block_context_package']
+def test_child_can_explicitly_omit_business_root_without_waiving_lineage_rules(prepared_repo):
+    from wiki_core.coordination_context import CoordinationBinding
+    from wiki_core.ingest.protected import prepare
+    root, _ = prepared_repo
+    _nested_integrator_repo(root)
+    (root / 'alpha/hub.md').write_text('---\npage_id: local-root\npage_type: context_hub\n---\n# Local root\n')
+    (root / 'memories/root.md').write_text('---\npage_id: global\npage_type: root_entity\n---\n# Global\n')
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    rule = {'from_context': 'alpha', 'to_context': '.', 'selector': 'alpha/hub.md',
+        'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
+    config['context_access']['alpha']['exports'].append(rule)
+    config['context_access']['.']['imports'].append(rule)
+    (root / 'wiki.config.yaml').write_text(yaml.safe_dump(config))
+    sha = approve_files(root)
+    binding = CoordinationBinding(('alpha', '.'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='alpha', approved_revision=sha, entry_folder='alpha', entry_index='alpha/index.md',
+        source_ref='alpha/source.txt', source_context='alpha', artifact_context='.')
+    with pytest.raises(ValueError): prepare(root, binding, **args)
+    request = prepare(root, binding, **args, context_selection={'omit_root_entity': True})['request']
+    packet = request['block_context_package']
     assert request['root_entity'] == {} and packet['coverage']['complete'] is False
     assert any('Business root intentionally omitted' in gap for gap in packet['coverage']['missing'])
     refs = {item['ref']: item['text'] for item in packet['inputs']}
-    assert 'Obedeça toda a regra' in refs['AGENTS.md']
-    assert 'Template aplicável' in refs['template.rules.md']
-    assert 'Child rule' in refs['area/rules.md']
+    assert 'AGENTS.md' in refs and 'alpha/AGENTS.override.md' in refs
     assert 'memories/root.md' not in refs
-    own_root = run(str(local), 'system', root, config, approved_revision=sha, policy_context='child', root_entity_ref='area/hub.md')
-    own_request = json.loads((root / own_root.request_path).read_text())
-    assert not own_root.blocked and own_request['root_entity']['page_id'] == 'local-root'
+    own_request = prepare(root, binding, **args, context_selection={'root_entity': 'alpha/hub.md'})['request']
+    assert own_request['root_entity']['page_id'] == 'local-root'
     assert own_request['root_entity']['entity_type'] == 'context_hub'
     assert own_request['perspectives_required'] == []  # No implicit global-business lenses.
-    external = run(str(local), 'system', root, config, approved_revision=sha, policy_context='child', root_entity_ref='memories/root.md')
-    assert external.blocked and external.context_error_code == 'context_read_denied'
+    with pytest.raises(ValueError):
+        prepare(root, binding, **args, context_selection={'root_entity': 'memories/root.md'})
     # Canonical CLI carries the explicit omission, with no new grant.
-    cli = load_script('wiki_ingest')
-    monkeypatch.setattr(sys, 'argv', ['wiki_ingest.py', '--root', str(root), '--source', 'area/source.md',
-        '--context', 'system', '--approved-revision', sha, '--policy-context', 'child', '--omit-root-entity'])
-    assert cli.main() == 0
-    assert json.loads(capsys.readouterr().out)['blocked'] is False
+    script = BASE / 'scripts/wiki_coordination.py'
+    payload = {'entry_folder': 'alpha', 'entry_index': 'alpha/index.md', 'source_ref': 'alpha/source.txt',
+        'source_context': 'alpha', 'context_selection': {'omit_root_entity': True}}
+    completed = subprocess.run([sys.executable, str(script), '--root', str(root), '--context-id', 'alpha',
+        '--integrator-context', '.', '--approved-revision', sha, '--source-stage', 'prepare'],
+        input=json.dumps(payload), capture_output=True, text=True)
+    assert completed.returncode == 0 and json.loads(completed.stdout)['result']['request']['root_entity'] == {}
 
 
 @pytest.mark.parametrize('change', ['hash', 'revocation'])
@@ -454,7 +472,8 @@ def test_approved_recording_reads_only_its_exact_request_and_capture(folder_appr
     legacy = load_script('wiki_llm_context_pass')
     monkeypatch.setattr(legacy, 'resolve_source_manifest', lambda *a, **k: pytest.fail('legacy discovery'))
     recorded = record(root, binding, context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
-        source_ref='source.md', source_id=first['source_id'], request_id=first['request_id'], results=[result])
+        source_ref='source.md', source_id=first['source_id'], request_id=first['request_id'], results=[result],
+        context_selection={'omit_root_entity': True})
     assert recorded['recorded'] == 1
 
 
@@ -466,5 +485,5 @@ def test_approved_missing_exact_capture_blocks_instead_of_legacy_discovery(folde
     with pytest.raises((ValueError, OSError)):
         record(root, binding, context_id='.', approved_revision=sha, entry_folder='.',
             entry_index='index.md', source_ref='source.md', source_id='missing',
-            request_id='0' * 64, results=[{}])
+            request_id='0' * 64, results=[{}], context_selection={'omit_root_entity': True})
     assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
