@@ -561,6 +561,53 @@ def test_integrator_not_in_host_binding_fails_before_any_context_body(prepared_r
             entry_index='alpha/index.md', source_ref='alpha/source.txt', source_context='alpha', artifact_context='.')
 
 
+def test_one_source_two_authorized_folder_interpretations(prepared_repo):
+    root, _ = prepared_repo
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    root_exports, root_imports = [], []
+    for name in ('alpha', 'beta'):
+        if name == 'beta':
+            config['context_access'][name] = {'owner': 'beta operator',
+                'policy': {'read': ['self'], 'write': ['self'], 'capabilities': [], 'deny': {}, 'publication': []}}
+        config['context_access'][name]['policy']['read'] = ['self', 'AGENTS.md', 'source.txt']
+        imports = [
+            {'from_context': '.', 'to_context': name, 'selector': ref,
+             'use': 'interpretation', 'classification': kind, 'expires': '2099-01-01'}
+            for ref, kind in [('AGENTS.md', 'context'), ('source.txt', 'source')]
+        ]
+        instruction = f'{name}/AGENTS.override.md' if name == 'alpha' else f'{name}/AGENTS.md'
+        exports = [
+            {'from_context': name, 'to_context': '.', 'selector': ref,
+             'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
+            for ref in (instruction, f'{name}/index.md')
+        ]
+        config['context_access'][name]['imports'] = imports
+        config['context_access'][name]['exports'] = exports
+        root_exports.extend(imports); root_imports.extend(exports)
+    config['context_access']['.']['exports'] = root_exports
+    config['context_access']['.']['imports'] = root_imports
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'authorize two interpretations')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('alpha', 'beta', '.'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    def args(name):
+        return dict(context_id=name, approved_revision=sha, entry_folder=name, entry_index=f'{name}/index.md',
+                    source_ref='source.txt', artifact_context='.')
+    first = prepare(root, binding, **args('alpha'), source_context='alpha')
+    manifest = root / 'data/derived/wiki/.wiki-viva-protected/source-manifests' / (first['source_id'] + '.json')
+    initial = manifest.read_bytes()
+    second = prepare(root, binding, **args('beta'), source_context='beta')
+    assert first['source_id'] == second['source_id'] and first['request_id'] != second['request_id']
+    assert manifest.read_bytes() == initial
+    for name, prepared in [('alpha', first), ('beta', second)]:
+        result = _result_for(prepared['request'])
+        assert record(root, binding, **args(name), source_id=prepared['source_id'],
+                      request_id=prepared['request_id'], results=[result])['recorded'] == 1
+    cache = root / 'data/derived/wiki/.wiki-viva-protected/llm-cache'
+    assert len(list(cache.glob('*.json'))) == 2
+
+
 def _result_for(request):
     from pathlib import Path
     row = request['chunks'][0]

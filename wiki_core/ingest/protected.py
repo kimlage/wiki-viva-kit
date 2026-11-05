@@ -417,7 +417,8 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
         request_max_bytes=request_max_bytes, artifact_context=artifact_context)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
-    if not isinstance(results, list) or not results or contains_access_secrets(results):
+    if (not isinstance(results, list) or not results or len(results) > 1000
+            or len(_json_text(results).encode('utf-8')) > 2_000_000 or contains_access_secrets(results)):
         raise ValueError('result unavailable')
     rows = request['chunks']
     keys = []
@@ -469,6 +470,9 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         request_max_bytes=request_max_bytes, artifact_context=artifact_context)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
+    if (not isinstance(candidates, (list, tuple)) or len(candidates) > 128
+            or any(not isinstance(x, str) for x in candidates)):
+        raise ValueError('candidate unavailable')
     refs = [safe_path(x) for x in candidates]
     if len(refs) != len(set(refs)) or len(refs) > 128:
         raise ValueError('candidate unavailable')
