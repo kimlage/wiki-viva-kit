@@ -14,6 +14,12 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-04] Document independent Git reader
+
+The [command reference](wiki/command-reference.md) lists the reader for an
+explicitly selected file and revision in a local independent repository. No
+source verification date was renewed.
+
 ## [2026-11-03] Clarify ingestion command examples
 
 The [command reference](wiki/command-reference.md), [ingestion flow](wiki/ingestion-flow.md)
