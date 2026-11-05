@@ -762,44 +762,83 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
         request_max_bytes=request_max_bytes, artifact_context=artifact_context, perspective_refs=perspective_refs,
         context_selection=context_selection, repository_selection=repository_selection)
     actor = context_id if artifact_context is None else artifact_context
+    root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
+        entry_folder, entry_index, context_max_bytes, actor)
+    repository_context = _repository(binding, policy, context_id, actor, repository_selection)
+    source_path = _source(root, policy, context_id, source_ref, actor)
+    request_path = _request_path(paths, source_id, request_id, repository_context)
+    _allowed(root, policy, actor, request_path, 'read')
+    def stamp(path):
+        value = path.stat()
+        return (value.st_dev, value.st_ino, value.st_mode, value.st_size,
+                value.st_mtime_ns, value.st_ctime_ns)
+    policy.fresh()
+    source_stamp, request_stamp = stamp(source_path), stamp(request_path)
+    policy.fresh()
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
+    if (request.get('repository_context') != repository_context or stamp(source_path) != source_stamp
+            or stamp(request_path) != request_stamp):
+        raise ValueError('request authority changed')
     if (not isinstance(results, list) or not results or len(results) > 1000
             or len(_json_text(results).encode('utf-8')) > 2_000_000 or contains_access_secrets(results)):
         raise ValueError('result unavailable')
     rows = request['chunks']
-    keys = []
+    keys = set()
+    rows_by_key = {}
+    for row in rows:
+        rows_by_key.setdefault(row['cache_key'], []).append(row)
     for result in results:
         if not isinstance(result, dict):
             raise ValueError('result unavailable')
         if len(_json_text(result).encode('utf-8')) > 2_000_000:
             raise ValueError('result exceeds protected retention limit')
-        matches = [row for row in rows if result_matches_request(result, request, row, recording=True)]
-        if len(matches) != 1 or result.get('cache_key') in keys:
+        key = result.get('cache_key')
+        if not isinstance(key, str):
             raise ValueError('result unavailable')
-        key = result['cache_key']
-        keys.append(key)
+        matches = [row for row in rows_by_key.get(key, ())
+                   if result_matches_request(result, request, row, recording=True)]
+        if len(matches) != 1 or key in keys:
+            raise ValueError('result unavailable')
+        keys.add(key)
         target = paths.llm_cache / (key + '.json')
         _allowed(root, policy, actor, target, 'read')
         _allowed(root, policy, actor, target, 'write')
     from wiki_core.llm.context_pass import validate_result
     if any(validate_result(result) for result in results):
         raise ValueError('result unavailable')
+    def guard(target):
+        nonlocal root, policy, config, paths
+        root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
+            entry_folder, entry_index, context_max_bytes, actor)
+        current_source = _source(root, policy, context_id, source_ref, actor)
+        current_request = _request_path(paths, source_id, request_id, repository_context)
+        _allowed(root, policy, actor, current_request, 'read')
+        if stamp(current_source) != source_stamp or stamp(current_request) != request_stamp:
+            raise ValueError('source or request changed')
+        if _repository(binding, policy, context_id, actor, repository_selection) != repository_context:
+            raise ValueError('repository selection changed')
+        _allowed(root, policy, actor, target, 'read')
+        _allowed(root, policy, actor, target, 'write')
+        policy.fresh()
     written = []
-    for result in results:
-        try:
-            root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
-            if current != request or current_digest != digest:
-                raise ValueError('request authority changed')
+    try:
+        for result in results:
             target = paths.llm_cache / (result['cache_key'] + '.json')
-            _allowed(root, policy, actor, target, 'read')
-            _allowed(root, policy, actor, target, 'write')
+            guard(target)
             _write_once(root, policy, actor, target, result)
-            root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
-            if current != request or current_digest != digest or _read_json(root, policy, actor, target) != result:
+            guard(target)
+            if _read_json(root, policy, actor, target) != result:
                 raise ValueError('result differs after write')
+            guard(target)
             written.append(target)
-        except (ValueError, OSError) as exc:
-            raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
+        root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
+        if current != request or current_digest != digest:
+            raise ValueError('request authority changed')
+        for target in written:
+            guard(target)
+        policy.fresh()
+    except (ValueError, OSError) as exc:
+        raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
     return {'recorded': len(written), 'request_id': request_id,
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 

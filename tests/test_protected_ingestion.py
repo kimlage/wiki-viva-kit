@@ -604,14 +604,119 @@ def test_cached_capture_rehashes_after_request_read_before_result_write(prepared
         path = values[3]
         if path.name.endswith('-llm-context-request.json'):
             reads.append(1)
-            if len(reads) == 2:
+            if len(reads) == 1:
                 (root / 'source.txt').write_text('Changed after request read.\n')
         return output
     monkeypatch.setattr(protected, '_read_json', mutate_after_request)
     with pytest.raises(ValueError):
         record(root, binding, **args, source_id=prepared['source_id'], request_id=prepared['request_id'], results=[result])
-    assert len(reads) == 2
+    assert len(reads) == 1
     assert not list((root / 'data/derived/wiki/.wiki-viva-protected/llm-cache').glob('*.json'))
+
+
+@pytest.mark.parametrize('changed', ['source', 'request', 'ref', 'cache'])
+def test_record_batch_stops_after_changed_first_write(prepared_repo, monkeypatch, changed):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    (root / 'source.txt').write_text(''.join(f'Synthetic evidence {i} with bounded detail.\n' for i in range(500)))
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    request = first['request']
+    assert len(request['chunks']) >= 2
+    sample = _result_for(request)
+    results = [{**sample, **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')}}
+               for row in request['chunks'][:2]]
+    directory = root / 'data/derived/wiki/.wiki-viva-protected'
+    request_path = next(directory.rglob('*' + first['request_id'] + '-llm-context-request.json'))
+    cache = directory / 'llm-cache'
+    write_once = protected._write_once
+    writes = []
+    def mutate(*values, **kwargs):
+        value = write_once(*values, **kwargs)
+        if values[3].parent.name == 'llm-cache':
+            writes.append(values[3])
+            if len(writes) == 1:
+                if changed == 'ref':
+                    git(root, 'update-ref', '-d', 'refs/remotes/origin/main')
+                elif changed == 'cache':
+                    moved = directory / 'moved-cache'
+                    cache.rename(moved)
+                    cache.symlink_to(moved, target_is_directory=True)
+                else:
+                    target = root / 'source.txt' if changed == 'source' else request_path
+                    with target.open('a') as stream:
+                        stream.write(' ')
+        return value
+    monkeypatch.setattr(protected, '_write_once', mutate)
+    with pytest.raises(protected.ProtectedPartialError):
+        record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'], results=results)
+    assert len(writes) == 1
+    saved = directory / ('moved-cache' if changed == 'cache' else 'llm-cache')
+    assert (saved / (results[0]['cache_key'] + '.json')).is_file()
+    assert not (saved / (results[1]['cache_key'] + '.json')).exists()
+
+
+@pytest.mark.parametrize('changed', ['source', 'request'])
+def test_record_checks_change_after_bound_before_first_write(prepared_repo, monkeypatch, changed):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    directory = root / 'data/derived/wiki/.wiki-viva-protected'
+    request_path = next(directory.rglob('*' + first['request_id'] + '-llm-context-request.json'))
+    original = protected._open_bound
+    def mutate(*values, **kwargs):
+        value = original(*values, **kwargs)
+        target = root / 'source.txt' if changed == 'source' else request_path
+        with target.open('a') as stream:
+            stream.write(' ')
+        return value
+    monkeypatch.setattr(protected, '_open_bound', mutate)
+    with pytest.raises(ValueError):
+        record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'],
+               results=[_result_for(first['request'])])
+    assert not list((directory / 'llm-cache').glob('*.json'))
+
+
+def test_record_revalidates_after_last_full_reconstruction(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    original = protected._open_bound
+    calls = []
+    def revoke(*values, **kwargs):
+        value = original(*values, **kwargs)
+        calls.append(True)
+        if len(calls) == 2:
+            git(root, 'update-ref', '-d', 'refs/remotes/origin/main')
+        return value
+    monkeypatch.setattr(protected, '_open_bound', revoke)
+    with pytest.raises(protected.ProtectedPartialError):
+        record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'],
+               results=[_result_for(first['request'])])
+    assert len(calls) == 2
+    assert len(list((root / 'data/derived/wiki/.wiki-viva-protected/llm-cache').glob('*.json'))) == 1
+
+
+def test_record_batch_preserves_existing_result(prepared_repo):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    result = _result_for(first['request'])
+    ids = dict(source_id=first['source_id'], request_id=first['request_id'])
+    assert record(root, binding, **args, **ids, results=[result])['recorded'] == 1
+    saved = root / 'data/derived/wiki/.wiki-viva-protected/llm-cache' / (result['cache_key'] + '.json')
+    original = saved.read_bytes()
+    assert record(root, binding, **args, **ids, results=[result])['recorded'] == 1
+    with pytest.raises(protected.ProtectedPartialError):
+        record(root, binding, **args, **ids, results=[{**result, 'synthetic_extra': 'different'}])
+    assert saved.read_bytes() == original
 
 
 def test_consolidation_candidates_use_approved_git_content_not_working_tree(prepared_repo, monkeypatch):
