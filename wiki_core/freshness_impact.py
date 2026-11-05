@@ -316,7 +316,8 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             except (ValueError, KeyError, TypeError, OSError) as exc:
                 raise ValueError('query context requires authorized requalification') from exc
             affected = affected_dynamic_queries(current, base, impact_changed,
-                                                {path for path, row in typed_reasons.items() if row.get('causes')})
+                                                {path for path, row in typed_reasons.items() if row.get('causes')},
+                                                legacy_authority_unavailable=True)
             closure_budget = [32_000_000]
             selection_cache = {}  # Local to this exact, fenced audit only.
             outcomes = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
@@ -362,7 +363,8 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                             if cause not in existing: existing.append(cause)
                     query_sources = {path: set(fields) for path, fields in expanded.items()}
                     for path, fields in ordinary_sources.items(): query_sources.setdefault(path, set()).update(fields)
-                    affected = affected_dynamic_queries(current, base, impact_changed | set(query_sources), set(query_sources))
+                    affected = affected_dynamic_queries(current, base, impact_changed | set(query_sources), set(query_sources),
+                                                        legacy_authority_unavailable=True)
                     more = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
                         affected=affected, changed=impact_changed, current=current, pending_sources=query_sources, read_budget=closure_budget, _selection_cache=selection_cache, policy=closure_policy)
                     for row in more: all_outcomes[(row['path'], row['reason'], row.get('requirement_id'))] = row
