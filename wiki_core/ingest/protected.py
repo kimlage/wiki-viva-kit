@@ -361,7 +361,7 @@ def _check_perspective_packet(packet, paths):
 
 def _selected_packet(root, policy, config, context_id, actor, revision, folder, index,
                      budget, task_id, selection, perspective_refs, source_ref, repository_selection,
-                     csv_delimiter=None):
+                     csv_delimiter=None, *, binding):
     from wiki_core.ingest.explicit_context import (explicit_ingestion_evidence,
         resolve_explicit_ingestion_context, _selection)
     selection = _selection(selection)
@@ -369,10 +369,10 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
     if set(selection['repository_source_pages']) - set(repo_ids):
         raise ValueError('repository source selection unavailable')
     cache = _STAGE_CACHE.get()
-    key = canonical_request_text({'root': str(root), 'revision': revision, 'context_id': context_id,
+    key = (binding, canonical_request_text({'root': str(root), 'revision': revision, 'context_id': context_id,
         'actor': actor, 'folder': folder, 'index': index, 'budget': budget, 'task_id': task_id,
         'selection': selection, 'perspective_refs': perspective_refs, 'source_ref': source_ref,
-        'repository_selection': repo_ids, 'csv_delimiter': csv_delimiter})
+        'repository_selection': repo_ids, 'csv_delimiter': csv_delimiter}))
     if cache is not None and key in cache['packets']:
         policy.fresh()
         _check_physical_context(root, folder, cache['context_paths'].get(str(root), (set(), set())))
@@ -384,7 +384,8 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
             task_id=task_id, goal='Interpret the authorized selected source',
             output='Contextual source interpretation', integrator=actor,
             entry_folder=folder, entry_index=index,
-            additional_readers=() if actor == context_id else (actor,), omissions=omissions)
+            additional_readers=() if actor == context_id else (actor,), omissions=omissions,
+            trusted_binding=binding)
     preliminary = build(evidence, [])
     projected = resolve_explicit_ingestion_context(preliminary, selection, config)
     required, optional, paths, lenses = _perspectives(policy, perspective_refs,
@@ -900,7 +901,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     _, projected, selection, required, optional, selected_perspectives = _selected_packet(
         root, policy, config, context_id, actor, approved_revision, entry_folder, entry_index,
         context_max_bytes, 'source-selection-preflight', context_selection, perspective_refs, source_ref, repository_selection,
-        csv_delimiter)
+        csv_delimiter, binding=binding)
     _check_repository_grant_associations(projected, binding, policy, context_id, actor, repository_selection)
     repository_context = _repository(binding, policy, context_id, actor, repository_selection)
     _check_repository_associations(projected, repository_context)
@@ -910,7 +911,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     packet, projected, selection, required, optional, selected_perspectives = _selected_packet(
         root, policy, config, context_id, actor, approved_revision, entry_folder, entry_index,
         context_max_bytes, str(manifest['source_id']), context_selection, perspective_refs, source_ref, repository_selection,
-        csv_delimiter)
+        csv_delimiter, binding=binding)
     auth = {'ref': source_ref, 'producer': policy.owner_of(source_ref), 'context_id': context_id,
         'policy_revision': approved_revision, 'use': 'interpretation', 'classification': 'source',
         'artifact_context': actor, 'context_selection': selection,
@@ -1290,7 +1291,7 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
     current, projected, selection, required, optional, selected_perspectives = _selected_packet(
         root, policy, config, context_id, actor, approved_revision, entry_folder, entry_index,
         context_max_bytes, source_id, context_selection, perspective_refs, source_ref, repository_selection,
-        csv_delimiter)
+        csv_delimiter, binding=binding)
     _check_repository_grant_associations(projected, binding, policy, context_id, actor, repository_selection)
     repository_context = _repository(binding, policy, context_id, actor, repository_selection)
     _check_repository_associations(projected, repository_context)

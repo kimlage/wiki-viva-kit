@@ -1,5 +1,9 @@
 """Cross-owner packet qualification is bound by the trusted in-process host."""
 import copy
+import json
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 import yaml
@@ -105,6 +109,47 @@ def test_binding_missing_executor_blocks_all_routes_before_context_bodies(repo, 
     with pytest.raises(RequirementError, match='host binding'):
         requirements_from_result(repo, policy, packet=packet, result={}, output_path='alpha/output.md',
                                  proposal_head='0'*40, temporal='current', max_age_days=30, trusted_binding=restricted)
+
+
+def test_nested_cli_keeps_explicit_host_selection_through_preflight_and_requirements(repo, tmp_path):
+    evidence = setup_shared(repo)
+    kit = Path(__file__).resolve().parents[1]
+    base = git(repo, 'rev-parse', 'HEAD')
+    request = {'task_id':'cross','goal':'review','output':'alpha/output.md','integrator':'operator',
+               'max_bytes':100000,'evidence':evidence}
+    request_path = tmp_path/'task-selection.json'; request_path.write_text(json.dumps(request))
+    script = str(kit/'scripts/wiki_context.py')
+    pack = [sys.executable,script,'--approved-revision',base,'pack','alpha','--content-revision',base,
+            '--request',str(request_path)]
+    assert subprocess.run(pack,cwd=repo/'alpha/aux',capture_output=True).returncode != 0
+    selected = subprocess.run(pack+['--trusted-context','beta'],cwd=repo/'alpha/aux',capture_output=True,text=True,check=True)
+    packet=json.loads(selected.stdout)
+    assert packet['entry_folder']=='alpha/aux' and any(item['ref']=='beta/source.md' for item in packet['inputs'])
+    coordination = [sys.executable,str(kit/'scripts/wiki_coordination.py'),'--root',str(repo),'--context-id','alpha',
+                    '--approved-revision',base,'--revision',base,'--packet-request',str(request_path),
+                    '--folder','alpha/aux','--trusted-context','beta']
+    coordinated = json.loads(subprocess.run(coordination,capture_output=True,text=True,check=True).stdout)
+    assert coordinated['packet']==packet
+    branch=git(repo,'branch','--show-current');git(repo,'checkout','-qb','wiki/cli-cross')
+    write(repo,'alpha/output.md','# Proposed interpretation\n');git(repo,'add','alpha/output.md');git(repo,'commit','-qm','proposal')
+    head=git(repo,'rev-parse','HEAD')
+    result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'cross','context_id':'alpha',
+            'packet_digest':packet['packet_digest'],'changes':[{'path':'alpha/output.md','action':'created'}],
+            'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':packet['coverage']['missing']},'blockers':[]}
+    packet_path=tmp_path/'packet.json';result_path=tmp_path/'result.json'
+    packet_path.write_text(json.dumps(packet));result_path.write_text(json.dumps(result))
+    flow=[sys.executable,str(kit/'scripts/wiki_context_flow.py'),'--repo',str(repo),'--approved-revision',base]
+    check=['preflight','--context','alpha','--base',base,'--head',head,'--branch','wiki/cli-cross',
+           '--packet',str(packet_path),'--result',str(result_path)]
+    assert subprocess.run(flow+check,capture_output=True).returncode != 0
+    assert json.loads(subprocess.run(flow+check+['--trusted-context','beta'],capture_output=True,text=True,check=True).stdout)['state']=='independent_review_required'
+    git(repo,'checkout','-q',branch);git(repo,'merge','--no-ff','--no-edit','wiki/cli-cross');git(repo,'update-ref','refs/remotes/origin/main','HEAD')
+    current=git(repo,'rev-parse','HEAD'); flow=[sys.executable,str(kit/'scripts/wiki_context_flow.py'),'--repo',str(repo),'--approved-revision',current]
+    requirements=['requirements','--packet',str(packet_path),'--result',str(result_path),'--output','alpha/output.md',
+                  '--proposal-head',head,'--temporal','current','--max-age-days','30']
+    assert subprocess.run(flow+requirements+['--trusted-context','beta'],capture_output=True).returncode != 0
+    output=json.loads(subprocess.run(flow+requirements+['--context','alpha','--trusted-context','beta'],capture_output=True,text=True,check=True).stdout)
+    assert any(row['target']=='beta/source.md' for row in output['information_requirements'])
 
 
 @pytest.mark.parametrize('binding_mode', ['missing', 'wrong_context', 'wrong_ref'])
