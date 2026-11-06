@@ -82,20 +82,29 @@ consumer migrations. No capsule or certification ceremony is required.
 
 ## Gates before a PR
 
+Run the privacy and repository-integrity audits and check the diff locally:
+
 ```sh
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_audit.py --public-export --check
-python3 scripts/wiki_check_methodology_coverage.py --check
-python3 scripts/wiki_operation_compile.py --check
-python3 scripts/wiki_input_stage.py --check
-python3 scripts/wiki_semantic_inventory.py --check
-python3 scripts/wiki_web_snapshot.py --check-contract
-python3 scripts/wiki_pack.py validate --all
-python3 -m pytest tests/
-npm --prefix apps/wiki-cockpit test
-npm --prefix apps/wiki-cockpit exec -- tsc -p apps/wiki-cockpit/tsconfig.json --noEmit
-npm --prefix apps/wiki-cockpit run build
+git diff --check origin/main
 ```
+
+Select additional local checks for the actual change and record their scope in
+the PR: focused Python tests for affected behavior and security boundaries;
+the relevant deterministic compiler, snapshot or pack checks for generated
+contracts; and frontend tests, typecheck and build when UI code or a consumed
+interface changes. When impact is uncertain or cross-cutting, widen the local
+selection. A documentation-only change does not require an unrelated local
+unit or browser suite.
+
+The normal public CI runs the full Python and frontend suites, configured
+browser journeys and Windows checks on the PR merge result associated with the
+reviewed head and current base. Do not duplicate those entire suites locally for
+every PR; a failed or missing CI check is not replaced by a local result. Run
+additional tests when a change, failure or unresolved risk warrants them.
+Coordinate the independent review after the proposal is stable; if the head
+changes, the reviewer verifies the new head and the affected delta.
 
 Configure each consumer through `wiki.config.yaml`; no context, owner or memory
 root may be hardcoded in shared core.
