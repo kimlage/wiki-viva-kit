@@ -23,14 +23,26 @@ class ExplicitContextError(ValueError):
 
 
 def _is_path_reference(ref):
-    return isinstance(ref, str) and ('/' in ref or '\\' in ref or ref.lower().endswith('.md'))
+    return isinstance(ref, str) and ('/' in ref or '\\' in ref or ref.strip().lower().endswith('.md'))
 
 
 def _canonical_selected_path(ref):
     path = canonical_path(ref)
-    if path != ref:
+    if path != ref or ref != ref.strip():
         raise ExplicitContextError('noncanonical context path')
     return path
+
+
+def _declared_targets(value):
+    if value is None:
+        return []
+    values = value if isinstance(value, (list, tuple)) else [value]
+    if any(not isinstance(item, str) or item != item.strip() for item in values):
+        raise ExplicitContextError('noncanonical target declaration')
+    for item in values:
+        if _is_path_reference(item):
+            _canonical_selected_path(item)
+    return list_values(value)
 
 
 def declared_reference_matches(ref, page):
@@ -151,7 +163,7 @@ def connected_ingestion_selection(packet, selection):
     targets = list(selected['target_pages'])
     if selected.get('target_selection') != 'explicit':
         for role in ('source_page', 'source_config', 'input_channel'):
-            targets.extend(ref for value in list_values(values(role).get('target_pages')) if (ref := path(value)))
+            targets.extend(ref for value in _declared_targets(values(role).get('target_pages')) if (ref := path(value)))
     roles = {selected[name] for name in ('source_page', 'source_config', 'input_channel', 'root_entity') if name in selected}
     selected['target_pages'] = list(dict.fromkeys(ref for ref in targets if ref not in roles and ref not in selected['templates']))
     return _selection(selected)
@@ -244,11 +256,18 @@ def resolve_explicit_ingestion_context(packet, selection, config):
         if expected_ref and not declared_reference_matches(expected_ref, page_):
             raise ExplicitContextError('declared context reference requires explicit matching selection')
 
+    def declared_ref(value):
+        if value is None or value == '':
+            return ''
+        if not isinstance(value, str):
+            raise ExplicitContextError('invalid declared context reference')
+        return value
+
     values = (source or {}).get('values', {})
-    config_ref = str(values.get('config_ref') or '')
+    config_ref = declared_ref(values.get('config_ref'))
     verify_link(config_ref, config_page)
-    channel_refs = [str(values.get('input_channel_ref') or ''),
-                    str((config_page or {}).get('values', {}).get('input_channel_ref') or '')]
+    channel_refs = [declared_ref(values.get('input_channel_ref')),
+                    declared_ref((config_page or {}).get('values', {}).get('input_channel_ref'))]
     for ref in channel_refs:
         verify_link(ref, channel_page)
 
@@ -290,7 +309,7 @@ def resolve_explicit_ingestion_context(packet, selection, config):
     for origin, fields in (('Source', (source or {}).get('values', {})),
                            ('Source configuration', (config_page or {}).get('values', {})),
                            ('Input channel', (channel_page or {}).get('values', {}))):
-        for ref in list_values(fields.get('target_pages')):
+        for ref in _declared_targets(fields.get('target_pages')):
             # A path-like declaration denotes that path, even if a different
             # selected page happens to use the same string as its page_id.
             covered = ref in selected['target_pages'] or (not _is_path_reference(ref) and ref in target_ids)

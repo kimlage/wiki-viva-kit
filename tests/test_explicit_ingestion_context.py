@@ -176,7 +176,10 @@ def test_target_selection_mode_is_explicit_and_validated(selected_repo):
         _selection({**base, 'target_selection': 'explicit'})
     with pytest.raises(ExplicitContextError):
         _selection({**base, 'target_selection': 'explicit', 'target_pages': ['beta//index.md']})
+    with pytest.raises(ExplicitContextError):
+        _selection({**base, 'target_selection': 'explicit', 'target_pages': ['beta/index.md ']})
     assert not declared_reference_matches(r'beta\config', {'path': 'alpha/config.md', 'page_id': r'beta\config'})
+    assert not declared_reference_matches('config.md ', {'path': 'alpha/config.md', 'page_id': 'config.md '})
     assert 'target_selection' not in _selection(base)
     for invalid in ('other', None, False, ['explicit']):
         with pytest.raises(ExplicitContextError, match='invalid target selection'):
@@ -202,17 +205,28 @@ def test_unselected_declared_path_is_not_hidden_by_another_page_id(selected_repo
     assert declared_path in connected_ingestion_selection(packet_for(repo, declared), declared)['target_pages']
 
 
-def test_noncanonical_declared_target_cannot_select_a_normalized_path(selected_repo):
+@pytest.mark.parametrize('declared', ['beta//index.md', 'beta/index.md ', ' beta/index.md'])
+def test_noncanonical_declared_target_cannot_select_a_normalized_path(selected_repo, declared):
     from wiki_core.ingest.explicit_context import connected_ingestion_selection
     repo, _ = selected_repo
     write(repo, 'channel.md', '---\npage_id: channel-a\npage_type: input_channel\n'
-          'target_pages: [beta//index.md]\n---\n# Channel\n')
+          f'target_pages: ["{declared}"]\n---\n# Channel\n')
     git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'noncanonical declared target')
     git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     selection = {'omit_root_entity': True, 'source_page': 'source-page.md',
                  'source_config': 'source-config.md', 'input_channel': 'channel.md'}
     with pytest.raises(ExplicitContextError, match='noncanonical'):
         connected_ingestion_selection(packet_for(repo, selection), selection)
+    explicit = {**selection, 'target_selection': 'explicit', 'target_pages': []}
+    with pytest.raises(ExplicitContextError, match='noncanonical'):
+        resolve_explicit_ingestion_context(packet_for(repo, explicit), explicit, selected_repo[1])
+
+
+def test_nontext_target_declaration_is_rejected():
+    from wiki_core.ingest.explicit_context import _declared_targets
+    for value in ([False], [1], False):
+        with pytest.raises(ExplicitContextError, match='noncanonical'):
+            _declared_targets(value)
 
 
 @pytest.mark.parametrize('role', ['source_config', 'input_channel'])
@@ -236,6 +250,23 @@ def test_declared_context_path_cannot_match_another_page_id(selected_repo, role,
         resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
 
 
+@pytest.mark.parametrize('role', ['source_config', 'input_channel'])
+def test_nontext_context_reference_cannot_match_a_string_id(selected_repo, role):
+    repo, config = selected_repo
+    if role == 'source_config':
+        write(repo, 'source-page.md', '---\npage_id: source-a\npage_type: source\nconfig_ref: false\n---\n# Source\n')
+        write(repo, 'source-config.md', '---\npage_id: "False"\npage_type: source_config\n---\n# Config\n')
+    else:
+        write(repo, 'source-config.md', '---\npage_id: config-a\npage_type: source_config\ninput_channel_ref: false\n---\n# Config\n')
+        write(repo, 'channel.md', '---\npage_id: "False"\npage_type: input_channel\n---\n# Channel\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'nontext context reference')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    selection = {'omit_root_entity': True, 'source_page': 'source-page.md',
+                 'source_config': 'source-config.md', 'input_channel': 'channel.md'}
+    with pytest.raises(ExplicitContextError, match='invalid declared context reference'):
+        resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
+
+
 @pytest.mark.parametrize(('field', 'role'), [('config_ref', 'source_config'), ('input_channel_ref', 'input_channel')])
 @pytest.mark.parametrize('suffix', ['.md', '.MD', ''])
 def test_captured_source_path_cannot_match_another_page_id(field, role, suffix):
@@ -251,6 +282,10 @@ def test_captured_source_path_cannot_match_another_page_id(field, role, suffix):
     source.text = f'---\n{field}: selected-id\n---\n# Source\n'
     projected[role]['page_id'] = 'selected-id'
     _validate_source_context(source, projected)
+    source.text = f'---\n{field}: false\n---\n# Source\n'
+    projected[role]['page_id'] = 'False'
+    with pytest.raises(ValueError, match='explicit qualification'):
+        _validate_source_context(source, projected)
 
 
 def test_global_root_only_when_explicit_and_omission_is_recorded(selected_repo):

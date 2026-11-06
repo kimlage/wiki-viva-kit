@@ -289,7 +289,7 @@ def _validate_source_context(extracted, projected):
         for key, selected in (('config_ref', projected.get('source_config')),
                               ('input_channel_ref', projected.get('input_channel'))):
             declared = source_meta.get(key)
-            if declared and not declared_reference_matches(declared, selected):
+            if declared is not None and declared != '' and not declared_reference_matches(declared, selected):
                 raise ValueError('source configuration requires explicit qualification')
         if source_meta.get('perspectives_required') and source_meta['perspectives_required'] != projected['perspectives_required']:
             raise ValueError('source perspectives require explicit qualification')

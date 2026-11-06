@@ -126,7 +126,11 @@ frontmatter is not automatically included in this coverage; assess it
 separately when relevant.
 References containing `/` or ending in `.md` (case-insensitively) are treated
 as literal paths, not page IDs, even if another page uses that string as its ID.
-Noncanonical paths, including backslashes or repeated separators, are rejected.
+Noncanonical paths, including backslashes, repeated separators or whitespace at
+their ends, are rejected. Target declarations with whitespace at their ends are
+also rejected rather than silently trimmed, and declarations must be text.
+The frontmatter parser does not detect duplicate YAML keys; review malformed
+source metadata separately before relying on its coverage.
 The source-page association is operator-selected and is not proved by the link.
 A nested executor does not automatically receive a global business root or
 its bundle. Required perspectives from the selected context require an exact
