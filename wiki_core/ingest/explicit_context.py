@@ -22,10 +22,14 @@ class ExplicitContextError(ValueError):
     """An explicit interpretation selection is missing or inconsistent."""
 
 
+def _is_path_reference(ref):
+    return isinstance(ref, str) and ('/' in ref or '\\' in ref or ref.lower().endswith('.md'))
+
+
 def declared_reference_matches(ref, page):
-    """Treat a Markdown path as a path even when another page uses it as ID."""
+    """Treat path-shaped references as paths, even when another page uses one as ID."""
     return (isinstance(ref, str) and isinstance(page, dict) and
-            (ref == page.get('path') or (not ref.endswith('.md') and ref == page.get('page_id'))))
+            (ref == page.get('path') or (not _is_path_reference(ref) and ref == page.get('page_id'))))
 
 
 def _selection(selection):
@@ -116,7 +120,7 @@ def connected_ingestion_selection(packet, selection):
     def path(value):
         if not isinstance(value, str) or not value:
             return None
-        if value.endswith('.md'):
+        if _is_path_reference(value):
             return canonical_path(value)
         if len(by_id.get(value, [])) == 1:
             return by_id[value][0]
@@ -282,7 +286,7 @@ def resolve_explicit_ingestion_context(packet, selection, config):
         for ref in list_values(fields.get('target_pages')):
             # A path-like declaration denotes that path, even if a different
             # selected page happens to use the same string as its page_id.
-            covered = ref in selected['target_pages'] if isinstance(ref, str) and ref.endswith('.md') else ref in target_ids
+            covered = ref in selected['target_pages'] or (not _is_path_reference(ref) and ref in target_ids)
             if not covered:
                 gaps.append(origin + ' target ' + str(ref) + ' not selected.')
     if selected['target_pages']:

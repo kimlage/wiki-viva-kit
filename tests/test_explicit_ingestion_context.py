@@ -163,7 +163,8 @@ def test_explicit_target_mode_preserves_declared_context_and_records_omissions(p
 
 
 def test_target_selection_mode_is_explicit_and_validated(selected_repo):
-    from wiki_core.ingest.explicit_context import _selection, connected_ingestion_selection
+    from wiki_core.ingest.explicit_context import (_selection, connected_ingestion_selection,
+                                                   declared_reference_matches)
     repo, _ = selected_repo
     base = {'omit_root_entity': True, 'source_page': 'source-page.md',
             'source_config': 'source-config.md', 'input_channel': 'channel.md'}
@@ -173,41 +174,45 @@ def test_target_selection_mode_is_explicit_and_validated(selected_repo):
     assert connected_ingestion_selection(initial, explicit)['target_pages'] == []
     with pytest.raises(ExplicitContextError, match='requires target_pages'):
         _selection({**base, 'target_selection': 'explicit'})
+    assert not declared_reference_matches(r'beta\config', {'path': 'alpha/config.md', 'page_id': r'beta\config'})
     assert 'target_selection' not in _selection(base)
     for invalid in ('other', None, False, ['explicit']):
         with pytest.raises(ExplicitContextError, match='invalid target selection'):
             _selection({**base, 'target_selection': invalid})
 
 
-def test_unselected_declared_path_is_not_hidden_by_another_page_id(selected_repo):
+@pytest.mark.parametrize('suffix', ['.md', '.MD', ''])
+def test_unselected_declared_path_is_not_hidden_by_another_page_id(selected_repo, suffix):
     from wiki_core.ingest.explicit_context import connected_ingestion_selection
     repo, config = selected_repo
-    write(repo, 'target.md', '---\npage_id: beta/index.md\npage_type: note\n---\n# Target\n')
+    declared_path = f'beta/index{suffix}'
+    write(repo, 'target.md', f'---\npage_id: {declared_path}\npage_type: note\n---\n# Target\n')
     write(repo, 'channel.md', '---\npage_id: channel-a\npage_type: input_channel\n'
-          'target_pages: [beta/index.md]\n---\n# Channel\n')
+          f'target_pages: [{declared_path}]\n---\n# Channel\n')
     git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'ambiguous target ID')
     git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     selection = {'omit_root_entity': True, 'source_page': 'source-page.md',
                  'source_config': 'source-config.md', 'input_channel': 'channel.md',
                  'target_selection': 'explicit', 'target_pages': ['target.md']}
     resolved = resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
-    assert any('beta/index.md not selected' in gap for gap in resolved['context_omissions'])
+    assert any(f'{declared_path} not selected' in gap for gap in resolved['context_omissions'])
     declared = {**selection, 'target_selection': 'declared'}
-    assert 'beta/index.md' in connected_ingestion_selection(packet_for(repo, declared), declared)['target_pages']
+    assert declared_path in connected_ingestion_selection(packet_for(repo, declared), declared)['target_pages']
 
 
 @pytest.mark.parametrize('role', ['source_config', 'input_channel'])
-def test_declared_context_path_cannot_match_another_page_id(selected_repo, role):
+@pytest.mark.parametrize('suffix', ['.md', '.MD', ''])
+def test_declared_context_path_cannot_match_another_page_id(selected_repo, role, suffix):
     repo, config = selected_repo
     if role == 'source_config':
         write(repo, 'source-page.md', '---\npage_id: source-a\npage_type: source\n'
-              'config_ref: beta/config.md\n---\n# Source\n')
-        write(repo, 'source-config.md', '---\npage_id: beta/config.md\npage_type: source_config\n'
+              f'config_ref: beta/config{suffix}\n---\n# Source\n')
+        write(repo, 'source-config.md', f'---\npage_id: beta/config{suffix}\npage_type: source_config\n'
               'input_channel_ref: channel-a\n---\n# Config\n')
     else:
         write(repo, 'source-config.md', '---\npage_id: config-a\npage_type: source_config\n'
-              'input_channel_ref: beta/channel.md\n---\n# Config\n')
-        write(repo, 'channel.md', '---\npage_id: beta/channel.md\npage_type: input_channel\n---\n# Channel\n')
+              f'input_channel_ref: beta/channel{suffix}\n---\n# Config\n')
+        write(repo, 'channel.md', f'---\npage_id: beta/channel{suffix}\npage_type: input_channel\n---\n# Channel\n')
     git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'ambiguous declared context path')
     git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     selection = {'omit_root_entity': True, 'source_page': 'source-page.md',
@@ -217,15 +222,16 @@ def test_declared_context_path_cannot_match_another_page_id(selected_repo, role)
 
 
 @pytest.mark.parametrize(('field', 'role'), [('config_ref', 'source_config'), ('input_channel_ref', 'input_channel')])
-def test_captured_source_path_cannot_match_another_page_id(field, role):
+@pytest.mark.parametrize('suffix', ['.md', '.MD', ''])
+def test_captured_source_path_cannot_match_another_page_id(field, role, suffix):
     from types import SimpleNamespace
     from wiki_core.ingest.protected import _validate_source_context
 
-    source = SimpleNamespace(text=f'---\n{field}: beta/selected.md\n---\n# Source\n')
-    projected = {role: {'path': 'alpha/selected.md', 'page_id': 'beta/selected.md'}}
+    source = SimpleNamespace(text=f'---\n{field}: beta/selected{suffix}\n---\n# Source\n')
+    projected = {role: {'path': 'alpha/selected.md', 'page_id': f'beta/selected{suffix}'}}
     with pytest.raises(ValueError, match='explicit qualification'):
         _validate_source_context(source, projected)
-    projected[role]['path'] = 'beta/selected.md'
+    projected[role]['path'] = f'beta/selected{suffix}'
     _validate_source_context(source, projected)
     source.text = f'---\n{field}: selected-id\n---\n# Source\n'
     projected[role]['page_id'] = 'selected-id'

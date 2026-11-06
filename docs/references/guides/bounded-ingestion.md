@@ -120,7 +120,13 @@ an explicit `target_pages` list on every stage. Declared but unselected targets
 remain visible as omissions and are not selected merely by that declaration.
 Independent, authorized hub discovery may still identify them as candidates;
 the mode grants no access. Without it, declared targets continue to be selected
-and checked.
+and checked. Here, declared targets are those in the selected source page,
+configuration and channel. `target_pages` in the captured source's own
+frontmatter is not automatically included in this coverage; assess it
+separately when relevant.
+References containing `/` or ending in `.md` (case-insensitively) are treated
+as literal paths, not page IDs, even if another page uses that string as its ID.
+Backslashes are not accepted as repository path separators.
 The source-page association is operator-selected and is not proved by the link.
 A nested executor does not automatically receive a global business root or
 its bundle. Required perspectives from the selected context require an exact
