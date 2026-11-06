@@ -245,8 +245,8 @@ def test_scalar_brackets_target_remains_visible(selected_repo):
     assert any('target [] not selected' in gap for gap in resolved['context_omissions'])
 
 
-def test_selected_extensionless_path_takes_precedence_over_page_id():
-    from wiki_core.ingest.explicit_context import connected_ingestion_selection
+def test_bare_reference_is_an_id_even_if_a_selected_path_matches():
+    from wiki_core.ingest.explicit_context import connected_ingestion_selection, declared_reference_matches
     packet = {'inputs': [
         {'kind': 'evidence', 'ref': 'channel.md',
          'text': '---\npage_id: channel\ntarget_pages: [item]\n---\n'},
@@ -254,7 +254,23 @@ def test_selected_extensionless_path_takes_precedence_over_page_id():
         {'kind': 'evidence', 'ref': 'other.md', 'text': '---\npage_id: item\n---\n'},
     ]}
     selection = {'omit_root_entity': True, 'input_channel': 'channel.md'}
-    assert connected_ingestion_selection(packet, selection)['target_pages'] == ['item']
+    assert connected_ingestion_selection(packet, selection)['target_pages'] == ['other.md']
+    assert not declared_reference_matches('item', {'path': 'item', 'page_id': 'other'})
+    assert declared_reference_matches('item', {'path': 'other.md', 'page_id': 'item'})
+
+
+def test_bare_target_id_is_not_satisfied_by_a_different_page_at_same_path(selected_repo):
+    repo, config = selected_repo
+    write(repo, 'item', '---\npage_id: other\npage_type: note\n---\n# Other\n')
+    write(repo, 'channel.md', '---\npage_id: channel-a\npage_type: input_channel\n'
+          'target_pages: [item]\n---\n# Channel\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'bare target identity')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    selection = {'omit_root_entity': True, 'source_page': 'source-page.md',
+                 'source_config': 'source-config.md', 'input_channel': 'channel.md',
+                 'target_selection': 'explicit', 'target_pages': ['item']}
+    resolved = resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
+    assert any('target item not selected' in gap for gap in resolved['context_omissions'])
 
 
 @pytest.mark.parametrize('role', ['source_config', 'input_channel'])

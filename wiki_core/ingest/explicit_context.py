@@ -47,8 +47,9 @@ def _declared_targets(value):
 
 def declared_reference_matches(ref, page):
     """Treat path-shaped references as paths, even when another page uses one as ID."""
-    return (isinstance(ref, str) and isinstance(page, dict) and
-            (ref == page.get('path') or (not _is_path_reference(ref) and ref == page.get('page_id'))))
+    if not isinstance(ref, str) or not isinstance(page, dict):
+        return False
+    return ref == page.get('path' if _is_path_reference(ref) else 'page_id')
 
 
 def _selection(selection):
@@ -141,8 +142,6 @@ def connected_ingestion_selection(packet, selection):
             return None
         if _is_path_reference(value):
             return _canonical_selected_path(value)
-        if value in pages:
-            return value
         if len(by_id.get(value, [])) == 1:
             return by_id[value][0]
         return None  # An unresolved page ID is not permission to scan the wiki.
@@ -317,7 +316,7 @@ def resolve_explicit_ingestion_context(packet, selection, config):
         for ref in _declared_targets(fields.get('target_pages')):
             # A path-like declaration denotes that path, even if a different
             # selected page happens to use the same string as its page_id.
-            covered = ref in selected['target_pages'] or (not _is_path_reference(ref) and ref in target_ids)
+            covered = ref in selected['target_pages'] if _is_path_reference(ref) else ref in target_ids
             if not covered:
                 gaps.append(origin + ' target ' + str(ref) + ' not selected.')
     if selected['target_pages']:
