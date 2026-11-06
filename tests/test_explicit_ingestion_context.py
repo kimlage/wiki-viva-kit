@@ -174,6 +174,8 @@ def test_target_selection_mode_is_explicit_and_validated(selected_repo):
     assert connected_ingestion_selection(initial, explicit)['target_pages'] == []
     with pytest.raises(ExplicitContextError, match='requires target_pages'):
         _selection({**base, 'target_selection': 'explicit'})
+    with pytest.raises(ExplicitContextError):
+        _selection({**base, 'target_selection': 'explicit', 'target_pages': ['beta//index.md']})
     assert not declared_reference_matches(r'beta\config', {'path': 'alpha/config.md', 'page_id': r'beta\config'})
     assert 'target_selection' not in _selection(base)
     for invalid in ('other', None, False, ['explicit']):
@@ -198,6 +200,19 @@ def test_unselected_declared_path_is_not_hidden_by_another_page_id(selected_repo
     assert any(f'{declared_path} not selected' in gap for gap in resolved['context_omissions'])
     declared = {**selection, 'target_selection': 'declared'}
     assert declared_path in connected_ingestion_selection(packet_for(repo, declared), declared)['target_pages']
+
+
+def test_noncanonical_declared_target_cannot_select_a_normalized_path(selected_repo):
+    from wiki_core.ingest.explicit_context import connected_ingestion_selection
+    repo, _ = selected_repo
+    write(repo, 'channel.md', '---\npage_id: channel-a\npage_type: input_channel\n'
+          'target_pages: [beta//index.md]\n---\n# Channel\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'noncanonical declared target')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    selection = {'omit_root_entity': True, 'source_page': 'source-page.md',
+                 'source_config': 'source-config.md', 'input_channel': 'channel.md'}
+    with pytest.raises(ExplicitContextError, match='noncanonical'):
+        connected_ingestion_selection(packet_for(repo, selection), selection)
 
 
 @pytest.mark.parametrize('role', ['source_config', 'input_channel'])

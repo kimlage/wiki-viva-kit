@@ -26,6 +26,13 @@ def _is_path_reference(ref):
     return isinstance(ref, str) and ('/' in ref or '\\' in ref or ref.lower().endswith('.md'))
 
 
+def _canonical_selected_path(ref):
+    path = canonical_path(ref)
+    if path != ref:
+        raise ExplicitContextError('noncanonical context path')
+    return path
+
+
 def declared_reference_matches(ref, page):
     """Treat path-shaped references as paths, even when another page uses one as ID."""
     return (isinstance(ref, str) and isinstance(page, dict) and
@@ -56,7 +63,7 @@ def _selection(selection):
         value = selection.get(name)
         if value is not None:
             try:
-                clean[name] = canonical_path(value)
+                clean[name] = _canonical_selected_path(value)
             except (ValueError, TypeError) as exc:
                 raise ExplicitContextError('invalid context path') from exc
     for name in ('templates', 'target_pages'):
@@ -64,7 +71,7 @@ def _selection(selection):
         if not isinstance(values, list) or len(values) > 32:
             raise ExplicitContextError('invalid context paths')
         try:
-            clean[name] = [canonical_path(value) for value in values]
+            clean[name] = [_canonical_selected_path(value) for value in values]
         except (ValueError, TypeError) as exc:
             raise ExplicitContextError('invalid context path') from exc
     repository_pages = selection.get('repository_source_pages', {})
@@ -73,7 +80,7 @@ def _selection(selection):
                    for key in repository_pages)):
         raise ExplicitContextError('invalid repository source selection')
     try:
-        clean['repository_source_pages'] = {key: canonical_path(repository_pages[key]) for key in sorted(repository_pages)}
+        clean['repository_source_pages'] = {key: _canonical_selected_path(repository_pages[key]) for key in sorted(repository_pages)}
     except (ValueError, TypeError) as exc:
         raise ExplicitContextError('invalid repository source selection') from exc
     refs = [clean[name] for name in ('source_page', 'source_config', 'input_channel', 'root_entity') if name in clean]
@@ -121,7 +128,7 @@ def connected_ingestion_selection(packet, selection):
         if not isinstance(value, str) or not value:
             return None
         if _is_path_reference(value):
-            return canonical_path(value)
+            return _canonical_selected_path(value)
         if len(by_id.get(value, [])) == 1:
             return by_id[value][0]
         return None  # An unresolved page ID is not permission to scan the wiki.
