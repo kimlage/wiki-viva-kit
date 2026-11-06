@@ -66,6 +66,45 @@ Source pages and candidates also require the relevant read connections. Each
 stage revalidates the source, selected context and revision. A failed write may
 leave partial effects and explicitly reports that inspection is needed before
 retry.
+Before retaining protected JSON, the stage checks the actual artifact paths
+against Git's ignore rules and refuses tracked or unignored paths. It repeats
+that check at each write. A later ignore change or a forced Git add can still
+expose files; the application boundary does not replace filesystem controls.
+
+An installation can opt into source-scoped artifact locations with
+`llm.protected_cache_mode: by_source_v1` in its approved configuration. For
+the exact executor, integrator and local source selector, an operator can obtain
+the relative component before approving the corresponding policy scopes:
+
+```sh
+python3 -c "from wiki_core.ingest.cache_partition import partition_component; print(partition_component('.', '.', 'data/raw/example.pdf'))"
+```
+
+The component is below the configured derived root and
+`.wiki-viva-protected`. Grant the artifact owner only the required read and
+write scopes there, and independently authorize the source and any selected
+context. The hash is a stable routing name, not a secret, a grant or an OS ACL;
+each operation still checks current policy and the physical boundaries. The
+default `shared` mode retains the previous layout. Changing modes does not
+migrate or erase existing artifacts. Requests remain pinned to their approved
+policy revision: restoring the old layout in a later revision does not make an
+old request current. Reprepare and review against the current policy, or use a
+separately reviewed migration if the installation provides one.
+
+For a source in an external provider, an authorized operator or existing
+provider adapter first captures the original bytes in an explicitly authorized,
+Git-ignored local source path. Retain the provider identity, file identifier,
+version or modification time, observation time, byte size and provider checksum
+when available in the private source record, and compare the provider checksum
+with the downloaded bytes. Record a SHA-256 of those bytes as well. Recheck the
+provider metadata after download if the provider can change the file in place.
+If the provider does not supply a comparable checksum or stable revision,
+record that limit instead of claiming verified provenance. The protected stage
+checks the local bytes and their digest on every stage; it does not itself
+authenticate the provider or verify an operator's external-source assertion.
+Never store credentials or authenticated links in the record. The external
+original remains canonical; a local capture or source-page association is not
+proof of a complete reading or incorporation.
 
 Each stage must receive the same `context_selection`, with either an explicit
 `root_entity` path or `omit_root_entity: true`. It may also select exact
@@ -76,6 +115,23 @@ Declared path links from the source to its configuration/channel and their
 `target_pages` are resolved through that same authorized packet builder; they
 do not have to be copied into the stage payload. Unresolved page IDs still need
 an exact selected path; they never trigger an unrestricted catalog scan.
+To restrict the selected targets, pass `"target_selection":"explicit"` with
+an explicit `target_pages` list on every stage. Declared but unselected targets
+remain visible as omissions and are not selected merely by that declaration.
+Independent, authorized hub discovery may still identify them as candidates;
+the mode grants no access. Without it, declared targets continue to be selected
+and checked. Here, declared targets are those in the selected source page,
+configuration and channel. `target_pages` in the captured source's own
+frontmatter is not automatically included in this coverage; assess it
+separately when relevant.
+References containing `/` or ending in `.md` (case-insensitively) are treated
+as literal paths, not page IDs, even if another page uses that string as its ID.
+Other references are treated as page IDs, including names without an extension.
+Noncanonical paths, including backslashes, repeated separators or whitespace at
+their ends, are rejected. Target declarations with whitespace at their ends are
+also rejected rather than silently trimmed, and declarations must be text.
+The frontmatter parser does not detect duplicate YAML keys; review malformed
+source metadata separately before relying on its coverage.
 The source-page association is operator-selected and is not proved by the link.
 A nested executor does not automatically receive a global business root or
 its bundle. Required perspectives from the selected context require an exact
