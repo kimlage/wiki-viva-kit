@@ -224,9 +224,25 @@ def test_noncanonical_declared_target_cannot_select_a_normalized_path(selected_r
 
 def test_nontext_target_declaration_is_rejected():
     from wiki_core.ingest.explicit_context import _declared_targets
+    assert _declared_targets('[]') == ['[]']
+    assert _declared_targets([]) == []
     for value in ([False], [1], False):
         with pytest.raises(ExplicitContextError, match='noncanonical'):
             _declared_targets(value)
+
+
+def test_scalar_brackets_target_remains_visible(selected_repo):
+    repo, config = selected_repo
+    write(repo, 'channel.md', '---\npage_id: channel-a\npage_type: input_channel\n'
+          'target_pages: "[]"\n---\n# Channel\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'scalar target ID')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    selection = {'omit_root_entity': True, 'source_page': 'source-page.md',
+                 'source_config': 'source-config.md', 'input_channel': 'channel.md',
+                 'target_selection': 'explicit', 'target_pages': []}
+    resolved = resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
+    assert resolved['input_channel']['target_pages'] == ['[]']
+    assert any('target [] not selected' in gap for gap in resolved['context_omissions'])
 
 
 @pytest.mark.parametrize('role', ['source_config', 'input_channel'])

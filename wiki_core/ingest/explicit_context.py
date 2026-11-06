@@ -42,7 +42,7 @@ def _declared_targets(value):
     for item in values:
         if _is_path_reference(item):
             _canonical_selected_path(item)
-    return list_values(value)
+    return [item for item in values if item]
 
 
 def declared_reference_matches(ref, page):
@@ -277,9 +277,12 @@ def resolve_explicit_ingestion_context(packet, selection, config):
         source_config = {'path': config_page['path'], 'page_id': config_page['page_id'],
             **{key: list_values(values.get(key)) for key in ('perspectives_required',
                 'perspectives_optional', 'perspectives_skip_with_reason', 'process_refs',
-                'target_pages', 'quadrants')},
+                'quadrants')},
+            'target_pages': _declared_targets(values.get('target_pages')),
             'input_channel_ref': str(values.get('input_channel_ref') or '')}
     channel = _channel_payload(channel_page) if channel_page else None
+    if channel is not None:
+        channel['target_pages'] = _declared_targets(channel_page['values'].get('target_pages'))
     root = None
     if root_page:
         # A locally selected root does not inherit the global business bundle
