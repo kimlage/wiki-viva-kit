@@ -969,6 +969,27 @@ def test_consolidation_candidates_use_approved_git_content_not_working_tree(prep
             'candidates': ['memories/candidates/approved.md']})
 
 
+def test_consolidation_accepts_candidate_with_ordinary_email_search(prepared_repo):
+    root, _ = prepared_repo
+    candidate = 'memories/candidates/search.md'
+    write(root, candidate, '---\npage_id: search-topic\npage_type: claim\n---\n'
+          '[Search](https://example.test/mail/?q=from%3Areader%40example.test)\n')
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'candidate with search link')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])
+    target = ('memories/system/ingestion/events/2026-11-04-' +
+        hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    output = consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
+        event_target=target, date=dt.date(2026, 11, 4), candidates=[candidate])
+    assert output['integration'] == 'pending review and incorporation'
+    assert (root / target).is_file()
+
+
 @pytest.mark.parametrize('source_selected_in_request', [True, False])
 def test_changed_source_review_is_scoped_and_old_packet_is_preserved(prepared_repo, source_selected_in_request):
     from wiki_core.source_manifest import source_id_for
