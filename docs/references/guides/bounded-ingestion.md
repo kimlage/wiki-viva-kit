@@ -126,6 +126,8 @@ frontmatter is not automatically included in this coverage; assess it
 separately when relevant.
 References containing `/` or ending in `.md` (case-insensitively) are treated
 as literal paths, not page IDs, even if another page uses that string as its ID.
+For other references, an exact path already present in the authorized packet
+takes precedence over an ID.
 Noncanonical paths, including backslashes, repeated separators or whitespace at
 their ends, are rejected. Target declarations with whitespace at their ends are
 also rejected rather than silently trimmed, and declarations must be text.

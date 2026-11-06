@@ -245,6 +245,18 @@ def test_scalar_brackets_target_remains_visible(selected_repo):
     assert any('target [] not selected' in gap for gap in resolved['context_omissions'])
 
 
+def test_selected_extensionless_path_takes_precedence_over_page_id():
+    from wiki_core.ingest.explicit_context import connected_ingestion_selection
+    packet = {'inputs': [
+        {'kind': 'evidence', 'ref': 'channel.md',
+         'text': '---\npage_id: channel\ntarget_pages: [item]\n---\n'},
+        {'kind': 'evidence', 'ref': 'item', 'text': '---\npage_id: other\n---\n'},
+        {'kind': 'evidence', 'ref': 'other.md', 'text': '---\npage_id: item\n---\n'},
+    ]}
+    selection = {'omit_root_entity': True, 'input_channel': 'channel.md'}
+    assert connected_ingestion_selection(packet, selection)['target_pages'] == ['item']
+
+
 @pytest.mark.parametrize('role', ['source_config', 'input_channel'])
 @pytest.mark.parametrize('suffix', ['.md', '.MD', ''])
 def test_declared_context_path_cannot_match_another_page_id(selected_repo, role, suffix):

@@ -141,6 +141,8 @@ def connected_ingestion_selection(packet, selection):
             return None
         if _is_path_reference(value):
             return _canonical_selected_path(value)
+        if value in pages:
+            return value
         if len(by_id.get(value, [])) == 1:
             return by_id[value][0]
         return None  # An unresolved page ID is not permission to scan the wiki.
