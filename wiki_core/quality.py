@@ -642,6 +642,9 @@ def render_markdown(report: dict[str, Any]) -> str:
             pages = ", ".join(f"`{page}`" for page in item["pages"])
             unknown = ", ".join(f"`{page}`" for page in item["unknown_metadata_pages"])
             lines.append(f"- {item['text_preview']}... ({pages}; unknown metadata: {unknown})")
+        if len(unknown_repetitions) > 20:
+            omitted = len(unknown_repetitions) - 20
+            lines.append(f"- {omitted} additional blocks omitted; use `--format json` for the complete list.")
     else:
         lines.append("- None.")
     lines.extend(["", "### Quality exempt pages", ""])

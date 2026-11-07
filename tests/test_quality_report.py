@@ -180,6 +180,24 @@ def test_mixed_repetition_keeps_known_pair_as_bad_and_reports_unknown(tmp_path: 
     assert "memories/three.md" in rendered
 
 
+def test_markdown_reports_truncated_unknown_repetition_list(tmp_path: Path) -> None:
+    blocks = [
+        f"Synthetic block {i:02d} is repeated across independent pages without known "
+        "context metadata. This sufficiently long example checks that the "
+        "operator can discover omitted results in the complete JSON output."
+        for i in range(22)
+    ]
+    for name in ("one", "two"):
+        _write(tmp_path / f"memories/{name}/SKILL.md", "\n\n".join(blocks))
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+    rendered = render_markdown(report)
+
+    assert len(report["quality_flags"]["repetition_unknown_metadata"]) == 22
+    assert "2 additional blocks omitted; use `--format json` for the complete list." in rendered
+    assert "synthetic block 21" not in rendered
+
+
 def test_quality_report_tracks_cost_telemetry_without_budget_gate(tmp_path: Path) -> None:
     cfg = WikiConfig(
         contexts=("example",),
