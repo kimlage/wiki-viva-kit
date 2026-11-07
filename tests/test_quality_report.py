@@ -81,8 +81,132 @@ def test_quality_report_measures_links_density_and_repetition(tmp_path: Path) ->
     # page is still reported as repeated, but it does not make the block "bad".
     assert report["summary"]["repeated_blocks"] == 1
     assert report["summary"]["bad_repetition_blocks"] == 1
+    assert "repetition_unknown_metadata" not in report["quality_flags"]
     assert report["summary"]["thin_link_pages"] == 0
     assert "bad_repetition_blocks" in render_markdown(report)
+
+
+@pytest.mark.parametrize(
+    ("first_context", "first_type", "second_context", "second_type", "bad_count"),
+    [
+        ("", "", "", "", 0),
+        ("", "context_note", "", "context_note", 0),
+        ("example", "", "example", "", 0),
+        ("example", "context_note", "", "context_note", 0),
+        ("example", "context_note", "project", "context_note", 0),
+        ("example", "context_note", "example", "context_note", 1),
+    ],
+)
+def test_bad_repetition_requires_known_matching_metadata(
+    tmp_path: Path,
+    first_context: str,
+    first_type: str,
+    second_context: str,
+    second_type: str,
+    bad_count: int,
+) -> None:
+    repeated = (
+        "A deliberately repeated synthetic paragraph provides enough text to "
+        "exercise the quality report without relying on consumer-specific data "
+        "or treating missing metadata as a shared context."
+    )
+    for name, context, page_type in (
+        ("one", first_context, first_type),
+        ("two", second_context, second_type),
+    ):
+        _write(
+            tmp_path / f"memories/{name}/SKILL.md",
+            _page(name, page_type, name, repeated, context=context),
+        )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example", "project")))
+
+    assert report["summary"]["repeated_blocks"] == 1
+    assert report["summary"]["bad_repetition_blocks"] == bad_count
+
+
+def test_skill_files_without_wiki_metadata_remain_visible_as_repetition(tmp_path: Path) -> None:
+    repeated = (
+        "A synthetic shared instruction is repeated across independent skills. "
+        "The absent wiki metadata does not establish a common context or page type. "
+        "The report should still expose the repeated text for inspection."
+    )
+    for name in ("one", "two"):
+        _write(
+            tmp_path / f"memories/{name}/skills/{name}/SKILL.md",
+            f"---\nname: {name}\ndescription: Synthetic skill\n---\n\n# {name}\n\n{repeated}\n",
+        )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+
+    assert report["summary"]["repeated_blocks"] == 1
+    assert report["summary"]["bad_repetition_blocks"] == 0
+    flags = report["quality_flags"]["repetition_unknown_metadata"]
+    assert len(flags) == 1
+    assert flags[0]["unknown_metadata_pages"] == [
+        "memories/one/skills/one/SKILL.md",
+        "memories/two/skills/two/SKILL.md",
+    ]
+    rendered = render_markdown(report)
+    assert "### Repeated blocks with unknown context or page type" in rendered
+    assert "a synthetic shared instruction" in rendered
+    assert "memories/one/skills/one/SKILL.md" in rendered
+    assert "memories/two/skills/two/SKILL.md" in rendered
+
+
+def test_unknown_metadata_diagnostic_is_not_a_snapshot_defect() -> None:
+    from wiki_core.web.snapshot_projection import _quality_reasons_by_path
+
+    payload = {"quality_flags": {"repetition_unknown_metadata": [{"pages": ["a.md", "b.md"]}]}}
+    assert _quality_reasons_by_path(payload, [{"path": "a.md"}, {"path": "b.md"}]) == {
+        "a.md": [],
+        "b.md": [],
+    }
+
+
+def test_mixed_repetition_keeps_known_pair_as_bad_and_reports_unknown(tmp_path: Path) -> None:
+    repeated = (
+        "A deliberately repeated synthetic paragraph provides enough text to "
+        "exercise both known and unknown metadata in the same repeated block, "
+        "without relying on consumer-specific content or actual user data."
+    )
+    for name, context in (("one", "example"), ("two", "example"), ("three", "")):
+        _write(
+            tmp_path / f"memories/{name}.md",
+            _page(name, "context_note", name, repeated, context=context),
+        )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+
+    assert report["summary"]["bad_repetition_blocks"] == 1
+    assert report["quality_flags"]["bad_repetition_blocks"][0]["pages"] == [
+        "memories/one.md", "memories/two.md"
+    ]
+    unknown = report["quality_flags"]["repetition_unknown_metadata"][0]
+    assert unknown["pages"] == ["memories/one.md", "memories/three.md", "memories/two.md"]
+    assert unknown["unknown_metadata_pages"] == ["memories/three.md"]
+    rendered = render_markdown(report)
+    assert "### Bad repetition blocks" in rendered
+    assert "### Repeated blocks with unknown context or page type" in rendered
+    assert "memories/three.md" in rendered
+
+
+def test_markdown_reports_truncated_unknown_repetition_list(tmp_path: Path) -> None:
+    blocks = [
+        f"Synthetic block {i:02d} is repeated across independent pages without known "
+        "context metadata. This sufficiently long example checks that the "
+        "operator can discover omitted results in the complete JSON output."
+        for i in range(22)
+    ]
+    for name in ("one", "two"):
+        _write(tmp_path / f"memories/{name}/SKILL.md", "\n\n".join(blocks))
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+    rendered = render_markdown(report)
+
+    assert len(report["quality_flags"]["repetition_unknown_metadata"]) == 22
+    assert "2 additional blocks omitted; use `--format json` for the complete list." in rendered
+    assert "synthetic block 21" not in rendered
 
 
 def test_quality_report_tracks_cost_telemetry_without_budget_gate(tmp_path: Path) -> None:
