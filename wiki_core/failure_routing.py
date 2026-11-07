@@ -15,9 +15,10 @@ from pathlib import Path
 import re
 import secrets
 import stat
+import subprocess
 from typing import Any, Callable, Protocol
 
-from wiki_core.action_transition import _action_file_lock
+from wiki_core.action_transition import _LOCK_ROOT, _action_file_lock
 from wiki_core.config import WikiConfig
 from wiki_core.paths import WikiPaths
 from wiki_core.repo_read import contains_access_secrets
@@ -57,6 +58,7 @@ class FailureIntent:
 class IssueRef:
     identifier: str
     marker: str
+    state: str = "open"
 
 
 @dataclass(frozen=True)
@@ -95,6 +97,52 @@ Admission = Callable[[str, Callable[[], Any]], Any]
 
 def _digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def _receipt_relative(root: Path, config: WikiConfig, intent: FailureIntent) -> Path:
+    if not isinstance(config, WikiConfig):
+        raise RoutingError("config_invalid")
+    try:
+        relative = (WikiPaths(root, config).derived_root / "failure-routing" /
+                    (_digest(intent.key) + ".json")).relative_to(root)
+    except (ValueError, TypeError, KeyError):
+        raise RoutingError("receipt_path_invalid") from None
+    if not relative.parts or any(part in {".", ".."} for part in relative.parts):
+        raise RoutingError("receipt_path_invalid")
+    return relative
+
+
+def _private_storage(root: Path, config: WikiConfig, intent: FailureIntent) -> None:
+    """Require an actual repository and ignored, untracked receipt and lock."""
+    try:
+        root = Path(root).resolve(strict=True)
+        relative = _receipt_relative(root, config, intent)
+        lock_name = hashlib.sha256(("failure-routing:" + _digest(intent.key)).encode()).hexdigest() + ".lock"
+        lock_relative = _LOCK_ROOT / lock_name
+        env = {key: value for key, value in os.environ.items() if key not in {
+            "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE",
+            "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES"}}
+        env["GIT_OPTIONAL_LOCKS"] = "0"
+        def git(*args: str) -> subprocess.CompletedProcess:
+            return subprocess.run(["git", "-C", str(root), *args], env=env,
+                                  capture_output=True, text=True, timeout=10, check=False)
+        top = git("rev-parse", "--show-toplevel")
+        if top.returncode != 0 or Path(top.stdout.strip()).resolve(strict=True) != root:
+            raise RoutingError("repository_unavailable")
+        for path in (relative, lock_relative):
+            current = root
+            for part in path.parts:
+                current /= part
+                if current.is_symlink():
+                    raise RoutingError("receipt_path_invalid")
+            ignored = git("check-ignore", "--quiet", "--no-index", "--", path.as_posix())
+            tracked = git("ls-files", "-z", "--", path.as_posix())
+            if ignored.returncode != 0 or tracked.returncode != 0 or tracked.stdout:
+                raise RoutingError("receipt_not_private")
+    except RoutingError:
+        raise
+    except (OSError, subprocess.SubprocessError, ValueError):
+        raise RoutingError("receipt_storage_unavailable") from None
 
 
 def _directory(root: Path, config: WikiConfig) -> Path:
@@ -179,6 +227,8 @@ def _one(values: Any, cls: type, key_name: str, key: str) -> Any:
             or not isinstance(item.identifier, str) or not _SAFE.fullmatch(item.identifier)
             or contains_access_secrets(item.identifier)):
         raise RoutingError("provider_invalid")
+    if isinstance(item, IssueRef) and item.state not in {"open", "closed"}:
+        raise RoutingError("provider_invalid")
     if isinstance(item, RunRef) and item.state not in _STATES:
         raise RoutingError("provider_invalid")
     return item
@@ -204,7 +254,8 @@ def _attempt(admit: Admission, capability: str, call: Callable[[], Any]) -> str 
         return "outcome_uncertain"
 
 
-def _intent_record(root: Path, intent: FailureIntent, config: WikiConfig) -> tuple[Path, dict[str, Any]]:
+def _intent_record(root: Path, intent: FailureIntent, config: WikiConfig,
+                   guard: Callable[[], None]) -> tuple[Path, dict[str, Any]]:
     identity = _digest(intent.key)
     path = _directory(root, config) / (identity + ".json")
     record = _read(path)
@@ -214,6 +265,7 @@ def _intent_record(root: Path, intent: FailureIntent, config: WikiConfig) -> tup
                   "marker": secrets.token_hex(16), "issue_attempted": False,
                   "issue": None, "repair_attempted": False, "adoption_attempted": False,
                   "repair_run": None, "adoption_run": None, "adoption_revision": None}
+        guard()
         _write(path, record)
     if (set(record) != {"schema", "intent_digest", "marker", "issue_attempted", "issue",
                         "repair_attempted", "adoption_attempted", "repair_run", "adoption_run", "adoption_revision"}
@@ -237,7 +289,8 @@ def _intent_record(root: Path, intent: FailureIntent, config: WikiConfig) -> tup
 
 
 def _route_worker(path: Path, record: dict[str, Any], port: ExecutorPort | None,
-                  admit: Admission, executor: str, phase: str, revision: str | None) -> dict[str, str]:
+                  admit: Admission, executor: str, phase: str, revision: str | None,
+                  guard: Callable[[], None]) -> dict[str, str]:
     if port is None:
         return {"state": "executor_unavailable"}
     if phase == "adoption":
@@ -245,6 +298,7 @@ def _route_worker(path: Path, record: dict[str, Any], port: ExecutorPort | None,
             raise RoutingError("revision_conflict")
         if record["adoption_revision"] is None:
             record["adoption_revision"] = revision
+            guard()
             _write(path, record)
     key = record["marker"] + "-" + phase
     def find() -> RunRef | None:
@@ -255,10 +309,16 @@ def _route_worker(path: Path, record: dict[str, Any], port: ExecutorPort | None,
         if record[field]:
             return {"state": "outcome_uncertain"}
         record[field] = True
+        guard()
         _write(path, record)  # Durable intent precedes effect.
-        result = _attempt(admit, "executor.start", lambda: port.start(executor, key, record["issue"], revision))
+        guard()
+        def start() -> None:
+            guard()
+            port.start(executor, key, record["issue"], revision)
+        result = _attempt(admit, "executor.start", start)
         if result == "admission_denied":
             record[field] = False
+            guard()
             _write(path, record)
             return {"state": result}
         try:
@@ -273,6 +333,7 @@ def _route_worker(path: Path, record: dict[str, Any], port: ExecutorPort | None,
     if record[field] is None:
         record[field] = run.identifier
         record[phase + "_attempted"] = True
+        guard()
         _write(path, record)
     return {"state": run.state, "run_id": run.identifier}
 
@@ -287,21 +348,28 @@ def route_failure(root: Path, intent: FailureIntent, *, issue_port: IssuePort,
     by lookup; a missing/ambiguous observation never triggers a blind retry.
     """
     intent.validate()
+    guard = lambda: _private_storage(Path(root), config, intent)
+    guard()
     with _action_file_lock(Path(root), "failure-routing:" + _digest(intent.key)):
-        path, record = _intent_record(Path(root), intent, config)
+        guard()
+        path, record = _intent_record(Path(root), intent, config, guard)
         marker = record["marker"]
         if intent.existing_issue is not None:
             existing = _observe(admit, "issue.inspect", lambda: issue_port.get(intent.issue_target, intent.existing_issue))
             if existing is None:
                 return {"state": "issue_unconfirmed"}
-            if not isinstance(existing, IssueRef) or existing.identifier != intent.existing_issue:
+            if (not isinstance(existing, IssueRef) or existing.identifier != intent.existing_issue
+                    or existing.state not in {"open", "closed"}):
                 raise RoutingError("provider_invalid")
             if record["issue"] not in (None, existing.identifier):
                 raise RoutingError("provider_conflict")
             if record["issue"] is None:
                 record["issue"] = existing.identifier
+                guard()
                 _write(path, record)
-            return {"issue_id": existing.identifier, **_route_worker(path, record, executor_port, admit, intent.executor, "repair", None)}
+            if existing.state == "closed":
+                return {"issue_id": existing.identifier, "state": "issue_closed"}
+            return {"issue_id": existing.identifier, **_route_worker(path, record, executor_port, admit, intent.executor, "repair", None, guard)}
         def find() -> IssueRef | None:
             return _one(_observe(admit, "issue.inspect", lambda: issue_port.find(intent.issue_target, marker)), IssueRef, "marker", marker)
         issue = find()
@@ -309,10 +377,16 @@ def route_failure(root: Path, intent: FailureIntent, *, issue_port: IssuePort,
             if record["issue"] is not None or record["issue_attempted"]:
                 return {"state": "outcome_uncertain"}
             record["issue_attempted"] = True
+            guard()
             _write(path, record)
-            result = _attempt(admit, "issue.create", lambda: issue_port.create(intent.issue_target, intent.template, marker))
+            guard()
+            def create() -> None:
+                guard()
+                issue_port.create(intent.issue_target, intent.template, marker)
+            result = _attempt(admit, "issue.create", create)
             if result == "admission_denied":
                 record["issue_attempted"] = False
+                guard()
                 _write(path, record)
                 return {"state": result}
             try:
@@ -326,8 +400,11 @@ def route_failure(root: Path, intent: FailureIntent, *, issue_port: IssuePort,
         if record["issue"] is None:
             record["issue"] = issue.identifier
             record["issue_attempted"] = True
+            guard()
             _write(path, record)
-        return {"issue_id": issue.identifier, **_route_worker(path, record, executor_port, admit, intent.executor, "repair", None)}
+        if issue.state == "closed":
+            return {"issue_id": issue.identifier, "state": "issue_closed"}
+        return {"issue_id": issue.identifier, **_route_worker(path, record, executor_port, admit, intent.executor, "repair", None, guard)}
 
 
 def route_adoption(root: Path, intent: FailureIntent, *, issue_port: IssuePort,
@@ -339,13 +416,17 @@ def route_adoption(root: Path, intent: FailureIntent, *, issue_port: IssuePort,
     does not merge, change a lockfile, or assert the consumer has adopted it.
     """
     intent.validate()
+    guard = lambda: _private_storage(Path(root), config, intent)
+    guard()
     with _action_file_lock(Path(root), "failure-routing:" + _digest(intent.key)):
-        path, record = _intent_record(Path(root), intent, config)
+        guard()
+        path, record = _intent_record(Path(root), intent, config, guard)
         if record["issue"] is None:
             return {"state": "issue_unconfirmed"}
         if intent.existing_issue is not None:
             observed = _observe(admit, "issue.inspect", lambda: issue_port.get(intent.issue_target, intent.existing_issue))
-            if observed is not None and (not isinstance(observed, IssueRef) or observed.identifier != intent.existing_issue):
+            if observed is not None and (not isinstance(observed, IssueRef) or observed.identifier != intent.existing_issue
+                                         or observed.state not in {"open", "closed"}):
                 raise RoutingError("provider_invalid")
         else:
             observed = _one(_observe(admit, "issue.inspect", lambda: issue_port.find(intent.issue_target, record["marker"])), IssueRef, "marker", record["marker"])
@@ -361,4 +442,4 @@ def route_adoption(root: Path, intent: FailureIntent, *, issue_port: IssuePort,
         if not (merge.merged and merge.reviewed and merge.ci_passed):
             return {"state": "upstream_not_ready"}
         return {"issue_id": record["issue"], "upstream_revision": merge.revision,
-                **_route_worker(path, record, executor_port, admit, intent.adopter, "adoption", merge.revision)}
+                **_route_worker(path, record, executor_port, admit, intent.adopter, "adoption", merge.revision, guard)}

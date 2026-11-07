@@ -2,6 +2,8 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 import multiprocessing
 from pathlib import Path
+import shutil
+import subprocess
 import threading
 import traceback
 
@@ -12,6 +14,12 @@ from wiki_core.failure_routing import (
     AdmissionDenied, FailureIntent, IssueRef, RoutingError, RunRef, UpstreamMerge,
     route_adoption as _route_adoption, route_failure as _route_failure,
 )
+
+
+@pytest.fixture(autouse=True)
+def synthetic_repository(tmp_path):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / ".gitignore").write_text("data/derived/**\ncustom/cache/**\n")
 
 
 def route_failure(root, value, **kwargs):
@@ -213,6 +221,30 @@ def test_repair_and_adoption_are_distinct_and_require_verified_merge(tmp_path):
     assert len(workers.started) == 2
 
 
+def test_closed_issue_blocks_repair_but_allows_verified_merge_handoff(tmp_path):
+    issues, workers = Issues(), Workers()
+    assert route_failure(tmp_path, intent(), issue_port=issues, executor_port=workers, admit=allow)["state"] == "queued"
+    marker = next(iter(issues.items))
+    issues.items[marker] = IssueRef("issue-1", marker, "closed")
+    assert route_failure(tmp_path, intent(), issue_port=issues, executor_port=workers, admit=allow) == {"issue_id": "issue-1", "state": "issue_closed"}
+    assert len(workers.started) == 1
+    assert route_adoption(tmp_path, intent(), issue_port=issues, executor_port=workers, admit=allow)["state"] == "upstream_not_merged"
+    issues.merge = UpstreamMerge("a" * 40, True, True, True)
+    assert route_adoption(tmp_path, intent(), issue_port=issues, executor_port=workers, admit=allow)["state"] == "queued"
+    assert workers.started[1][0] == "consumer-coordinator"
+
+
+def test_existing_closed_issue_never_starts_repair(tmp_path):
+    issues, workers = Issues(), Workers()
+    issues.items["older-marker"] = IssueRef("issue-existing", "older-marker", "closed")
+    existing = FailureIntent("incident-1", "synthetic-template", "public-kit", "kit-executor", "consumer-coordinator", "issue-existing")
+    assert route_failure(tmp_path, existing, issue_port=issues, executor_port=workers, admit=allow) == {"issue_id": "issue-existing", "state": "issue_closed"}
+    assert not workers.started and issues.created == 0
+    issues.merge = UpstreamMerge("a" * 40, True, True, True)
+    assert route_adoption(tmp_path, existing, issue_port=issues, executor_port=workers, admit=allow)["state"] == "queued"
+    assert workers.started[0][0] == "consumer-coordinator"
+
+
 def test_conflicting_provider_readback_does_not_create_or_dispatch(tmp_path):
     issues, workers = Issues(), Workers()
     issues.find = lambda target, marker: [IssueRef("one", marker), IssueRef("two", marker)]
@@ -242,6 +274,45 @@ def test_receipts_follow_consumer_derived_path_and_reject_escape(tmp_path):
     paths["derived_root"] = "../outside"
     with pytest.raises(RoutingError, match="receipt_path_invalid"):
         _route_failure(tmp_path, intent("escape"), config=WikiConfig(paths=paths), issue_port=Issues(), executor_port=None, admit=allow)
+
+
+def test_nonignored_storage_fails_before_provider_effects(tmp_path):
+    paths = dict(WikiConfig().paths)
+    paths["derived_root"] = "public"
+    issues, workers = Issues(), Workers()
+    with pytest.raises(RoutingError, match="receipt_not_private"):
+        _route_failure(tmp_path, intent(), config=WikiConfig(paths=paths), issue_port=issues, executor_port=workers, admit=allow)
+    assert not (tmp_path / "public").exists()
+    assert issues.created == 0 and not workers.started
+
+
+def test_ignore_revoked_during_admission_prevents_provider_effect(tmp_path):
+    issues, workers = Issues(), Workers()
+    def revoke_ignore(capability, call):
+        if capability == "issue.create":
+            (tmp_path / ".gitignore").write_text("")
+        return call()
+    result = route_failure(tmp_path, intent(), issue_port=issues, executor_port=workers, admit=revoke_ignore)
+    assert result["state"] == "outcome_uncertain"
+    assert issues.created == 0 and not workers.started
+
+
+def test_missing_git_repository_fails_before_provider_effects(tmp_path):
+    shutil.rmtree(tmp_path / ".git")
+    issues, workers = Issues(), Workers()
+    with pytest.raises(RoutingError, match="repository_unavailable"):
+        route_failure(tmp_path, intent(), issue_port=issues, executor_port=workers, admit=allow)
+    assert issues.created == 0 and not workers.started
+
+
+def test_force_tracked_receipt_fails_before_provider_effects(tmp_path):
+    issues, workers = Issues(), Workers()
+    assert route_failure(tmp_path, intent(), issue_port=issues, executor_port=None, admit=allow)["state"] == "executor_unavailable"
+    receipt = next((tmp_path / "data/derived/wiki/failure-routing").glob("*.json"))
+    subprocess.run(["git", "-C", str(tmp_path), "add", "-f", str(receipt)], check=True)
+    with pytest.raises(RoutingError, match="receipt_not_private"):
+        route_failure(tmp_path, intent(), issue_port=issues, executor_port=workers, admit=allow)
+    assert issues.created == 1 and not workers.started
 
 
 def test_independent_incident_continues_after_another_has_uncertain_issue(tmp_path):

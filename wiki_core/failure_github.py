@@ -112,9 +112,9 @@ class GitHubIssuePort:
                 if not isinstance(item, dict) or type(item.get("number")) is not int or not isinstance(item.get("body"), str):
                     raise ValueError()
                 if tag in item["body"]:
-                    if item.get("state") != "OPEN":
+                    if item.get("state") not in {"OPEN", "CLOSED"}:
                         raise ValueError()
-                    result.append(IssueRef(str(item["number"]), marker))
+                    result.append(IssueRef(str(item["number"]), marker, item["state"].lower()))
             return result
         except (ValueError, TypeError):
             raise GitHubIssueError("github_readback_invalid") from None
@@ -127,9 +127,9 @@ class GitHubIssuePort:
             data = json.loads(self._run(["issue", "view", issue, "--repo", "github.com/" + self._repository,
                                          "--json", "number,state"]))
             if (not isinstance(data, dict) or type(data.get("number")) is not int
-                    or str(data["number"]) != issue or data.get("state") != "OPEN"):
+                    or str(data["number"]) != issue or data.get("state") not in {"OPEN", "CLOSED"}):
                 raise ValueError()
-            return IssueRef(issue, "")
+            return IssueRef(issue, "", data["state"].lower())
         except (ValueError, TypeError):
             raise GitHubIssueError("github_readback_invalid") from None
 

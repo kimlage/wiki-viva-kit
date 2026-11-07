@@ -45,7 +45,10 @@ trusted host adapters; a fake observation is not execution or authority.
 
 A per-incident lock serializes attempts from processes sharing the same physical
 repository and local lock directory. Receipts use the consumer's configured
-derived-data root, which must be local, private and ignored. A small receipt is flushed before
+derived-data root, which must be local, private and ignored. The router checks
+that the exact receipt and lock paths are ignored and untracked in the actual
+Git repository before writing and before each external mutation; unavailable
+Git or an unsafe path fails closed. A small receipt is flushed before
 external create/start effects. Replays compare the original intent, issue and
 run identities. A different intent or multiple provider matches fails closed.
 Unrelated incidents hold different locks and can continue independently.
@@ -66,6 +69,8 @@ contract. This does not provide a distributed exactly-once guarantee.
 ask the executor port to start a repair. A returned `queued`, `running`,
 `succeeded` or `failed` is only the provider's readback. `executor_unavailable`
 means no worker was started. It does not mark the wiki action complete.
+A closed issue is observable but cannot initiate another repair; it may still
+be read by the adoption path because a merged pull request can close the issue.
 
 `route_adoption` first rechecks the issue and asks the trusted issue adapter to
 verify the *exact* merged revision, required independent review and successful
