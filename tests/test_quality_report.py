@@ -140,6 +140,44 @@ def test_skill_files_without_wiki_metadata_remain_visible_as_repetition(tmp_path
 
     assert report["summary"]["repeated_blocks"] == 1
     assert report["summary"]["bad_repetition_blocks"] == 0
+    flags = report["quality_flags"]["repetition_unknown_metadata"]
+    assert len(flags) == 1
+    assert flags[0]["unknown_metadata_pages"] == [
+        "memories/one/skills/one/SKILL.md",
+        "memories/two/skills/two/SKILL.md",
+    ]
+    rendered = render_markdown(report)
+    assert "### Repeated blocks with unknown context or page type" in rendered
+    assert "a synthetic shared instruction" in rendered
+    assert "memories/one/skills/one/SKILL.md" in rendered
+    assert "memories/two/skills/two/SKILL.md" in rendered
+
+
+def test_mixed_repetition_keeps_known_pair_as_bad_and_reports_unknown(tmp_path: Path) -> None:
+    repeated = (
+        "A deliberately repeated synthetic paragraph provides enough text to "
+        "exercise both known and unknown metadata in the same repeated block, "
+        "without relying on consumer-specific content or actual user data."
+    )
+    for name, context in (("one", "example"), ("two", "example"), ("three", "")):
+        _write(
+            tmp_path / f"memories/{name}.md",
+            _page(name, "context_note", name, repeated, context=context),
+        )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+
+    assert report["summary"]["bad_repetition_blocks"] == 1
+    assert report["quality_flags"]["bad_repetition_blocks"][0]["pages"] == [
+        "memories/one.md", "memories/two.md"
+    ]
+    unknown = report["quality_flags"]["repetition_unknown_metadata"][0]
+    assert unknown["pages"] == ["memories/one.md", "memories/three.md", "memories/two.md"]
+    assert unknown["unknown_metadata_pages"] == ["memories/three.md"]
+    rendered = render_markdown(report)
+    assert "### Bad repetition blocks" in rendered
+    assert "### Repeated blocks with unknown context or page type" in rendered
+    assert "memories/three.md" in rendered
 
 
 def test_quality_report_tracks_cost_telemetry_without_budget_gate(tmp_path: Path) -> None:

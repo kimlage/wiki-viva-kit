@@ -324,6 +324,7 @@ def build_quality_report(
 
     repeated_blocks: list[dict[str, Any]] = []
     bad_repetition: list[dict[str, Any]] = []
+    repetition_unknown_metadata: list[dict[str, Any]] = []
     for block, rels in sorted(repeated_index.items()):
         unique_rels = sorted(set(rels))
         repeated_rels = [
@@ -346,6 +347,15 @@ def build_quality_report(
             "page_types": sorted(types),
         }
         repeated_blocks.append(record)
+        unknown_metadata_pages = [
+            rel
+            for rel in unique_rels
+            if not graph.nodes[rel].context or not graph.nodes[rel].page_type
+        ]
+        if unknown_metadata_pages:
+            repetition_unknown_metadata.append(
+                {**record, "unknown_metadata_pages": unknown_metadata_pages}
+            )
         grouped: dict[tuple[str, str], list[str]] = defaultdict(list)
         for rel in unique_rels:
             node = graph.nodes.get(rel)
@@ -504,6 +514,7 @@ def build_quality_report(
             "relation_pages_without_parent": relation_pages_without_parent,
             "bad_repetition_blocks": bad_repetition,
             "repeated_blocks": repeated_blocks,
+            "repetition_unknown_metadata": repetition_unknown_metadata,
             "events_without_consolidated_into": events_without_consolidated_into,
             "events_without_impact_closure": events_without_impact_closure,
             "quality_exempt_pages": quality_exempt_pages,
@@ -622,6 +633,15 @@ def render_markdown(report: dict[str, Any]) -> str:
         for item in flags["bad_repetition_blocks"][:20]:
             pages = ", ".join(f"`{page}`" for page in item["pages"])
             lines.append(f"- {item['text_preview']}... ({pages})")
+    else:
+        lines.append("- None.")
+    lines.extend(["", "### Repeated blocks with unknown context or page type", ""])
+    unknown_repetitions = flags.get("repetition_unknown_metadata", [])
+    if unknown_repetitions:
+        for item in unknown_repetitions[:20]:
+            pages = ", ".join(f"`{page}`" for page in item["pages"])
+            unknown = ", ".join(f"`{page}`" for page in item["unknown_metadata_pages"])
+            lines.append(f"- {item['text_preview']}... ({pages}; unknown metadata: {unknown})")
     else:
         lines.append("- None.")
     lines.extend(["", "### Quality exempt pages", ""])
