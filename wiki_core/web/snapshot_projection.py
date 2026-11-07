@@ -838,9 +838,9 @@ def _quality_reasons_by_path(
     if not isinstance(flags, dict):
         return {path: [] for path in output}
 
-    # An exemption is explanatory metadata, not a quality defect. A missing
-    # exemption reason remains a real flag and is intentionally not excluded.
-    non_issue_flags = {"quality_exempt_pages"}
+    # Exemptions and unknown-metadata diagnostics are not confirmed defects.
+    # A missing exemption reason remains a real flag and is not excluded.
+    non_issue_flags = {"quality_exempt_pages", "repetition_unknown_metadata"}
 
     def add(flag_id: str, candidate: Any) -> None:
         path = str(candidate or "")

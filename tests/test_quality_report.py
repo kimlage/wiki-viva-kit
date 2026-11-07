@@ -81,6 +81,7 @@ def test_quality_report_measures_links_density_and_repetition(tmp_path: Path) ->
     # page is still reported as repeated, but it does not make the block "bad".
     assert report["summary"]["repeated_blocks"] == 1
     assert report["summary"]["bad_repetition_blocks"] == 1
+    assert "repetition_unknown_metadata" not in report["quality_flags"]
     assert report["summary"]["thin_link_pages"] == 0
     assert "bad_repetition_blocks" in render_markdown(report)
 
@@ -151,6 +152,16 @@ def test_skill_files_without_wiki_metadata_remain_visible_as_repetition(tmp_path
     assert "a synthetic shared instruction" in rendered
     assert "memories/one/skills/one/SKILL.md" in rendered
     assert "memories/two/skills/two/SKILL.md" in rendered
+
+
+def test_unknown_metadata_diagnostic_is_not_a_snapshot_defect() -> None:
+    from wiki_core.web.snapshot_projection import _quality_reasons_by_path
+
+    payload = {"quality_flags": {"repetition_unknown_metadata": [{"pages": ["a.md", "b.md"]}]}}
+    assert _quality_reasons_by_path(payload, [{"path": "a.md"}, {"path": "b.md"}]) == {
+        "a.md": [],
+        "b.md": [],
+    }
 
 
 def test_mixed_repetition_keeps_known_pair_as_bad_and_reports_unknown(tmp_path: Path) -> None:

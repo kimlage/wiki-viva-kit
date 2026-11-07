@@ -514,7 +514,7 @@ def build_quality_report(
             "relation_pages_without_parent": relation_pages_without_parent,
             "bad_repetition_blocks": bad_repetition,
             "repeated_blocks": repeated_blocks,
-            "repetition_unknown_metadata": repetition_unknown_metadata,
+            **({"repetition_unknown_metadata": repetition_unknown_metadata} if repetition_unknown_metadata else {}),
             "events_without_consolidated_into": events_without_consolidated_into,
             "events_without_impact_closure": events_without_impact_closure,
             "quality_exempt_pages": quality_exempt_pages,
