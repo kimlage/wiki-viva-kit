@@ -349,7 +349,10 @@ def build_quality_report(
         grouped: dict[tuple[str, str], list[str]] = defaultdict(list)
         for rel in unique_rels:
             node = graph.nodes.get(rel)
-            if node:
+            # Empty metadata means the relationship is unknown, not that two
+            # pages share a context/type. Keep the block in repeated_blocks,
+            # but require both known fields before classifying it as bad.
+            if node and node.context and node.page_type:
                 grouped[(node.context, node.page_type)].append(rel)
         for (context, page_type), group_rels in sorted(grouped.items()):
             if len(group_rels) > 1:

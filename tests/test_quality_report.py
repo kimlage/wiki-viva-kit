@@ -85,6 +85,63 @@ def test_quality_report_measures_links_density_and_repetition(tmp_path: Path) ->
     assert "bad_repetition_blocks" in render_markdown(report)
 
 
+@pytest.mark.parametrize(
+    ("first_context", "first_type", "second_context", "second_type", "bad_count"),
+    [
+        ("", "", "", "", 0),
+        ("", "context_note", "", "context_note", 0),
+        ("example", "", "example", "", 0),
+        ("example", "context_note", "", "context_note", 0),
+        ("example", "context_note", "project", "context_note", 0),
+        ("example", "context_note", "example", "context_note", 1),
+    ],
+)
+def test_bad_repetition_requires_known_matching_metadata(
+    tmp_path: Path,
+    first_context: str,
+    first_type: str,
+    second_context: str,
+    second_type: str,
+    bad_count: int,
+) -> None:
+    repeated = (
+        "A deliberately repeated synthetic paragraph provides enough text to "
+        "exercise the quality report without relying on consumer-specific data "
+        "or treating missing metadata as a shared context."
+    )
+    for name, context, page_type in (
+        ("one", first_context, first_type),
+        ("two", second_context, second_type),
+    ):
+        _write(
+            tmp_path / f"memories/{name}/SKILL.md",
+            _page(name, page_type, name, repeated, context=context),
+        )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example", "project")))
+
+    assert report["summary"]["repeated_blocks"] == 1
+    assert report["summary"]["bad_repetition_blocks"] == bad_count
+
+
+def test_skill_files_without_wiki_metadata_remain_visible_as_repetition(tmp_path: Path) -> None:
+    repeated = (
+        "A synthetic shared instruction is repeated across independent skills. "
+        "The absent wiki metadata does not establish a common context or page type. "
+        "The report should still expose the repeated text for inspection."
+    )
+    for name in ("one", "two"):
+        _write(
+            tmp_path / f"memories/{name}/skills/{name}/SKILL.md",
+            f"---\nname: {name}\ndescription: Synthetic skill\n---\n\n# {name}\n\n{repeated}\n",
+        )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+
+    assert report["summary"]["repeated_blocks"] == 1
+    assert report["summary"]["bad_repetition_blocks"] == 0
+
+
 def test_quality_report_tracks_cost_telemetry_without_budget_gate(tmp_path: Path) -> None:
     cfg = WikiConfig(
         contexts=("example",),
