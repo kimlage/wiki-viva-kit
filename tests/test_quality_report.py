@@ -123,6 +123,12 @@ def test_bad_repetition_requires_known_matching_metadata(
 
     assert report["summary"]["repeated_blocks"] == 1
     assert report["summary"]["bad_repetition_blocks"] == bad_count
+    from wiki_core.web.snapshot_projection import _quality_reasons_by_path
+
+    reasons = _quality_reasons_by_path(report, report["pages"])
+    for page_reasons in reasons.values():
+        assert "quality:repeated_blocks" not in page_reasons
+        assert ("quality:bad_repetition_blocks" in page_reasons) is bool(bad_count)
 
 
 def test_skill_files_without_wiki_metadata_remain_visible_as_repetition(tmp_path: Path) -> None:
@@ -185,6 +191,12 @@ def test_mixed_repetition_keeps_known_pair_as_bad_and_reports_unknown(tmp_path: 
     unknown = report["quality_flags"]["repetition_unknown_metadata"][0]
     assert unknown["pages"] == ["memories/one.md", "memories/three.md", "memories/two.md"]
     assert unknown["unknown_metadata_pages"] == ["memories/three.md"]
+    from wiki_core.web.snapshot_projection import _quality_reasons_by_path
+
+    reasons = _quality_reasons_by_path(report, report["pages"])
+    assert "quality:bad_repetition_blocks" in reasons["memories/one.md"]
+    assert "quality:bad_repetition_blocks" in reasons["memories/two.md"]
+    assert not any("repetition" in reason or "repeated" in reason for reason in reasons["memories/three.md"])
     rendered = render_markdown(report)
     assert "### Bad repetition blocks" in rendered
     assert "### Repeated blocks with unknown context or page type" in rendered

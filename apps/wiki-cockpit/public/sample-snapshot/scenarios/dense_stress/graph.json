@@ -10111,16 +10111,15 @@
           "value": null
         },
         "quality": {
-          "count": 4,
+          "count": 3,
           "reasons": [
             "quality:bad_repetition_blocks",
             "quality:low_information_density_pages",
-            "quality:orphan_actions",
-            "quality:repeated_blocks"
+            "quality:orphan_actions"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 4
+          "value": 3
         }
       },
       "page_type": "action",
@@ -15169,16 +15168,15 @@
           "value": null
         },
         "quality": {
-          "count": 4,
+          "count": 3,
           "reasons": [
             "quality:bad_repetition_blocks",
             "quality:low_information_density_pages",
-            "quality:orphan_actions",
-            "quality:repeated_blocks"
+            "quality:orphan_actions"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 4
+          "value": 3
         }
       },
       "page_type": "action",
@@ -15252,16 +15250,15 @@
           "value": null
         },
         "quality": {
-          "count": 4,
+          "count": 3,
           "reasons": [
             "quality:bad_repetition_blocks",
             "quality:low_information_density_pages",
-            "quality:orphan_actions",
-            "quality:repeated_blocks"
+            "quality:orphan_actions"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 4
+          "value": 3
         }
       },
       "page_type": "action",
@@ -15328,15 +15325,14 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 2,
           "reasons": [
             "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 3
+          "value": 2
         }
       },
       "page_type": "artifact",
@@ -15403,15 +15399,14 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 2,
           "reasons": [
             "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 3
+          "value": 2
         }
       },
       "page_type": "artifact",
@@ -15480,15 +15475,14 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 2,
           "reasons": [
             "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 3
+          "value": 2
         }
       },
       "page_type": "artifact",
@@ -15555,15 +15549,14 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 2,
           "reasons": [
             "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 3
+          "value": 2
         }
       },
       "page_type": "artifact",
@@ -15632,15 +15625,14 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 2,
           "reasons": [
             "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 3
+          "value": 2
         }
       },
       "page_type": "artifact",
@@ -15707,16 +15699,15 @@
           "value": null
         },
         "quality": {
-          "count": 4,
+          "count": 3,
           "reasons": [
             "quality:bad_repetition_blocks",
             "quality:low_information_density_pages",
-            "quality:repeated_blocks",
             "quality:thin_link_pages"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 4
+          "value": 3
         }
       },
       "page_type": "artifact",
@@ -15783,15 +15774,14 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 2,
           "reasons": [
             "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 3
+          "value": 2
         }
       },
       "page_type": "artifact",
@@ -15860,15 +15850,14 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 2,
           "reasons": [
             "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 3
+          "value": 2
         }
       },
       "page_type": "artifact",
@@ -34007,15 +33996,14 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 2,
           "reasons": [
             "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 3
+          "value": 2
         }
       },
       "page_type": "claim",
@@ -34080,15 +34068,14 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 2,
           "reasons": [
             "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 3
+          "value": 2
         }
       },
       "page_type": "claim",
@@ -34155,15 +34142,14 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 2,
           "reasons": [
             "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 3
+          "value": 2
         }
       },
       "page_type": "claim",
