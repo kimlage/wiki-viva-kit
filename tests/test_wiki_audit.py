@@ -660,8 +660,8 @@ def test_append_only_drive_artifact_links_are_ignored(tmp_path, audit, monkeypat
 
     assert warnings == [
         "1 link(s) to unversioned local artifact in 1 page(s); "
-        "general rule: content on Drive (wiki_drive_publish) and the wiki points to the "
-        "manifest view_url. Use --list-stale-gaps to list."
+        "use an authorized stable external link; wiki_drive_publish is suspended. "
+        "Use --list-stale-gaps to list."
     ]
 
 
