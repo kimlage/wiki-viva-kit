@@ -28,6 +28,50 @@ Each result is an immediate candidate for **independent interpretation** by the 
 
 The [preflight module](../../../wiki_core/context_integration.py) revalidates the current trusted approval reference, exact short branch head and ancestor base; reconstructs the packet with current policy; compares each selected input at the approved base; and checks reported changes against the actual Git diff and the context's current write scope. It refuses policy edits, changes to any active instruction, skill or template (which require the separate policy-review path), unsafe or unsupported files and detected secrets. The result explicitly says independent review, gates and merge were not performed. It does not execute proposed code or certify semantic compatibility, freshness of facts, actor identity, review, or external effects.
 
+### Joint proposals with multiple owners
+
+The in-process `preflight_composite` accepts one exact `base`, `head` and
+`branch`, a host-provided `CoordinationBinding`, and a list of participant
+objects. Each contains `context_id`, its original `packet` and `result`, and
+optionally the exact `additional_readers` retained by that packet. Every
+participant result reports only that owner's changes. The function derives
+ownership from the current approved policy and partitions the actual Git diff;
+missing, duplicate or extra participants and incomplete or overlapping change
+reports fail closed. It reuses the per-context packet, query, read and write
+checks against the **complete** proposal tree, and returns a bounded summary and
+digest of the complete path/action list. It does not combine previously issued
+preflight results. Existing single-context `preflight` still covers the whole
+diff. The operation permits at most 64 participants and 4,096 changed paths.
+Before copying its JSON-like inputs, it applies a conservative 8 MB aggregate
+serialization estimate, a 100,000-node limit and a maximum depth of 64; the
+estimate may reject some smaller payloads. Errors are opaque and do not report
+the path or owner that caused a subcheck to fail.
+The returned summary follows the [composite preflight schema](../schemas/wiki-context-integration-composite-v1.schema.json).
+
+The local operator can call the API or use the CLI. The operator-selected
+`participants.json` is a JSON array of objects; each object has the keys
+`context_id`, `packet` and `result`, with an optional `additional_readers`
+array. The packet and result are the complete original JSON objects, not paths,
+digests alone or previously returned preflights. Protect this input according to
+the data it contains. With an independently established folder coordination
+binding in the host environment, a local invocation is:
+
+```sh
+python3 scripts/wiki_context_flow.py --repo /path/to/wiki \
+  --approved-revision "$WIKI_COMPOSITE_APPROVED_SHA" preflight-composite \
+  --base "$WIKI_COMPOSITE_APPROVED_SHA" --head "$WIKI_COMPOSITE_HEAD_SHA" \
+  --branch wiki/example-proposal --participants /path/to/participants.json
+```
+
+There is no new HTTP route. The caller must independently authorize the
+integrator to receive metadata for every context; the binding is only a
+configuration ceiling and grants no cross-context access. The output does not
+prove actor identity, a signed result, semantic consistency, consumer log rules,
+or that any participant performed the work. It is not an approval: independent
+review, gates and merge remain outstanding. A split into multiple proposals is
+appropriate only when each intermediate state and the consumer's log rules are
+independently valid.
+
 After preflight, an authorized integrator must independently review the exact proposal HEAD and semantic relationships, run applicable gates tied to that HEAD and configuration, revalidate the approved base, and follow the repository's existing PR/merge policy. If the base or branch advances, rebuild the packet against the current approved base, reconcile every actual read (including an existing output read while editing), rerun preflight and review the new HEAD. Plan work in progress so one context does not repeatedly rebase while other changes land; an undeclared read makes that attempt ineligible rather than being silently omitted. Use one integrator per target until a provider-enforced current-base queue is qualified; worktrees alone are not a merge lock. The external integrator performs any authorized merge and readback; these commands never do so. A self-reported completed result or this preflight alone is not approval.
 
 The [CLI](../../../scripts/wiki_context_flow.py) offers finite `impact`, `requirements`, `review`, `revalidate` and `preflight` commands.
