@@ -86,13 +86,16 @@ export function ActionBoard({ admin, navigation, operator, save, create, loadCre
   const [selected, setSelected] = useState(() => new URLSearchParams(window.location.search).get("action") || "");
   const [frontsView, setFrontsView] = useState(() => new URLSearchParams(window.location.search).get("view") === "fronts");
   const detailRef = useRef<HTMLElement | null>(null);
-  const detailFocusPending = useRef(true);
+  // Each request gets its own identity, including repeated visits to an ID.
+  // An older render must not consume a later request during navigation.
+  const detailFocusPending = useRef<{ selected: string } | null>({ selected });
+  const focusIntent = detailFocusPending.current;
   const lastCard = useRef<HTMLElement | null>(null);
   const runtime = useRuntimeObservations(operator.loadRuntimeObservations, demo);
   useEffect(() => {
     const restore = () => {
       const query = new URLSearchParams(window.location.search);
-      detailFocusPending.current = true;
+      detailFocusPending.current = { selected: query.get("action") || "" };
       setSelected(query.get("action") || "");
       setFrontsView(query.get("view") === "fronts");
       setReturnAction("");
@@ -129,12 +132,12 @@ export function ActionBoard({ admin, navigation, operator, save, create, loadCre
   const pages = loaded?.bundle.pages.pages || [];
   const page = pages.find(p => p.id === selected);
   useEffect(() => {
-    if (loading || !detailFocusPending.current || (selected && content === null)) return;
+    if (loading || !focusIntent || detailFocusPending.current !== focusIntent || focusIntent.selected !== selected || (selected && content === null)) return;
     const target = selected ? detailRef.current : lastCard.current;
     if (!target?.isConnected) return;
     target.focus({ preventScroll: true });
     target.scrollIntoView?.({ block: selected && window.matchMedia?.("(max-width: 1000px)").matches ? "start" : "nearest" });
-    detailFocusPending.current = false;
+    if (detailFocusPending.current === focusIntent) detailFocusPending.current = null;
   }, [selected, loading, page?.id, content]);
   const writable = !demo && !loading && !error && loaded?.runtime.mode === "local_operator" && (!loadCoordination || coordination?.snapshot_id === loaded.bundle.manifest.snapshot_id);
   useEffect(() => {
@@ -202,11 +205,11 @@ export function ActionBoard({ admin, navigation, operator, save, create, loadCre
     else if (page?.page_type === "action") setReturnAction(page.id);
     if (opener) lastCard.current = opener;
     else if (document.activeElement instanceof HTMLElement && document.activeElement.closest(".boardColumns, .workFronts")) lastCard.current = document.activeElement;
-    detailFocusPending.current = true;
+    detailFocusPending.current = { selected: id };
     if (id === selected && detailRef.current) {
       detailRef.current.focus({ preventScroll: true });
       detailRef.current.scrollIntoView?.({ block: window.matchMedia?.("(max-width: 1000px)").matches ? "start" : "nearest" });
-      detailFocusPending.current = false;
+      detailFocusPending.current = null;
     }
     if (id !== selected) persistSelection(id);
     setSelected(id); setNotice("");
@@ -223,7 +226,7 @@ export function ActionBoard({ admin, navigation, operator, save, create, loadCre
     savingRef.current = true; setSaving(true); setNotice("");
     try {
       const result = await create(input);
-      detailFocusPending.current = true; persistSelection(result.page_id);
+      detailFocusPending.current = { selected: result.page_id }; persistSelection(result.page_id);
       setSelected(result.page_id); setContext(""); setQuery(""); setCoordinator("");
       setCreation(null); setNotice(editorCopy.saved); await reload();
     } catch (err) { setNotice(err instanceof Error && /action_already_exists/.test(err.message) ? editorCopy.exists : editorCopy.unknown); }
