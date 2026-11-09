@@ -28,6 +28,13 @@ def content(tmp_path, monkeypatch):
 
 
 def test_fixed_code_and_content_outputs_are_distinct(content):
+    # The summary requires a real Git base. Keep the executable sentinels in
+    # the content tree so the test still proves the installed code is used.
+    subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=content, check=True)
+    subprocess.run(['git', 'add', 'wiki.config.yaml'], cwd=content, check=True)
+    subprocess.run(['git', '-c', 'user.name=Synthetic Test',
+                    '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'synthetic base'],
+                   cwd=content, check=True)
     result = commands.run_action(content, WikiConfig(repo_id='synthetic'), 'pr-summary', dry_run=False)
     assert result['ok'] and '# Wiki PR Summary' in result['results'][0]['stdout']
     release_target = binding._CODE_ROOT / 'memories/system/input-stage.md'
