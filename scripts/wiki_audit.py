@@ -1303,13 +1303,13 @@ def audit_drive_artifact_links(warnings: list[str], config: WikiConfig) -> None:
         for rel, count in sorted(offenders.items()):
             warnings.append(
                 f"{rel}: {count} local link(s) to unversioned artifact; "
-                "publish on Drive (wiki_drive_publish) and point to the view_url"
+                "use an authorized stable external link; wiki_drive_publish is suspended"
             )
     else:
         warnings.append(
             f"{total} link(s) to unversioned local artifact in {len(offenders)} page(s); "
-            "general rule: content on Drive (wiki_drive_publish) and the wiki points to the "
-            "manifest view_url. Use --list-stale-gaps to list."
+            "use an authorized stable external link; wiki_drive_publish is suspended. "
+            "Use --list-stale-gaps to list."
         )
 
 

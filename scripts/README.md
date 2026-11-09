@@ -13,6 +13,13 @@ Choose the existing entry point by the intended task. The labels below are
 not new commands or services. Read the checkout instructions and configured
 memory index first; retain any stronger consumer context requirement.
 
+**Drive artifact publication is suspended.** `wiki_drive_publish.py` refuses
+all publication and manifest writes before authentication or network access;
+its `--dry-run` only inspects local files and cannot verify remote state. This
+also affects consumers after C1 sync. Existing Drive objects and manifests are
+not migrated or reconciled by the sync. The concurrency and interrupted-effect
+work remains open in [issue #234](https://github.com/kimlage/wiki-viva-kit/issues/234).
+
 | Task | Existing entry | Scope and next step |
 | --- | --- | --- |
 | Find | [wiki_find.py](wiki_find.py) | Search the existing lexical index, or use `--path` for explicit local selections. Read origin and coverage gaps before treating results as evidence. No index or model is started. |
