@@ -44,6 +44,7 @@ def main():
     revalidate=sub.add_parser('revalidate'); revalidate.add_argument('--consumer',required=True); revalidate.add_argument('--context',required=True)
     review=sub.add_parser('review'); review.add_argument('--candidate',required=True); review.add_argument('--disposition',required=True,choices=['updated','still_valid','superseded','blocked']); review.add_argument('--reason',required=True); review.add_argument('--evidence-revision',required=True)
     check=sub.add_parser('preflight'); check.add_argument('--context',required=True); check.add_argument('--base',required=True); check.add_argument('--head',required=True); check.add_argument('--branch',required=True); check.add_argument('--packet',required=True); check.add_argument('--result',required=True)
+    check.add_argument('--owned-range', action='store_true', help='enable the host-bound self-owned v2 range contract')
     composite=sub.add_parser('preflight-composite', help='host-bound multi-owner proposal check (read-only)')
     composite.add_argument('--base',required=True); composite.add_argument('--head',required=True); composite.add_argument('--branch',required=True)
     composite.add_argument('--participants',required=True, help='operator-selected JSON array, maximum 8 MB')
@@ -60,7 +61,13 @@ def main():
             args.repo=found.stdout.decode('utf-8').strip()
             if not args.repo: raise PolicyError('current Git root unavailable')
         binding=None
-        if args.command == 'impact':
+        if args.command == 'preflight' and args.owned_range:
+            from wiki_core.coordination_context import CoordinationBinding, _policy
+            if args.trusted_context or args.additional_reader: raise PolicyError('owned range does not support extra trusted contexts')
+            binding = CoordinationBinding.from_environment()
+            if binding is None or binding.manifest != 'wiki.config.yaml': raise PolicyError('folder coordination host binding required')
+            policy = _policy(args.repo, binding, args.context, args.approved_revision)
+        elif args.command == 'impact':
             from wiki_core.coordination_context import CoordinationBinding, _policy
             binding = CoordinationBinding.from_environment()
             if binding is None:
@@ -112,7 +119,7 @@ def main():
             out=preflight_composite(args.repo,policy,base=args.base,head=args.head,branch=args.branch,
                 participants=_composite_participants(args.participants),trusted_binding=binding)
         else:
-            out=preflight(args.repo,policy,context_id=args.context,base=args.base,head=args.head,branch=args.branch,packet=strict_json_loads(Path(args.packet).read_text(encoding='utf-8')),result=strict_json_loads(Path(args.result).read_text(encoding='utf-8')),trusted_additional_readers=tuple(args.additional_reader),trusted_binding=binding)
+            out=preflight(args.repo,policy,context_id=args.context,base=args.base,head=args.head,branch=args.branch,packet=strict_json_loads(Path(args.packet).read_text(encoding='utf-8')),result=strict_json_loads(Path(args.result).read_text(encoding='utf-8')),trusted_additional_readers=tuple(args.additional_reader),trusted_binding=binding,allow_owned_range=args.owned_range)
         print(json.dumps(out,ensure_ascii=False,sort_keys=True,indent=2))
     except (PolicyError,ImpactError,IntegrationError,RequirementError,ValueError,KeyError,OSError) as exc:
         print(str(exc),file=sys.stderr); return 1

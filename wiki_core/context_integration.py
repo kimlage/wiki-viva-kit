@@ -61,7 +61,7 @@ class _QueryReuse:
         return receipt
 
 
-def preflight(root, policy, *, context_id, base, head, branch, packet, result, trusted_additional_readers=(), trusted_binding=None):
+def preflight(root, policy, *, context_id, base, head, branch, packet, result, trusted_additional_readers=(), trusted_binding=None, allow_owned_range=False):
     """Return a review candidate, never an approval or merge authorization.
 
     External independent reviewer and final-head gates remain mandatory. The
@@ -70,13 +70,20 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result, t
     with policy_stage_cache():
         return _preflight(root, policy, context_id=context_id, base=base, head=head, branch=branch,
             packet=packet, result=result, trusted_additional_readers=trusted_additional_readers,
-            trusted_binding=trusted_binding)
+            trusted_binding=trusted_binding, allow_owned_range=allow_owned_range)
 
 
 def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
-               trusted_additional_readers=(), trusted_binding=None, _assigned=None):
+               trusted_additional_readers=(), trusted_binding=None, _assigned=None, allow_owned_range=False):
     # _assigned is derived internally by preflight_composite, never exposed by
     # the single-context entrypoint. Readers still see the complete Git trees.
+    if not isinstance(packet, dict): raise IntegrationError('invalid task packet')
+    range_mode = packet.get('schema_version') == 'wiki.task-context/v2'
+    if range_mode:
+        from wiki_core.coordination_context import CoordinationBinding
+        if (allow_owned_range is not True or not isinstance(trusted_binding, CoordinationBinding)
+                or trusted_additional_readers or _assigned is not None):
+            raise IntegrationError('owned range unavailable')
     if getattr(policy, 'format_version', None) not in (None, 'folder'): raise IntegrationError('unsupported policy format')
     if not getattr(policy,'_binding',None) or Path(policy._binding[0])!=Path(root).resolve(): raise IntegrationError('unbound policy')
     if getattr(policy, 'format_version', None) == 'folder':
@@ -85,7 +92,8 @@ def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
         except PolicyError as exc: raise IntegrationError('host binding unavailable') from exc
     policy=policy.fresh()
     folder_mode = getattr(policy, 'format_version', None) == 'folder'
-    if not isinstance(packet, dict): raise IntegrationError('invalid task packet')
+    if range_mode and not folder_mode:
+        raise IntegrationError('owned range unavailable')
     if folder_mode != (packet.get('authority_format') == 'folder'):
         raise IntegrationError('packet authority format differs')
     packet_readers = packet.get('additional_readers', ())
@@ -122,13 +130,15 @@ def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
         entry={k:item[k] for k in ('ref','producer','reason','use','classification')}
         for k in ('section','field'):
             if item[k] is not None: entry[k]=item[k]
+        if 'range' in item: entry['range'] = item['range']
         evidence.append(entry)
     try:
         if folder_mode:
             from wiki_core.context_packet import _qualify_trusted_producers
-            _qualify_trusted_producers(root, policy, context_id, evidence, packet['max_bytes'],
+            qualification_evidence = [{k: v for k, v in row.items() if k != 'range'} for row in evidence] if range_mode else evidence
+            _qualify_trusted_producers(root, policy, context_id, qualification_evidence, packet['max_bytes'],
                                        trusted_binding=trusted_binding, additional_readers=trusted_additional_readers)
-        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet),entry_folder=packet.get('entry_folder'),entry_index=packet.get('entry_index'),additional_readers=trusted_additional_readers,trusted_binding=trusted_binding)
+        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet),entry_folder=packet.get('entry_folder'),entry_index=packet.get('entry_index'),additional_readers=trusted_additional_readers,trusted_binding=trusted_binding,allow_owned_range=allow_owned_range)
     except (PolicyError, ValueError, KeyError, TypeError) as exc: raise IntegrationError('packet authorization cannot be reproduced') from exc
     if rebuilt!=packet: raise IntegrationError('packet contents cannot be reproduced')
     canonical_query_budget=[32_000_000]
@@ -140,9 +150,23 @@ def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
     # A historical read may still be used only if its selected bytes remain
     # identical at the current approved base; no fallback to a larger slice.
     for item in packet['inputs']:
-        try: now=guarded_context_read(base_reader,policy,item['ref'],section=item['section'],field=item['field'])
+        try: now=guarded_context_read(base_reader,policy,item['ref'],section=item['section'],field=item['field'],byte_range=item.get('range'))
         except ValueError as exc: raise IntegrationError('consumed input unavailable at approved base') from exc
         if now['content_digest']!=item['sha256']: raise IntegrationError('consumed input changed since task')
+    if range_mode:
+        ranged = [item for item in packet['inputs'] if 'range' in item]
+        if len(ranged) != 1: raise IntegrationError('owned range unavailable')
+        item = ranged[0]
+        try:
+            source = guarded_context_read(RepositoryReader(root,packet['content_revision']),policy,item['ref'])['content']
+            approved = guarded_context_read(base_reader,policy,item['ref'])['content']
+            candidate = guarded_context_read(proposal,policy,item['ref'])['content']
+            selected = guarded_context_read(proposal,policy,item['ref'],byte_range=item['range'])
+        except ValueError as exc:
+            raise IntegrationError('owned range unavailable') from exc
+        if (not approved.startswith(source) or not candidate.startswith(approved) or len(candidate) <= len(approved)
+                or selected['content_digest'] != item['sha256']):
+            raise IntegrationError('owned range append cannot be verified')
     raw=_git(root,'diff','--no-ext-diff','--no-textconv','--no-renames','--name-status','-z',base_reader.revision,proposal.revision).split(b'\0')
     if raw and raw[-1]==b'': raw.pop()
     if len(raw)%2: raise IntegrationError('unsupported diff')
@@ -183,6 +207,8 @@ def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
             if policy._connection(context_id,reader_context,path,'interpretation','context',qualified=False) != 'approved':
                 raise IntegrationError('additional reader not authorized for proposal')
         changes.append((status, path))
+    if range_mode and changes != [('M', packet['output'])]:
+        raise IntegrationError('owned range supports only the selected output append')
     if folder_mode:
         from wiki_core.traversal import require_wiki_boundaries
         try: require_wiki_boundaries(root, files=tuple(Path(root) / path for _, path in changes))

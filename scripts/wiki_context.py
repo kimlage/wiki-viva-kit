@@ -22,6 +22,7 @@ def main():
     pack = sub.add_parser('pack'); pack.add_argument('context'); pack.add_argument('--content-revision', required=True); pack.add_argument('--request', required=True)
     pack.add_argument('--folder', help='physical entry folder relative to the wiki root')
     pack.add_argument('--index', help='context index relative to the wiki root')
+    pack.add_argument('--owned-range', action='store_true', help='enable the host-bound self-owned v2 range contract')
     pack.add_argument('--trusted-context', action='append', default=[], metavar='CONTEXT',
                       help='additional producer context explicitly selected by the trusted local operator')
     args = p.parse_args()
@@ -33,11 +34,18 @@ def main():
             if result.returncode: raise PolicyError('current Git root unavailable')
             args.repo = result.stdout.decode('utf-8').strip()
             if not args.repo: raise PolicyError('current Git root unavailable')
-        policy = load_policy(args.repo, args.approved_revision, args.manifest)
+        binding = None
+        if args.command == 'pack' and args.owned_range:
+            from wiki_core.coordination_context import CoordinationBinding, _policy
+            if args.trusted_context: raise PolicyError('owned range does not support extra trusted contexts')
+            binding = CoordinationBinding.from_environment()
+            if binding is None or binding.manifest != 'wiki.config.yaml': raise PolicyError('folder coordination host binding required')
+            policy = _policy(args.repo, binding, args.context, args.approved_revision)
+        else:
+            policy = load_policy(args.repo, args.approved_revision, args.manifest)
         if args.command == 'resolve':
             output = {'policy_revision': policy.policy_revision, 'context': args.context, 'effective': policy.effective[args.context], 'lineage': [c['id'] for c in policy.lineage(args.context)], 'authorized': False, 'enforcement_claim': 'none; selected context has not been qualified'}
         else:
-            binding = None
             if args.trusted_context:
                 from wiki_core.coordination_context import CoordinationBinding
                 binding = CoordinationBinding(tuple(dict.fromkeys([args.context, *args.trusted_context])),
@@ -48,7 +56,7 @@ def main():
                 try: relative = Path.cwd().resolve().relative_to(Path(args.repo).resolve())
                 except ValueError: relative = None
                 folder = relative.as_posix() if relative is not None and relative.parts else args.context
-            output = build_packet(args.repo, policy, args.context, args.content_revision, request['evidence'], request['max_bytes'], query_fingerprint=request.get('query_fingerprint'), omissions=request.get('omissions', []), task_id=request['task_id'], goal=request['goal'], output=request['output'], integrator=request['integrator'], queries=request.get('queries', []), entry_folder=folder, entry_index=args.index, trusted_binding=binding)
+            output = build_packet(args.repo, policy, args.context, args.content_revision, request['evidence'], request['max_bytes'], query_fingerprint=request.get('query_fingerprint'), omissions=request.get('omissions', []), task_id=request['task_id'], goal=request['goal'], output=request['output'], integrator=request['integrator'], queries=request.get('queries', []), entry_folder=folder, entry_index=args.index, trusted_binding=binding, allow_owned_range=args.owned_range)
         if args.command == 'pack':
             sys.stdout.write(json.dumps(output, ensure_ascii=False, sort_keys=True, separators=(',', ':')))
         else:
