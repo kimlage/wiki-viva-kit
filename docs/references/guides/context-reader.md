@@ -124,6 +124,58 @@ host, subject to separate grants; see [protected independent Git](protected-inde
 The selection does not authorize access, establish remote identity or prove
 file consumption.
 
+## Bounded reads of an owned log
+
+The local folder-bound `wiki_context.py pack --owned-range` route accepts one
+explicit evidence item for an existing file owned by the acting context. Its
+`ref` must equal the task `output`; it cannot be a context instruction or index.
+The request supplies the usual producer, reason, use and classification plus:
+
+```json
+{"range": {"kind": "utf8-line-bytes/v1", "start": 0, "end": 42}}
+```
+
+Offsets identify the approved Git blob's UTF-8 bytes, with an inclusive start
+and exclusive end. Both boundaries must be line boundaries (or the beginning
+or end of the blob); at most 65,536 bytes may be selected. The end must be
+chosen from the approved file, not from a proposed marker or candidate file.
+The caller must independently obtain the offsets through an authorized route.
+The `wiki.task-context/v2` packet records those offsets, revision and digest;
+the `wiki.task-result/v2` reports the same declared reads. Mandatory context
+instructions and indexes are separate, full inputs. V1 clients and the web
+route cannot consume this contract. Queries, additional readers, cross-owner
+evidence, composite preflight and generated requirements are not supported.
+
+Use `--owned-range` with `wiki_context_flow.py preflight` for the same packet
+and result. Both commands require the existing folder coordination host binding
+in the environment, including its trusted ref and allowed context; a flag,
+packet or selected SHA is not a grant. The preflight reconstructs the packet,
+rechecks current and historical authority, confirms the selected bytes at the
+approved base and candidate, and requires the approved and proposed log to
+preserve their respective prior bytes and the proposal to append new bytes.
+It produces only a review candidate; independent review, gates and merge still
+apply. No semantic quality or comprehension is established. The Git reader
+loads the bounded-size whole blob internally, although only the selected bytes
+are delivered as this evidence. This is not a physical partial-read guarantee
+or an operating-system sandbox.
+
+For an already authorized local host, an operator can prepare and check the
+proposal with the existing files containing the full request, packet and result:
+
+```sh
+python3 scripts/wiki_context.py --repo /path/to/wiki --approved-revision "$APPROVED_SHA" \
+  pack CONTEXT --content-revision "$CONTENT_SHA" --folder CONTEXT \
+  --owned-range --request /path/to/request.json > /path/to/packet.json
+python3 scripts/wiki_context_flow.py --repo /path/to/wiki --approved-revision "$APPROVED_SHA" \
+  preflight --context CONTEXT --base "$APPROVED_SHA" --head "$PROPOSAL_SHA" \
+  --branch wiki/example --packet /path/to/packet.json --result /path/to/result.json --owned-range
+```
+
+The environment uses the host's established `WIKI_COORDINATION_ALLOWED_CONTEXTS`
+and `WIKI_COORDINATION_TRUSTED_REF`; these are configuration, not evidence that
+the operator or runtime has been admitted. Treat request, packet and result
+files according to the sensitivity of their contents.
+
 ## Coordination and ingestion
 
 For a task packet, select the canonical context and complete request:

@@ -307,6 +307,8 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     Git bytes are verified at input, current base and proposal output. The task
     result reports its reads; this is not proof of semantic comprehension.
     """
+    if isinstance(packet, dict) and packet.get('schema_version') == 'wiki.task-context/v2':
+        raise RequirementError('bounded range requirements are not supported')
     if getattr(policy, 'format_version', None) != 'folder':
         raise RequirementError('new requirements require folder authority; v1 is historical only')
     from wiki_core.context_packet import _check_trusted_binding
