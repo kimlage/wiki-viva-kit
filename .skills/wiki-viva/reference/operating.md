@@ -143,9 +143,11 @@ Gate semantics and privacy: [gates-and-privacy.md](gates-and-privacy.md).
   ```
 - **Information → Insight cycle**: gather signals about a theme and emit an
   insight proposal with [wiki_insight_job.py](../../../scripts/wiki_insight_job.py).
-- **Raw via Drive**: keep raw sources (statements, invoices) in one Drive folder,
-  never versioned — [wiki-raw-drive](../../wiki-raw-drive/SKILL.md) and
-  [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py).
+- **Raw via Drive**: keep raw sources (statements, invoices) outside Git and
+  retrieve authorized existing sources with [wiki-raw-drive](../../wiki-raw-drive/SKILL.md).
+  Upload through [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py)
+  is temporarily suspended; its dry-run is local and does not verify Drive.
+  Existing links remain available subject to their own access and retention.
 - **Atualização do kit**: revise primeiro o B0 e então sincronize C1/C2/C3 com
   [wiki_sync_from_kit.py](../../../scripts/wiki_sync_from_kit.py); a PR do
   consumidor é a fronteira reversível de revisão e promoção.

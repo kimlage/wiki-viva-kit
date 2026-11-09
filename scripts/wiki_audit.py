@@ -1262,10 +1262,10 @@ def audit_drive_artifact_links(warnings: list[str], config: WikiConfig) -> None:
     """General rule: the wiki must not link to an unversioned local FILE.
 
     A link to a file under data/raw/** or data/derived/** (gitignored) breaks on
-    GitHub. The content should live in the personal Drive folder (id in .env) via
-    `scripts/wiki_drive_publish.py`, and the page should point to the view_url of
-    the versioned manifest data/drive_artifacts_manifest.json. Links to VERSIONED
-    files inside data/ (e.g. manifest, versioned rules) are ok.
+    GitHub. Use an authorized stable external link for such content. Publication
+    through `scripts/wiki_drive_publish.py` is temporarily suspended; existing
+    manifest links can still be used when authorized and available. Links to
+    VERSIONED files inside data/ (e.g. manifest, versioned rules) are ok.
     Aggregated warning (extensive historical legacy); the list comes out with --list-stale-gaps.
     """
     tracked = set(tracked_files())
