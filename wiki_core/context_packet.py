@@ -306,7 +306,7 @@ def _packet_with_omissions(packet, omissions, policy):
 @policy_stage_cache()
 def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
                  required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None, queries=(),
-                 entry_folder=None, entry_index=None, additional_readers=(), trusted_binding=None, allow_owned_range=False):
+                 entry_folder=None, entry_index=None, additional_readers=(), trusted_binding=None, allow_owned_range=False, allow_owned_ranges=False):
     if getattr(policy, 'format_version', None) not in (None, 'folder'):
         raise PolicyError('v2 policy requires a v2 packet; v1 receipts require explicit migration')
     if not all(isinstance(x, str) and x.strip() for x in (task_id, goal, output, integrator)): raise PolicyError('task identity, goal, output and integrator required')
@@ -345,23 +345,32 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
     if not isinstance(evidence, list): raise PolicyError('evidence must be a list')
     has_range = any(isinstance(item, dict) and 'range' in item for item in evidence)
+    if allow_owned_ranges and (allow_owned_range or not has_range):
+        raise PolicyError('owned ranges unavailable')
     if allow_owned_range is True and not has_range:
         raise PolicyError('owned range required')
     if has_range:
         from wiki_core.coordination_context import CoordinationBinding
-        if (allow_owned_range is not True or not folder_mode or len(evidence) != 1 or queries or additional_readers
+        if ((allow_owned_range is not True and allow_owned_ranges is not True) or not folder_mode
+                or (allow_owned_range is True and len(evidence) != 1) or queries or additional_readers
                 or not isinstance(trusted_binding, CoordinationBinding)):
             raise PolicyError('owned range unavailable')
-        item = evidence[0]
-        if (item.get('producer') != context_id or item.get('ref') != output or 'section' in item or 'field' in item
+        if allow_owned_ranges:
+            if sum(isinstance(item, dict) and 'range' in item for item in evidence) != 1:
+                raise PolicyError('exactly one owned range required')
+            if any(not isinstance(item, dict) or item.get('producer') != context_id
+                   or not isinstance(item.get('ref'), str)
+                   or policy.owner_of(safe_path(item['ref'])) != context_id for item in evidence):
+                raise PolicyError('owned ranges unavailable')
+        for item in (item for item in evidence if isinstance(item, dict) and 'range' in item):
+            if (item.get('producer') != context_id or (allow_owned_range and item.get('ref') != output) or 'section' in item or 'field' in item
                 or not isinstance(item.get('ref'), str) or policy.owner_of(safe_path(item['ref'])) != context_id
                 or not isinstance(item.get('range'), dict)):
-            raise PolicyError('owned range unavailable')
-        # Context instructions and indexes are delivered in full by folder
-        # qualification and therefore cannot simultaneously be a bounded read.
-        if (item['ref'] in policy._folder_names or item['ref'] == entry_index
+                raise PolicyError('owned range unavailable')
+            # Context instructions and indexes are always delivered in full.
+            if (item['ref'] in policy._folder_names or item['ref'] == entry_index
                 or item['ref'] in policy._context_indexes.values()):
-            raise PolicyError('owned range conflicts with context qualification')
+                raise PolicyError('owned range conflicts with context qualification')
     lineage = policy.lineage(context_id)
     if folder_mode:
         qualification_evidence = [{k: v for k, v in item.items() if k != 'range'} for item in evidence] if has_range else evidence
@@ -509,7 +518,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     policy.fresh()  # Fail if approval moved during composition.
     # Inputs retain their separate roles even when they refer to the same read.
     declared_read_set = declared_reads_from_inputs(selected, folder_mode=folder_mode)
-    packet = {'schema_version': 'wiki.task-context/v2' if has_range else 'wiki.task-context/v1', 'task_id': task_id, 'goal': goal, 'output': output, 'integrator': integrator, 'context_id': context_id,
+    packet = {'schema_version': 'wiki.task-context/v3' if allow_owned_ranges else 'wiki.task-context/v2' if has_range else 'wiki.task-context/v1', 'task_id': task_id, 'goal': goal, 'output': output, 'integrator': integrator, 'context_id': context_id,
             'content_revision': reader.revision, 'policy_revision': policy.policy_revision, 'context': _context_view(policy, context_id),
             'inputs': selected, 'declared_read_set': declared_read_set,
             'query_fingerprint': None, 'coverage': {'mode': 'explicit_read_set', 'complete': False, 'missing': list(omissions)},
@@ -531,7 +540,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
 def validate_result(result, packet):
     """Validate a reported result and bind it to the actual canonical packet."""
     from jsonschema import ValidationError, validate
-    if not isinstance(packet, dict) or packet.get('schema_version') not in ('wiki.task-context/v1', 'wiki.task-context/v2'):
+    if not isinstance(packet, dict) or packet.get('schema_version') not in ('wiki.task-context/v1', 'wiki.task-context/v2', 'wiki.task-context/v3'):
         raise PolicyError('invalid packet')
     version = packet['schema_version'].rsplit('/', 1)[1]
     schema_path = Path(__file__).resolve().parents[1] / f'docs/references/schemas/wiki-task-result-{version}.schema.json'

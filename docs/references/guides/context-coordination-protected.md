@@ -1,6 +1,6 @@
 # Protected coordination: local host binding
 
-The protected packet route prepares the existing `wiki.task-context/v1` packet using an explicitly selected context, approved policy revision, content revision and evidence. It does not dispatch an agent, write a result or merge. The separate in-process source stages can retain a request, result and event under the same host binding, with the limits in [bounded ingestion](bounded-ingestion.md). [Preflight](../../../wiki_core/context_integration.py) remains a read-only check that ends at independent review required. Profiles in the older coordination configuration do not grant access or select a protected context.
+The protected packet route prepares a versioned task packet using an explicitly selected context, approved policy revision, content revision and evidence. It does not dispatch an agent, write a result or merge. The separate in-process source stages can retain a request, result and event under the same host binding, with the limits in [bounded ingestion](bounded-ingestion.md). [Preflight](../../../wiki_core/context_integration.py) remains a read-only check that ends at independent review required. Profiles in the older coordination configuration do not grant access or select a protected context.
 
 ## Trusted local startup
 
@@ -39,6 +39,35 @@ these HTTP packet/preflight endpoints. Existing v1 receipts are not converted
 into folder authority.
 
 When the complete packet exceeds `max_bytes`, API and CLI return `coordination_budget_exceeded`: reduce the authorized selection or revise the limit and retry. The packet is never truncated, and the blocker exposes no selected path or size. Other unavailable or unauthorized inputs remain opaque.
+
+### One bounded Git evidence selection with owned inputs
+
+For a task that actually consumed a bounded part of one large Git document and
+also needs other evidence from the same owner, the protected packet endpoint
+accepts `task.range_mode: "owned-evidence/v1"`. Include exactly one evidence
+item with `range: {"kind": "utf8-line-bytes/v1", "start": 0, "end": 42}`
+and its required `expected_document_sha256`, plus the other explicit evidence
+items. All explicit items must belong to the acting owner. The ordinary
+authorization, historical policy and deny rules still apply. The range uses
+inclusive start and exclusive end at UTF-8 line boundaries and is limited to
+65,536 bytes; the caller independently selects the bytes it actually read
+from the approved Git revision. Instructions and context indexes remain full
+inputs. Queries, additional readers, cross-owner evidence, composite preflight
+and range-based information requirements are not supported in this mode.
+
+The endpoint emits `wiki.task-context/v3`; the matching
+`wiki.task-result/v3` must report every delivered input, including the exact
+range. The preflight reconstructs the packet and checks the complete document
+digest against the current approved base, as well as the selected bytes. If
+the proposal changes the ranged document, it may only append to its approved
+bytes; other changed paths must still satisfy the ordinary same-owner write,
+policy and review gates. A changed base document requires a fresh selection.
+The 1,000,000-byte packet limit and HTTP request limit remain in force; the
+packet is not silently truncated. The reader loads the bounded whole Git blob
+internally even though the packet delivers only the selected range. These
+checks do not prove comprehension, external authorization, execution or merge.
+The separate local `wiki.task-context/v2` owned-log append contract remains
+unchanged; see [bounded reads](context-reader.md).
 
 `POST /api/coordination/protected/preflight` uses the same transport and session controls. Its body fields are `context_id`, `approved_revision`, `base`, `head`, `branch`, `packet` and `result`, plus optional `additional_readers` that must belong to the fixed host allowlist and match the packet's retained selection. The packet must have no browser-supplied capability evidence or required external capabilities. Success returns `{ok: true, mode: "approved", preflight: ...}` with state `independent_review_required`; it is not permission to merge. The packet/result, exact head, base, requirements and current policy are checked again. The protected POSTs are bounded read-only calculations: they do not store or replay packet bodies under attempt keys. Every retry rechecks session, current policy and binding.
 

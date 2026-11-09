@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Task result with owner-scoped bounded evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "blockers",
+    "task_id",
+    "context_id",
+    "packet_digest",
+    "changes",
+    "read_coverage"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki.task-result/v3"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "pending",
+        "denied",
+        "uncertain"
+      ]
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "target",
+          "reason",
+          "owner",
+          "required_action",
+          "interface",
+          "resume_condition",
+          "status"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required_action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resume_condition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "interface": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "denied",
+              "uncertain"
+            ]
+          }
+        }
+      }
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "packet_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "action"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "enum": [
+              "created",
+              "modified",
+              "deleted"
+            ]
+          }
+        }
+      }
+    },
+    "read_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_refs",
+        "missing"
+      ],
+      "properties": {
+        "observed_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ref",
+              "section",
+              "field",
+              "revision"
+            ],
+            "properties": {
+              "ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "section": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "field": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "revision": {
+                "type": "string",
+                "minLength": 1
+              },
+              "range": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "utf8-line-bytes/v1"
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2000000
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2000000
+                  }
+                }
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "required": [
+                    "range"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "section": {
+                      "const": null
+                    },
+                    "field": {
+                      "const": null
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "uniqueItems": true
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "completed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "blockers": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "blockers": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}
