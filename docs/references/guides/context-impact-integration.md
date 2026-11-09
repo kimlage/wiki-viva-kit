@@ -72,6 +72,35 @@ review, gates and merge remain outstanding. A split into multiple proposals is
 appropriate only when each intermediate state and the consumer's log rules are
 independently valid.
 
+### Policy and normative changes
+
+The separate policy-review path can use the consumer's existing, authorized
+Git/PR process; the kit has no dedicated command that approves a policy change.
+For an intended scope or normative change:
+
+1. Identify the current trusted policy revision, affected owners and scopes,
+   and the authority already permitted to propose, review and integrate the
+   change. Keep the proposed diff minimal and reviewable.
+2. Have an independent reviewer assess the exact diff, authority and impact;
+   run the consumer's applicable gates and follow its own PR and promotion
+   policy. The proposed policy must not authorize its own review or merge.
+3. After an authorized integrator merges the change, read back the integrated
+   revision and the host's trusted ref. A PR, Git ref or SHA alone is not proof
+   that the required approval or host authorization occurred.
+4. Reconstruct affected packets under the approved resulting policy and
+   revalidate current scopes and any required connections. Separately establish
+   the host binding and actual caller identity, capabilities and effect
+   admission; the binding is a ceiling, not a grant. Preserve any applicable
+   claim, STOP and consumer review requirements.
+
+Neither the ordinary nor composite preflight approves the candidate policy,
+and the impact `review` command reports a disposition rather than approving a
+policy. If the authorized external process, current trusted ref or required
+authority cannot be established, keep that operation pending. This guidance
+does not create a new CLI, attestation, grant or provider-enforced review.
+
+### Integrating a preflight proposal
+
 After preflight, an authorized integrator must independently review the exact proposal HEAD and semantic relationships, run applicable gates tied to that HEAD and configuration, revalidate the approved base, and follow the repository's existing PR/merge policy. If the base or branch advances, rebuild the packet against the current approved base, reconcile every actual read (including an existing output read while editing), rerun preflight and review the new HEAD. Plan work in progress so one context does not repeatedly rebase while other changes land; an undeclared read makes that attempt ineligible rather than being silently omitted. Use one integrator per target until a provider-enforced current-base queue is qualified; worktrees alone are not a merge lock. The external integrator performs any authorized merge and readback; these commands never do so. A self-reported completed result or this preflight alone is not approval.
 
 The [CLI](../../../scripts/wiki_context_flow.py) offers finite `impact`, `requirements`, `review`, `revalidate` and `preflight` commands.
