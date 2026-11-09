@@ -106,6 +106,26 @@ Never store credentials or authenticated links in the record. The external
 original remains canonical; a local capture or source-page association is not
 proof of a complete reading or incorporation.
 
+### Provider messages with prohibited links
+
+If a provider message contains an individualized tracking or access-bearing
+link which policy forbids retaining, keep the protected ingestion **pending**.
+The current stage has no qualified representation contract for a sanitized
+projection of a message. It cannot bind the omitted or transformed material to
+the request, reconstruction, event and reviewer readback. Do not submit a
+projection as though it were an intact original, or omit its representation
+from the request to make the current stage accept it. A `.txt` file created
+from a message is treated as the selected local source; its digest verifies only
+that file, not the provider message or the transformation.
+
+Do not persist the prohibited link in source bytes, extracted text, request,
+logs, temporary files, metadata or an event. Scanning for common secrets does
+not establish that every individualized URL has been removed. Until a reviewed
+projection and provenance contract is implemented, report the omission and the
+unavailable source-bound verification without creating a protected event or
+claiming completed ingestion. An intact provider original may remain available
+at its own provider, subject to the provider's access and retention policy.
+
 Each stage must receive the same `context_selection`, with either an explicit
 `root_entity` path or `omit_root_entity: true`. It may also select exact
 `source_page`, `source_config`, `input_channel`, `templates` and `target_pages`
