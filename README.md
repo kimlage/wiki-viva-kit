@@ -162,6 +162,14 @@ A kit release consists of:
 4. green normal CI: audit, pytest, Vitest, TypeScript and production build;
 5. a PR independently reviewed under [AGENTS.md](AGENTS.md).
 
+During release preparation, set `wiki_core.__version__` to the release version
+and update the primary release-notes link above in the same reviewed change.
+Between releases it identifies the latest declared release, not the exact
+source revision or a promise that the checkout is identical to that tag. Use
+the full Git SHA for adoption and verification. Published tags are historical;
+this policy does not rewrite their contents. Pack versions and consumer locks
+have their own contracts and are not changed merely by a kit release.
+
 No capsule, receipt or exact-matrix rite is required.
 
 ## Privacy
