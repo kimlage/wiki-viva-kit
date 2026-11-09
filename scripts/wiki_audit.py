@@ -244,7 +244,9 @@ def build_local_path_regexes(config: WikiConfig) -> None:
 # Bind the regexes to this repo's layout at import; main() rebinds explicitly.
 build_local_path_regexes(load_config(ROOT))
 
-MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+MARKDOWN_LINK_RE = re.compile(
+    r"\[[^\]]+\]\((<[^<>\n]*>|[^)\n]+?)(?:\s+(?:\"[^\"\n]*\"|'[^'\n]*'|\([^()\n]*\)))?\)"
+)
 MARKDOWN_LINK_LABEL_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 # Fixed: stops at the first space/boundary (the old version swallowed the
@@ -981,6 +983,11 @@ def is_external_link(href: str) -> bool:
 
 
 def local_link_target_path(source_rel: str, href: str) -> Path | None:
+    # Markdown angle destinations delimit the destination; they are not part
+    # of the URL or local filename. Only unwrap a complete pair so malformed
+    # input cannot acquire an external scheme merely by dropping a delimiter.
+    if href.startswith("<") and href.endswith(">") and "<" not in href[1:-1] and ">" not in href[1:-1]:
+        href = href[1:-1]
     href = href.split("#", 1)[0]
     if not href:
         return None

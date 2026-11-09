@@ -593,6 +593,69 @@ def test_strict_local_requires_derived_link_to_exist(tmp_path, audit, monkeypatc
     )
 
 
+def test_angle_destinations_are_classified_and_local_targets_still_checked(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    notes = tmp_path / "memories"
+    notes.mkdir()
+    (notes / "existing file).md").write_text("synthetic\n", encoding="utf-8")
+    (notes / "folder").mkdir()
+
+    def target(markdown):
+        match = audit.MARKDOWN_LINK_RE.search(markdown)
+        assert match, markdown
+        return match.group(1)
+
+    for link in (
+        "[thread](<t3-thread://v2/example/123>)",
+        '[web](<https://example.test/a)b> "synthetic title")',
+        "[fragment](<#section>)",
+    ):
+        assert audit.local_link_target_path("memories/note.md", target(link)) is None
+    for link in (
+        "[local](<existing file).md#section>)",
+        "[local](<existing%20file).md>)",
+    ):
+        assert audit.local_link_target_exists("memories/note.md", target(link))
+    assert not audit.local_link_target_exists("memories/note.md", target("[missing](<missing file.md>)"))
+    assert audit.local_link_target_is_directory("memories/note.md", target("[dir](<folder>)"))
+    # A partial pair is not unwrapped to fabricate an external scheme.
+    assert not audit.local_link_target_exists("memories/note.md", "<t3-thread://v2/example/123")
+
+
+def test_clickable_link_audit_reports_missing_angle_local_not_external(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "link_audit_files", lambda config: ["note.md"])
+    (tmp_path / "note.md").write_text(
+        "[thread](<t3-thread://v2/example/123>)\n"
+        "[missing](<missing file.md>)\n", encoding="utf-8")
+    errors = []
+    audit.audit_clickable_local_links(errors, WikiConfig())
+    assert len(errors) == 1
+    assert "missing file.md" in errors[0]
+
+
+def test_external_angle_link_does_not_exempt_secret_or_public_pii_scan(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "link_audit_files", lambda config: ["memories/note.md"])
+    monkeypatch.setattr(audit, "markdown_files", lambda: ["memories/note.md"])
+    monkeypatch.setattr(audit, "_scannable_text_files", lambda: ["memories/note.md"])
+    note = tmp_path / "memories/note.md"
+    note.parent.mkdir()
+    fake_key = "sk-" + "proj-" + "A" * 24
+    note.write_text(
+        "---\nvisibility: public\n---\n\n"
+        f"[external](<https://example.test/{fake_key}/529.982.247-25>)\n",
+        encoding="utf-8",
+    )
+    config = WikiConfig()
+    link_errors, secret_errors, pii_errors, warnings = [], [], [], []
+    audit.audit_clickable_local_links(link_errors, config)
+    audit.audit_secrets(secret_errors, config)
+    audit.audit_pii(pii_errors, warnings, config, public_export=True)
+    assert link_errors == []
+    assert secret_errors and pii_errors
+
+
 # ---------------------------------------------------------------------------
 # LOCAL_ARTIFACT_LINK_RE: extension coverage (.jsonl/.sqlite were escaping)
 # ---------------------------------------------------------------------------
