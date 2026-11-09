@@ -499,4 +499,3 @@ def test_host_bound_cli_packet_and_preflight_round_trip(bound_log, tmp_path):
     env.pop('WIKI_COORDINATION_TRUSTED_REF')
     denied = subprocess.run(check, env=env, text=True, capture_output=True)
     assert denied.returncode != 0 and 'binding' in denied.stderr.lower()
-
