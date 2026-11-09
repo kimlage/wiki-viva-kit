@@ -81,9 +81,12 @@ For an intended scope or normative change:
 1. Identify the current trusted policy revision, affected owners and scopes,
    and the authority already permitted to propose, review and integrate the
    change. Keep the proposed diff minimal and reviewable.
-2. Have an independent reviewer assess the exact diff, authority and impact;
-   run the consumer's applicable gates and follow its own PR and promotion
-   policy. The proposed policy must not authorize its own review or merge.
+2. Review the exact diff, authority and impact with the reviewers and
+   independence required by the consumer's authorized policy; run its
+   applicable gates and follow its PR and promotion process. For protected
+   coordination, the host must maintain its trusted ref through an independent
+   approval process as described in the [host guide](context-coordination-protected.md).
+   The proposed policy must not authorize its own review or merge.
 3. After an authorized integrator merges the change, read back the integrated
    revision and the host's trusted ref. A PR, Git ref or SHA alone is not proof
    that the required approval or host authorization occurred.
