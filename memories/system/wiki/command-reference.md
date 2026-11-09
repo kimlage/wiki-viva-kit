@@ -36,7 +36,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_context.py](../../../scripts/wiki_context.py) | Resolve the approved folder context or build an explicit or anchored-query task packet |
 | [wiki_context_flow.py](../../../scripts/wiki_context_flow.py) | Assess selective context impact, revalidate dynamic sets, derive canonical requirements and preflight proposals without approving or merging |
 | [wiki_context_schedule.py](../../../scripts/wiki_context_schedule.py) | Read-only schedule advice; folder requests currently block before opening pending host binding and requalification |
-| [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) | Publish ignored artifacts to configured Drive |
+| [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) | Inspect an offline artifact plan; Drive publication is suspended |
 | [wiki_export_batch.py](../../../scripts/wiki_export_batch.py) | Export context requests in batch format |
 | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | Build a deterministic source manifest |
 | [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) | Extract and chunk a source |

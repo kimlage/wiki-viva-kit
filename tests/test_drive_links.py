@@ -10,7 +10,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
-import types
+import builtins
 
 import pytest
 from pathlib import Path
@@ -124,151 +124,77 @@ def test_publish_skips_unchanged_sha(tmp_path, monkeypatch):
     assert any("a.csv" in r for r in report["results"])
 
 
-# --------------------------------------------------------------------------- #
-# wiki_drive_publish with a FAKE Drive client (no network, no Google libs):
-# dead drive_file_id falls back to search-by-name/create, and the manifest is
-# saved incrementally after each file.
-# --------------------------------------------------------------------------- #
+# Drive publication is suspended until the provider and manifest have safe
+# concurrency and recovery contracts. No credentials or network are used.
 
 
-class _FakeRequest:
-    def __init__(self, fn):
-        self._fn = fn
-
-    def execute(self):
-        return self._fn()
-
-
-class _FakeFilesApi:
-    def __init__(self, behavior):
-        self._behavior = behavior
-
-    def update(self, fileId=None, media_body=None, fields=None):
-        return _FakeRequest(lambda: self._behavior["update"](fileId))
-
-    def list(self, q=None, fields=None):
-        return _FakeRequest(lambda: self._behavior["list"](q))
-
-    def create(self, body=None, media_body=None, fields=None):
-        return _FakeRequest(lambda: self._behavior["create"](body))
-
-
-class _FakeDrive:
-    def __init__(self, behavior):
-        self._files = _FakeFilesApi(behavior)
-
-    def files(self):
-        return self._files
-
-
-class _FakeHttpError(Exception):
-    """Mimics googleapiclient.errors.HttpError (carries resp.status)."""
-
-    def __init__(self, status: int):
-        super().__init__(f"HTTP {status}")
-        self.resp = types.SimpleNamespace(status=status)
-
-
-def _install_fake_google(monkeypatch, drive) -> None:
-    pkg = types.ModuleType("googleapiclient")
-    errors_mod = types.ModuleType("googleapiclient.errors")
-    errors_mod.HttpError = _FakeHttpError
-    http_mod = types.ModuleType("googleapiclient.http")
-    http_mod.MediaFileUpload = lambda *a, **k: object()
-    pkg.errors = errors_mod
-    pkg.http = http_mod
-    common_pkg = types.ModuleType("common")
-    clients_mod = types.ModuleType("common.google_clients")
-    clients_mod.DRIVE_SCOPE_FULL = "drive-scope"
-    clients_mod.build_service = lambda *a, **k: drive
-    common_pkg.google_clients = clients_mod
-    for name, mod in {
-        "googleapiclient": pkg,
-        "googleapiclient.errors": errors_mod,
-        "googleapiclient.http": http_mod,
-        "common": common_pkg,
-        "common.google_clients": clients_mod,
-    }.items():
-        monkeypatch.setitem(sys.modules, name, mod)
-
-
-def test_publish_dead_drive_id_falls_back_to_create(tmp_path, monkeypatch, capsys):
-    pub = _load("scripts/wiki_drive_publish.py", "wdp_404")
-    artifact = tmp_path / "a.csv"
-    artifact.write_text("new content", encoding="utf-8")
+@pytest.mark.parametrize("path_exists", [False, True])
+def test_publish_refuses_before_loading_manifest_or_credentials(tmp_path, monkeypatch, path_exists):
+    pub = _load("scripts/wiki_drive_publish.py", "wdp_refused")
     manifest_path = tmp_path / "manifest.json"
-    manifest_path.write_text(
-        json.dumps({"files": {"a.csv": {"sha256": "stale", "drive_file_id": "dead-id", "view_url": "u"}}}),
-        encoding="utf-8",
-    )
+    manifest_path.write_text('{"files":{"synthetic":{"drive_file_id":"original"}}}')
+    before = manifest_path.read_bytes()
+    artifact = tmp_path / "synthetic.csv"
+    if path_exists:
+        artifact.write_text("synthetic", encoding="utf-8")
+    original_import = builtins.__import__
+    def guarded_import(name, *args, **kwargs):
+        if name.startswith(("googleapiclient", "common.google_clients")):
+            pytest.fail("provider imported before refusal")
+        return original_import(name, *args, **kwargs)
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
     monkeypatch.setattr(pub, "MANIFEST_PATH", manifest_path)
-
-    def update(file_id):
-        raise _FakeHttpError(404)  # manifest id no longer exists on Drive
-
-    drive = _FakeDrive(
-        {
-            "update": update,
-            "list": lambda q: {"files": []},
-            "create": lambda body: {"id": "new-id", "webViewLink": "https://drive/new"},
-        }
+    monkeypatch.setattr(pub, "load_manifest", lambda: pytest.fail("manifest read before refusal"))
+    monkeypatch.setattr(pub, "load_env", lambda: pytest.fail("environment read before refusal"))
+    with pytest.raises(pub.DrivePublicationSuspended, match="issue"):
+        pub.publish([artifact], "synthetic-folder")
+    assert manifest_path.read_bytes() == before
+    assert set(p.name for p in tmp_path.iterdir()) == (
+        {"manifest.json", "synthetic.csv"} if path_exists else {"manifest.json"}
     )
-    _install_fake_google(monkeypatch, drive)
-
-    report = pub.publish([artifact], "folder")
-    assert any("a.csv" in r for r in report["results"])
-    saved = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert saved["files"]["a.csv"]["drive_file_id"] == "new-id"  # healed entry
-    assert "404" in capsys.readouterr().err  # fallback is visible
 
 
-def test_publish_non_404_update_error_propagates(tmp_path, monkeypatch):
-    pub = _load("scripts/wiki_drive_publish.py", "wdp_500")
-    artifact = tmp_path / "a.csv"
-    artifact.write_text("content", encoding="utf-8")
-    manifest_path = tmp_path / "manifest.json"
-    manifest_path.write_text(
-        json.dumps({"files": {"a.csv": {"sha256": "stale", "drive_file_id": "id1", "view_url": "u"}}}),
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(pub, "MANIFEST_PATH", manifest_path)
-
-    def update(file_id):
-        raise _FakeHttpError(500)  # NOT a dead id: must not be silently healed
-
-    drive = _FakeDrive({"update": update, "list": lambda q: {"files": []}, "create": lambda body: {}})
-    _install_fake_google(monkeypatch, drive)
-
-    with pytest.raises(_FakeHttpError):
-        pub.publish([artifact], "folder")
+def test_cli_refuses_before_environment_or_files(tmp_path, monkeypatch, capsys):
+    pub = _load("scripts/wiki_drive_publish.py", "wdp_cli_refused")
+    monkeypatch.setattr(pub, "load_env", lambda: pytest.fail("environment read before refusal"))
+    monkeypatch.setattr(pub, "publish", lambda *a, **k: pytest.fail("publication called"))
+    assert pub.main([str(tmp_path / "synthetic.csv")]) == 2
+    assert "suspended" in capsys.readouterr().err
+    assert list(tmp_path.iterdir()) == []
 
 
-def test_publish_saves_manifest_after_each_file(tmp_path, monkeypatch):
-    pub = _load("scripts/wiki_drive_publish.py", "wdp_incr")
-    a = tmp_path / "a.csv"
-    a.write_text("aa", encoding="utf-8")
-    b = tmp_path / "b.csv"
-    b.write_text("bb", encoding="utf-8")
-    manifest_path = tmp_path / "manifest.json"
-    monkeypatch.setattr(pub, "MANIFEST_PATH", manifest_path)
+def test_direct_effect_helpers_refuse_before_request_or_manifest_write(tmp_path, monkeypatch):
+    pub = _load("scripts/wiki_drive_publish.py", "wdp_helpers_refused")
+    monkeypatch.setattr(pub, "MANIFEST_PATH", tmp_path / "nested" / "manifest.json")
 
-    def create(body):
-        if body["name"] == "b.csv":
-            raise _FakeHttpError(500)  # crash halfway through the batch
-        return {"id": f"id-{body['name']}", "webViewLink": f"https://drive/{body['name']}"}
+    class Request:
+        def execute(self):
+            pytest.fail("request executed")
 
-    drive = _FakeDrive(
-        {
-            "update": lambda file_id: {"id": file_id, "webViewLink": "https://drive/upd"},
-            "list": lambda q: {"files": []},
-            "create": create,
-        }
-    )
-    _install_fake_google(monkeypatch, drive)
+        def next_chunk(self):
+            pytest.fail("request executed")
 
-    with pytest.raises(_FakeHttpError):
-        pub.publish([a, b], "folder")
-    # the first file was persisted BEFORE the crash (incremental manifest save)
-    saved = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert saved["files"]["a.csv"]["drive_file_id"] == "id-a.csv"
-    assert "b.csv" not in saved["files"]
+    with pytest.raises(pub.DrivePublicationSuspended):
+        pub.execute_drive_upload(Request(), label="synthetic")
+    with pytest.raises(pub.DrivePublicationSuspended):
+        pub.save_manifest({"files": {}})
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_dry_run_is_local_read_only_and_does_not_claim_remote_state(tmp_path, monkeypatch):
+    pub = _load("scripts/wiki_drive_publish.py", "wdp_local_only")
+    artifact = tmp_path / "synthetic.csv"
+    artifact.write_text("synthetic content", encoding="utf-8")
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"files": {"synthetic.csv": {
+        "sha256": pub.sha256_file(artifact), "drive_file_id": "synthetic-id"}}}))
+    before = manifest.read_bytes()
+    monkeypatch.setattr(pub, "MANIFEST_PATH", manifest)
+    monkeypatch.setattr(pub, "save_manifest", lambda *a, **k: pytest.fail("manifest write"))
+    monkeypatch.setattr(pub, "execute_drive_upload", lambda *a, **k: pytest.fail("upload"))
+    import socket
+    monkeypatch.setattr(socket.socket, "connect", lambda *a, **k: pytest.fail("network"))
+    report = pub.publish([artifact], "synthetic-folder", dry_run=True)
+    assert "remote unverified" in report["results"][0]
+    assert manifest.read_bytes() == before
+    assert {p.name for p in tmp_path.iterdir()} == {"manifest.json", "synthetic.csv"}

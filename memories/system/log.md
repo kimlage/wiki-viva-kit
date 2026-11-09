@@ -14,6 +14,11 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-09] Record Drive publisher suspension
+
+The [command reference](wiki/command-reference.md) identifies the publisher's
+offline planning mode and temporary suspension. No source date was renewed.
+
 ## [2026-11-05] Align source workflow references with folder authority
 
 The [ingestion flow](wiki/ingestion-flow.md), [gates](wiki/gates-and-audit.md)
