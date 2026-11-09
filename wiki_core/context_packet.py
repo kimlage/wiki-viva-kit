@@ -22,12 +22,14 @@ def _reject_secrets(value):
 def declared_reads_from_inputs(inputs, *, folder_mode):
     """Return the ordered read set, retaining distinct revisions and selectors."""
     keys = ('ref', 'section', 'field', 'revision')
-    reads = [{key: item[key] for key in keys} for item in inputs]
+    reads = [{**{key: item[key] for key in keys},
+              **({'range': copy.deepcopy(item['range'])} if 'range' in item else {})}
+             for item in inputs]
     if not folder_mode:
         return reads  # Preserve the historical v1 representation.
     unique = {}
     for item in reads:
-        unique.setdefault(tuple(item[key] for key in keys), item)
+        unique.setdefault(json.dumps(item, sort_keys=True, separators=(',', ':')), item)
     return list(unique.values())
 
 
@@ -304,7 +306,7 @@ def _packet_with_omissions(packet, omissions, policy):
 @policy_stage_cache()
 def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
                  required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None, queries=(),
-                 entry_folder=None, entry_index=None, additional_readers=(), trusted_binding=None):
+                 entry_folder=None, entry_index=None, additional_readers=(), trusted_binding=None, allow_owned_range=False):
     if getattr(policy, 'format_version', None) not in (None, 'folder'):
         raise PolicyError('v2 policy requires a v2 packet; v1 receipts require explicit migration')
     if not all(isinstance(x, str) and x.strip() for x in (task_id, goal, output, integrator)): raise PolicyError('task identity, goal, output and integrator required')
@@ -341,9 +343,29 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     if query_fingerprint is not None: raise PolicyError('dynamic query fingerprint must be computed by the builder')
     if not isinstance(queries, (list, tuple)) or len(queries) > 8: raise PolicyError('invalid query list')
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
+    if not isinstance(evidence, list): raise PolicyError('evidence must be a list')
+    has_range = any(isinstance(item, dict) and 'range' in item for item in evidence)
+    if allow_owned_range is True and not has_range:
+        raise PolicyError('owned range required')
+    if has_range:
+        from wiki_core.coordination_context import CoordinationBinding
+        if (allow_owned_range is not True or not folder_mode or len(evidence) != 1 or queries or additional_readers
+                or not isinstance(trusted_binding, CoordinationBinding)):
+            raise PolicyError('owned range unavailable')
+        item = evidence[0]
+        if (item.get('producer') != context_id or item.get('ref') != output or 'section' in item or 'field' in item
+                or not isinstance(item.get('ref'), str) or policy.owner_of(safe_path(item['ref'])) != context_id
+                or not isinstance(item.get('range'), dict)):
+            raise PolicyError('owned range unavailable')
+        # Context instructions and indexes are delivered in full by folder
+        # qualification and therefore cannot simultaneously be a bounded read.
+        if (item['ref'] in policy._folder_names or item['ref'] == entry_index
+                or item['ref'] in policy._context_indexes.values()):
+            raise PolicyError('owned range conflicts with context qualification')
     lineage = policy.lineage(context_id)
     if folder_mode:
-        _qualify_trusted_producers(root, policy, context_id, evidence, max_bytes,
+        qualification_evidence = [{k: v for k, v in item.items() if k != 'range'} for item in evidence] if has_range else evidence
+        _qualify_trusted_producers(root, policy, context_id, qualification_evidence, max_bytes,
                                    trusted_binding=trusted_binding, additional_readers=additional_readers)
         policy_reader, qualification_refs = qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes,
                                                                     additional_readers=additional_readers)
@@ -369,7 +391,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     # Rules are read from the approved policy revision, never historical content.
     if folder_mode and entry_folder != '.' and not any(ref.startswith(entry_folder + '/') for ref in policy_reader.paths):
         raise PolicyError('entry folder unavailable in approved tree')
-    def add(reader_, ref, reason, kind, section=None, field=None, producer=None, use=None, classification=None):
+    def add(reader_, ref, reason, kind, section=None, field=None, producer=None, use=None, classification=None, byte_range=None):
         ref = safe_path(ref)
         denied = any(within(ref, scope) for scope in policy.effective[context_id]['deny']['read'])
         if denied or (kind != 'mandatory' and not policy.permits(context_id, 'read', ref)): raise PolicyError('read denied')
@@ -398,7 +420,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
             except (ValueError, OSError) as exc: raise PolicyError('context body unavailable') from exc
         if folder_mode:
             guard_folder_blob(root, policy, ref)
-            item = reader_.read(ref, section=section, field=field,
+            item = reader_.read(ref, section=section, field=field, byte_range=byte_range,
                                 before_blob=lambda path: guard_folder_blob(root, policy, path))
         else:
             item = reader_.read(ref, section=section, field=field)
@@ -412,6 +434,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
                          'text': text, 'byte_length': len(data), 'sha256': digest,
                          'revision': item['revision'], 'document_sha256': item['content_sha256'],
                          'origin': item['origin'], 'reason': reason, 'producer': producer, 'use': use, 'classification': classification})
+        if byte_range is not None: selected[-1]['range'] = copy.deepcopy(byte_range)
     if folder_mode:
         parts = [] if entry_folder == '.' else entry_folder.split('/')
         folders = ['.'] + ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]
@@ -454,7 +477,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     if mandatory_bytes > max_bytes: raise PolicyError('mandatory content exceeds byte budget')
     if not isinstance(evidence, list): raise PolicyError('evidence must be a list')
     for e in evidence:
-        allowed = {'ref','producer','reason','use','classification','section','field'}
+        allowed = {'ref','producer','reason','use','classification','section','field'} | ({'range'} if has_range else set())
         if not isinstance(e, dict) or set(e) - allowed or not all(isinstance(e.get(k), str) and e[k] for k in ('ref','producer','reason','use','classification')):
             raise PolicyError('invalid evidence')
         for value in e.values():
@@ -468,7 +491,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
             if preliminary == 'approved': raise PolicyError('producer context requires authorized requalification')
             status = preliminary
         if status != 'approved': raise PolicyError('connection ' + status)
-        add(reader, ref, e['reason'], 'evidence', e.get('section'), e.get('field'), e['producer'], e['use'], e['classification'])
+        add(reader, ref, e['reason'], 'evidence', e.get('section'), e.get('field'), e['producer'], e['use'], e['classification'], byte_range=e.get('range'))
     query_selections = []
     for entry in queries:
         receipt, anchor, members = select_query(policy, context_id, reader, entry,
@@ -486,7 +509,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     policy.fresh()  # Fail if approval moved during composition.
     # Inputs retain their separate roles even when they refer to the same read.
     declared_read_set = declared_reads_from_inputs(selected, folder_mode=folder_mode)
-    packet = {'schema_version': 'wiki.task-context/v1', 'task_id': task_id, 'goal': goal, 'output': output, 'integrator': integrator, 'context_id': context_id,
+    packet = {'schema_version': 'wiki.task-context/v2' if has_range else 'wiki.task-context/v1', 'task_id': task_id, 'goal': goal, 'output': output, 'integrator': integrator, 'context_id': context_id,
             'content_revision': reader.revision, 'policy_revision': policy.policy_revision, 'context': _context_view(policy, context_id),
             'inputs': selected, 'declared_read_set': declared_read_set,
             'query_fingerprint': None, 'coverage': {'mode': 'explicit_read_set', 'complete': False, 'missing': list(omissions)},
@@ -508,7 +531,10 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
 def validate_result(result, packet):
     """Validate a reported result and bind it to the actual canonical packet."""
     from jsonschema import ValidationError, validate
-    schema_path = Path(__file__).resolve().parents[1] / 'docs/references/schemas/wiki-task-result-v1.schema.json'
+    if not isinstance(packet, dict) or packet.get('schema_version') not in ('wiki.task-context/v1', 'wiki.task-context/v2'):
+        raise PolicyError('invalid packet')
+    version = packet['schema_version'].rsplit('/', 1)[1]
+    schema_path = Path(__file__).resolve().parents[1] / f'docs/references/schemas/wiki-task-result-{version}.schema.json'
     try:
         validate(result, json.loads(schema_path.read_text(encoding='utf-8')))
     except (ValidationError, OSError, ValueError) as exc:

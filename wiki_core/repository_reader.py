@@ -165,13 +165,20 @@ class RepositoryReader:
         return {'revision': self.revision, 'pages': rows,
             'selection_fingerprint': _digest({'filters': filters or {}, 'pages': rows})}
 
-    def read(self, ref: str, section: str | None = None, field: str | None = None, *, before_blob=None) -> dict[str, Any]:
-        if section is not None and field is not None:
-            raise RepositoryReadError('section and field selectors are mutually exclusive')
+    def read(self, ref: str, section: str | None = None, field: str | None = None, *, byte_range=None, before_blob=None) -> dict[str, Any]:
+        if sum(value is not None for value in (section, field, byte_range)) > 1:
+            raise RepositoryReadError('content selectors are mutually exclusive')
+        if byte_range is not None:
+            if (not isinstance(byte_range, dict) or set(byte_range) != {'kind', 'start', 'end'}
+                    or byte_range.get('kind') != 'utf8-line-bytes/v1'
+                    or type(byte_range.get('start')) is not int or type(byte_range.get('end')) is not int
+                    or byte_range['start'] < 0 or byte_range['end'] <= byte_range['start']
+                    or byte_range['end'] > 2_000_000 or byte_range['end'] - byte_range['start'] > 65_536):
+                raise RepositoryReadError('invalid byte range')
         if ref in self._entries:
             path = canonical_path(ref)
         else:
-            if '/' in ref or ref.endswith('.md'):
+            if byte_range is not None or '/' in ref or ref.endswith('.md'):
                 canonical_path(ref)
                 raise RepositoryReadError(f'repository file missing or unsupported: {ref}')
             matches = [row['path'] for row in self.catalogue() if row['page_id'] == ref]
@@ -196,4 +203,18 @@ class RepositoryReader:
             text = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
             result.update(field=field, value=value, text=text, body=text, content=text.encode(), frontmatter={field: value},
                 content_digest=hashlib.sha256(text.encode()).hexdigest())
+        if byte_range is not None:
+            start, end = byte_range['start'], byte_range['end']
+            raw = document['content']
+            if (end > len(raw)
+                    or (start != 0 and raw[start - 1:start] != b'\n')
+                    or (end != len(raw) and raw[end - 1:end] != b'\n')):
+                raise RepositoryReadError('invalid byte range')
+            try:
+                text = raw[start:end].decode('utf-8')
+            except UnicodeError as exc:
+                raise RepositoryReadError('invalid byte range') from exc
+            result.update(byte_range=deepcopy(byte_range), page_id=None, text=text, body=text,
+                content=raw[start:end], frontmatter={},
+                content_digest=hashlib.sha256(raw[start:end]).hexdigest())
         return result
