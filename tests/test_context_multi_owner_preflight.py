@@ -345,10 +345,15 @@ def test_old_and_new_git_modes_are_checked_in_single_and_composite_preflight(rep
     if kind == 'restricted':
         from wiki_core.repository_reader import RepositoryReader
         original_read = RepositoryReader.read
+        original_document = RepositoryReader._document
         def no_restricted_read(reader, ref, *args, **kwargs):
             assert ref != path, 'restricted content was opened'
             return original_read(reader, ref, *args, **kwargs)
+        def no_restricted_document(reader, ref, *args, **kwargs):
+            assert ref != path, 'restricted content was opened'
+            return original_document(reader, ref, *args, **kwargs)
         monkeypatch.setattr(RepositoryReader, 'read', no_restricted_read)
+        monkeypatch.setattr(RepositoryReader, '_document', no_restricted_document)
 
     def mutate():
         if operation == 'delete':
