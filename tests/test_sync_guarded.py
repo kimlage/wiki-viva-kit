@@ -94,6 +94,11 @@ def test_windows_refuses_before_root_or_bootstrap(monkeypatch, tmp_path):
     with pytest.raises(module.GuardedSyncError):
         module.apply_plan(tmp_path / 'kit', tmp_path / 'consumer', binding,
                           expected_plan_sha256='d' * 64, **kwargs)
+    with pytest.raises(module.GuardedSyncError):
+        module.propose_selection(tmp_path / 'kit', tmp_path / 'consumer', binding,
+                                 context_id='.', approved_revision='a' * 40,
+                                 source_sha='b' * 40, bootstrap_selection={},
+                                 bootstrap_selection_sha256='c' * 64)
 
 
 def approve_policy(case: dict, *, read_deny=(), write_deny=()):
@@ -528,6 +533,86 @@ def test_cli_b0_reports_no_approval_and_rejects_c3(case, tmp_path):
     assert controlled_state(case) == before
     c3 = subprocess.run([*args, '--c3-command', 'false'], capture_output=True, text=True, env=env)
     assert c3.returncode != 0
+    assert controlled_state(case) == before
+
+
+def test_discovery_admits_lock_before_body_and_never_opens_targets(case, monkeypatch):
+    establish_existing_lock(case)
+    (case['kit'] / 'portable/beta.txt').unlink()
+    git(case['kit'], 'add', '-A')
+    git(case['kit'], 'commit', '-qm', 'remove synthetic managed file')
+    case['source_sha'] = git(case['kit'], 'rev-parse', 'HEAD')
+    bootstrap = selection(case, paths=('kit.lock',))
+    original_snapshot = case['module']._snapshot
+
+    def snapshot(root, path):
+        if path != 'kit.lock':
+            raise AssertionError('discovery inspected a target')
+        return original_snapshot(root, path)
+
+    monkeypatch.setattr(case['module'], '_snapshot', snapshot)
+    result = case['module'].propose_selection(
+        case['kit'], case['consumer'], case['binding'], context_id='.',
+        approved_revision=case['policy_sha'], source_sha=case['source_sha'],
+        bootstrap_selection=bootstrap, bootstrap_selection_sha256=selection_hash(bootstrap))
+    assert result['selection']['paths'] == ['kit.lock', 'portable/alpha.txt', 'portable/beta.txt']
+    assert result['selection_sha256'] == selection_hash(result['selection'])
+    assert result['external_admission'] == 'not_verified'
+    assert result['target_bodies'] == 'not_inspected'
+
+
+@pytest.mark.parametrize('reason', ['deny', 'digest'])
+def test_discovery_refuses_unadmitted_lock_before_open(case, monkeypatch, reason):
+    if reason == 'deny':
+        approve_policy(case, read_deny=['self/kit.lock'])
+    bootstrap = selection(case, paths=('kit.lock',))
+    def unexpected_lock(*args, **kwargs):
+        raise AssertionError('unadmitted lock was opened')
+    monkeypatch.setattr(case['module'], '_lock', unexpected_lock)
+    with pytest.raises(case['module'].GuardedSyncError):
+        case['module'].propose_selection(
+            case['kit'], case['consumer'], case['binding'], context_id='.',
+            approved_revision=case['policy_sha'], source_sha=case['source_sha'],
+            bootstrap_selection=bootstrap,
+            bootstrap_selection_sha256='0' * 64 if reason == 'digest' else selection_hash(bootstrap))
+
+
+def test_cli_discovery_and_full_plan_are_explicit(case, tmp_path):
+    path = tmp_path / 'external-selection.json'
+    common = [sys.executable, str(SCRIPT), '--kit', str(case['kit']),
+            '--consumer', str(case['consumer']), '--context', '.',
+            '--approved-revision', case['policy_sha'], '--source-sha', case['source_sha']]
+    env = os.environ.copy()
+    env.update(WIKI_COORDINATION_ALLOWED_CONTEXTS='.',
+               WIKI_COORDINATION_TRUSTED_REF='refs/remotes/origin/main',
+               WIKI_COORDINATION_CONTEXT_MODE='folder')
+    before = controlled_state(case)
+    no_roots = list(common)
+    no_roots[no_roots.index('--kit') + 1] = str(tmp_path / 'missing-kit')
+    no_roots[no_roots.index('--consumer') + 1] = str(tmp_path / 'missing-consumer')
+    bootstrap_result = subprocess.run([*no_roots, '--bootstrap-selection'],
+                                      capture_output=True, text=True, env=env)
+    assert bootstrap_result.returncode == 0, bootstrap_result.stderr
+    initial = json.loads(bootstrap_result.stdout)
+    assert initial['repositories'] == 'not_inspected'
+    assert initial['external_admission'] == 'not_verified'
+    assert initial['selection'] == selection(case, paths=('kit.lock',))
+    path.write_text(json.dumps(initial['selection']), encoding='utf-8')
+    args = [*common, '--selection-file', str(path), '--selection-sha256']
+    proposed = subprocess.run([*args, initial['selection_sha256'], '--propose-selection'],
+                              capture_output=True, text=True, env=env)
+    assert proposed.returncode == 0, proposed.stderr
+    result = json.loads(proposed.stdout)
+    path.write_text(json.dumps(result['selection']), encoding='utf-8')
+    full = subprocess.run([*args, result['selection_sha256'], '--dry-run', '--full-plan'],
+                          capture_output=True, text=True, env=env)
+    assert full.returncode == 0, full.stderr
+    output = json.loads(full.stdout)
+    assert output['external_approval'] == 'not_verified'
+    plan = output['plan']
+    assert plan['selection'] == result['selection']
+    assert plan['desired_states']['portable/alpha.txt']['sha256'] == sha(case['kit'] / 'portable/alpha.txt')
+    assert plan['plan_sha256'] == case['module']._digest({k: v for k, v in plan.items() if k != 'plan_sha256'})
     assert controlled_state(case) == before
 
 

@@ -285,7 +285,7 @@ Build a `wiki.guarded-sync-selection/v1` object with the public Python helper
 `select_contract(context_id, policy_revision, trusted_ref, source_sha, paths,
 manifest_path=...)`. `paths` is the exact complete union of source C1 paths,
 previous lock-managed paths and `kit.lock`, independently selected and
-approved before lock access. The helper deterministically adds temporary and
+approved before B0 target access. The helper deterministically adds temporary and
 parent-metadata paths; the same independent authority must admit those too.
 `selection_digest(selection)` hashes canonical UTF-8 JSON (sorted keys,
 ASCII escaping, compact separators). The selection includes its schema,
@@ -293,6 +293,22 @@ source and policy revisions, trusted ref, context, manifest and all paths.
 After reading the admitted lock, the implementation checks that exact union
 before inspecting any target; a mismatch fails closed. Selection files must be
 regular, non-hardlinked files outside both repositories and remain private where appropriate.
+
+For assisted discovery, first run the same command below with
+`--bootstrap-selection` instead of the selection arguments and `--dry-run`.
+It emits a proposed lock-only selection and digest without reading either
+repository. Independently review and admit it, the code and context bootstrap,
+reading `kit.lock`, source Git and its manifest, and an output channel allowed
+to receive every name in the lock and manifest. Pass the admitted selection
+file and digest using the normal arguments and add `--propose-selection`
+instead of `--dry-run`. The command verifies binding and
+policy for that lock selection before opening the lock, then prints a proposed
+complete selection and its digest. It does not inspect target bodies or admit
+the proposal. Review and separately admit the entire returned selection,
+including every temporary and parent path, before using it for B0. A denied
+lock fails before its body is opened; a denied target may be named in this
+proposal and causes B0 to refuse. Do not use this output channel unless the
+host independently permits that disclosure.
 
 Use the host-qualified Python `prepare_plan(...)` with that same selection,
 binding, revisions and digest to obtain the full private reviewable B0. Its
@@ -302,16 +318,22 @@ mode for each C1 file (or absence for a removal), parent and temporary states,
 the exact C1 changes, temporary effects and resulting lock. It explicitly
 reports `consumer_dirty: not_inspected`; selected index entries are checked,
 but no global status or cleanliness is claimed. The CLI B0 prints counts and
-digest only, so that output alone cannot supply full plan review:
+digest by default. Add `--full-plan` to emit the complete plan as JSON to
+stdout for independent review on an admitted channel:
 
 ```sh
 python3 scripts/wiki_sync_guarded.py --kit KIT --consumer CONSUMER \
   --context CONTEXT --approved-revision POLICY_SHA --source-sha KIT_SHA \
-  --selection-file PRIVATE_SELECTION --selection-sha256 SELECTION_SHA256 --dry-run
+  --selection-file PRIVATE_SELECTION --selection-sha256 SELECTION_SHA256 --dry-run --full-plan
 ```
 
+These explicit outputs contain names and metadata that may be sensitive. The
+command itself does not create a report or cache, but stdout, terminals, logs,
+swap or crash handling can persist data; the host must qualify the transport.
+The selection-file read is also an independently authorized bootstrap input.
+
 After independent review and approval of the full effective plan, use the same
-arguments without `--dry-run` and add `--expected-plan-sha256 APPROVED_PLAN_SHA256`.
+arguments without `--dry-run --full-plan` and add `--expected-plan-sha256 APPROVED_PLAN_SHA256`.
 The digest binds the plan but does not authenticate approval; protect its
 delivery independently. Apply rebuilds and compares the plan before effects,
 rechecks refs, all selected target states and the index, and checks each path

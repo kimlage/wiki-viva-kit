@@ -307,6 +307,53 @@ def _future_lock(source_sha: str, manifest_sha: str, tree_sha: str, files: dict)
     return yaml.safe_dump(lock, sort_keys=True, allow_unicode=True).encode('utf-8')
 
 
+def propose_selection(kit: Path, consumer: Path, binding: CoordinationBinding, *,
+                      context_id: str, approved_revision: str, source_sha: str,
+                      bootstrap_selection: dict, bootstrap_selection_sha256: str,
+                      manifest_path: str = 'docs/references/upgrades/sync-manifest.yaml') -> dict:
+    """Propose C1 names after separately admitted lock/bootstrap access.
+
+    The returned selection and its output channel require independent admission;
+    neither this method nor the digest grant authority to inspect target bodies.
+    """
+    if sys.platform == 'win32':
+        raise GuardedSyncError('guarded sync unavailable on Windows')
+    if (not isinstance(binding, CoordinationBinding) or binding.manifest != 'wiki.config.yaml'
+            or not isinstance(source_sha, str) or not SHA.fullmatch(source_sha)
+            or not isinstance(approved_revision, str) or not SHA.fullmatch(approved_revision)
+            or not isinstance(bootstrap_selection_sha256, str) or not HASH.fullmatch(bootstrap_selection_sha256)
+            or not isinstance(bootstrap_selection, dict)):
+        raise GuardedSyncError('authority unavailable')
+    kit, consumer = _root(kit), _root(consumer)
+    if kit == consumer or kit in consumer.parents or consumer in kit.parents:
+        raise GuardedSyncError('roots unavailable')
+    expected = select_contract(context_id, approved_revision, binding.trusted_ref, source_sha,
+                               [LOCK], manifest_path=manifest_path)
+    if expected != bootstrap_selection or selection_digest(expected) != bootstrap_selection_sha256:
+        raise GuardedSyncError('selection unavailable')
+    _, files = _source(kit, source_sha, manifest_path)
+    policy = _policy(consumer, binding, context_id, approved_revision)
+    _check_trusted_binding(consumer, policy, context_id, binding)
+    index = policy._context_indexes.get(context_id)
+    if not index:
+        raise GuardedSyncError('context unavailable')
+    qualify_folder_context(consumer, policy, context_id, context_id, index, 1_000_000)
+    _authorize(policy, context_id, expected)
+    # Only the admitted lock is opened here; no proposed target is inspected.
+    consumer_head = _git_head(consumer)
+    _index_clean(consumer, consumer_head, expected['paths'] + expected['temp_paths'])
+    lock_state, previous = _lock(consumer)
+    proposal = select_contract(context_id, approved_revision, binding.trusted_ref, source_sha,
+                               sorted(set(files) | set(previous) | {LOCK}), manifest_path=manifest_path)
+    policy.fresh()
+    if (_git_head(kit) != source_sha or _git_head(consumer) != consumer_head
+            or _snapshot(consumer, LOCK)[0] != lock_state):
+        raise GuardedSyncError('revision changed')
+    _index_clean(consumer, consumer_head, expected['paths'] + expected['temp_paths'])
+    return {'selection': proposal, 'selection_sha256': selection_digest(proposal),
+            'external_admission': 'not_verified', 'target_bodies': 'not_inspected'}
+
+
 def _build(kit: Path, consumer: Path, binding: CoordinationBinding, *, context_id: str,
            approved_revision: str, source_sha: str, selection: dict, selection_sha256: str,
            manifest_path: str):
@@ -632,30 +679,57 @@ def _selection_file(path: Path, kit: Path, consumer: Path) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    for option in ('kit', 'consumer', 'context', 'approved-revision', 'source-sha',
-                   'selection-file', 'selection-sha256'):
+    for option in ('kit', 'consumer', 'context', 'approved-revision', 'source-sha'):
         parser.add_argument('--' + option, required=True)
+    parser.add_argument('--selection-file')
+    parser.add_argument('--selection-sha256')
     parser.add_argument('--manifest', default='docs/references/upgrades/sync-manifest.yaml',
                         help='exact kit-relative manifest path')
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--bootstrap-selection', action='store_true',
+                        help='emit a proposed lock-only bootstrap selection without reading repositories')
+    parser.add_argument('--propose-selection', action='store_true',
+                        help='emit a proposed C1 selection after separately admitted lock access')
+    parser.add_argument('--full-plan', action='store_true',
+                        help='emit the complete reviewable B0 on an independently admitted output channel')
     parser.add_argument('--expected-plan-sha256')
     args = parser.parse_args(argv)
     if sys.platform == 'win32':
         print('guarded sync unavailable on Windows', file=sys.stderr)
         return 2
-    if args.dry_run == (args.expected_plan_sha256 is not None):
+    if (sum((args.dry_run, args.bootstrap_selection, args.propose_selection,
+             args.expected_plan_sha256 is not None)) != 1
+            or (args.full_plan and not args.dry_run)
+            or (args.bootstrap_selection and (args.selection_file is not None or args.selection_sha256 is not None))
+            or (not args.bootstrap_selection and (args.selection_file is None or args.selection_sha256 is None))):
         print('guarded sync requires B0 or externally approved apply digest', file=sys.stderr)
         return 2
     try:
         kit, consumer = Path(args.kit), Path(args.consumer)
-        selection = _selection_file(Path(args.selection_file), kit, consumer)
         binding = CoordinationBinding.from_environment()
+        if args.bootstrap_selection:
+            if (not isinstance(binding, CoordinationBinding) or binding.manifest != 'wiki.config.yaml'
+                    or args.context not in binding.contexts
+                    or not SHA.fullmatch(args.approved_revision) or not SHA.fullmatch(args.source_sha)):
+                raise GuardedSyncError('authority unavailable')
+            proposed = select_contract(args.context, args.approved_revision, binding.trusted_ref,
+                                       args.source_sha, [LOCK], manifest_path=args.manifest)
+            print(json.dumps({'selection': proposed, 'selection_sha256': selection_digest(proposed),
+                              'external_admission': 'not_verified', 'repositories': 'not_inspected'},
+                             sort_keys=True, separators=(',', ':')))
+            return 0
+        selection = _selection_file(Path(args.selection_file), kit, consumer)
         kwargs = {'context_id': args.context, 'approved_revision': args.approved_revision,
                   'source_sha': args.source_sha, 'selection': selection,
                   'selection_sha256': args.selection_sha256, 'manifest_path': args.manifest}
-        if args.dry_run:
+        if args.propose_selection:
+            out = propose_selection(kit, consumer, binding, context_id=args.context,
+                    approved_revision=args.approved_revision, source_sha=args.source_sha,
+                    bootstrap_selection=selection, bootstrap_selection_sha256=args.selection_sha256,
+                    manifest_path=args.manifest)
+        elif args.dry_run:
             plan = prepare_plan(kit, consumer, binding, **kwargs)
-            out = {'ok': True, 'mode': 'B0', 'plan_sha256': plan['plan_sha256'],
+            out = {'ok': True, 'mode': 'B0', 'external_approval': 'not_verified', 'plan': plan} if args.full_plan else {'ok': True, 'mode': 'B0', 'plan_sha256': plan['plan_sha256'],
                    'source_sha': plan['source_sha'], 'managed_count': plan['c1']['managed_total'],
                    'add_count': len(plan['c1']['add']), 'change_count': len(plan['c1']['change']),
                    'remove_count': len(plan['c1']['remove_previously_managed']),
