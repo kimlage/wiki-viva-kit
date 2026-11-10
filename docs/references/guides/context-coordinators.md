@@ -88,6 +88,23 @@ its scope. The responsible actor completes integration through the same wiki
 process. Track the slice's delivery separately from the canonical action's
 closure, and keep any pending consolidation visible on that action.
 
+## Thread continuity and closeout
+
+The responsible operator keeps threads in their scope reconciled with the
+canonical action and its existing execution evidence. Inactivity alone is not
+a reason to archive or settle work. Resume an incomplete task in its existing
+thread from the preserved state; keep the exact next step and any missing
+information or responsible provider visible without creating a parallel queue.
+
+Settle a work thread only after its required independent review and gates,
+integration into the approved main branch, result readback and reconciliation
+with the canonical wiki. A finished runtime job or a merged dependency alone
+does not establish completion of the action. Keep unresolved work and blockers
+visible on the existing action. Report actual completion, resumption or an
+actionable blocker to the existing coordinator; do not send confirmation-only
+updates. This is an operator agreement, not a scheduler, access grant or proof
+that a runtime integration exists.
+
 ## Card conversation and asynchronous work
 
 The action page stores append-only `action_dialogue` events. A changed next step
