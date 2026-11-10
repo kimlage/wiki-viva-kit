@@ -111,3 +111,40 @@ def test_role_body_obeys_denies_and_cannot_use_an_old_revision(case, monkeypatch
     with pytest.raises(ProtectedCoordinationError) as error:
         prepare_packet(root, binding, old)
     assert error.value.code == 'coordination_content_not_approved'
+
+
+def test_integrator_receives_approved_agents_and_override_has_precedence(case):
+    root, _, _ = case
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main')
+    approved_text = (Path(__file__).resolve().parents[1] / 'AGENTS.md').read_text(encoding='utf-8')
+    (root / 'AGENTS.md').write_text(approved_text, encoding='utf-8')
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'synthetic approved integrator instructions')
+    approved = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', approved)
+    (root / 'AGENTS.md').write_text('synthetic unapproved worktree text\n', encoding='utf-8')
+
+    request = payload(approved, 'Resume synthetic integration')
+    request['task']['role'] = 'executor'
+    packet = prepare_packet(root, binding, request)['packet']
+    mandatory = [item for item in packet['inputs'] if item['kind'] == 'mandatory']
+    agents = next(item for item in mandatory if item['ref'] == 'AGENTS.md')
+    assert agents['revision'] == approved and agents['text'] == approved_text
+    normalized = ' '.join(agents['text'].split()).lower()
+    assert 'a completed turn is not a completed delivery' in normalized
+    assert 'do not stop at an acknowledgement' in normalized
+    assert 'wiki reconciliation' in normalized
+
+    # An approved, nonempty override wins in that folder; neither the kit's
+    # normal file nor a candidate worktree edit may be treated as selected.
+    (root / 'AGENTS.md').write_text(approved_text, encoding='utf-8')
+    (root / 'AGENTS.override.md').write_text('# Synthetic approved override\n', encoding='utf-8')
+    git(root, 'add', 'AGENTS.override.md')
+    git(root, 'commit', '-qm', 'synthetic approved instruction override')
+    overridden = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', overridden)
+    request = payload(overridden, 'Resume synthetic integration')
+    request['task']['role'] = 'executor'
+    packet = prepare_packet(root, binding, request)['packet']
+    mandatory = [item for item in packet['inputs'] if item['kind'] == 'mandatory']
+    assert [item['ref'] for item in mandatory] == ['AGENTS.override.md']
