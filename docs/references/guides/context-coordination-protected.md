@@ -256,6 +256,72 @@ consumer's already authorized, independent policy-review and promotion
 process, including its own gates and trusted-ref readback; the candidate cannot
 authorize its own installation or redefine its own gate.
 
+## Plan-bound C1 sync
+
+`scripts/wiki_sync_guarded.py` is a separate, conservative route for an
+externally admitted C1 selection. It does not change the legacy sync or make
+that command protected. The host must independently qualify the code, both
+repository identities and roots, execution, Git executable and configuration,
+policy/bootstrap reads (including Git refs, index, tree metadata and nested
+repository sentinels), selection-file read, and authority to review and apply.
+The selection and its digest are not grants, approvals or proof of host
+identity. An independently authorized process must review the selection before
+the consumer lock or selected target bodies are inspected. A candidate policy
+cannot authorize its own installation or normative promotion.
+
+The host supplies a nonempty folder `CoordinationBinding` through
+`WIKI_COORDINATION_ALLOWED_CONTEXTS` and `WIKI_COORDINATION_TRUSTED_REF`;
+the approved policy revision must equal that ref. For each selected target,
+including `kit.lock`, and each deterministic temporary path, the current
+policy must permit exact read and write for the same owner and connection;
+every listed parent needs read permission for metadata. Denies still apply.
+The host must separately qualify bootstrap access; environment variables do
+not authenticate it. This route requires existing parent directories and
+refuses symlinks, hardlinked selected files, nested repositories, unsafe paths, conflicts, selected staged
+changes, and C2. C3 has no supported flag here. It currently refuses Windows
+before bootstrap because its filesystem/ACL guarantees are not qualified.
+
+Build a `wiki.guarded-sync-selection/v1` object with the public Python helper
+`select_contract(context_id, policy_revision, trusted_ref, source_sha, paths,
+manifest_path=...)`. `paths` is the exact complete union of source C1 paths,
+previous lock-managed paths and `kit.lock`, independently selected and
+approved before lock access. The helper deterministically adds temporary and
+parent-metadata paths; the same independent authority must admit those too.
+`selection_digest(selection)` hashes canonical UTF-8 JSON (sorted keys,
+ASCII escaping, compact separators). The selection includes its schema,
+source and policy revisions, trusted ref, context, manifest and all paths.
+After reading the admitted lock, the implementation checks that exact union
+before inspecting any target; a mismatch fails closed. Selection files must be
+regular, non-hardlinked files outside both repositories and remain private where appropriate.
+
+Use the host-qualified Python `prepare_plan(...)` with that same selection,
+binding, revisions and digest to obtain the full private reviewable B0. Its
+`plan_sha256` binds source and consumer HEAD, selection, authority identifiers,
+target and lock content hashes, modes or absence, parent and temporary states,
+the exact C1 changes, temporary effects and resulting lock. It explicitly
+reports `consumer_dirty: not_inspected`; selected index entries are checked,
+but no global status or cleanliness is claimed. The CLI B0 prints counts and
+digest only, so that output alone cannot supply full plan review:
+
+```sh
+python3 scripts/wiki_sync_guarded.py --kit KIT --consumer CONSUMER \
+  --context CONTEXT --approved-revision POLICY_SHA --source-sha KIT_SHA \
+  --selection-file PRIVATE_SELECTION --selection-sha256 SELECTION_SHA256 --dry-run
+```
+
+After independent review and approval of the full effective plan, use the same
+arguments without `--dry-run` and add `--expected-plan-sha256 APPROVED_PLAN_SHA256`.
+The digest binds the plan but does not authenticate approval; protect its
+delivery independently. Apply rebuilds and compares the plan before effects,
+rechecks refs, all selected target states and the index, and checks each path
+again before its effect. It reads back C1 and lock plus refs afterward. Ref,
+target or policy drift fails closed, but ordinary filesystem operations are
+not atomic as a group and checks cannot exclude concurrent writers between
+checks and effects. The host must prevent such races. An error after an effect
+can leave partial changes; inspect the admitted scope and recover through the
+consumer's authorized process. These checks do not qualify C2/C3, a global
+audit, a consumer gate, or normative approval.
+
 ## Trusted CLI
 
 The existing coordinator CLI selects folder authority for a trusted local caller:
