@@ -98,6 +98,12 @@ python3 scripts/wiki_audit.py --only secrets --context-guard CONTEXT \
   --context-policy-revision APPROVED_SHA --context-selection-sha256 SELECTION_SHA256
 ```
 
+An explicit context-guard request for the global audit, another registered
+check or a mixed selection is refused before worktree configuration or Git
+inventory is opened; it never falls back to the legacy audit. This is a
+fail-closed disposition, not selection or execution of those checks. An
+invocation without the context guard remains a caller-trust legacy route.
+
 The host must independently authorize the bootstrap before invocation: the
 Python runtime, executable code and imported dependencies; the approved Git
 policy, instructions and index; Git metadata and configuration; ignore files
