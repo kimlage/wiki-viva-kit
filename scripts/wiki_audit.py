@@ -382,6 +382,115 @@ def _text_at_audit_base(rel: str) -> str | None:
         return None
 
 
+def _history_git_tree(*args: str) -> bytes:
+    """Run bounded local Git for historical inventory and blob reads."""
+    from wiki_core.git_env import local_git_tree
+    try:
+        return local_git_tree(ROOT, '-c', 'core.fsmonitor=false',
+                              '-c', 'core.untrackedCache=false',
+                              '-c', 'core.hooksPath=/dev/null',
+                              '-c', 'core.useReplaceRefs=false', *args)
+    except (OSError, ValueError) as exc:
+        raise AuditPathBoundaryError('historical audit selection unavailable') from exc
+
+
+def _history_base_sha(base: str) -> str:
+    try:
+        sha = _history_git_tree('rev-parse', '--verify', f'{base}^{{commit}}').decode('ascii').strip()
+    except UnicodeError as exc:
+        raise AuditPathBoundaryError('historical audit revision unavailable') from exc
+    if not re.fullmatch(r'(?:[a-f0-9]{40}|[a-f0-9]{64})', sha):
+        raise AuditPathBoundaryError('historical audit revision unavailable')
+    return sha
+
+
+def _historical_markdown_paths(base_sha: str, canonical_prefix: str) -> list[str]:
+    """Select Markdown paths from tree metadata, before searching any blob.
+
+    This bounds the legacy audit's search; it does not authorize any path or
+    establish a context-policy boundary. The caller must qualify the complete
+    selection independently before invoking this legacy check.
+    """
+    raw = _history_git_tree('ls-tree', '-r', '-z', '--name-only', base_sha)
+    if raw and not raw.endswith(b'\0'):
+        raise AuditPathBoundaryError('historical audit selection unavailable')
+    try:
+        paths = [item.decode('utf-8') for item in raw.split(b'\0') if item]
+    except UnicodeError as exc:
+        raise AuditPathBoundaryError('historical audit selection unavailable') from exc
+    if len(paths) != len(set(paths)):
+        raise AuditPathBoundaryError('historical audit selection unavailable')
+    selected = sorted(rel for rel in paths if rel.endswith('.md') and rel.startswith(canonical_prefix))
+    # A literal backslash can be reinterpreted as a separator on Windows.
+    if any('\\' in rel for rel in selected):
+        raise AuditPathBoundaryError('historical audit selection unavailable')
+    return selected
+
+
+def _grep_selected_history(base_sha: str, pattern: str, paths: list[str]) -> set[str]:
+    """Search only exact selected Git paths; never use an empty pathspec."""
+    from wiki_core.git_env import local_git_environment, local_git_executable
+    if not paths:
+        return set()
+    if len(paths) != len(set(paths)) or any('\\' in rel for rel in paths):
+        raise AuditPathBoundaryError('historical audit selection unavailable')
+    matches: set[str] = set()
+    batch: list[str] = []
+    size = 0
+
+    def flush() -> None:
+        nonlocal size
+        if not batch:
+            return
+        argv = [local_git_executable(), '--no-lazy-fetch', '-C', str(ROOT),
+                '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false',
+                '-c', 'core.hooksPath=/dev/null', '-c', 'core.useReplaceRefs=false',
+                'grep', '--no-textconv', '--no-recurse-submodules', '-l', '-z', '-E', pattern, base_sha, '--',
+                *(':(literal)' + item for item in batch)]
+        try:
+            result = subprocess.run(argv, capture_output=True, env=local_git_environment(), timeout=30)
+        except (OSError, subprocess.TimeoutExpired, ValueError) as exc:
+            raise AuditPathBoundaryError('historical audit search unavailable') from exc
+        if (result.returncode not in (0, 1) or (result.returncode == 1 and result.stdout)
+                or (result.returncode == 0 and not result.stdout)
+                or (result.stdout and not result.stdout.endswith(b'\0')) or len(result.stdout) > 1_000_000):
+            raise AuditPathBoundaryError('historical audit search unavailable')
+        prefix = (base_sha + ':').encode('ascii')
+        allowed = set(batch)
+        for entry in result.stdout.split(b'\0'):
+            if not entry:
+                continue
+            if not entry.startswith(prefix):
+                raise AuditPathBoundaryError('historical audit search unavailable')
+            try:
+                rel = entry[len(prefix):].decode('utf-8')
+            except UnicodeError as exc:
+                raise AuditPathBoundaryError('historical audit search unavailable') from exc
+            if rel not in allowed or rel in matches:
+                raise AuditPathBoundaryError('historical audit search unavailable')
+            matches.add(rel)
+        batch.clear()
+        size = 0
+
+    for rel in paths:
+        encoded_size = len(rel.encode('utf-8')) + len(':(literal)')
+        if encoded_size > 6000:
+            raise AuditPathBoundaryError('historical audit selection unavailable')
+        if len(batch) >= 32 or size + encoded_size > 6000:
+            flush()
+        batch.append(rel)
+        size += encoded_size
+    flush()
+    return matches
+
+
+def _history_text(base_sha: str, rel: str) -> str:
+    try:
+        return _history_git_tree('show', f'{base_sha}:{rel}').decode('utf-8')
+    except UnicodeError as exc:
+        raise AuditPathBoundaryError('historical audit body unavailable') from exc
+
+
 def _action_candidate_texts_by_path_at_ref(base: str) -> dict[str, str]:
     """Read every base action candidate without trusting one textual spelling.
 
@@ -393,19 +502,9 @@ def _action_candidate_texts_by_path_at_ref(base: str) -> dict[str, str]:
     if not base:
         return {}
     canonical_prefix = memory_prefix(load_config(ROOT))
-    tree_paths = {
-        rel
-        for rel in run_git(["ls-tree", "-r", "--name-only", base]).splitlines()
-        if rel.endswith(".md") and rel.startswith(canonical_prefix)
-    }
-    matched_paths: set[str] = set()
-    prefix = f"{base}:"
-    for matched in run_git(
-        ["grep", "-l", "-E", r"page_type[[:space:]]*:", base]
-    ).splitlines():
-        rel = matched[len(prefix) :] if matched.startswith(prefix) else matched
-        if rel.endswith(".md") and rel.startswith(canonical_prefix):
-            matched_paths.add(rel)
+    base_sha = _history_base_sha(base)
+    tree_paths = set(_historical_markdown_paths(base_sha, canonical_prefix))
+    matched_paths = _grep_selected_history(base_sha, r"page_type[[:space:]]*:", sorted(tree_paths))
     action_directory_paths = {
         rel
         for rel in tree_paths
@@ -416,7 +515,7 @@ def _action_candidate_texts_by_path_at_ref(base: str) -> dict[str, str]:
     for rel in sorted(matched_paths | action_directory_paths):
         if not rel.endswith(".md"):
             continue
-        text = run_git(["show", f"{base}:{rel}"])
+        text = _history_text(base_sha, rel)
         values, _body = canonical_parse_frontmatter(text)
         flat_values, _errors = parse_frontmatter_flat_with_errors(text)
         action_directory = rel in action_directory_paths
@@ -426,6 +525,8 @@ def _action_candidate_texts_by_path_at_ref(base: str) -> dict[str, str]:
             or action_directory
         ):
             candidates[rel] = text
+    if _history_base_sha(base) != base_sha:
+        raise AuditPathBoundaryError('historical audit revision changed')
     return dict(sorted(candidates.items()))
 
 
@@ -499,31 +600,19 @@ def _base_source_texts_by_page_id() -> dict[str, tuple[tuple[str, str], ...]]:
         return {}
     canonical_prefix = memory_prefix(load_config(ROOT))
     grouped: dict[str, list[tuple[str, str]]] = {}
-    matches = run_git(
-        [
-            "grep",
-            "-l",
-            "-E",
-            r"^page_type:[[:space:]]*['\"]?source['\"]?[[:space:]]*$",
-            base,
-            "--",
-            "*.md",
-        ]
-    )
-    prefix = f"{base}:"
-    for matched in matches.splitlines():
-        rel = matched[len(prefix) :] if matched.startswith(prefix) else matched
-        if not rel.endswith(".md") or not rel.startswith(canonical_prefix):
-            continue
-        text = _text_at_audit_base(rel)
-        if text is None:
-            continue
+    base_sha = _history_base_sha(base)
+    paths = _historical_markdown_paths(base_sha, canonical_prefix)
+    matches = _grep_selected_history(base_sha, r"^page_type:[[:space:]]*['\"]?source['\"]?[[:space:]]*$", paths)
+    for rel in sorted(matches):
+        text = _history_text(base_sha, rel)
         values, _body = canonical_parse_frontmatter(text)
         if str(values.get("page_type") or "") != "source":
             continue
         page_id = str(values.get("page_id") or "").strip()
         if page_id:
             grouped.setdefault(page_id, []).append((rel, text))
+    if _history_base_sha(base) != base_sha:
+        raise AuditPathBoundaryError('historical audit revision changed')
     return {
         page_id: tuple(sorted(candidates))
         for page_id, candidates in grouped.items()
@@ -3101,7 +3190,7 @@ def main() -> int:
         try:
             run(ctx)
         except AuditPathBoundaryError:
-            ctx.errors.append('audit selection crosses a repository or symlink boundary')
+            ctx.errors.append('audit selection unavailable or crosses a repository/symlink boundary')
             boundary_failed = True
             break
     errors = ctx.errors
