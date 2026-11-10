@@ -369,6 +369,14 @@ def _build(kit: Path, consumer: Path, binding: CoordinationBinding, *, context_i
             raise GuardedSyncError('target conflict')
     source_tree = [{'path': path, 'sha256': item['sha256'], 'mode': item['mode']}
                    for path, item in files.items()]
+    desired_states = {
+        path: {'kind': 'file', 'sha256': item['sha256'], 'mode': item['mode'],
+               'size': item['size'],
+               'fs_mode': (states[path]['fs_mode'] if path in unchanged else
+                           '0755' if item['mode'] == '100755' else '0644')}
+        for path, item in files.items()
+    }
+    desired_states.update({path: {'kind': 'missing'} for path in removed})
     manifest_sha = legacy._canonical_sha256(manifest)
     tree_sha = legacy._canonical_sha256(source_tree)
     lock_after = _future_lock(source_sha, manifest_sha, tree_sha, files)
@@ -381,7 +389,7 @@ def _build(kit: Path, consumer: Path, binding: CoordinationBinding, *, context_i
             'selection_sha256': selection_sha256, 'selection': selection,
             'kit_root_sha256': _identity(kit), 'consumer_root_sha256': _identity(consumer),
             'consumer_head': consumer_head, 'consumer_dirty': 'not_inspected',
-            'states': states, 'directory_states': directories,
+            'states': states, 'desired_states': desired_states, 'directory_states': directories,
             'temp_states': {path: 'missing' for path in selection['temp_paths']},
             'c1': {'managed_total': len(files), 'add': added, 'change': changed, 'remove_previously_managed': removed,
                    'unchanged': unchanged,

@@ -297,7 +297,8 @@ regular, non-hardlinked files outside both repositories and remain private where
 Use the host-qualified Python `prepare_plan(...)` with that same selection,
 binding, revisions and digest to obtain the full private reviewable B0. Its
 `plan_sha256` binds source and consumer HEAD, selection, authority identifiers,
-target and lock content hashes, modes or absence, parent and temporary states,
+target and lock content hashes, modes or absence, the desired hash, size and
+mode for each C1 file (or absence for a removal), parent and temporary states,
 the exact C1 changes, temporary effects and resulting lock. It explicitly
 reports `consumer_dirty: not_inspected`; selected index entries are checked,
 but no global status or cleanliness is claimed. The CLI B0 prints counts and

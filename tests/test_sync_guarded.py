@@ -397,6 +397,52 @@ def test_existing_lock_and_changed_source_needs_new_approved_plan(case):
     assert (case['consumer'] / 'portable/beta.txt').read_text() == 'Synthetic beta v2\n'
 
 
+def test_reviewable_plan_and_removal_update_lock(case):
+    establish_existing_lock(case)
+    (case['kit'] / 'portable/beta.txt').unlink()
+    git(case['kit'], 'add', '-A')
+    git(case['kit'], 'commit', '-qm', 'remove synthetic managed file')
+    case['source_sha'] = git(case['kit'], 'rev-parse', 'HEAD')
+    unrelated = case['consumer'] / 'portable/unmanaged.txt'
+    unrelated.write_text('Synthetic unmanaged WIP\n')
+
+    plan = prepare(case)
+    assert plan['c1']['remove_previously_managed'] == ['portable/beta.txt']
+    assert plan['desired_states']['portable/beta.txt'] == {'kind': 'missing'}
+    assert plan['desired_states']['portable/alpha.txt'] == {
+        'kind': 'file', 'sha256': sha(case['kit'] / 'portable/alpha.txt'),
+        'mode': '100644', 'size': len(b'Synthetic alpha v1\n'),
+        'fs_mode': format((case['consumer'] / 'portable/alpha.txt').stat().st_mode & 0o7777, '04o'),
+    }
+    apply(case, plan['plan_sha256'])
+    assert not (case['consumer'] / 'portable/beta.txt').exists()
+    assert unrelated.read_text() == 'Synthetic unmanaged WIP\n'
+    lock = yaml.safe_load((case['consumer'] / 'kit.lock').read_text())
+    assert lock['source_sha'] == case['source_sha']
+    assert lock['managed_files'] == {
+        'portable/alpha.txt': {'sha256': sha(case['kit'] / 'portable/alpha.txt'), 'mode': '100644'}
+    }
+
+
+@pytest.mark.parametrize('when', ['before_plan', 'after_plan'])
+def test_removal_rejects_divergent_managed_content_without_effects(case, when):
+    establish_existing_lock(case)
+    (case['kit'] / 'portable/beta.txt').unlink()
+    git(case['kit'], 'add', '-A')
+    git(case['kit'], 'commit', '-qm', 'remove synthetic managed file')
+    case['source_sha'] = git(case['kit'], 'rev-parse', 'HEAD')
+    plan = prepare(case) if when == 'after_plan' else None
+    target = case['consumer'] / 'portable/beta.txt'
+    target.write_text('Synthetic local edit must survive\n')
+    before = controlled_state(case)
+    with pytest.raises(case['module'].GuardedSyncError):
+        if plan is None:
+            prepare(case)
+        else:
+            apply(case, plan['plan_sha256'])
+    assert controlled_state(case) == before
+
+
 @pytest.mark.parametrize('mutation', ['contents', 'mode'])
 def test_unchanged_target_state_drift_refuses_all_effects(case, mutation):
     if mutation == 'mode' and os.name == 'nt':
