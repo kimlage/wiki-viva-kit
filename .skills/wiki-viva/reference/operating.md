@@ -122,6 +122,13 @@ python3 scripts/wiki_operational_pass.py --check     # CI: fails if stale
 
 ## 7. Run the gates and open the PR
 
+The commands below are a menu, not a requirement to run every compiler for
+every change. Apply the repository's mandatory gates and select additional
+checks for the affected behavior and generated outputs. Before running a
+command, qualify its complete read scope under the applicable authority. A
+required gate whose reads cannot be authorized remains blocked; omitting it is
+not a pass and a candidate policy cannot authorize its own review.
+
 ```sh
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_consolidate.py --check                  # shared-cache coverage only
@@ -139,6 +146,9 @@ change as specified there; normal public CI runs the full suites. Consumers
 retain their own review policy.
 Generic checks do not inspect protected source caches; inspect the bound
 request, results and event through the applicable protected stages as well.
+The PR summary is a helper, not an approval: its current implementation reads
+configuration and examines the local Git/worktree diff, so its own read scope
+also needs qualification.
 Gate semantics and privacy: [gates-and-privacy.md](gates-and-privacy.md).
 
 ## Optional layers

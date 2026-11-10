@@ -1,9 +1,11 @@
 # Gates and privacy — keeping the wiki honest
 
-The wiki's claims about freshness, coverage and traceability are **verified in
-CI**, not asserted in prose. The gates are deterministic (zero model tokens) and
-run the same locally and in [.github/workflows/wiki.yml](../../../.github/workflows/wiki.yml).
-Run them before every PR.
+The wiki's claims about freshness, coverage and traceability require evidence,
+not prose alone. For this kit, [AGENTS.md](../../../AGENTS.md) defines the
+mandatory local privacy and integrity audits and diff check. Select additional
+local tests and deterministic checks for the actual change; normal public CI
+runs the configured suites in [.github/workflows/wiki.yml](../../../.github/workflows/wiki.yml).
+Consumers retain their own applicable gate and review policies.
 
 ## The honesty gates
 
@@ -16,7 +18,7 @@ Run them before every PR.
 | Source registry freshness | Canonical source registry equals source page frontmatter | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) `--check` |
 | Consolidation closed | Ingesting = integrating: a deep-read-complete source needs its event and at least one non-source `consolidated_into` target; each non-source target references the source back, source identity targets stay acyclic, and candidate claims are linked or explicitly waived (`sem_claim`) | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` + [wiki_audit.py](../../../scripts/wiki_audit.py) `--check` |
 | Quality and hierarchy | Dense pages, low repetition, closed events, operational coverage and relation pages routed through `moc_parent`/parent hubs when configured | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) `--check` |
-| Tests | The deterministic core behaves | `python3 -m pytest tests/` |
+| Tests | The deterministic core behaves within the selected test scope | Focused tests locally as applicable; full suite in normal public CI |
 
 Useful audit modes:
 
@@ -25,8 +27,10 @@ Useful audit modes:
 - `--strict-local` — requires that links to gitignored derived/raw artifacts
   actually exist on disk.
 
-If a gate fails, fix the cause — do not weaken the gate. A green gate is a real
-guarantee; a disabled gate is a silent lie.
+Qualify a gate's complete read scope before execution. A denied or unqualified
+required gate remains blocked, not passed; a candidate policy cannot authorize
+its own review. Fix the cause of a failing gate without weakening it. A passing
+result establishes only the scope actually checked.
 
 ## Privacy — two independent axes
 

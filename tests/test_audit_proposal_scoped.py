@@ -142,6 +142,62 @@ def test_proposal_scans_approved_diff_without_opening_unchanged_denied_blobs(mod
     assert any(path == CODE for _, path in opened)
 
 
+def test_normative_only_diff_has_scoped_secret_coverage_with_unchanged_denies(module, proposal, monkeypatch):
+    root = proposal['root']
+    (root / CODE).write_text('VALUE = 1\n')
+    (root / POLICY).write_text(yaml.safe_dump(proposal['config']))
+    (root / 'AGENTS.md').write_text('# Approved synthetic instructions\n\nSynthetic proposed instruction.\n')
+    amend(proposal, CODE, POLICY, 'AGENTS.md')
+    assert changes(proposal) == [{'status': 'M', 'path': 'AGENTS.md'}]
+
+    # Uncommitted denied WIP and an ignored synthetic file are deliberately
+    # outside this Git-blob check; neither is silently claimed as scanned.
+    (root / DENIED[0]).write_text('{"synthetic":"worktree WIP"}\n')
+    (root / DENIED_IGNORE).write_text('ignored.txt\n')
+    (root / 'restricted/ignored.txt').write_text('synthetic ignored content\n')
+    opened = spy_documents(monkeypatch)
+    original_open = Path.open
+    def guarded_open(path, *args, **kwargs):
+        if path.is_relative_to(root / 'restricted'):
+            pytest.fail('denied worktree body was opened')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded_open)
+
+    with pytest.raises(ValueError):
+        run(module, proposal, selection_sha256='0' * 64)
+    assert (proposal['head'], 'AGENTS.md') not in opened
+    result = run(module, proposal)
+    assert result['state'] == 'completed' and result['scanned_count'] == 1
+    assert result['scope'] == 'proposal_changed_git_blobs'
+    assert result['global_audit'] == result['normative_review'] == 'not_performed'
+    assert result['preflight'] == result['merge'] == 'not_performed'
+    assert result['working_tree_proposal_bodies'] == result['intermediate_history'] == 'not_inspected'
+    assert result['bootstrap_policy_and_context_bodies'] == 'read_external_authority_not_verified'
+    assert (proposal['head'], 'AGENTS.md') in opened
+    assert not any(path in {*DENIED, DENIED_IGNORE} for _, path in opened)
+
+
+def test_normative_only_diff_denied_by_approved_policy_refuses_before_candidate_read(module, proposal, monkeypatch):
+    root = proposal['root']
+    git(root, 'reset', '--hard', proposal['base'])
+    config = copy.deepcopy(proposal['config'])
+    config['context_access']['.']['policy']['deny']['read'].append('self/AGENTS.md')
+    (root / POLICY).write_text(yaml.safe_dump(config))
+    git(root, 'add', POLICY)
+    git(root, 'commit', '-qm', 'synthetic approved deny')
+    proposal['base'] = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', TRUSTED_REF, proposal['base'])
+    (root / 'AGENTS.md').write_text('# Synthetic unauthorized candidate\n')
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'synthetic normative proposal')
+    proposal['head'] = git(root, 'rev-parse', 'HEAD')
+    assert changes(proposal) == [{'status': 'M', 'path': 'AGENTS.md'}]
+    opened = spy_documents(monkeypatch)
+    with pytest.raises(ValueError):
+        run(module, proposal)
+    assert (proposal['head'], 'AGENTS.md') not in opened
+
+
 def test_candidate_policy_cannot_authorize_denied_changed_file(module, proposal, monkeypatch):
     (proposal['root'] / DENIED[0]).write_text('{"synthetic":"candidate changed"}\n')
     amend(proposal, DENIED[0])
