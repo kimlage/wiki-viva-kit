@@ -1,7 +1,9 @@
 # Operating — the daily loop
 
 The loop is: **select inputs → ingest → deep read → consolidate + integrate →
-gates → PR**. The commands have their own effect and retry boundaries; the
+PR/review/gates → main → result readback → wiki reconciliation → settle the
+accepted scope**. Follow the existing [closeout contract](../../../docs/references/guides/context-coordinators.md#thread-continuity-and-closeout).
+The commands have their own effect and retry boundaries; the
 model steps — the deep read and the integration it feeds — are yours. The full per-CLI catalog is the
 command-reference page in the meta-wiki (linked from [AGENTS.md](../../../AGENTS.md)).
 
@@ -14,7 +16,11 @@ flowchart LR
     CI --> D["Gate transition"]
     D --> E["Recompile cockpit"]
     E --> F["Run gates"]
-    F --> G["Open PR (review gate)"]
+    F --> G["PR + review + gates"]
+    G --> H["Integrate main"]
+    H --> I["Read back result"]
+    I --> J["Reconcile wiki"]
+    J --> K["Settle accepted scope"]
 ```
 
 ## 1. Compile the input stage

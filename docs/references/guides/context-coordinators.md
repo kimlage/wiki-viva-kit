@@ -85,6 +85,14 @@ checks actual capabilities, current authorization and reservations. Missing
 context or access holds only dependent work; it does not cancel unrelated
 authorized work or require generic confirmation for consent already granted.
 
+For each additional blocker, identify the applicable current instruction or
+the reproducible failure, including the affected operation and limit. Distinguish
+an actual denial, an unverified capability and a restriction imposed by the
+agent itself. An offline execution limit alone does not forbid reading an
+authorized source. Reuse authorization that remains valid after checking the
+executing instance's identity and access and current STOPs; do not bypass denies
+or expand scope. A slice executor need not acquire writer credentials.
+
 Record the blocker on the existing action. If no retry budget is specified,
 stop the affected attempt after recording it. Do not enter a repair loop for an
 unchanged refusal. Ask a specific question only when a missing decision or new
@@ -93,6 +101,16 @@ or contribution IDs before resuming, preserving STOPs, unresolved questions and
 other blockers. After a timeout, check retained evidence before retrying an
 operation with external effects; do not create a duplicate action or assume the
 previous attempt had no effect.
+
+When a final gate requires a generated artifact, do not require that gate to
+have approved the merge before allowing the artifact's preparation. Identify
+the responsible owner and isolated workspace, and review the preparation under
+the existing independently authorized process. Before any authorized write,
+verify the reviewed input bytes and HEAD; generate finitely, then run the complete
+applicable gates and independent review on the final SHA. Merge by expected
+head and read back the result. A candidate does not approve its own authority
+and this sequence waives no gate. If authority is missing, only the dependent
+step waits for the specific decision.
 
 Returned results follow the consumer's existing ingestion and consolidation
 process. Record sources, events and destination pages, including
@@ -126,6 +144,17 @@ visible on the existing action. Report actual completion, resumption or an
 actionable blocker to the existing coordinator; do not send confirmation-only
 updates. This is an operator agreement, not a scheduler, access grant or proof
 that a runtime integration exists.
+
+For a process failure, record its cause and the applicable rule or source on
+the existing action, issue, PR or log. If the rule was adequate, fix its
+implementation or application; if ambiguous or wrong, edit or remove the
+canonical rule, adding one only if that does not resolve it. The coordinator
+identifies recurrence; integrators return evidence and the kit owner integrates
+the common correction. Validate against the failed case, using synthetic fixtures
+where needed, integrate and read back the kit, then qualify consumer adoption and
+readback. Check effectiveness on the next eligible delivery in the same process
+issue or action. That later check does not circularly block closing an already
+accepted lot; if the failure recurs, resume the same occurrence without an agenda.
 
 ## Card conversation and asynchronous work
 
