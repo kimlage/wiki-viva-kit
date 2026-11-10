@@ -256,6 +256,63 @@ consumer's already authorized, independent policy-review and promotion
 process, including its own gates and trusted-ref readback; the candidate cannot
 authorize its own installation or redefine its own gate.
 
+## R1 inventory and selected secrets scan
+
+The in-process `wiki_core.audit_r1_inventory` module provides a bounded
+inventory, explicit selection and secrets-only scan. It is not a global audit,
+an installation authority, an observer or a substitute for consumer gates.
+Before calling it, an independently trusted host must authorize the code and
+Git executable/configuration; repository identity and refs; approved policy,
+instructions and index; all commit objects needed for traversal, including
+their messages; filesystem names and metadata; ignore files and exclude rules;
+and the audience receiving the inventory. Git may read commit messages and
+ignore bodies during this bootstrap, before selected target bodies are scanned.
+Bootstrap files may also be among the later selected targets. A digest never
+authenticates the host or grants any read.
+
+`inventory(...)` records the `base..head` commit interval and boundary parents,
+tree OIDs and modes, index stages, physical metadata, untracked and ignored
+files, missing tracked files, current-policy denials and denied-OID aliases.
+The host supplies an explicit `normative_paths` list including
+`wiki.config.yaml`; the inventory also includes `AGENTS.md` and
+`AGENTS.override.md` found in the trees or index. The host must independently
+establish that its list covers all other applicable normative paths; that
+completeness is not verified by this module.
+It requires the selected branch to be the actual worktree HEAD, rechecks refs,
+index, physical metadata and ignore classification, and refuses unsupported
+symlinks, hardlinks, nested repositories, different-device directories, sparse
+entries, changes to those normative paths in Git history/index, new untracked
+context instructions, shallow repositories, grafts, object alternates,
+limits and Windows. Content
+relation for worktree files remains `unknown`; unstaged normative bodies are
+not inspected. Historical policy and live observation are not qualified. Paths,
+OIDs and metadata in the result may be sensitive: the host must admit the
+output channel independently.
+
+`select(inventory, requested)` binds explicitly requested Git blobs, index
+stages, worktree files and commit messages to the inventory digest; it refuses
+current-policy denials and OID aliases shared with denied paths. It opens no
+selected target bodies. The host must independently establish that the request
+contains every input required by the actual gate, review the full selection,
+qualify historical and current authorization and admit the selection digest.
+Neither a caller-provided list nor a digest proves completeness or approval.
+
+`scan_selected(...)` reconstructs the inventory and selection, requires the
+trusted host's live `admit(selection)` callback before selected object sizes
+or bodies, rechecks admission and refs, and reports only a bounded secrets
+count for explicitly selected UTF-8 text. It rechecks the inventory afterward
+and reports partial coverage on handled errors. Abrupt termination may produce
+no result; the host must record that outcome as uncertain. The host
+must prevent concurrent writers, including mutations by the admission callback,
+and independently qualify historical grants,
+the callback, the output and any required live observer or interruption/cleanup
+barrier. The function cannot authenticate those properties. It does not run
+the rest of the wiki auditor, prove the gate's input coverage, establish an
+atomic snapshot or claim a global PASS. Same-device mounts, ignore-configuration,
+object-store and runtime isolation require a host-qualified boundary; a denied
+or unsupported required input blocks the dependent gate rather than being
+silently excluded.
+
 ## Plan-bound C1 sync
 
 `scripts/wiki_sync_guarded.py` is a separate, conservative route for an
