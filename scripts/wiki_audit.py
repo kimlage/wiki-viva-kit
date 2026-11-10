@@ -1575,6 +1575,149 @@ def audit_secrets(errors: list[str], config: WikiConfig) -> None:
                 errors.append(f"{rel}:{finding.line}: possible {finding.kind} secret ({finding.excerpt})")
 
 
+def _context_bound_audit_inventory() -> list[str]:
+    """Get a complete bounded inventory using the authority Git environment."""
+    from wiki_core.git_env import local_git_tree
+
+    def git(*args: str) -> bytes:
+        # `ls-files` can otherwise execute a repository-configured fsmonitor.
+        return local_git_tree(ROOT, '-c', 'core.fsmonitor=false',
+                              '-c', 'core.untrackedCache=false',
+                              '-c', 'core.hooksPath=/dev/null',
+                              '-c', 'core.useReplaceRefs=false', *args)
+
+    top = git('rev-parse', '--show-toplevel').rstrip(b'\r\n')
+    if not top or Path(os.fsdecode(top)).resolve(strict=True) != ROOT.resolve(strict=True):
+        raise AuditPathBoundaryError('qualified audit requires the Git root')
+    names = set()
+    for args in (('ls-files', '-z'), ('ls-files', '--others', '--exclude-standard', '-z')):
+        data = git(*args)
+        if data and not data.endswith(b'\0'):
+            raise AuditPathBoundaryError('qualified audit inventory unavailable')
+        names.update(os.fsdecode(raw) for raw in data.split(b'\0') if raw)
+    return sorted(names)
+
+
+def audit_context_bound_secrets(context_id: str, approved_revision: str, approved_selection: str) -> int:
+    """Run only the secrets selection after explicit host/policy qualification.
+
+    This is not an operating-system access boundary or a global wiki audit.
+    The independently configured host must authorize the policy bootstrap and
+    Git path inventory. Any unavailable or denied candidate stops the gate.
+    """
+    from wiki_core.context_packet import _check_trusted_binding, qualify_folder_context
+    from wiki_core.coordination_context import CoordinationBinding, _policy
+    from wiki_core.context_policy import revision
+
+    def unavailable() -> int:
+        print('ERROR: context-bound secrets selection denied or unavailable')
+        print('wiki_audit: secrets coverage unavailable; check not completed')
+        return 1
+
+    try:
+        binding = CoordinationBinding.from_environment()
+        if binding is None or binding.manifest != 'wiki.config.yaml':
+            return unavailable()
+        policy = _policy(ROOT, binding, context_id, approved_revision)
+        _check_trusted_binding(ROOT, policy, context_id, binding)
+
+        # The Git inventory may itself consult ignore files. Refuse before
+        # inventory unless the approved policy has a single root context,
+        # root-wide reads, and no contextual read denies anywhere. This is
+        # deliberately stricter than a per-target authorization.
+        if (context_id != '.' or set(policy.contexts) != {'.'}
+                or '.' not in policy.effective['.']['read']
+                or any(item['deny']['read'] for item in policy.effective.values())):
+            return unavailable()
+
+        # Inventory consists of path metadata; never open a selected target
+        # before the entire candidate selection passes this authorization.
+        inventory = _context_bound_audit_inventory()
+        candidates = [rel for rel in inventory if not rel.startswith(SECRET_SCAN_SKIP_PREFIXES)
+                      and Path(rel).suffix.lower() in TEXT_SCAN_SUFFIXES]
+        # The host must independently approve this exact path list. A digest
+        # binds the selection; it does not itself authenticate that approval.
+        selection_contract = {'schema_version': 'wiki.audit-secrets-selection/v1',
+                              'context_id': context_id, 'policy_revision': approved_revision,
+                              'trusted_ref': binding.trusted_ref, 'check': 'secrets', 'paths': candidates}
+        selection_bytes = json.dumps(selection_contract, sort_keys=True, ensure_ascii=True,
+                                     separators=(',', ':')).encode('utf-8')
+        selection_sha256 = hashlib.sha256(selection_bytes).hexdigest()
+        if selection_sha256 != approved_selection:
+            return unavailable()
+        for rel in candidates:
+            if (policy.owner_of(rel) != context_id or
+                    policy._connection(context_id, context_id, rel, 'interpretation', 'context', qualified=False) != 'approved'):
+                return unavailable()
+        # The existing context qualifier reads the approved instruction/index
+        # only after checking their own policy; they are bootstrap inputs.
+        entry_index = policy._context_indexes.get(context_id)
+        if not entry_index:
+            return unavailable()
+        qualify_folder_context(ROOT, policy, context_id, context_id, entry_index, 1_000_000)
+
+        # Refuse boundaries rather than silently dropping an inventoried path.
+        for rel in inventory:
+            path = ROOT / rel
+            # Git may report an untracked nested repository as a directory
+            # entry ending in `/`, rather than enumerating its inner files.
+            if is_in_nested_git(path, wiki_root=ROOT):
+                return unavailable()
+            try:
+                mode = path.lstat().st_mode
+            except FileNotFoundError:
+                continue  # Eligible missing targets are refused below.
+            if stat.S_ISDIR(mode) and is_in_nested_git(path / '_audit_selection_', wiki_root=ROOT):
+                return unavailable()
+        selected = []
+        states = {}
+        for rel in candidates:
+            path = _guard_audit_path(ROOT / rel)
+            state = path.stat()
+            if not stat.S_ISREG(state.st_mode):
+                return unavailable()
+            states[rel] = (state.st_dev, state.st_ino, state.st_mode, state.st_size, state.st_mtime_ns, state.st_ctime_ns)
+            selected.append(rel)
+
+        def still_current() -> bool:
+            if revision(ROOT, binding.trusted_ref) != approved_revision:
+                return False
+            return _context_bound_audit_inventory() == inventory
+
+        if not still_current():
+            return unavailable()
+        errors = []
+        for rel in selected:
+            # Recheck the pinned authority and boundary immediately before
+            # each read. The host must prevent concurrent filesystem swaps.
+            if revision(ROOT, binding.trusted_ref) != approved_revision:
+                return unavailable()
+            if (policy.owner_of(rel) != context_id or
+                    policy.connection(context_id, context_id, rel, 'interpretation', 'context') != 'approved'):
+                return unavailable()
+            path = _guard_audit_path(ROOT / rel)
+            current = path.stat()
+            if (current.st_dev, current.st_ino, current.st_mode, current.st_size, current.st_mtime_ns, current.st_ctime_ns) != states[rel]:
+                return unavailable()
+            for finding in scan_file(path):
+                if finding.category == 'secret':
+                    errors.append(f"{rel}:{finding.line}: possible {finding.kind} secret ({finding.excerpt})")
+        if not still_current():
+            return unavailable()
+        for rel in candidates:
+            path = _guard_audit_path(ROOT / rel)
+            current = path.stat()
+            if (current.st_dev, current.st_ino, current.st_mode, current.st_size, current.st_mtime_ns, current.st_ctime_ns) != states[rel]:
+                return unavailable()
+        for error in errors:
+            print(f'ERROR: {error}')
+        print(f'wiki_audit: context-bound secrets check: {len(errors)} error(s); '
+              f'{len(candidates)} selected; selection_sha256={selection_sha256}; not a global audit')
+        return 1 if errors else 0
+    except (OSError, ValueError, KeyError, TypeError):
+        return unavailable()
+
+
 def audit_pii(errors: list[str], warnings: list[str], config: WikiConfig, public_export: bool = False) -> None:
     """Personal data (PII) is WELCOME in private pages of this personal repo:
     it produces neither error nor warning -- storing CPF/CNPJ, amounts, counterparties
@@ -2853,7 +2996,25 @@ def main() -> int:
     parser.add_argument("--query-context", help="trusted global integration operator only; context limits query recomputation, not the global audit or its private output")
     parser.add_argument("--query-policy-revision", help="exact current trusted policy SHA")
     parser.add_argument("--query-head", help="exact clean proposal HEAD SHA")
+    parser.add_argument("--context-guard", help="host-bound context for the secrets-only qualified check")
+    parser.add_argument("--context-policy-revision", help="exact current approved policy SHA for the qualified secrets check")
+    parser.add_argument("--context-selection-sha256", help="externally approved SHA-256 of the versioned selection contract")
     args = parser.parse_args()
+
+    # A guarded request must never fall back to the unqualified global audit.
+    # Dispatch before loading the worktree configuration or running checks.
+    if (args.context_guard is not None or args.context_policy_revision is not None
+            or args.context_selection_sha256 is not None):
+        if (not args.context_guard or not args.context_policy_revision
+                or not isinstance(args.context_selection_sha256, str)
+                or not re.fullmatch(r'[0-9a-f]{64}', args.context_selection_sha256) or args.only != 'secrets'
+                or args.public_export or args.strict_local or args.list_stale_gaps or args.list_checks
+                or args.documentary_only or args.freshness_reviewed or args.freshness_base
+                or args.freshness_report or args.query_context or args.query_policy_revision or args.query_head):
+            print('ERROR: context-bound mode requires only the secrets check and an approved context, policy and selection digest')
+            print('wiki_audit: secrets coverage unavailable; check not completed')
+            return 1
+        return audit_context_bound_secrets(args.context_guard, args.context_policy_revision, args.context_selection_sha256)
 
     if args.list_checks:
         for name in CHECK_NAMES:

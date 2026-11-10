@@ -73,6 +73,87 @@ unchanged; see [bounded reads](context-reader.md).
 
 The operator index `/api/coordination` remains a broad caller-trust projection, marked `policy_enforced: false` and `trust_boundary: caller_trust`. Its profiles, fronts and actions are navigation and historical attribution. It is not an owner-scoped protected read. GET `/api/coordination/profiles/<id>` now returns a constant `coordination_context_required` migration response without snapshot, catalogue, page bodies or profile existence disclosure. There is no fallback from an unavailable protected binding to a legacy packet.
 
+## Context-bound secrets-only check
+
+An independently configured folder-mode binding can run a qualified
+secrets-only selection under one context without claiming a global audit:
+
+```sh
+python3 scripts/wiki_audit.py --only secrets --context-guard CONTEXT \
+  --context-policy-revision APPROVED_SHA --context-selection-sha256 SELECTION_SHA256
+```
+
+The host must independently authorize the bootstrap before invocation: the
+Python runtime, executable code and imported dependencies; the approved Git
+policy, instructions and index; Git metadata and configuration; ignore files
+and external exclude rules; and the path inventory. For example, `git ls-files
+--others --exclude-standard` may read ignore rules while producing that
+inventory. This route does not itself qualify or enforce those bootstrap
+reads. The host must also maintain the trusted ref and configure the fixed
+allowlist described above; the binding itself does not create a grant. Do not
+invoke this route if any bootstrap read conflicts with an applicable deny or
+its authority is unknown. The command rejects a missing or stale binding. It
+uses the policy in approved Git, not the candidate working configuration. Before
+invoking Git's working-tree inventory, it requires exactly one context, the
+root context `.`, with root-wide read permission and no contextual read denies.
+The host must additionally approve the exact finite selection independently,
+bound to the intended repository and policy revision. The command requires
+the externally approved selection digest and compares it before opening any
+selected target body. A digest binds the list; it does not authenticate an
+approval or grant access. It then requires the entire selected set to be owned
+and readable by that context. This deliberately refuses even a deny outside
+the text selection; it does not grant or bypass denied reads.
+It refuses a denied, unqualified or other-owner selection before opening any
+selected target body; it does not silently omit that selection. Instruction
+and index bodies used for context qualification are bootstrap inputs whose
+own policy is checked before reading. The status is nonzero on incomplete
+coverage even if `--check` is omitted.
+
+The candidate list uses tracked and untracked non-ignored Git inventory
+entries with the legacy secrets check's supported text suffixes, excluding
+`tests/` and `wiki_core/detectors/`. Its Git environment is sanitized: global
+Git configuration and ambient Git environment variables are not inherited, and
+Git fsmonitor and untracked cache are disabled. The resulting list can differ
+from the legacy audit's list, such as when a global `core.excludesFile` hides
+an untracked file from the legacy inventory. Do not treat approval of the
+legacy selection as approval of this list. Binary files and files ignored under
+the sanitized Git inventory are not scanned. This mode does not run the other
+global checks, and cannot be combined with
+`--public-export`, other checks, queries, additional readers or cross-owner
+access. The result identifies a secrets-only check, not a full audit or proof
+that other checks passed. A global audit remains an independently authorized
+caller-trust operation and must not run where its body reads cross a deny;
+`--query-context` restricts query recomputation only.
+
+For an independently authorized metadata inspection, form the candidate list
+from the sanitized inventory, retain entries whose lowercase suffix is in
+`TEXT_SCAN_SUFFIXES`, remove paths beginning with `tests/` or
+`wiki_core/detectors/`, and sort the distinct repository-relative path strings
+in Python's standard string order. Construct this object, substituting the
+actual context, current approved policy revision, trusted ref and path list:
+
+```json
+{"schema_version":"wiki.audit-secrets-selection/v1","context_id":".","policy_revision":"APPROVED_SHA","trusted_ref":"refs/remotes/origin/main","check":"secrets","paths":["example.md"]}
+```
+
+Encode exactly `json.dumps(selection, sort_keys=True, ensure_ascii=True,
+separators=(',', ':')).encode('utf-8')`; `SELECTION_SHA256` is the lowercase
+SHA-256 of those bytes. The approver must review the exact list and bind it to
+the intended repository identity, executable code, policy, invocation options and bootstrap
+authority externally; those are not established by the digest. A missing,
+malformed or mismatched digest stops the check before target body reads. The
+result reports the digest and selected path count, not global audit coverage.
+
+Before checking whether an eligible inventoried path currently exists, the
+guard conservatively requires its authorization. A missing, inaccessible or
+non-regular eligible path makes coverage unavailable, even where the legacy
+check would skip a missing file.
+
+The check detects policy-ref and inventory drift and rechecks path boundaries
+and file metadata, but it is not an OS sandbox or an atomic filesystem
+snapshot. The host must independently prevent concurrent file replacement and
+provide filesystem and process isolation appropriate to its threat model.
+
 
 ## Trusted CLI
 
