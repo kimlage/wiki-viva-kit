@@ -130,11 +130,25 @@ closure, and keep any pending consolidation visible on that action.
 
 ## Thread continuity and closeout
 
-The responsible operator keeps threads in their scope reconciled with the
-canonical action and its existing execution evidence. Inactivity alone is not
-a reason to archive or settle work. Resume an incomplete task in its existing
-thread from the preserved state; keep the exact next step and any missing
-information or responsible provider visible without creating a parallel queue.
+When taking responsibility for a front, receiving a result and before ending a
+turn, the responsible operator checks authorized open threads in their scope and
+reconciles delivery in the canonical action, wiki or PR. A completed turn is not
+a completed delivery; inactivity alone does not prove a blockage or justify
+archiving or settling. Check current state, owner direction, WIP and STOPs before
+resuming an authorized, executable next step in the same thread. Send a short
+handoff naming the completed point, existing artifact, next step and acceptance;
+avoid a second writer or a duplicate effect. Follow the result and decide the next
+operation rather than stopping at an acknowledgement.
+
+Use the host's existing read/send/wait interface when available. Where the host
+documents `thread send --wait` and `thread show`, exit 1 means failure and exit 2
+means waiting for an answer; confirm actual state and do not resend just to wait.
+Reconcile a failure or uncertain effect before retrying; the same denial or
+blocker without new evidence is not a reason to repeat it. Respect the runtime's
+own `next`, delegation and PR-watch instructions. When no progress is possible,
+record the exact blocker, evidence, dependency or missing input and responsible
+provider on the existing action, route it to the coordinator and continue
+independent work. Do not turn a local blocker into a global gate.
 
 Settle a work thread only after its required independent review and gates,
 integration into the approved main branch, result readback and reconciliation

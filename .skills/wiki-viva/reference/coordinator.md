@@ -17,6 +17,20 @@ is paused or its current state cannot be established, do not restart or
 dispatch it. Resume only when the owner or already authorized control has
 actually released that pause. Preserve unrelated authorized work.
 
+When taking a front, receiving a result and before ending a turn, check the
+authorized open threads in your scope and their action, wiki or PR delivery.
+A completed turn is not a completed delivery, and inactivity alone is not a
+blocker. If the next step is authorized and executable, reconcile current
+state and resume the same thread with the completed point, existing artifact,
+next step and acceptance. Preserve WIP and STOPs; do not create a second writer
+or duplicate an execution. Follow the result to the next decision or a concrete
+blocker; respect the runtime's wait, delegation and PR-watch instructions.
+
+Reconcile a failed or uncertain effect before retrying; do not repeat the same
+refusal without new evidence. If no progress is possible, record the exact
+blocker, evidence, dependency or missing input and responsible provider on the
+existing action, report it to the coordinator or owner and continue independent work.
+
 Identify the sender and intended recipient in each handoff. A sender describing
 the limits of their own thread or role does not change the recipient's assignment.
 Only an explicit direction from the coordinator responsible for that scope or
