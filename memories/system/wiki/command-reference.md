@@ -73,6 +73,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_semantic_inventory.py](../../../scripts/wiki_semantic_inventory.py) | Verify authored semantics/read models |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Compile the source registry |
 | [wiki_sync_from_kit.py](../../../scripts/wiki_sync_from_kit.py) | Dry-run/apply B0/C1/C2/C3 kit adoption |
+| [wiki_sync_guarded.py](../../../scripts/wiki_sync_guarded.py) | Prepare and apply an externally admitted, plan-bound C1 sync |
 | [wiki_template_sections.py](../../../scripts/wiki_template_sections.py) | Preview modular section structure or filling on a trusted working tree |
 | [wiki_vercel_preview.py](../../../scripts/wiki_vercel_preview.py) | Prepare a synthetic-only Vercel function preview without deploying |
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepare deployment inputs |
