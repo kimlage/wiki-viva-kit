@@ -28,6 +28,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_action_adopt.py](../../../scripts/wiki_action_adopt.py) | Adopt a downstream action baseline |
 | [wiki_archive.py](../../../scripts/wiki_archive.py) | Archive resolved proposals/events |
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audit contracts, links, secrets and public PII |
+| [wiki_audit_proposal.py](../../../scripts/wiki_audit_proposal.py) | Check authorized changed Git text for secrets without claiming global audit |
 | [wiki_build_demo.py](../../../scripts/wiki_build_demo.py) | Regenerate the public synthetic demo |
 | [wiki_build_index.py](../../../scripts/wiki_build_index.py) | Build the local source/chunk index |
 | [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py) | Inspect derived cache |

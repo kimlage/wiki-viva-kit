@@ -155,6 +155,81 @@ snapshot. The host must independently prevent concurrent file replacement and
 provide filesystem and process isolation appropriate to its threat model.
 
 
+## Proposal-only Git secrets check
+
+An independently admitted host can check the changed, same-owner Git text
+blobs of a specific proposal without reading unchanged denied files:
+
+```sh
+python3 scripts/wiki_audit_proposal.py --context CONTEXT \
+  --approved-revision BASE_SHA --base BASE_SHA --head HEAD_SHA \
+  --branch wiki/BRANCH --selection-sha256 APPROVED_SELECTION_SHA256
+```
+
+The host must independently authorize the bootstrap before invocation: code,
+imports, policy and context qualification inputs, Git executable, configuration
+and complete base/head tree **metadata**, plus the repository identity and
+trusted ref. The host must establish that none of those bootstrap reads
+conflicts with an applicable deny; this command does not authenticate that
+external admission or provide an OS sandbox. A missing binding, stale trusted
+ref, changed branch, different base or invalid selection fails closed.
+
+Only the approved base policy authorizes reads. The candidate policy is never
+authority; if `wiki.config.yaml` is a permitted changed input it may be scanned
+as content, without approving its change. The command compares Git tree path,
+mode, type and blob IDs to identify every added, modified and deleted path;
+renames are a deletion and an addition. It qualifies the complete diff against
+the acting owner's current read rules before opening any changed target blob.
+Any denied, other-owner, unsafe, unsupported or unclassifiable changed path
+stops the entire check. It does not omit paths under `tests/` or elsewhere.
+
+For independent metadata review, form an ordered `changes` list with objects
+`{"status":"A|M|D","path":"repository-relative/path"}` sorted by path,
+from the exact base and head tree metadata. The host must approve the complete
+selection and bind it to the independently identified repository, bootstrap and
+policy. Construct the following object with actual values:
+
+```json
+{"schema_version":"wiki.proposal-secrets-selection/v1","context_id":".","policy_revision":"BASE_SHA","trusted_ref":"refs/remotes/origin/main","base":"BASE_SHA","head":"HEAD_SHA","branch":"wiki/BRANCH","changes":[{"status":"M","path":"example.py"}]}
+```
+
+The required SHA-256 is computed over
+`json.dumps(selection, sort_keys=True, ensure_ascii=True, separators=(',', ':')).encode('utf-8')`.
+The digest binds that selection; it does not authenticate approval or grant
+access. An empty diff is refused. For every selected A/M blob, the command also
+refuses an exact Git blob-ID match with any path that the acting context could
+not read under the approved base policy in either tree. This conservative
+check may reject legitimate identical bytes; it does not detect derivatives or
+establish information-flow confidentiality. Secret detectors are heuristic
+and do not prove the absence of every possible secret.
+Because the alias check classifies complete tree metadata, any path that cannot
+be represented as valid UTF-8 and a safe repository-relative path makes the
+check unavailable, even if that path is unchanged.
+
+The subcheck scans each added or modified supported UTF-8 text blob at HEAD,
+including tests and configuration. It refuses symlinks, gitlinks, unsupported
+suffixes, NUL bytes, invalid UTF-8, LFS pointers, blobs over 2 MB, more than 512
+changes or more than 8 MB of selected content. Deleted paths are authorized and
+reported as deletions; their prior bodies are not claimed as scanned. Approved
+policy and context instruction/index bodies are read for bootstrap even when
+they are unchanged or deleted by the proposal, and are not proposal scans.
+Suffix and UTF-8 checks do not prove that arbitrary bytes are semantically text.
+The output identifies `proposal_changed_git_blobs` and counts, with
+`global_audit`, `preflight`, `normative_review`, and `merge` all not performed.
+Apart from those bootstrap bodies, whose external authority this command does
+not verify, unchanged and prior deleted bodies, intermediate commit history, working-tree proposal bodies,
+staged/untracked/ignored files and all other audit checks are not inspected.
+Working-tree boundary metadata is inspected. A merge that preserves intermediate commits requires a
+separately authorized history gate. Ref and branch
+are checked throughout, but the host remains responsible for preventing
+concurrent state changes and qualifying code and repository identity.
+
+If the established consumer gate requires a global audit, this subcheck does
+not satisfy it by itself. Replacing or supplementing that gate requires the
+consumer's already authorized, independent policy-review and promotion
+process, including its own gates and trusted-ref readback; the candidate cannot
+authorize its own installation or redefine its own gate.
+
 ## Trusted CLI
 
 The existing coordinator CLI selects folder authority for a trusted local caller:
