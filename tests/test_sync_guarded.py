@@ -536,7 +536,7 @@ def test_cli_b0_reports_no_approval_and_rejects_c3(case, tmp_path):
     assert controlled_state(case) == before
 
 
-def test_discovery_admits_lock_before_body_and_never_opens_targets(case, monkeypatch):
+def test_discovery_admits_lock_before_body_and_never_opens_worktree_targets(case, monkeypatch):
     establish_existing_lock(case)
     (case['kit'] / 'portable/beta.txt').unlink()
     git(case['kit'], 'add', '-A')
@@ -558,7 +558,40 @@ def test_discovery_admits_lock_before_body_and_never_opens_targets(case, monkeyp
     assert result['selection']['paths'] == ['kit.lock', 'portable/alpha.txt', 'portable/beta.txt']
     assert result['selection_sha256'] == selection_hash(result['selection'])
     assert result['external_admission'] == 'not_verified'
-    assert result['target_bodies'] == 'not_inspected'
+    assert result['consumer_worktree_targets'] == 'not_inspected'
+    assert result['consumer_lock'] == 'read'
+    assert result['approved_bootstrap_bodies'] == 'read_under_external_authority'
+    assert result['approved_bootstrap_c1_overlap'] == []
+    assert result['source_c1_bodies'] == 'read'
+
+
+def test_discovery_reports_when_approved_bootstrap_body_is_also_c1(case, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+
+    manifest = yaml.safe_load(case['manifest'].read_text())
+    manifest['portable']['allow'].append('index.md')
+    case['manifest'].write_text(yaml.safe_dump(manifest), encoding='utf-8')
+    (case['kit'] / 'index.md').write_text('Synthetic kit index\n')
+    git(case['kit'], 'add', '.')
+    git(case['kit'], 'commit', '-qm', 'add synthetic bootstrap overlap')
+    case['source_sha'] = git(case['kit'], 'rev-parse', 'HEAD')
+    bootstrap = selection(case, paths=('kit.lock',))
+    seen = []
+    original_read = RepositoryReader.read
+
+    def read(reader, path, *args, **kwargs):
+        seen.append(path)
+        return original_read(reader, path, *args, **kwargs)
+
+    monkeypatch.setattr(RepositoryReader, 'read', read)
+    result = case['module'].propose_selection(
+        case['kit'], case['consumer'], case['binding'], context_id='.',
+        approved_revision=case['policy_sha'], source_sha=case['source_sha'],
+        bootstrap_selection=bootstrap, bootstrap_selection_sha256=selection_hash(bootstrap))
+    assert 'index.md' in seen
+    assert result['approved_bootstrap_c1_overlap'] == ['index.md']
+    assert result['consumer_worktree_targets'] == 'not_inspected'
+    assert result['approved_bootstrap_bodies'] == 'read_under_external_authority'
 
 
 @pytest.mark.parametrize('reason', ['deny', 'digest'])

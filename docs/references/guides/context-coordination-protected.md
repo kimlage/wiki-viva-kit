@@ -291,20 +291,40 @@ parent-metadata paths; the same independent authority must admit those too.
 ASCII escaping, compact separators). The selection includes its schema,
 source and policy revisions, trusted ref, context, manifest and all paths.
 After reading the admitted lock, the implementation checks that exact union
-before inspecting any target; a mismatch fails closed. Selection files must be
+before inspecting consumer worktree target bodies; a mismatch fails closed.
+Selection files must be
 regular, non-hardlinked files outside both repositories and remain private where appropriate.
 
-For assisted discovery, first run the same command below with
-`--bootstrap-selection` instead of the selection arguments and `--dry-run`.
+For assisted discovery, first run:
+
+```sh
+python3 scripts/wiki_sync_guarded.py --kit KIT --consumer CONSUMER \
+  --context CONTEXT --approved-revision POLICY_SHA --source-sha KIT_SHA \
+  --bootstrap-selection
+```
+
 It emits a proposed lock-only selection and digest without reading either
 repository. Independently review and admit it, the code and context bootstrap,
 reading `kit.lock`, source Git and its manifest, and an output channel allowed
 to receive every name in the lock and manifest. Pass the admitted selection
-file and digest using the normal arguments and add `--propose-selection`
-instead of `--dry-run`. The command verifies binding and
+file and digest using this separate command:
+
+```sh
+python3 scripts/wiki_sync_guarded.py --kit KIT --consumer CONSUMER \
+  --context CONTEXT --approved-revision POLICY_SHA --source-sha KIT_SHA \
+  --selection-file BOOTSTRAP_SELECTION --selection-sha256 BOOTSTRAP_SHA256 \
+  --propose-selection
+```
+
+The command verifies binding and
 policy for that lock selection before opening the lock, then prints a proposed
-complete selection and its digest. It does not inspect target bodies or admit
-the proposal. Review and separately admit the entire returned selection,
+complete selection and its digest. It reads C1 blobs from the source kit and
+the separately admitted approved Git policy, instructions and context index;
+these approved bootstrap bodies may overlap C1 targets. The output reports
+that overlap as `approved_bootstrap_c1_overlap`; it does not read consumer
+worktree target bodies or admit the proposal. The host must authorize the
+bootstrap even for any overlapping path before invoking discovery. Review
+and separately admit the entire returned selection,
 including every temporary and parent path, before using it for B0. A denied
 lock fails before its body is opened; a denied target may be named in this
 proposal and causes B0 to refuse. Do not use this output channel unless the

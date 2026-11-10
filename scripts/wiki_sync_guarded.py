@@ -337,21 +337,27 @@ def propose_selection(kit: Path, consumer: Path, binding: CoordinationBinding, *
     index = policy._context_indexes.get(context_id)
     if not index:
         raise GuardedSyncError('context unavailable')
-    qualify_folder_context(consumer, policy, context_id, context_id, index, 1_000_000)
+    _, bootstrap_refs = qualify_folder_context(consumer, policy, context_id, context_id, index, 1_000_000)
     _authorize(policy, context_id, expected)
-    # Only the admitted lock is opened here; no proposed target is inspected.
+    # The admitted lock is the only consumer worktree file opened here.
     consumer_head = _git_head(consumer)
     _index_clean(consumer, consumer_head, expected['paths'] + expected['temp_paths'])
     lock_state, previous = _lock(consumer)
     proposal = select_contract(context_id, approved_revision, binding.trusted_ref, source_sha,
                                sorted(set(files) | set(previous) | {LOCK}), manifest_path=manifest_path)
+    bootstrap_overlap = sorted((set(bootstrap_refs) | {binding.manifest})
+                               & (set(proposal['paths']) - {LOCK}))
     policy.fresh()
     if (_git_head(kit) != source_sha or _git_head(consumer) != consumer_head
             or _snapshot(consumer, LOCK)[0] != lock_state):
         raise GuardedSyncError('revision changed')
     _index_clean(consumer, consumer_head, expected['paths'] + expected['temp_paths'])
     return {'selection': proposal, 'selection_sha256': selection_digest(proposal),
-            'external_admission': 'not_verified', 'target_bodies': 'not_inspected'}
+            'external_admission': 'not_verified',
+            'consumer_worktree_targets': 'not_inspected', 'consumer_lock': 'read',
+            'approved_bootstrap_bodies': 'read_under_external_authority',
+            'approved_bootstrap_c1_overlap': bootstrap_overlap,
+            'source_c1_bodies': 'read'}
 
 
 def _build(kit: Path, consumer: Path, binding: CoordinationBinding, *, context_id: str,
