@@ -634,6 +634,19 @@ def test_clickable_link_audit_reports_missing_angle_local_not_external(tmp_path,
     assert "missing file.md" in errors[0]
 
 
+def test_direct_link_audit_uses_supplied_localized_config(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'link_audit_files', lambda config: ['note.md'])
+    (tmp_path / 'memorias').mkdir()
+    (tmp_path / 'memorias' / 'synthetic.md').write_text('synthetic\n')
+    (tmp_path / 'note.md').write_text('See `memorias/synthetic.md` here.\n')
+    defaults = WikiConfig()
+    config = WikiConfig(paths={**defaults.paths, 'memory_root': 'memorias'})
+    errors = []
+    audit.audit_clickable_local_links(errors, config)
+    assert any('local path must be a markdown link' in error for error in errors)
+
+
 def test_external_angle_link_does_not_exempt_secret_or_public_pii_scan(tmp_path, audit, monkeypatch):
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     monkeypatch.setattr(audit, "link_audit_files", lambda config: ["memories/note.md"])

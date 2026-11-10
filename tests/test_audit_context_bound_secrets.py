@@ -211,6 +211,36 @@ def test_guarded_cli_refuses_all_unqualified_legacy_checks_before_bootstrap(case
         assert '0 error(s)' not in output
 
 
+@pytest.mark.parametrize('check', [None, 'action_state_transitions', 'source_lifecycle_transitions'])
+def test_guarded_cli_refuses_before_import_reads_worktree_config(case, check):
+    """Exercise a fresh Python process, including the audit module import."""
+    code_root = Path(audit.__file__).resolve().parents[1]
+    child = r'''
+import runpy, subprocess, sys
+from pathlib import Path
+root, script, check = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+import scripts._common as common
+common.ROOT = root
+import wiki_core.config as config
+def blocked(*args, **kwargs):
+    raise RuntimeError('SYNTHETIC_BOOTSTRAP_BEFORE_GUARD')
+config.load_config = blocked
+subprocess.Popen = blocked
+sys.argv = [script, '--context-guard', '.', '--context-policy-revision', '0' * 40,
+            '--context-selection-sha256', '0' * 64]
+if check != 'global':
+    sys.argv += ['--only', check]
+runpy.run_path(script, run_name='__main__')
+'''
+    result = subprocess.run([sys.executable, '-c', child, str(case['root']),
+                             str(Path(audit.__file__).resolve()), check or 'global'],
+                            cwd=code_root, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 1
+    assert 'coverage unavailable' in result.stdout.lower()
+    assert 'not completed' in result.stdout.lower()
+    assert 'SYNTHETIC_BOOTSTRAP_BEFORE_GUARD' not in result.stderr
+
+
 def test_other_owner_not_inferred_from_root_context(case, monkeypatch, capsys):
     root, config = case['root'], case['config']
     config['context_access']['.']['policy']['deny'] = {'read': []}
