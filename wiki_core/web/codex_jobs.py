@@ -288,6 +288,8 @@ class JobRunner:
         brief = self.briefs.get(brief_id)
         if brief is None:
             return {"ok": False, "error": "unknown brief", "brief_id": brief_id}
+        if (brief.get("spec") or {}).get("role", "executor") != "executor":
+            return {"ok": False, "error": "coordinator_requires_host_dispatch"}
         if brief.get("brief_sha") != brief_sha:
             return {
                 "ok": False,
@@ -328,6 +330,7 @@ class JobRunner:
             "reason": "",
             "dry_run": bool(dry_run),
             "mission_kind": brief.get("spec", {}).get("mission_kind"),
+            "role": "executor",
             "intent": brief.get("spec", {}).get("intent", ""),
             "theme": brief.get("spec", {}).get("theme", "update"),
             "agent": agent,
@@ -380,6 +383,9 @@ class JobRunner:
         brief = self.briefs.get(record["brief_id"])
         if brief is None:
             return self._set_status(record, "failed", reason="brief disappeared")
+        if (record.get("role", "executor") != "executor"
+                or (brief.get("spec") or {}).get("role", "executor") != "executor"):
+            return self._set_status(record, "failed", reason="coordinator_requires_host_dispatch")
         # Integrity re-check (TOCTOU): the sha was verified at submit, but the
         # brief file could have changed on disk since. Execute ONLY text that
         # still matches the job's recorded sha.

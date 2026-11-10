@@ -8,11 +8,16 @@ description: Route reading, editing and delegation in Markdown/Git living-wiki r
 ## Choose the task first
 
 Identify your role and authorized read scope before opening repository content.
-An authorized coordinator/integrator uses the checkout instructions, configured
+An authorized coordinator or integrator uses the checkout instructions, configured
 memory index and [task entry points](../../scripts/README.md#task-entry-points)
 to route work. A packet-bound executor follows the scoped handoff below.
 Consumer-specific requirements apply within the current authority; navigation
 links never grant additional read access.
+
+A coordinator follows the [coordinator role](../wiki-viva/reference/coordinator.md)
+at opening and resumption. Route implementation, tests, integration and
+infrastructure to existing integrators; the workflow below does not assign
+their execution steps to the coordinator.
 
 - For locating or reading a candidate, use direct lookup or the known page.
   Report origin and coverage limits. This alone does not require ingestion,
@@ -46,9 +51,10 @@ links never grant additional read access.
 
 ## Workflow for synthesis, ingestion, changes and delegation
 
-The steps below belong to an authorized coordinator/integrator with the needed
-repository scope. They are not a mandate for a scoped executor to read or run
-global maintenance. The integrator retains the applicable final gates.
+The steps below apply within the authorized role and repository scope. A
+coordinator routes and consolidates; the integrator performs the applicable
+implementation and gates. They are not a mandate for a scoped executor to read
+or run global maintenance.
 
 1. Identify the authorized checkout root, using `git rev-parse --show-toplevel`
    when available. Read that root's [AGENTS.md](../../AGENTS.md) and applicable
@@ -80,18 +86,18 @@ global maintenance. The integrator retains the applicable final gates.
 6. Open the operational-pass page resolved by `WikiPaths.operational_pass_page`
    when it exists and read the top "Short-term memory" section before older
    execution/event pages.
-7. When resuming ingestion or integration, run `python3 scripts/wiki_consolidate.py --check` ([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py)): sources stuck mid-flow (deep read without integration) show up immediately.
+7. When resuming ingestion or integration, the responsible integrator runs `python3 scripts/wiki_consolidate.py --check` ([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py)): sources stuck mid-flow (deep read without integration) show up immediately.
 8. Select the context-specific local skill only after the root memory explains the context.
 9. Treat configured `paths.references_root` as references, templates and audit
    history, not as live memory.
-10. For new sources, create or confirm input-stage context, manifest, text/chunks, event, LLM context plan, integration (consolidated event with `consolidated_into` closed) and PR-ready proposal.
+10. For new sources, the responsible integrator creates or confirms input-stage context, manifest, text/chunks, event, LLM context plan, integration (consolidated event with `consolidated_into` closed) and PR-ready proposal.
 11. Before delegating, complete the existing [subagent brief](../../docs/references/templates/wiki/subagent-brief.md)
     under the [delegation contract](../../docs/references/guides/context-coordinators.md#delegation-contract).
     Bind the canonical task/base, policy sources, evidence and destinations.
     Verify tools, host/session and account in the executing instance; do not
     assume the parent's capabilities transfer. Record an exact blocker and a
     bounded condition for resuming the same IDs, preserving independent work.
-12. Before finalizing a canonical change, run [scripts/wiki_audit.py](../../scripts/wiki_audit.py), [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) with `--check`, [scripts/wiki_quality_report.py](../../scripts/wiki_quality_report.py) with `--check`, [scripts/wiki_input_stage.py](../../scripts/wiki_input_stage.py) with `--check`, [scripts/wiki_check_methodology_coverage.py](../../scripts/wiki_check_methodology_coverage.py) when methodology files changed, [scripts/wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) and [scripts/wiki_pr_summary.py](../../scripts/wiki_pr_summary.py).
+12. Before finalizing a canonical change, the responsible integrator runs [scripts/wiki_audit.py](../../scripts/wiki_audit.py), [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) with `--check`, [scripts/wiki_quality_report.py](../../scripts/wiki_quality_report.py) with `--check`, [scripts/wiki_input_stage.py](../../scripts/wiki_input_stage.py) with `--check`, [scripts/wiki_check_methodology_coverage.py](../../scripts/wiki_check_methodology_coverage.py) when methodology files changed, [scripts/wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) and [scripts/wiki_pr_summary.py](../../scripts/wiki_pr_summary.py).
 
 ## Rules
 

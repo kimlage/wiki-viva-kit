@@ -6,6 +6,8 @@ import threading
 import time
 from pathlib import Path
 
+import pytest
+
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.web.briefs import BriefStore, compose_brief
 from wiki_core.web.codex_jobs import JobRunner, build_codex_argv
@@ -108,6 +110,33 @@ def test_build_argv_is_sandboxed_and_never_yolo() -> None:
     # codex exec is non-interactive: it has no approvals flag, and passing -a
     # makes the CLI exit 2 before doing anything (regression: codex-cli 0.142).
     assert "-a" not in argv
+
+
+def test_coordinator_brief_never_enters_executor_runner_even_if_queued(tmp_path, monkeypatch) -> None:
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    record_path = BriefStore(tmp_path, config)._record_path(brief['brief_id'])
+    record = json.loads(record_path.read_text(encoding='utf-8'))
+    record['spec']['role'] = 'coordinator'
+    record_path.write_text(json.dumps(record), encoding='utf-8')
+    runner = _runner(tmp_path, config)
+    monkeypatch.setattr(runner, '_run_codex', lambda *_: pytest.fail('coordinator launched as executor'))
+    monkeypatch.setattr('wiki_core.web.codex_jobs.run_git_workflow',
+                        lambda *_a, **_k: pytest.fail('coordinator triggered a git workflow'))
+    denied = runner.submit(brief_id=brief['brief_id'], brief_sha=brief['brief_sha'],
+                           dry_run=True, force=True)
+    assert denied == {'ok': False, 'error': 'coordinator_requires_host_dispatch'}
+    runner._write({'job_id': 'synthetic-queued', 'brief_id': brief['brief_id'],
+                   'brief_sha': brief['brief_sha'], 'status': 'queued', 'role': 'coordinator'})
+    result = runner.run_job('synthetic-queued')
+    assert result['status'] == 'failed'
+    assert result['reason'] == 'coordinator_requires_host_dispatch'
+    generic = _saved_brief(tmp_path, config)
+    runner._write({'job_id': 'synthetic-stale-role', 'brief_id': generic['brief_id'],
+                   'brief_sha': generic['brief_sha'], 'status': 'queued', 'role': 'coordinator'})
+    result = runner.run_job('synthetic-stale-role')
+    assert result['status'] == 'failed'
+    assert result['reason'] == 'coordinator_requires_host_dispatch'
 
 
 def test_pipeline_dry_run_reaches_delivered(tmp_path, monkeypatch) -> None:

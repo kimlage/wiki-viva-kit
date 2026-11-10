@@ -100,6 +100,22 @@ def test_normalize_spec_defaults() -> None:
     assert bad["materialize"] == "refs"
 
 
+def test_local_brief_refuses_coordinator_on_open_and_resume(tmp_path: Path, monkeypatch) -> None:
+    import pytest
+    from wiki_core.web.briefs import compose_return_brief
+    config = _repo(tmp_path)
+    snapshot = _snapshot(tmp_path, config)
+    monkeypatch.setattr('wiki_core.web.briefs._section_conventions',
+                        lambda *_a, **_k: pytest.fail('unadmitted context read'))
+    with pytest.raises(ValueError, match='coordinator_requires_protected_host'):
+        compose_brief(tmp_path, config, snapshot, spec={'role': 'coordinator', 'materialize': 'full'})
+    with pytest.raises(ValueError, match='coordinator_requires_protected_host'):
+        compose_return_brief(tmp_path, config, snapshot,
+            parent_job={'job_id': 'synthetic', 'role': 'coordinator'}, feedback='older queued request')
+    with pytest.raises(ValueError, match='unknown brief role'):
+        compose_brief(tmp_path, config, snapshot, spec={'role': 'unexpected'})
+
+
 def test_compose_has_five_sections_and_provenance(tmp_path: Path) -> None:
     config = _repo(tmp_path)
     snapshot = _snapshot(tmp_path, config)

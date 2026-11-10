@@ -40,6 +40,22 @@ Task bodies come exclusively from the [protected coordination route](context-coo
 
 Packet generation is not evidence of LLM reading, comprehension or execution. Runtime admission separately checks actual capability, authorization, claim/STOP/dedup and permitted operations. Profiles never select a canonical context or bypass a refused admission check. Waiting and terminal states remain canonical; coordinator assignment never changes them. Preserve existing action IDs, executor ownership and conversation history; never import packets as duplicate domain tasks.
 
+The [coordinator role contract](../../../.skills/wiki-viva/reference/coordinator.md)
+sets the behavioral boundary for both opening and resumption: the coordinator
+maintains direction and acceptance; existing integrators perform product code,
+tests, integration and infrastructure. Before any dispatch, the coordinator
+checks current owner direction and pauses; an old queued message does not lift
+a later pause. A protected packet may request `task.role: coordinator` to
+include the complete role contract from the current approved revision, subject
+to ordinary policy and deny checks. A denied or missing contract fails closed.
+Role selection and packet composition are not runtime authentication or a
+pause barrier: the host must bind the actual role and revalidate current owner
+state at execution. The local generic brief composer and editing job runner
+refuse the coordinator role. Legacy jobs without a role still default to executor:
+the host must identify existing coordinators independently and refuse stale
+dispatches when their current pause or role cannot be established. An external
+T3 launcher is not implemented or controlled by this kit.
+
 Runtime results must retain provenance and use the existing guarded action-transition contract, with revision checks and evidence for completion. A queued, claimed or settled runtime job is not a completed wiki action. The [standalone board](native-action-board.md) remains usable while execution is unavailable.
 
 ## Delegation contract
@@ -80,8 +96,9 @@ the canonical page through its normal guarded writer or reviewed contribution;
 the board projects that page. A runtime completion receipt alone cannot close
 the wiki action.
 
-Name the existing actor responsible for consolidation/publication in the brief;
-it may be the coordinator or another already authorized executor. Accept a
+Name the existing authorized integrator responsible for consolidation and
+publication in the brief. The coordinator routes and consolidates results; the
+integrator performs product changes, tests, integration and readback. Accept a
 read-only or patch-only slice on its agreed artifacts and evidence without
 requiring that child to acquire writer credentials or perform a merge outside
 its scope. The responsible actor completes integration through the same wiki

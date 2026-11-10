@@ -40,6 +40,21 @@ into folder authority.
 
 When the complete packet exceeds `max_bytes`, API and CLI return `coordination_budget_exceeded`: reduce the authorized selection or revise the limit and retry. The packet is never truncated, and the blocker exposes no selected path or size. Other unavailable or unauthorized inputs remain opaque.
 
+For a host-bound coordinator handoff, `task.role: coordinator` adds the full
+[coordinator role contract](../../../.skills/wiki-viva/reference/coordinator.md)
+as explicit evidence from the current approved revision. In this mode
+`content_revision` must equal `approved_revision`; the role file must exist and
+pass the ordinary ownership, connection and deny checks. This does not support a
+coordinator packet pinned to historical content. The packet records the added
+evidence, not an authenticated role: an executor request could select the same
+evidence. The host must independently bind the actual role and its request to
+the execution; neither a role string nor the packet digest proves identity. The caller cannot
+provide a duplicate role-file evidence entry to replace it. The default role is
+`executor`; an untrusted request cannot authenticate either role. At opening and
+resumption the host must bind the actual role, independently check current owner
+direction and pauses, and refuse stale queued work. A packet does not enforce
+that runtime behavior or prove that an external T3 launcher consumed it.
+
 ### One bounded Git evidence selection with owned inputs
 
 For a task that actually consumed a bounded part of one large Git document and
