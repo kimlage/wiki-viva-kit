@@ -592,6 +592,20 @@ def test_brief_lifecycle_over_http(authorized_server: _Server) -> None:
     assert status == 400 and body.get("ok") is False
 
 
+def test_coordinator_open_and_return_refuse_before_snapshot(authorized_server: _Server, monkeypatch) -> None:
+    server = authorized_server
+    monkeypatch.setattr(server.server, 'snapshot_payloads',
+                        lambda: pytest.fail('coordinator refusal opened the snapshot'))
+    status, body = server.post('/api/briefs', {'spec': {'role': 'coordinator'}})
+    assert status == 400
+    assert body['ok'] is False and body['error'] == 'coordinator_requires_protected_host'
+    monkeypatch.setattr(server.server.jobs, 'get', lambda job_id: {
+        'job_id': job_id, 'role': 'coordinator', 'branch': 'wiki/synthetic'})
+    status, body = server.post('/api/codex/jobs/synthetic/return', {'feedback': 'older request'})
+    assert status == 400
+    assert body['ok'] is False and body['error'] == 'coordinator_requires_protected_host'
+
+
 def test_unknown_brief_is_404(server: _Server) -> None:
     status, body = server.get("/api/briefs/bdoesnotexist")
     assert status == 404
