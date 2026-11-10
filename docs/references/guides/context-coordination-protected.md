@@ -154,6 +154,32 @@ and file metadata, but it is not an OS sandbox or an atomic filesystem
 snapshot. The host must independently prevent concurrent file replacement and
 provide filesystem and process isolation appropriate to its threat model.
 
+## Legacy lifecycle history selection
+
+The legacy action-state and source-lifecycle checks enumerate historical Git
+tree names first and restrict their historical content search to Markdown
+paths under the configured memory root. This prevents their historical grep
+from searching unrelated JSON or Markdown outside that root. The candidate
+selection still includes every relevant Markdown path under the memory root,
+including paths outside action or source subfolders, so lifecycle identity,
+renames and malformed action candidates remain checkable.
+
+This narrowing does not qualify that selection against context policy: a deny
+inside the memory root still prevents an independently restricted actor from
+running the legacy checks. The memory root comes from the working configuration,
+which may differ from the approved revision; neither it nor a candidate policy
+is an authority for the scan. The host must independently qualify configuration
+and every actual read, including changed working-tree files, Git attributes and
+action-adoption receipt inputs. If the complete selection cannot be qualified,
+the dependent check remains unavailable. Neither an `--only` selector nor
+filtering a Git result afterwards is a grant or a successful global audit.
+
+The legacy base-discovery helper can still return no base when its candidate
+refs are unavailable; these changes do not turn that outcome into a verified
+historical baseline. Missing or unverified baseline authority must be handled
+by the caller's independent gate. Once a base has been selected, failure or
+movement while enumerating and searching it makes coverage unavailable.
+
 
 ## Proposal-only Git secrets check
 
