@@ -66,7 +66,7 @@ def test_windows_refuses_before_bootstrap(tmp_path, monkeypatch):
     with pytest.raises(PolicyError, match='platform unavailable'):
         r1.inventory(tmp_path / 'missing', CoordinationBinding(('.',), 'refs/remotes/origin/main'),
                      context_id='.', approved_revision='a' * 40, base='a' * 40,
-                     head='b' * 40, branch='wiki/synthetic')
+                     head='b' * 40, branch='wiki/synthetic', normative_paths=['wiki.config.yaml'])
 
 
 @pytest.mark.parametrize('relative', ['info/grafts', 'objects/info/alternates'])
@@ -88,7 +88,7 @@ def run(repo):
     root, base, _, head = repo
     return r1.inventory(root, CoordinationBinding(('.',), 'refs/remotes/origin/main'),
                         context_id='.', approved_revision=base, base=base, head=head,
-                        branch='wiki/synthetic')
+                        branch='wiki/synthetic', normative_paths=['wiki.config.yaml'])
 
 
 def test_history_index_wip_ignored_and_denies_are_inventoried_without_body_reads(repo, monkeypatch):
@@ -152,6 +152,54 @@ def test_intermediate_policy_change_then_revert_is_refused(repo):
     altered = (root, base, '', git(root, 'rev-parse', 'HEAD'))
     with pytest.raises(PolicyError, match='normative history'):
         run(altered)
+
+
+def test_intermediate_context_instruction_change_then_revert_is_refused(repo):
+    root, base, _, _ = repo
+    git(root, 'reset', '--hard', base)
+    original = (root / 'AGENTS.md').read_text()
+    (root / 'AGENTS.md').write_text(original + 'synthetic change\n')
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'change synthetic instruction')
+    (root / 'AGENTS.md').write_text(original)
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'revert synthetic instruction')
+    with pytest.raises(PolicyError, match='normative history'):
+        run((root, base, '', git(root, 'rev-parse', 'HEAD')))
+
+
+def test_staged_context_instruction_change_is_refused(repo, monkeypatch):
+    root, _, _, _ = repo
+    with (root / 'AGENTS.md').open('a') as stream:
+        stream.write('synthetic staged instruction\n')
+    git(root, 'add', 'AGENTS.md')
+    monkeypatch.setattr(r1, '_physical', lambda *_: pytest.fail('worktree inventoried after normative index change'))
+    with pytest.raises(PolicyError, match='normative index'):
+        run(repo)
+
+
+def test_new_untracked_context_instruction_is_refused(repo):
+    root, _, _, _ = repo
+    (root / 'newcontext').mkdir()
+    (root / 'newcontext/AGENTS.md').write_text('synthetic untracked instruction\n')
+    with pytest.raises(PolicyError, match='normative worktree'):
+        run(repo)
+
+
+def test_host_declared_normative_path_is_checked_in_history(repo):
+    root, base, _, head = repo
+    with pytest.raises(PolicyError, match='normative history'):
+        r1.inventory(root, CoordinationBinding(('.',), 'refs/remotes/origin/main'),
+                     context_id='.', approved_revision=base, base=base, head=head,
+                     branch='wiki/synthetic', normative_paths=['wiki.config.yaml', 'allowed.md'])
+
+
+def test_host_must_explicitly_include_config_in_normative_scope(repo):
+    root, base, _, head = repo
+    with pytest.raises(PolicyError, match='normative scope'):
+        r1.inventory(root, CoordinationBinding(('.',), 'refs/remotes/origin/main'),
+                     context_id='.', approved_revision=base, base=base, head=head,
+                     branch='wiki/synthetic', normative_paths=['allowed.md'])
 
 
 def test_hardlink_alias_refuses_inventory_without_deleting_wip(repo):
@@ -274,7 +322,8 @@ def test_unstaged_policy_body_is_not_treated_as_approved(repo):
     with (root / 'wiki.config.yaml').open('a') as stream:
         stream.write('\n# synthetic unstaged policy change\n')
     result = run(repo)
-    assert result['worktree_policy'] == 'not_inspected'
+    assert result['worktree_normative_bodies'] == 'not_inspected'
+    assert result['normative_scope_completeness'] == 'external_not_verified'
     assert result['selection_admission'] == 'not_verified'
 
 
@@ -364,7 +413,8 @@ def scan(repo, requested, inv, selection, admit):
                             context_id='.', approved_revision=base, base=base, head=head,
                             branch='wiki/synthetic', requested=requested,
                             inventory_sha256=inv['inventory_sha256'],
-                            selection_sha256=selection['selection_sha256'], admit=admit)
+                            selection_sha256=selection['selection_sha256'],
+                            normative_paths=['wiki.config.yaml'], admit=admit)
 
 
 def test_selected_message_history_index_and_wip_scan_after_host_admission(repo, monkeypatch):
@@ -458,3 +508,22 @@ def test_revoked_admission_stops_before_next_body(repo, monkeypatch):
     assert output['state'] == 'partial'
     assert output['scanned_count'] == 1
     assert output['required_count'] == 2
+
+
+def test_callback_mutation_before_final_readback_reports_partial(repo):
+    root, _, middle, _ = repo
+    inv = run(repo)
+    requested = [{'kind': 'git_blob', 'revision': middle, 'path': 'allowed.md'},
+                 {'kind': 'worktree', 'path': 'new.txt'}]
+    selection = r1.select(inv, requested)
+    calls = []
+    def admit(_selection):
+        calls.append(True)
+        if len(calls) == 6:
+            (root / 'new.txt').write_text('synthetic callback mutation\n')
+        return True
+    output = scan(repo, requested, inv, selection, admit)
+    assert len(calls) == 6
+    assert output['state'] == 'partial'
+    assert output['scanned_count'] == 2
+    assert output['global_audit'] == 'not_performed'

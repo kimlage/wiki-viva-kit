@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 from wiki_core.context_packet import _check_trusted_binding, qualify_folder_context
-from wiki_core.context_policy import PolicyError, revision, safe_path
+from wiki_core.context_policy import PolicyError, is_context_instruction, revision, safe_path
 from wiki_core.coordination_context import CoordinationBinding, _policy
 from wiki_core.git_env import local_git_tree
 
@@ -152,7 +152,8 @@ def _physical(root: Path, policy, actor: str) -> dict:
 
 
 def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
-              approved_revision: str, base: str, head: str, branch: str) -> dict:
+              approved_revision: str, base: str, head: str, branch: str,
+              normative_paths: list[str]) -> dict:
     """Return a candidate inventory, not evidence of admission or scanning.
 
     History is bounded to base..head and the parents at its boundary. The host
@@ -164,8 +165,13 @@ def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
     if (not isinstance(binding, CoordinationBinding) or binding.manifest != 'wiki.config.yaml'
             or not all(isinstance(x, str) and SHA.fullmatch(x) for x in (approved_revision, base, head))
             or approved_revision != base or not isinstance(branch, str) or not BRANCH.fullmatch(branch)
-            or '..' in branch or branch.endswith('.')):
+            or '..' in branch or branch.endswith('.') or not isinstance(normative_paths, list)
+            or not normative_paths or len(normative_paths) > MAX_ENTRIES
+            or any(not isinstance(path, str) for path in normative_paths)):
         raise PolicyError('inventory authority unavailable')
+    normative = {safe_path(path) for path in normative_paths}
+    if len(normative) != len(normative_paths) or 'wiki.config.yaml' not in normative:
+        raise PolicyError('inventory normative scope unavailable')
     root = Path(root).resolve(strict=True)
     top = _git(root, 'rev-parse', '--show-toplevel').decode('utf-8').strip()
     if Path(top).resolve(strict=True) != root or _git(root, 'rev-parse', '--is-shallow-repository').strip() != b'false':
@@ -205,15 +211,24 @@ def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
         total_entries += len(trees[commit])
         if total_entries > MAX_ENTRIES:
             raise PolicyError('inventory limit exceeded')
-    config = trees[base].get('wiki.config.yaml')
-    if config is None or any(tree.get('wiki.config.yaml') != config for tree in trees.values()):
-        raise PolicyError('normative history requires independent review')
     index = _index(root)
-    config_entries = [entry for entry in index if entry['path'] == 'wiki.config.yaml']
-    if (len(config_entries) != 1 or config_entries[0]['stage'] != 0
-            or config_entries[0]['oid'] != config['oid'] or config_entries[0]['mode'] != config['mode']):
-        raise PolicyError('normative index requires independent review')
+    normative.update(path for tree in trees.values() for path in tree if is_context_instruction(path))
+    normative.update(entry['path'] for entry in index if is_context_instruction(entry['path']))
+    if trees[base].get('wiki.config.yaml') is None:
+        raise PolicyError('normative history requires independent review')
+    for path in normative:
+        original = trees[base].get(path)
+        if any(tree.get(path) != original for tree in trees.values()):
+            raise PolicyError('normative history requires independent review')
+        entries = [entry for entry in index if entry['path'] == path]
+        if ((original is None and entries) or (original is not None and
+                (len(entries) != 1 or entries[0]['stage'] != 0
+                 or entries[0]['oid'] != original['oid'] or entries[0]['mode'] != original['mode']))):
+            raise PolicyError('normative index requires independent review')
     physical = _physical(root, policy, context_id)
+    if any((is_context_instruction(path) or path in normative) and path not in trees[base]
+           for path in physical['files']):
+        raise PolicyError('normative worktree requires independent review')
     untracked = {_name(path) for path in _nul(_git(root, 'ls-files', '--others', '--exclude-standard', '-z'))}
     ignored = {_name(path) for path in _nul(_git(root, 'ls-files', '--others', '--ignored', '--exclude-standard', '-z'))}
     tracked = {item['path'] for item in index}
@@ -243,6 +258,7 @@ def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
               'base': base, 'head': head, 'branch': branch,
               'root_identity_sha256': hashlib.sha256(str(root).encode()).hexdigest(),
               'history': history, 'trees': trees, 'index': index, 'physical': physical,
+              'normative_paths': sorted(normative), 'normative_scope_completeness': 'external_not_verified',
               'untracked': sorted(untracked), 'ignored': sorted(ignored),
               'missing_tracked': sorted(tracked - physical_files), 'authorization': authorization,
               'denied_oid_aliases': aliases,
@@ -257,7 +273,7 @@ def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
                                   'context': 'read_may_overlap_target_paths'},
               'other_target_bodies': 'not_intentionally_read',
               'global_audit': 'not_performed', 'selection_admission': 'not_verified',
-              'historical_policy': 'not_qualified', 'worktree_policy': 'not_inspected',
+              'historical_policy': 'not_qualified', 'worktree_normative_bodies': 'not_inspected',
               'live_observation': 'not_verified',
               'concurrency_isolation': 'external_not_verified',
               'ignore_config_identity': 'external_not_verified'}
@@ -364,7 +380,7 @@ def _worktree_bytes(root: Path, row: dict) -> bytes:
 def scan_selected(root: Path, binding: CoordinationBinding, *, context_id: str,
                   approved_revision: str, base: str, head: str, branch: str,
                   requested: list[dict], inventory_sha256: str, selection_sha256: str,
-                  admit) -> dict:
+                  normative_paths: list[str], admit) -> dict:
     """Scan selected text for secrets under a trusted host's live admission.
 
     The host must independently authorize bootstrap before invocation and bind
@@ -378,7 +394,7 @@ def scan_selected(root: Path, binding: CoordinationBinding, *, context_id: str,
     if not callable(admit):
         raise PolicyError('selection admission unavailable')
     first = inventory(root, binding, context_id=context_id, approved_revision=approved_revision,
-                      base=base, head=head, branch=branch)
+                      base=base, head=head, branch=branch, normative_paths=normative_paths)
     if first['inventory_sha256'] != inventory_sha256:
         raise PolicyError('inventory changed')
     selection = select(first, requested)
@@ -438,9 +454,11 @@ def scan_selected(root: Path, binding: CoordinationBinding, *, context_id: str,
                 raise PolicyError('selected content unavailable')
             findings += len(scan_secrets(raw.decode('utf-8')))
             completed += 1
+        if not admitted():
+            raise PolicyError('selection admission changed')
         after = inventory(root, binding, context_id=context_id, approved_revision=approved_revision,
-                          base=base, head=head, branch=branch)
-        if after['inventory_sha256'] != inventory_sha256 or not admitted():
+                          base=base, head=head, branch=branch, normative_paths=normative_paths)
+        if after['inventory_sha256'] != inventory_sha256:
             raise PolicyError('inventory changed')
     except Exception:
         return {'state': 'partial', 'scanned_count': completed,

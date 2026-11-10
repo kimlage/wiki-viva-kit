@@ -273,13 +273,19 @@ authenticates the host or grants any read.
 `inventory(...)` records the `base..head` commit interval and boundary parents,
 tree OIDs and modes, index stages, physical metadata, untracked and ignored
 files, missing tracked files, current-policy denials and denied-OID aliases.
+The host supplies an explicit `normative_paths` list including
+`wiki.config.yaml`; the inventory also includes `AGENTS.md` and
+`AGENTS.override.md` found in the trees or index. The host must independently
+establish that its list covers all other applicable normative paths; that
+completeness is not verified by this module.
 It requires the selected branch to be the actual worktree HEAD, rechecks refs,
 index, physical metadata and ignore classification, and refuses unsupported
-symlinks, hardlinks, nested repositories, different-device directories, sparse entries, changed
-normative Git history/index, shallow repositories, grafts, object alternates,
+symlinks, hardlinks, nested repositories, different-device directories, sparse
+entries, changes to those normative paths in Git history/index, new untracked
+context instructions, shallow repositories, grafts, object alternates,
 limits and Windows. Content
-relation for worktree files remains `unknown`; the unstaged policy body is not
-inspected. Historical policy and live observation are not qualified. Paths,
+relation for worktree files remains `unknown`; unstaged normative bodies are
+not inspected. Historical policy and live observation are not qualified. Paths,
 OIDs and metadata in the result may be sensitive: the host must admit the
 output channel independently.
 
@@ -297,7 +303,8 @@ or bodies, rechecks admission and refs, and reports only a bounded secrets
 count for explicitly selected UTF-8 text. It rechecks the inventory afterward
 and reports partial coverage on handled errors. Abrupt termination may produce
 no result; the host must record that outcome as uncertain. The host
-must prevent concurrent writers and independently qualify historical grants,
+must prevent concurrent writers, including mutations by the admission callback,
+and independently qualify historical grants,
 the callback, the output and any required live observer or interruption/cleanup
 barrier. The function cannot authenticate those properties. It does not run
 the rest of the wiki auditor, prove the gate's input coverage, establish an
