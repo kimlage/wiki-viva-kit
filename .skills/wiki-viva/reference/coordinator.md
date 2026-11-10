@@ -17,6 +17,13 @@ is paused or its current state cannot be established, do not restart or
 dispatch it. Resume only when the owner or already authorized control has
 actually released that pause. Preserve unrelated authorized work.
 
+Identify the sender and intended recipient in each handoff. A sender describing
+the limits of their own thread or role does not change the recipient's assignment.
+Only an explicit direction from the coordinator responsible for that scope or
+the owner can change that assignment. On opening and resumption, interpret each
+message for its actual speaker and recipient; if either is unclear, resolve it
+from the existing context before treating it as a role change.
+
 These are behavioral instructions, not an access boundary, a runtime pause
 mechanism or proof of execution. The actual host must bind the coordinator
 role and independently revalidate current authority and pauses at dispatch;

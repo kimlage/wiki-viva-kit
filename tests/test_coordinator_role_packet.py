@@ -49,13 +49,17 @@ def payload(base: str, goal: str):
 def test_open_and_resume_packet_include_approved_coordinator_contract(case):
     root, base, target = case
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main')
-    for goal in ('Open coordination', 'Old queued request: resume paused work'):
+    for goal in ('Open coordination: documentary sender to product executor says it will not edit code',
+                 'Resume coordination: documentary sender to product executor says it will not edit code',
+                 'Old queued request: resume paused work'):
         packet = prepare_packet(root, binding, payload(base, goal))['packet']
         role = [entry for entry in packet['inputs'] if entry['ref'] == '.skills/wiki-viva/reference/coordinator.md']
         assert len(role) == 1 and role[0]['revision'] == base
         assert role[0]['text'] == target.read_text(encoding='utf-8')
         assert 'old queued message is not a resume authorization' in role[0]['text']
         assert 'Do not turn the coordinator into a product implementation' in role[0]['text']
+        assert "A sender describing" in role[0]['text']
+        assert 'Only an explicit direction from the coordinator responsible for that scope or' in role[0]['text']
         assert packet['enforcement_claim'].startswith('none')
         result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
                   'task_id': 'synthetic-action', 'context_id': '.',
