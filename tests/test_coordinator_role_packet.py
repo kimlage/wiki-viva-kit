@@ -69,6 +69,10 @@ def test_open_and_resume_packet_include_approved_coordinator_contract(case):
         assert 'verify reviewed input bytes and HEAD before authorized writes' in normalized
         assert 'independent review of the final SHA' in normalized
         assert "circularly block an accepted lot's closeout" in normalized
+        assert 'A completed turn is not a completed delivery' in normalized
+        assert 'resume the same thread' in normalized
+        assert 'do not repeat the same refusal without new evidence' in normalized
+        assert 'respect the runtime\'s wait, delegation and PR-watch instructions' in normalized
         assert packet['enforcement_claim'].startswith('none')
         result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
                   'task_id': 'synthetic-action', 'context_id': '.',
