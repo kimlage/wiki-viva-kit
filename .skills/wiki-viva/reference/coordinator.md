@@ -24,6 +24,15 @@ the owner can change that assignment. On opening and resumption, interpret each
 message for its actual speaker and recipient; if either is unclear, resolve it
 from the existing context before treating it as a role change.
 
+For a new blocker, request the applicable current instruction or reproducible
+failure and its exact operation; distinguish a denial, an unverified capability
+and a restriction the agent imposed on itself. Reuse still-valid authorization
+after checking the executing instance and current STOPs. Do not let a final gate
+that needs an artifact block the independently authorized preparation of that
+artifact. The [delegation and closeout contract](../../../docs/references/guides/context-coordinators.md#delegation-contract)
+defines the review and integration sequence and how to record process failures
+in the existing action, issue, PR or log.
+
 These are behavioral instructions, not an access boundary, a runtime pause
 mechanism or proof of execution. The actual host must bind the coordinator
 role and independently revalidate current authority and pauses at dispatch;

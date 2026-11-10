@@ -94,6 +94,8 @@ this brief does not change runtime admission or those flags.
 ## Blocker and bounded recovery
 
 - Affected step, exact missing context/capability or denied operation, and receipt:
+- Applicable current instruction or reproducible failure and operation/limit:
+- Classification: actual denial, unverified capability or agent-imposed restriction:
 - Work that can continue independently:
 - Attempt limit and changed precondition required for another attempt:
 - Next responsible actor and existing question/event ID, if one exists:
@@ -105,6 +107,10 @@ uses the existing action conversation; a tool denial is not bypassed. Before
 resuming, reconcile the existing action, event and task/run IDs, current
 revisions, STOPs and other blockers. A timeout does not prove failure or justify
 duplicating an external effect.
+Reuse still-valid authorization after checking this instance's identity and
+access; an offline execution limit alone does not forbid an authorized read.
+For a required generated artifact, use the independently reviewed preparation
+and final-gate order in the existing [delegation contract](../../guides/context-coordinators.md#delegation-contract).
 
 ## Must not do
 

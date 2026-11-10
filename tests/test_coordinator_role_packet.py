@@ -60,6 +60,10 @@ def test_open_and_resume_packet_include_approved_coordinator_contract(case):
         assert 'Do not turn the coordinator into a product implementation' in role[0]['text']
         assert "A sender describing" in role[0]['text']
         assert 'Only an explicit direction from the coordinator responsible for that scope or' in role[0]['text']
+        assert 'an unverified capability' in role[0]['text']
+        assert 'restriction the agent imposed on itself' in role[0]['text']
+        assert 'Reuse still-valid authorization' in role[0]['text']
+        assert 'independently authorized preparation' in role[0]['text']
         assert packet['enforcement_claim'].startswith('none')
         result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
                   'task_id': 'synthetic-action', 'context_id': '.',
