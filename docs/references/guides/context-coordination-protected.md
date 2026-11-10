@@ -103,6 +103,9 @@ check or a mixed selection is refused before worktree configuration or Git
 inventory is opened; it never falls back to the legacy audit. This is a
 fail-closed disposition, not selection or execution of those checks. An
 invocation without the context guard remains a caller-trust legacy route.
+Python startup, imports, executable code and root-binding metadata precede this
+refusal and still require independent host authorization; the refusal is not an
+OS-wide I/O observation or a qualified audit bootstrap.
 
 The host must independently authorize the bootstrap before invocation: the
 Python runtime, executable code and imported dependencies; the approved Git

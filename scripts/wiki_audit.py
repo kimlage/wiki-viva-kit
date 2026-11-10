@@ -241,8 +241,10 @@ def build_local_path_regexes(config: WikiConfig) -> None:
     )
 
 
-# Bind the regexes to this repo's layout at import; main() rebinds explicitly.
-build_local_path_regexes(load_config(ROOT))
+# Keep import free of worktree configuration reads. The unguarded main path
+# binds the actual layout after its boundary check; direct callers using a
+# non-default layout must call build_local_path_regexes with their config.
+build_local_path_regexes(WikiConfig())
 
 MARKDOWN_LINK_RE = re.compile(
     r"\[[^\]]+\]\((<[^<>\n]*>|[^)\n]+?)(?:\s+(?:\"[^\"\n]*\"|'[^'\n]*'|\([^()\n]*\)))?\)"
@@ -1834,6 +1836,9 @@ def audit_pii(errors: list[str], warnings: list[str], config: WikiConfig, public
 
 
 def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
+    # Direct callers also need the selected layout, without reading the
+    # worktree configuration as a module-import side effect.
+    build_local_path_regexes(config)
     for rel in link_audit_files(config):
         path = ROOT / rel
         text = _audit_read_text(path, encoding="utf-8", errors="replace")
