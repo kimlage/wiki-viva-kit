@@ -37,6 +37,8 @@ the [delegation contract](../../guides/context-coordinators.md#delegation-contra
 
 ## Scope
 
+- Sender and their role in this handoff:
+- Intended recipient, their current role and the scope coordinator:
 - Delegated work, existing owner/executor and permitted changes:
 - Existing actor responsible for consolidation/publication after this slice:
 - Existing task/run or contribution IDs to reconcile, if already assigned:
@@ -57,6 +59,11 @@ cross-context evidence requires approved imports/exports. Do not construct a
 handoff from legacy `common_context` or `context_pages`.
 Resolve superseded instructions through the current policy, without treating
 historical notes as new consent requirements or widening access.
+On opening and resumption, distinguish a sender's description of their own
+role from instructions to the recipient. It does not reassign the recipient;
+only explicit direction from the scope coordinator or owner does so. Resolve
+unclear sender or recipient identity from existing context before treating a
+message as a role change. This template does not authenticate either identity.
 
 ## Capability check by the executor
 

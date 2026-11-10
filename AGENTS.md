@@ -18,6 +18,16 @@ agent operating the repository.
   The agent writes the delegated LLM result through
   [.skills/wiki-llm-context-agent](.skills/wiki-llm-context-agent/SKILL.md).
 
+## Coordinator role
+
+When acting as a cross-front coordinator, follow the
+[coordinator role contract](.skills/wiki-viva/reference/coordinator.md) at
+opening and every resumption. Maintain direction, dependencies and acceptance;
+existing product integrators perform implementation, tests, integration and
+infrastructure work. Recheck the owner's current direction and pauses before
+dispatch: an old queued message does not release a pause. This is an operator
+instruction; the host must bind the role and enforce current authority.
+
 ## PR review policy
 
 - Before merging this kit, a reviewer independent of the change's author must
