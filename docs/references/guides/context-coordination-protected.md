@@ -178,6 +178,58 @@ and file metadata, but it is not an OS sandbox or an atomic filesystem
 snapshot. The host must independently prevent concurrent file replacement and
 provide filesystem and process isolation appropriate to its threat model.
 
+## Context-bound methodology check
+
+The existing `wiki_check_methodology_coverage.py --check` can use an R1
+worktree selection with an independently configured folder binding. This is the
+methodology check only: it does not run or qualify a global audit, other gates,
+historical blob/message scans, preflight, review, merge or runtime observation.
+The legacy invocation without a context guard remains caller-trust.
+
+Before invoking either planning or execution, the host must independently
+admit the Python executable and imports, Git configuration and metadata,
+approved policy and instructions, approved and worktree configuration, ignore
+rules, complete filesystem metadata and the output channel. The inventory and
+context qualifier may read bootstrap bodies that overlap the later selection;
+the selection cannot retroactively authorize those reads. The worktree config
+must equal the approved config; candidate configuration is never authority.
+The host provides the complete applicable list of normative paths (including
+`wiki.config.yaml`); changes to normative history/index remain refused by R1.
+The host must exclude concurrent writers, including its admission callback;
+these checks are optimistic, not an atomic filesystem snapshot or OS sandbox.
+
+Use `--check --context-guard CONTEXT --context-policy-revision APPROVED_SHA
+--context-base BASE_SHA --context-head HEAD_SHA --context-branch wiki/BRANCH`
+with `--context-normative PATH` for each normative path and `--context-plan`.
+The plan includes path metadata and the selection; authorize the output channel
+before displaying or retaining it. A plan is not a check. An authorized host
+independently reviews the complete selection and then invokes the same command
+without `--context-plan`, adding `--context-inventory-sha256` and
+`--context-selection-sha256` from that plan. The digests bind the selected
+metadata; they do not authenticate approval, actor, bootstrap or host. An
+in-process host can instead call `guarded_methodology` with its admission
+callback. A refusal or partial result is never a successful gate.
+
+The selection includes configured required pages and templates, Markdown under
+the memory root, eligible events and manifests, requests and, conservatively,
+all eligible result-cache candidates when requests exist, including ignored
+files. It may therefore refuse a denied cache even if a later request would not
+use it. After admission, all selected bodies are read, including conservative
+candidates; the result lists their paths, byte counts and SHA-256 digests. The
+host must authorize this result channel too. Required missing files, missing
+eligible inputs present in HEAD or the index but missing from the worktree,
+denied candidates, stale selections and unsupported
+inventory entries fail closed. A partial result distinguishes bodies fully read
+and validated from attempted reads that may have accessed bytes even if validation
+failed. Bootstrap reads are reported separately and can overlap the selection.
+Individual bodies are limited to 2 MB
+and the selection to 8 MB. The R1 inventory rejects symlinks, hard links,
+nested repositories and mount crossings even outside this check's inputs.
+Selection metadata and denied-path presence must already be authorized to the
+operator. Synthetic Python instrumentation is not system-wide I/O observation;
+host isolation, live observation, termination and cleanup remain external.
+The HEAD/index metadata check is not coverage of historical or index bodies.
+
 ## Legacy lifecycle history selection
 
 The legacy action-state and source-lifecycle checks enumerate historical Git
