@@ -110,6 +110,40 @@ def test_unadmitted_selection_refuses_before_target_bodies(make_repo, monkeypatc
         run(root, binding, args, hashes, admit=lambda _: False)
 
 
+def test_missing_tracked_request_refuses_before_target_bodies(make_repo, monkeypatch):
+    root, binding, args = make_repo()
+    request = root / 'data/derived/wiki/extraction-events/fake-llm-context-request.json'
+    request.parent.mkdir(parents=True, exist_ok=True)
+    request.write_text('{"chunks": []}')
+    git(root, 'add', '-f', str(request.relative_to(root)))
+    git(root, 'commit', '-qm', 'synthetic request')
+    args['head'] = git(root, 'rev-parse', 'HEAD')
+    request.unlink()
+    no_target_reads(monkeypatch)
+    with pytest.raises(PolicyError, match='tracked input unavailable'):
+        planned(root, binding, args)
+
+
+def test_partial_read_failure_reports_attempt_not_validated_body(make_repo, monkeypatch):
+    root, binding, args = make_repo()
+    hashes = planned(root, binding, args)
+    from wiki_core import audit_r1_inventory
+    original = audit_r1_inventory._worktree_bytes
+    observed = []
+    def fail_after_read(root, row):
+        content = original(root, row)
+        if row['path'] != 'wiki.config.yaml':
+            observed.append(row['path'])
+            raise PolicyError('synthetic post-read validation failure')
+        return content
+    monkeypatch.setattr(audit_r1_inventory, '_worktree_bytes', fail_after_read)
+    result = run(root, binding, args, hashes)
+    assert len(observed) == 1
+    assert result['state'] == 'partial'
+    assert result['source_bodies_validated'] == 0
+    assert result['source_body_attempts_may_have_read_bytes'] == 1
+
+
 def test_denied_conditional_cache_refuses_before_target_bodies(make_repo, monkeypatch):
     root, binding, args = make_repo(deny=['self/data/derived/wiki/llm-cache'])
     request = root / 'data/derived/wiki/extraction-events/fake-llm-context-request.json'

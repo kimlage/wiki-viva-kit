@@ -216,8 +216,12 @@ all eligible result-cache candidates when requests exist, including ignored
 files. It may therefore refuse a denied cache even if a later request would not
 use it. After admission, all selected bodies are read, including conservative
 candidates; the result lists their paths, byte counts and SHA-256 digests. The
-host must authorize this result channel too. Required missing files, denied candidates, stale selections and
-unsupported inventory entries fail closed. Individual bodies are limited to 2 MB
+host must authorize this result channel too. Required missing files, missing
+tracked eligible inputs, denied candidates, stale selections and unsupported
+inventory entries fail closed. A partial result distinguishes bodies fully read
+and validated from attempted reads that may have accessed bytes even if validation
+failed. Bootstrap reads are reported separately and can overlap the selection.
+Individual bodies are limited to 2 MB
 and the selection to 8 MB. The R1 inventory rejects symlinks, hard links,
 nested repositories and mount crossings even outside this check's inputs.
 Selection metadata and denied-path presence must already be authorized to the

@@ -563,18 +563,22 @@ def methodology_selection(root, binding, *, context_id, approved_revision, base,
     manifests, requests, caches = rel(paths.source_manifests), rel(paths.extraction_events), rel(paths.llm_cache)
     request_names = {name for name in files if str(Path(name).parent) == requests
                      and fnmatch.fnmatchcase(Path(name).name, '*-llm-context-request.json')}
-    selected = set(required)
-    for name in files:
+    def candidate(name):
         parent = str(Path(name).parent)
         if within(name, memory) and name.endswith('.md') and not is_protected_artifact(Path(name)):
-            selected.add(name)
-        if parent == events and name.endswith('.md') and Path(name).name != 'README.md': selected.add(name)
-        if parent == manifests and name.endswith('.json'): selected.add(name)
-        if config.llm.get('required_context_pass', True) and name in request_names: selected.add(name)
-        if (config.llm.get('required_context_pass', True) and request_names
+            return True
+        if parent == events and name.endswith('.md') and Path(name).name != 'README.md': return True
+        if parent == manifests and name.endswith('.json'): return True
+        if (config.llm.get('required_context_pass', True) and parent == requests
+                and fnmatch.fnmatchcase(Path(name).name, '*-llm-context-request.json')): return True
+        return bool(config.llm.get('required_context_pass', True) and request_names
                 and parent in (caches, caches + '/local-folder')
-                and re.fullmatch(r'[0-9a-f]{64}\.json', Path(name).name)):
-            selected.add(name)
+                and re.fullmatch(r'[0-9a-f]{64}\.json', Path(name).name))
+    # A tracked eligible input missing from the worktree is not evidence that
+    # the check's universe is complete. Do not silently treat it as absent.
+    if any(candidate(name) for name in snapshot['missing_tracked']):
+        raise PolicyError('methodology tracked input unavailable')
+    selected = set(required) | {name for name in files if candidate(name)}
     for name in directories:
         parent, leaf = str(Path(name).parent), Path(name).name
         if ((parent == events and leaf.endswith('.md') and leaf != 'README.md')
@@ -608,6 +612,7 @@ def guarded_methodology(root, binding, *, context_id, approved_revision, base, h
     if sum(item['size'] for item in selection['inputs']) > 8_000_000 or any(item['size'] > 2_000_000 for item in selection['inputs']):
         raise PolicyError('methodology selection budget exceeded')
     contents = {}
+    attempted = 0
     try:
         current, selected, _, current_config = methodology_selection(root, binding, **args)
         if (current['inventory_sha256'] != inventory_sha256 or
@@ -615,6 +620,7 @@ def guarded_methodology(root, binding, *, context_id, approved_revision, base, h
             raise PolicyError('methodology selection changed')
         for item in selection['inputs']:
             if admit(copy.deepcopy(selection)) is not True: raise PolicyError('methodology admission changed')
+            attempted += 1
             contents[item['path']] = _worktree_bytes(root, item)
         if admit(copy.deepcopy(selection)) is not True: raise PolicyError('methodology admission changed')
         current, selected, _, current_config = methodology_selection(root, binding, **args)
@@ -624,11 +630,14 @@ def guarded_methodology(root, binding, *, context_id, approved_revision, base, h
         result = run_checks(root, reads=_SelectedReads(root, snapshot['physical'], contents), config=config)
     except Exception:
         return {'state': 'partial', 'scope': 'methodology_only', 'selection_sha256': selection_sha256,
-                'source_bodies_read': len(contents), 'bootstrap_may_overlap_selection': True,
+                'source_bodies_validated': len(contents),
+                'source_body_attempts_may_have_read_bytes': attempted,
+                'bootstrap_may_overlap_selection': True,
                 'global_audit': 'not_performed', 'host_admission': 'external_not_verified',
                 'live_observation': 'not_verified', 'bootstrap': 'external_not_verified'}
     return {'state': 'failed' if result['errors'] else 'completed', 'scope': 'methodology_only',
-            'selection_sha256': selection_sha256, 'result': result, 'source_bodies_read': len(contents),
+            'selection_sha256': selection_sha256, 'result': result, 'source_bodies_validated': len(contents),
+            'source_body_attempts_may_have_read_bytes': attempted,
             'ignored_selected': len(set(contents) & set(snapshot['ignored'])),
             'readset': [{'path': path, 'size': len(contents[path]),
                          'sha256': hashlib.sha256(contents[path]).hexdigest()} for path in sorted(contents)],
