@@ -20,11 +20,15 @@ cfg.paths), so localized repos pin their own layout without code changes.
 from __future__ import annotations
 
 import argparse
+import fnmatch
+import hashlib
 import json
 import re
 import sys
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 CODE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CODE_ROOT))
@@ -32,9 +36,22 @@ from scripts._common import ROOT
 
 from wiki_core.traversal import wiki_markdown_files
 from wiki_core.llm.context_pass import read_matching_result
-from wiki_core.config import WikiConfig, load_config
+from wiki_core.config import WikiConfig, config_from_mapping, load_config
 from wiki_core.frontmatter import parse_frontmatter as canonical_parse_frontmatter
 from wiki_core.paths import WikiPaths
+
+
+class _LocalReads:
+    """Legacy reader; the guarded path supplies an admitted reader instead."""
+
+    def exists(self, path): return path.exists()
+    def read_text(self, path, *, errors='strict'): return path.read_text(encoding='utf-8', errors=errors)
+    def glob(self, path, pattern): return sorted(path.glob(pattern))
+    def markdown(self, path, root): return sorted(wiki_markdown_files(path, wiki_root=root))
+
+
+def _reads(value):
+    return value if value is not None else _LocalReads()
 
 # Minimum number of body bytes (outside the frontmatter) for a .md file not to
 # be considered empty/placeholder.
@@ -165,11 +182,12 @@ def body_bytes(text: str) -> int:
     return len(body.strip().encode("utf-8"))
 
 
-def check_page_file(name: str, rel: str) -> dict[str, Any]:
+def check_page_file(name: str, rel: str, reads=None) -> dict[str, Any]:
+    reads = _reads(reads)
     path = ROOT / rel
-    if not path.exists():
+    if not reads.exists(path):
         return {"name": name, "path": rel, "ok": False, "detail": "missing file"}
-    text = path.read_text(encoding="utf-8", errors="replace")
+    text = reads.read_text(path, errors="replace")
     if body_bytes(text) <= MIN_BODY_BYTES:
         return {"name": name, "path": rel, "ok": False, "detail": "empty body/placeholder"}
     fm = parse_frontmatter(text)
@@ -178,11 +196,12 @@ def check_page_file(name: str, rel: str) -> dict[str, Any]:
     return {"name": name, "path": rel, "ok": True}
 
 
-def check_template_file(name: str, rel: str) -> dict[str, Any]:
+def check_template_file(name: str, rel: str, reads=None) -> dict[str, Any]:
+    reads = _reads(reads)
     path = ROOT / rel
-    if not path.exists():
+    if not reads.exists(path):
         return {"name": name, "path": rel, "ok": False, "detail": "missing file"}
-    text = path.read_text(encoding="utf-8", errors="replace")
+    text = reads.read_text(path, errors="replace")
     if body_bytes(text) <= MIN_BODY_BYTES:
         return {"name": name, "path": rel, "ok": False, "detail": "empty body/placeholder"}
     # Templates vary in schema: page templates have page_id; the event template
@@ -191,21 +210,23 @@ def check_template_file(name: str, rel: str) -> dict[str, Any]:
     return {"name": name, "path": rel, "ok": True}
 
 
-def check_support_file(name: str, rel: str) -> dict[str, Any]:
+def check_support_file(name: str, rel: str, reads=None) -> dict[str, Any]:
+    reads = _reads(reads)
     path = ROOT / rel
     return {
         "name": name,
         "path": rel,
-        "ok": path.exists(),
-        **({} if path.exists() else {"detail": "missing file"}),
+        "ok": reads.exists(path),
+        **({} if reads.exists(path) else {"detail": "missing file"}),
     }
 
 
-def check_operation_dashboard(rel: str) -> dict[str, Any]:
+def check_operation_dashboard(rel: str, reads=None) -> dict[str, Any]:
+    reads = _reads(reads)
     path = ROOT / rel
-    if not path.exists():
+    if not reads.exists(path):
         return {"name": "operation_dashboard", "path": rel, "ok": False, "detail": "missing file"}
-    fm = parse_frontmatter(path.read_text(encoding="utf-8", errors="replace"))
+    fm = parse_frontmatter(reads.read_text(path, errors="replace"))
     if str(fm.get("page_type", "")) != "dashboard":
         return {
             "name": "operation_dashboard",
@@ -218,10 +239,11 @@ def check_operation_dashboard(rel: str) -> dict[str, Any]:
     return {"name": "operation_dashboard", "path": rel, "ok": True}
 
 
-def check_ingestion_events(paths: WikiPaths) -> list[dict[str, Any]]:
+def check_ingestion_events(paths: WikiPaths, reads=None) -> list[dict[str, Any]]:
+    reads = _reads(reads)
     event_dir = paths.ingest_events_dir
     events_rel = paths.rel(event_dir)
-    if not event_dir.exists():
+    if not reads.exists(event_dir):
         # FAIL LOUD: the configured events directory must exist; a missing
         # target never silently passes the gate.
         return [
@@ -233,11 +255,11 @@ def check_ingestion_events(paths: WikiPaths) -> list[dict[str, Any]]:
             }
         ]
     results: list[dict[str, Any]] = []
-    for path in sorted(event_dir.glob("*.md")):
+    for path in reads.glob(event_dir, "*.md"):
         if path.name == "README.md":
             continue
         rel = path.relative_to(ROOT).as_posix()
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = reads.read_text(path, errors="replace")
         if any(h in text for h in QUADRANTS_HEADERS):
             results.append({"name": "ingestion_event_quadrants", "path": rel, "ok": True})
         else:
@@ -261,16 +283,17 @@ def check_ingestion_events(paths: WikiPaths) -> list[dict[str, Any]]:
     return results
 
 
-def check_coverage_matrix_sections(rel: str, language: str = "en") -> dict[str, Any]:
+def check_coverage_matrix_sections(rel: str, language: str = "en", reads=None) -> dict[str, Any]:
+    reads = _reads(reads)
     path = ROOT / rel
-    if not path.exists():
+    if not reads.exists(path):
         return {
             "name": "coverage_matrix_sections",
             "path": rel,
             "ok": False,
             "detail": "missing file",
         }
-    low = path.read_text(encoding="utf-8", errors="replace").lower()
+    low = reads.read_text(path, errors="replace").lower()
     mentions = COVERAGE_REQUIRED_MENTIONS_BY_LANG.get(language, COVERAGE_REQUIRED_MENTIONS_BY_LANG["en"])
     missing = [term for term in mentions if term not in low]
     if missing:
@@ -283,15 +306,16 @@ def check_coverage_matrix_sections(rel: str, language: str = "en") -> dict[str, 
     return {"name": "coverage_matrix_sections", "path": rel, "ok": True}
 
 
-def discover_source_ids(paths: WikiPaths) -> list[str]:
+def discover_source_ids(paths: WikiPaths, reads=None) -> list[str]:
     """Discovers source_ids by scanning the versioned derived manifests."""
+    reads = _reads(reads)
     directory = paths.source_manifests
-    if not directory.exists():
+    if not reads.exists(directory):
         return []
     ids: list[str] = []
-    for path in sorted(directory.glob("*.json")):
+    for path in reads.glob(directory, "*.json"):
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            data = json.loads(reads.read_text(path))
         except (ValueError, OSError):
             continue
         source_id = data.get("source_id") if isinstance(data, dict) else None
@@ -307,15 +331,16 @@ PERCEPTIVE_MAP_TYPES = {"relationship_map", "infographic", "moodboard", "media_c
 PERCEPTIVE_TYPES = PERCEPTIVE_JOURNAL_TYPES | PERCEPTIVE_MAP_TYPES
 
 
-def _real_perceptive_pages(paths: WikiPaths) -> list[dict[str, Any]]:
+def _real_perceptive_pages(paths: WikiPaths, reads=None) -> list[dict[str, Any]]:
     """REAL perceptive pages under the memory root: perceptive page_type, status
     not 'template', non-empty body and `perception_policy` marker in the frontmatter."""
+    reads = _reads(reads)
     memory_root = paths.memory_root
     pages: list[dict[str, Any]] = []
-    if not memory_root.exists():
+    if not reads.exists(memory_root):
         return pages
-    for path in sorted(wiki_markdown_files(memory_root, wiki_root=paths.root)):
-        text = path.read_text(encoding="utf-8", errors="replace")
+    for path in reads.markdown(memory_root, paths.root):
+        text = reads.read_text(path, errors="replace")
         fm = parse_frontmatter(text)
         page_type = str(fm.get("page_type", ""))
         if page_type not in PERCEPTIVE_TYPES:
@@ -330,10 +355,10 @@ def _real_perceptive_pages(paths: WikiPaths) -> list[dict[str, Any]]:
     return pages
 
 
-def check_perceptive_usage(paths: WikiPaths) -> list[dict[str, Any]]:
+def check_perceptive_usage(paths: WikiPaths, reads=None) -> list[dict[str, Any]]:
     """Requires real USE of the perceptive layer, not just the presence of templates:
     at least one real journal and at least one real map/infographic."""
-    pages = _real_perceptive_pages(paths)
+    pages = _real_perceptive_pages(paths, reads)
     journals = [p for p in pages if p["page_type"] in PERCEPTIVE_JOURNAL_TYPES]
     maps = [p for p in pages if p["page_type"] in PERCEPTIVE_MAP_TYPES]
     fallback = f"{paths.config.paths['memory_root']}/**"
@@ -354,7 +379,7 @@ def check_perceptive_usage(paths: WikiPaths) -> list[dict[str, Any]]:
     return results
 
 
-def check_llm_context_pass(paths: WikiPaths, config: WikiConfig) -> list[dict[str, Any]]:
+def check_llm_context_pass(paths: WikiPaths, config: WikiConfig, reads=None) -> list[dict[str, Any]]:
     """Portable LLM pass gate.
 
     For each `*-llm-context-request.json` file present in extraction-events, if
@@ -363,13 +388,15 @@ def check_llm_context_pass(paths: WikiPaths, config: WikiConfig) -> list[dict[st
     request files, does NOT fail (clean environment/CI). The existence of a
     `-llm-context-plan.json` file NEVER counts as proof of a pass.
     """
+    guarded = reads is not None
+    reads = _reads(reads)
     if not config.llm.get("required_context_pass", True):
         return []
     req_dir = paths.extraction_events
     cache_dir = paths.llm_cache
-    if not req_dir.exists():
+    if not reads.exists(req_dir):
         return []
-    requests = sorted(req_dir.glob("*-llm-context-request.json"))
+    requests = reads.glob(req_dir, "*-llm-context-request.json")
     if not requests:
         return []
     results: list[dict[str, Any]] = []
@@ -378,9 +405,9 @@ def check_llm_context_pass(paths: WikiPaths, config: WikiConfig) -> list[dict[st
         try:
             if re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', path.name):
                 from wiki_core.llm.context_pass import load_local_request
-                data = load_local_request(paths, path)
+                data = load_local_request(paths, path, read_bytes=reads.read_bytes if guarded else None)
             else:
-                data = json.loads(path.read_text(encoding="utf-8"))
+                data = json.loads(reads.read_text(path))
         except (ValueError, OSError):
             results.append(
                 {
@@ -397,7 +424,8 @@ def check_llm_context_pass(paths: WikiPaths, config: WikiConfig) -> list[dict[st
             pending = [
                 chunk for chunk in chunks
                 if read_matching_result(cache_dir, data, chunk,
-                    root=ROOT if is_local_folder_request(data) else None) is None
+                    root=ROOT if is_local_folder_request(data) else None,
+                    read_text=reads.read_text if guarded else None) is None
             ]
         except (ValueError, OSError):
             results.append({'name': 'llm_context_pending', 'path': rel, 'ok': False,
@@ -417,34 +445,35 @@ def check_llm_context_pass(paths: WikiPaths, config: WikiConfig) -> list[dict[st
     return results
 
 
-def run_checks(root: Path | None = None) -> dict[str, Any]:
+def run_checks(root: Path | None = None, *, reads=None, config=None) -> dict[str, Any]:
     global ROOT
     if root is not None:
         ROOT = root
-    config = load_config(ROOT)
+    if config is None:
+        config = load_config(ROOT)
     paths = WikiPaths(ROOT, config)
 
     checks: list[dict[str, Any]] = []
 
     page_files = required_page_files(config)
     for name, rel in page_files.items():
-        checks.append(check_page_file(name, rel))
+        checks.append(check_page_file(name, rel, reads))
     for name, rel in required_template_files(config, paths).items():
-        checks.append(check_template_file(name, rel))
+        checks.append(check_template_file(name, rel, reads))
     for name, rel in REQUIRED_SUPPORT_FILES.items():
-        checks.append(check_support_file(name, rel))
+        checks.append(check_support_file(name, rel, reads))
 
-    checks.append(check_operation_dashboard(page_files["operation_page"]))
-    checks.extend(check_ingestion_events(paths))
-    checks.append(check_coverage_matrix_sections(page_files["coverage_matrix"], config.language))
-    checks.extend(check_perceptive_usage(paths))
+    checks.append(check_operation_dashboard(page_files["operation_page"], reads))
+    checks.extend(check_ingestion_events(paths, reads))
+    checks.append(check_coverage_matrix_sections(page_files["coverage_matrix"], config.language, reads))
+    checks.extend(check_perceptive_usage(paths, reads))
 
     # Discovered derived artifacts (no absolute path): we only report the
     # discovery for diagnostics, without failing for the absence of a specific
     # source (the environment may be clean).
     # Informational: the derived manifests are gitignored, so a clean clone/CI
     # does not have them. We do not fail for absence; we just report the discovery.
-    source_ids = discover_source_ids(paths)
+    source_ids = discover_source_ids(paths, reads)
     checks.append(
         {
             "name": "source_manifests_present",
@@ -454,16 +483,209 @@ def run_checks(root: Path | None = None) -> dict[str, Any]:
         }
     )
 
-    checks.extend(check_llm_context_pass(paths, config))
+    checks.extend(check_llm_context_pass(paths, config, reads))
 
     errors = [check for check in checks if not check["ok"]]
     return {"checks": checks, "errors": errors, "complete": not errors}
 
 
+class _SelectedReads:
+    """The check can consume only in-memory bytes admitted as one selection."""
+    def __init__(self, root, physical, contents):
+        self.root, self.files, self.directories, self.contents = Path(root), physical['files'], physical['directories'], contents
+
+    def _rel(self, path):
+        try:
+            return Path(path).relative_to(self.root).as_posix()
+        except ValueError:
+            raise RuntimeError('methodology selection unavailable') from None
+
+    def exists(self, path):
+        rel = self._rel(path)
+        return rel == '.' or rel in self.files or rel in self.directories
+
+    def read_bytes(self, path):
+        rel = self._rel(path)
+        if rel not in self.contents:
+            raise RuntimeError('methodology body outside admitted selection')
+        return self.contents[rel]
+
+    def read_text(self, path, *, errors='strict'):
+        return self.read_bytes(path).decode('utf-8', errors=errors)
+
+    def glob(self, path, pattern):
+        rel = self._rel(path)
+        prefix = '' if rel == '.' else rel + '/'
+        return [self.root / name for name in sorted(self.files)
+                if name.startswith(prefix) and '/' not in name[len(prefix):]
+                and fnmatch.fnmatchcase(name[len(prefix):], pattern)]
+
+    def markdown(self, path, root):
+        from wiki_core.traversal import is_protected_artifact
+        rel = self._rel(path)
+        prefix = '' if rel == '.' else rel + '/'
+        return [self.root / name for name in sorted(self.files)
+                if name.startswith(prefix) and name.endswith('.md')
+                and not is_protected_artifact(Path(name))]
+
+
+def methodology_selection(root, binding, *, context_id, approved_revision, base, head,
+                          branch, normative_paths):
+    """The host must admit bootstrap before calling; other bodies stay unopened."""
+    from wiki_core.audit_r1_inventory import inventory, select, _worktree_bytes
+    from wiki_core.context_policy import PolicyError, git_file, safe_path, within
+    from wiki_core.traversal import is_protected_artifact
+    root = Path(root).resolve(strict=True)
+    snapshot = inventory(root, binding, context_id=context_id, approved_revision=approved_revision,
+                         base=base, head=head, branch=branch, normative_paths=normative_paths)
+    # Config is an explicitly host-admitted bootstrap read, never candidate authority.
+    approved_config = git_file(root, approved_revision, 'wiki.config.yaml')
+    config_meta = snapshot['physical']['files'].get('wiki.config.yaml')
+    if config_meta is None or config_meta['size'] > 2_000_000:
+        raise PolicyError('methodology working configuration unavailable')
+    if _worktree_bytes(root, {'path': 'wiki.config.yaml', **config_meta}) != approved_config:
+        raise PolicyError('methodology working configuration differs from approved')
+    try:
+        config = config_from_mapping(yaml.safe_load(approved_config.decode('utf-8')))
+    except (UnicodeError, yaml.YAMLError, ValueError, TypeError, KeyError):
+        raise PolicyError('methodology approved configuration unavailable') from None
+    paths = WikiPaths(root, config)
+    def rel(path):
+        try: return safe_path(path.relative_to(root).as_posix(), allow_root=True)
+        except (TypeError, ValueError) as exc: raise PolicyError('methodology path unavailable') from exc
+    required = {safe_path(item) for item in set(required_page_files(config).values()) |
+                set(required_template_files(config, paths).values())}
+    support = {safe_path(item) for item in REQUIRED_SUPPORT_FILES.values()}
+    files, directories = snapshot['physical']['files'], snapshot['physical']['directories']
+    if not (required | support) <= files.keys():
+        raise PolicyError('methodology required input unavailable')
+    memory, events = rel(paths.memory_root), rel(paths.ingest_events_dir)
+    manifests, requests, caches = rel(paths.source_manifests), rel(paths.extraction_events), rel(paths.llm_cache)
+    request_names = {name for name in files if str(Path(name).parent) == requests
+                     and fnmatch.fnmatchcase(Path(name).name, '*-llm-context-request.json')}
+    selected = set(required)
+    for name in files:
+        parent = str(Path(name).parent)
+        if within(name, memory) and name.endswith('.md') and not is_protected_artifact(Path(name)):
+            selected.add(name)
+        if parent == events and name.endswith('.md') and Path(name).name != 'README.md': selected.add(name)
+        if parent == manifests and name.endswith('.json'): selected.add(name)
+        if config.llm.get('required_context_pass', True) and name in request_names: selected.add(name)
+        if (config.llm.get('required_context_pass', True) and request_names
+                and parent in (caches, caches + '/local-folder')
+                and re.fullmatch(r'[0-9a-f]{64}\.json', Path(name).name)):
+            selected.add(name)
+    for name in directories:
+        parent, leaf = str(Path(name).parent), Path(name).name
+        if ((parent == events and leaf.endswith('.md') and leaf != 'README.md')
+                or (parent == manifests and leaf.endswith('.json'))
+                or (config.llm.get('required_context_pass', True) and parent == requests
+                    and fnmatch.fnmatchcase(leaf, '*-llm-context-request.json'))
+                or (config.llm.get('required_context_pass', True) and request_names
+                    and parent in (caches, caches + '/local-folder')
+                    and re.fullmatch(r'[0-9a-f]{64}\.json', leaf))):
+            raise PolicyError('methodology input type unavailable')
+    request = [{'kind': 'worktree', 'path': name} for name in sorted(selected)]
+    selection = select(snapshot, request)
+    return snapshot, selection, config, approved_config
+
+
+def guarded_methodology(root, binding, *, context_id, approved_revision, base, head, branch,
+                        normative_paths, inventory_sha256, selection_sha256, admit):
+    """Run only after external bootstrap/whole-selection admission and isolation."""
+    import copy
+    from wiki_core.audit_r1_inventory import _worktree_bytes
+    from wiki_core.context_policy import PolicyError
+    if not callable(admit): raise PolicyError('methodology admission unavailable')
+    args = dict(context_id=context_id, approved_revision=approved_revision, base=base,
+                head=head, branch=branch, normative_paths=normative_paths)
+    snapshot, selection, config, approved_config = methodology_selection(root, binding, **args)
+    if (snapshot['inventory_sha256'] != inventory_sha256 or
+            selection['selection_sha256'] != selection_sha256):
+        raise PolicyError('methodology selection changed')
+    if admit(copy.deepcopy(selection)) is not True: raise PolicyError('methodology admission unavailable')
+    root = Path(root).resolve(strict=True)
+    if sum(item['size'] for item in selection['inputs']) > 8_000_000 or any(item['size'] > 2_000_000 for item in selection['inputs']):
+        raise PolicyError('methodology selection budget exceeded')
+    contents = {}
+    try:
+        current, selected, _, current_config = methodology_selection(root, binding, **args)
+        if (current['inventory_sha256'] != inventory_sha256 or
+                selected['selection_sha256'] != selection_sha256 or current_config != approved_config):
+            raise PolicyError('methodology selection changed')
+        for item in selection['inputs']:
+            if admit(copy.deepcopy(selection)) is not True: raise PolicyError('methodology admission changed')
+            contents[item['path']] = _worktree_bytes(root, item)
+        if admit(copy.deepcopy(selection)) is not True: raise PolicyError('methodology admission changed')
+        current, selected, _, current_config = methodology_selection(root, binding, **args)
+        if (current['inventory_sha256'] != inventory_sha256 or
+                selected['selection_sha256'] != selection_sha256 or current_config != approved_config):
+            raise PolicyError('methodology selection changed')
+        result = run_checks(root, reads=_SelectedReads(root, snapshot['physical'], contents), config=config)
+    except Exception:
+        return {'state': 'partial', 'scope': 'methodology_only', 'selection_sha256': selection_sha256,
+                'source_bodies_read': len(contents), 'bootstrap_may_overlap_selection': True,
+                'global_audit': 'not_performed', 'host_admission': 'external_not_verified',
+                'live_observation': 'not_verified', 'bootstrap': 'external_not_verified'}
+    return {'state': 'failed' if result['errors'] else 'completed', 'scope': 'methodology_only',
+            'selection_sha256': selection_sha256, 'result': result, 'source_bodies_read': len(contents),
+            'ignored_selected': len(set(contents) & set(snapshot['ignored'])),
+            'readset': [{'path': path, 'size': len(contents[path]),
+                         'sha256': hashlib.sha256(contents[path]).hexdigest()} for path in sorted(contents)],
+            'bootstrap_may_overlap_selection': True, 'global_audit': 'not_performed',
+            'host_admission': 'external_not_verified', 'live_observation': 'not_verified',
+            'bootstrap': 'external_not_verified'}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="returns code != 0 if any check has ok=false")
+    parser.add_argument('--context-guard', help='explicit owner context; host admission remains external')
+    parser.add_argument('--context-policy-revision', help='approved full Git revision')
+    parser.add_argument('--context-base', help='approved base full Git revision')
+    parser.add_argument('--context-head', help='candidate head full Git revision')
+    parser.add_argument('--context-branch', help='candidate wiki branch')
+    parser.add_argument('--context-normative', action='append', default=[], help='host-declared normative path; include wiki.config.yaml')
+    parser.add_argument('--context-inventory-sha256', help='externally admitted inventory digest')
+    parser.add_argument('--context-selection-sha256', help='externally admitted selection digest')
+    parser.add_argument('--context-plan', action='store_true', help='prepare a metadata selection, not a check')
     args = parser.parse_args()
+    options = (args.context_guard, args.context_policy_revision, args.context_base, args.context_head,
+               args.context_branch, args.context_normative, args.context_inventory_sha256,
+               args.context_selection_sha256, args.context_plan)
+    if any(options):
+        if (not args.check or not all((args.context_guard, args.context_policy_revision, args.context_base,
+                                      args.context_head, args.context_branch, args.context_normative))):
+            parser.error('context guard requires --check, revisions, branch and normative paths')
+        if args.context_plan and (args.context_inventory_sha256 or args.context_selection_sha256):
+            parser.error('context plan does not accept admitted digests')
+        if not args.context_plan and not all((args.context_inventory_sha256, args.context_selection_sha256)):
+            parser.error('context execution requires externally admitted inventory and selection digests')
+        from wiki_core.coordination_context import CoordinationBinding
+        try:
+            binding = CoordinationBinding.from_environment()
+            params = dict(context_id=args.context_guard, approved_revision=args.context_policy_revision,
+                          base=args.context_base, head=args.context_head, branch=args.context_branch,
+                          normative_paths=args.context_normative)
+            if args.context_plan:
+                snapshot, selection, _, _ = methodology_selection(ROOT, binding, **params)
+                output = {'state': 'selection_only', 'scope': 'methodology_only',
+                          'inventory_sha256': snapshot['inventory_sha256'], 'selection': selection,
+                          'bootstrap': 'external_not_verified', 'global_audit': 'not_performed'}
+                print(json.dumps(output, ensure_ascii=False, indent=2))
+                return 0
+            # As in the existing context-bound secrets CLI, the host must
+            # independently admit this exact selection. A matching digest binds
+            # those bytes but does not authenticate that admission or actor.
+            output = guarded_methodology(ROOT, binding, **params,
+                inventory_sha256=args.context_inventory_sha256, selection_sha256=args.context_selection_sha256,
+                admit=lambda selection: selection['selection_sha256'] == args.context_selection_sha256)
+        except (ValueError, OSError, RuntimeError, TypeError, KeyError):
+            print(json.dumps({'state': 'refused', 'scope': 'methodology_only',
+                              'global_audit': 'not_performed', 'bootstrap': 'external_not_verified'}))
+            return 1
+        print(json.dumps(output, ensure_ascii=False, indent=2))
+        return 0 if output['state'] == 'completed' else 1
     result = run_checks()
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 1 if args.check and result["errors"] else 0
