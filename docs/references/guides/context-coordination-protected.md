@@ -263,6 +263,13 @@ they are unchanged or deleted by the proposal, and are not proposal scans.
 Suffix and UTF-8 checks do not prove that arbitrary bytes are semantically text.
 The output identifies `proposal_changed_git_blobs` and counts, with
 `global_audit`, `preflight`, `normative_review`, and `merge` all not performed.
+For a proposal whose only changed Git blob is `AGENTS.md`, this same scoped
+secrets check can scan that one candidate when the acting context is permitted
+to read it under the approved policy and the host independently admits the
+selection and bootstrap. If the approved policy denies that read, the candidate
+cannot grant it and the check refuses before opening the candidate body. This
+does not authorize normative review or replace any other required gate; an
+independently authorized reviewer and applicable process remain necessary.
 Apart from those bootstrap bodies, whose external authority this command does
 not verify, unchanged and prior deleted bodies, intermediate commit history, working-tree proposal bodies,
 staged/untracked/ignored files and all other audit checks are not inspected.
