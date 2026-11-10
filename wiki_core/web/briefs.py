@@ -703,7 +703,9 @@ def compose_return_brief(
     if parent_job.get("kind") == "source_review":
         return None  # Deterministic collection never grants a generic model fallback.
     branch = parent_job.get("branch")
-    role = parent_job.get("role") or "executor"
+    role = parent_job.get("role", "executor")  # Only a missing field is legacy.
+    if not isinstance(role, str) or role not in {"executor", "coordinator"}:
+        raise ValueError("unknown brief role")
     if not branch and not (role == "coordinator" and parent_job.get("job_id")):
         return None
     spec = {

@@ -133,6 +133,21 @@ def test_executor_open_and_return_distinguish_sender_role_from_recipient(tmp_pat
         assert 'Only explicit direction from the scope coordinator or owner' in brief['text']
 
 
+def test_return_role_defaults_only_when_field_absent(tmp_path: Path) -> None:
+    import pytest
+    from wiki_core.web.briefs import compose_return_brief
+    config = _repo(tmp_path)
+    snapshot = _snapshot(tmp_path, config)
+    for role in (None, False, '', ['executor'], 'unexpected'):
+        with pytest.raises(ValueError, match='unknown brief role'):
+            compose_return_brief(tmp_path, config, snapshot,
+                parent_job={'job_id': 'synthetic', 'branch': 'wiki/synthetic', 'role': role},
+                feedback='synthetic feedback')
+    result = compose_return_brief(tmp_path, config, snapshot,
+        parent_job={'job_id': 'synthetic', 'branch': 'wiki/synthetic'}, feedback='legacy')
+    assert result is not None and result['spec']['role'] == 'executor'
+
+
 def test_compose_has_five_sections_and_provenance(tmp_path: Path) -> None:
     config = _repo(tmp_path)
     snapshot = _snapshot(tmp_path, config)

@@ -2317,9 +2317,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             if parent.get("kind") == "source_review":
                 self._send_json({"ok":False,"error":"source_review_requires_qualified_semantic_reader"}, status=HTTPStatus.BAD_REQUEST)
                 return
-            role = parent.get("role")
-            if role is None:  # Legacy records have no role.
-                role = "executor"
+            role = parent.get("role", "executor")  # Only a missing field is legacy.
             if not isinstance(role, str) or role not in ("executor", "coordinator"):
                 self._send_json({"ok": False, "error": "invalid_brief_role"}, status=HTTPStatus.BAD_REQUEST)
                 return
