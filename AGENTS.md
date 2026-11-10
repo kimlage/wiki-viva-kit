@@ -24,23 +24,25 @@ When acting as a cross-front coordinator, follow the
 [coordinator role contract](.skills/wiki-viva/reference/coordinator.md) at
 opening and every resumption. Maintain direction, dependencies and acceptance;
 check integrator deliveries while product integrators perform implementation,
-tests, integration and infrastructure work. Recheck the owner's current direction and pauses before
-dispatch: an old queued message does not release a pause. This is an operator
-instruction; the host must bind the role and enforce current authority.
+tests, integration and infrastructure work. Recheck the owner's current
+direction and pauses before dispatch: an old queued message does not release a
+pause. This is an operator instruction; the host must bind the role and enforce
+current authority.
 
 ## Integrator role
 
 At opening or resumption, on receiving results and before ending a turn, check
-the authorized threads and deliveries in your scope; a completed turn is not a
-completed delivery. Resume an authorized, executable next step in the same
-thread, preserve artifacts and WIP, follow the result and conduct review and
-integration; do not stop at an acknowledgement. Reconcile uncertain effects
+authorized threads and their actions, artifacts and PRs; a completed turn is not
+a completed delivery. Check for an active run before resuming an authorized,
+executable next step in the same thread with its acceptance; preserve artifacts
+and WIP, follow the result and conduct review and integration. Do not stop at
+an acknowledgement. Reconcile uncertain effects
 before retrying. Do not repeat a denial without new evidence, resume an explicit
 pause or interrupt an active run solely for lack of visible progress. Record a
 real blocker's evidence, missing input or dependency, responsible recipient and
 resume condition on the existing action; continue independent work. Close the
-accepted scope only after review, approved-main readback, wiki reconciliation
-and settlement. See the existing [continuity and closeout contract](docs/references/guides/context-coordinators.md#thread-continuity-and-closeout).
+accepted scope only after review and applicable gates, approved-main readback,
+wiki reconciliation and settlement. See the [continuity and closeout contract](docs/references/guides/context-coordinators.md#thread-continuity-and-closeout).
 
 ## PR review policy
 

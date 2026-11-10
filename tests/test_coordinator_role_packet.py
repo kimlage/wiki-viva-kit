@@ -130,9 +130,10 @@ def test_integrator_receives_approved_agents_and_override_has_precedence(case):
     mandatory = [item for item in packet['inputs'] if item['kind'] == 'mandatory']
     agents = next(item for item in mandatory if item['ref'] == 'AGENTS.md')
     assert agents['revision'] == approved and agents['text'] == approved_text
-    assert 'a completed turn is not a' in agents['text']
-    assert 'do not stop at an acknowledgement' in agents['text']
-    assert 'wiki reconciliation' in agents['text']
+    normalized = ' '.join(agents['text'].split()).lower()
+    assert 'a completed turn is not a completed delivery' in normalized
+    assert 'do not stop at an acknowledgement' in normalized
+    assert 'wiki reconciliation' in normalized
 
     # An approved, nonempty override wins in that folder; neither the kit's
     # normal file nor a candidate worktree edit may be treated as selected.
