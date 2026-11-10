@@ -1,6 +1,7 @@
 """Synthetic, host-bound secret-gate checks; no consumer data or credentials."""
 from __future__ import annotations
 
+import builtins
 import hashlib
 import json
 import os
@@ -157,6 +158,57 @@ def test_narrow_route_refuses_global_other_checks_and_public_export(case, monkey
     assert invoke(case, monkeypatch, *extra) != 0
     assert not opened
     assert '0 error(s)' not in capsys.readouterr().out.lower()
+
+
+def test_guarded_cli_refuses_all_unqualified_legacy_checks_before_bootstrap(case, monkeypatch, capsys):
+    """The guarded route never silently falls back to real legacy readers."""
+    root = case['root']
+    (root / '.gitignore').write_text('ignored/\n')
+    git(root, 'add', '.gitignore')
+    git(root, 'commit', '-qm', 'synthetic intermediate message')
+    (root / 'public.md').write_text('synthetic staged input\n')
+    git(root, 'add', 'public.md')
+    (root / 'public.md').write_text('synthetic unstaged input\n')
+    (root / 'ignored').mkdir()
+    (root / 'ignored' / 'sample.txt').write_text('synthetic ignored input\n')
+
+    def unexpected(*_args, **_kwargs):
+        pytest.fail('unqualified check reached bootstrap or target content')
+
+    original_open = Path.open
+    def guarded_open(path, *args, **kwargs):
+        if path.is_relative_to(root):
+            unexpected()
+        return original_open(path, *args, **kwargs)
+
+    def guarded_file_open(original):
+        def invoke(file, *args, **kwargs):
+            if isinstance(file, (str, bytes, os.PathLike)):
+                path = Path(os.fsdecode(file))
+                if path.is_absolute() and path.is_relative_to(root):
+                    unexpected()
+            return original(file, *args, **kwargs)
+        return invoke
+
+    monkeypatch.setattr(Path, 'open', guarded_open)
+    monkeypatch.setattr(builtins, 'open', guarded_file_open(builtins.open))
+    monkeypatch.setattr(os, 'open', guarded_file_open(os.open))
+    monkeypatch.setattr(audit, 'load_config', unexpected)
+    monkeypatch.setattr(audit, '_audit_git_inventory', unexpected)
+    monkeypatch.setattr(audit, '_context_bound_audit_inventory', unexpected)
+    monkeypatch.setattr(audit, '_audit_read_text', unexpected)
+    monkeypatch.setattr(audit, '_audit_read_bytes', unexpected)
+    monkeypatch.setattr(subprocess, 'run', unexpected)
+    monkeypatch.setattr(subprocess, 'check_output', unexpected)
+    monkeypatch.setattr(subprocess, 'Popen', unexpected)
+    checks = [name for name in audit.CHECK_NAMES if name != 'secrets']
+    assert 'action_state_transitions' in checks and 'source_lifecycle_transitions' in checks
+    for args in [(), *(('--only', name) for name in checks),
+                 ('--only', 'secrets,action_state_transitions')]:
+        assert invoke(case, monkeypatch, *args) != 0
+        output = capsys.readouterr().out.lower()
+        assert 'coverage unavailable' in output and 'not completed' in output
+        assert '0 error(s)' not in output
 
 
 def test_other_owner_not_inferred_from_root_context(case, monkeypatch, capsys):
