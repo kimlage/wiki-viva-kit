@@ -130,12 +130,13 @@ python3 scripts/wiki_check_methodology_coverage.py --check   # when methodology 
 python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_operational_pass.py --check
-python3 -m pytest tests/ -q
 python3 scripts/wiki_pr_summary.py                           # paste into the PR
 ```
 
 Canonical memory changes go on a `wiki/<theme>` branch; the PR review follows
-[AGENTS.md](../../../AGENTS.md). Consumers retain their own review policy.
+[AGENTS.md](../../../AGENTS.md). Select additional local tests for the actual
+change as specified there; normal public CI runs the full suites. Consumers
+retain their own review policy.
 Generic checks do not inspect protected source caches; inspect the bound
 request, results and event through the applicable protected stages as well.
 Gate semantics and privacy: [gates-and-privacy.md](gates-and-privacy.md).
