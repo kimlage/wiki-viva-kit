@@ -599,11 +599,20 @@ def test_coordinator_open_and_return_refuse_before_snapshot(authorized_server: _
     status, body = server.post('/api/briefs', {'spec': {'role': 'coordinator'}})
     assert status == 400
     assert body['ok'] is False and body['error'] == 'coordinator_requires_protected_host'
+    for role in ('unexpected', None, ['executor']):
+        status, body = server.post('/api/briefs', {'spec': {'role': role}})
+        assert status == 400
+        assert body['ok'] is False and body['error'] == 'invalid_brief_role'
     monkeypatch.setattr(server.server.jobs, 'get', lambda job_id: {
         'job_id': job_id, 'role': 'coordinator', 'branch': 'wiki/synthetic'})
     status, body = server.post('/api/codex/jobs/synthetic/return', {'feedback': 'older request'})
     assert status == 400
     assert body['ok'] is False and body['error'] == 'coordinator_requires_protected_host'
+    monkeypatch.setattr(server.server.jobs, 'get', lambda job_id: {
+        'job_id': job_id, 'role': 'unexpected', 'branch': 'wiki/synthetic'})
+    status, body = server.post('/api/codex/jobs/synthetic/return', {'feedback': 'older request'})
+    assert status == 400
+    assert body['ok'] is False and body['error'] == 'invalid_brief_role'
 
 
 def test_unknown_brief_is_404(server: _Server) -> None:

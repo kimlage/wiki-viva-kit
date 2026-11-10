@@ -2240,10 +2240,15 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         store = BriefStore(self.server.root, self.server.config)
         if path == "/api/briefs":
             spec = payload.get("spec", payload)
-            if isinstance(spec, dict) and spec.get("role") == "coordinator":
-                self._send_json({"ok": False, "error": "coordinator_requires_protected_host"},
-                                status=HTTPStatus.BAD_REQUEST)
-                return
+            if isinstance(spec, dict):
+                role = spec.get("role", "executor")
+                if not isinstance(role, str) or role not in ("executor", "coordinator"):
+                    self._send_json({"ok": False, "error": "invalid_brief_role"}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                if role == "coordinator":
+                    self._send_json({"ok": False, "error": "coordinator_requires_protected_host"},
+                                    status=HTTPStatus.BAD_REQUEST)
+                    return
             record = compose_and_save(
                 self.server.root, self.server.config, self.server.snapshot_payloads(), spec=spec
             )
@@ -2312,7 +2317,13 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             if parent.get("kind") == "source_review":
                 self._send_json({"ok":False,"error":"source_review_requires_qualified_semantic_reader"}, status=HTTPStatus.BAD_REQUEST)
                 return
-            if parent.get("role") == "coordinator":
+            role = parent.get("role")
+            if role is None:  # Legacy records have no role.
+                role = "executor"
+            if not isinstance(role, str) or role not in ("executor", "coordinator"):
+                self._send_json({"ok": False, "error": "invalid_brief_role"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            if role == "coordinator":
                 self._send_json({"ok": False, "error": "coordinator_requires_protected_host"},
                                 status=HTTPStatus.BAD_REQUEST)
                 return
