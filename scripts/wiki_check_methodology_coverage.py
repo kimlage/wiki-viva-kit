@@ -574,9 +574,10 @@ def methodology_selection(root, binding, *, context_id, approved_revision, base,
         return bool(config.llm.get('required_context_pass', True) and request_names
                 and parent in (caches, caches + '/local-folder')
                 and re.fullmatch(r'[0-9a-f]{64}\.json', Path(name).name))
-    # A tracked eligible input missing from the worktree is not evidence that
-    # the check's universe is complete. Do not silently treat it as absent.
-    if any(candidate(name) for name in snapshot['missing_tracked']):
+    # Check both the index and HEAD: a staged deletion is absent from the index
+    # as well as the worktree, but may still be a required input of the check.
+    absent = set(snapshot['missing_tracked']) | (set(snapshot['trees'][head]) - files.keys())
+    if any(candidate(name) for name in absent):
         raise PolicyError('methodology tracked input unavailable')
     selected = set(required) | {name for name in files if candidate(name)}
     for name in directories:

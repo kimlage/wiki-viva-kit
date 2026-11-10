@@ -110,15 +110,18 @@ def test_unadmitted_selection_refuses_before_target_bodies(make_repo, monkeypatc
         run(root, binding, args, hashes, admit=lambda _: False)
 
 
-def test_missing_tracked_request_refuses_before_target_bodies(make_repo, monkeypatch):
+@pytest.mark.parametrize('staged_delete', [False, True])
+def test_missing_tracked_request_refuses_before_target_bodies(make_repo, monkeypatch, staged_delete):
     root, binding, args = make_repo()
     request = root / 'data/derived/wiki/extraction-events/fake-llm-context-request.json'
     request.parent.mkdir(parents=True, exist_ok=True)
-    request.write_text('{"chunks": []}')
+    request.write_text(json.dumps({'chunks': [{'cache_key': 'a' * 64}]}))
     git(root, 'add', '-f', str(request.relative_to(root)))
     git(root, 'commit', '-qm', 'synthetic request')
     args['head'] = git(root, 'rev-parse', 'HEAD')
     request.unlink()
+    if staged_delete:
+        git(root, 'rm', '-f', str(request.relative_to(root)))
     no_target_reads(monkeypatch)
     with pytest.raises(PolicyError, match='tracked input unavailable'):
         planned(root, binding, args)

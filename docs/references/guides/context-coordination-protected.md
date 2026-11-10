@@ -217,7 +217,8 @@ files. It may therefore refuse a denied cache even if a later request would not
 use it. After admission, all selected bodies are read, including conservative
 candidates; the result lists their paths, byte counts and SHA-256 digests. The
 host must authorize this result channel too. Required missing files, missing
-tracked eligible inputs, denied candidates, stale selections and unsupported
+eligible inputs present in HEAD or the index but missing from the worktree,
+denied candidates, stale selections and unsupported
 inventory entries fail closed. A partial result distinguishes bodies fully read
 and validated from attempted reads that may have accessed bytes even if validation
 failed. Bootstrap reads are reported separately and can overlap the selection.
@@ -227,6 +228,7 @@ nested repositories and mount crossings even outside this check's inputs.
 Selection metadata and denied-path presence must already be authorized to the
 operator. Synthetic Python instrumentation is not system-wide I/O observation;
 host isolation, live observation, termination and cleanup remain external.
+The HEAD/index metadata check is not coverage of historical or index bodies.
 
 ## Legacy lifecycle history selection
 
