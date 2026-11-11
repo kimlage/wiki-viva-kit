@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Synthetic ``codex`` CLI for tests — emulates ``codex exec - --json -o final``.
+"""Synthetic ``codex`` CLI for tests — emulates ``codex exec - --json --output-last-message final``.
 
 It reads the brief from stdin, streams a few canned JSONL events to stdout,
 edits a file inside ``--cd`` (so the runner sees a real changeset), and writes a
-final message to the ``-o`` path. Behaviour is tunable via env vars:
+final message to the ``--output-last-message`` path. Behaviour is tunable via env vars:
 
 * CODEX_SHIM_TARGET  — repo-relative file to append a marker line to
                        (default: the first ``memories/**/*.md`` found).
@@ -34,7 +34,7 @@ def main() -> int:
     for i, arg in enumerate(args):
         if arg == "--cd" and i + 1 < len(args):
             cd = Path(args[i + 1])
-        if arg == "-o" and i + 1 < len(args):
+        if arg == "--output-last-message" and i + 1 < len(args):
             final_path = Path(args[i + 1])
 
     brief = sys.stdin.read()

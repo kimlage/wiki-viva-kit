@@ -4,6 +4,14 @@ Local-first web cockpit for Wiki Viva. The 3D scene is the primary navigation
 surface: one continuous knowledge world where drill level is camera altitude
 bound to the URL and reading happens inside the world.
 
+The optional Codex job runner requires a CLI supporting `exec`, `--cd`,
+`--sandbox workspace-write`, `--json`, and `--output-last-message`. It uses
+the long output option because the short alias is absent in some versions,
+including the reported 0.41.0. This is a capability contract, not a guarantee
+that every release in a version range supports all flags; check `codex exec
+--help` for the installed version. An incompatible CLI exits with a failed
+job; the runner does not currently perform a preflight compatibility probe.
+
 ## Source-management workspace
 
 The source manager is a standalone 2D application surface. Open
