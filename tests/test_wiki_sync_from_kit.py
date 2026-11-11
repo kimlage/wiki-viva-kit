@@ -468,6 +468,38 @@ def test_unmanaged_ignored_collision_is_preserved_or_identical_noop(tmp_path: Pa
     assert target.read_text() == 'v1\n' and target.stat().st_ino == before_inode
 
 
+def test_committed_cockpit_config_collision_and_followup_b0(tmp_path: Path) -> None:
+    consumer = _repo(tmp_path / "consumer")
+    relative = "apps/wiki-cockpit/public/wiki-cockpit.config.json"
+    kit_config = ROOT / relative
+    target = consumer / relative
+    target.parent.mkdir(parents=True)
+    local_config = '{"mode":"local_operator","api_base":"/api"}\n'
+    target.write_text(local_config)
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "consumer configuration")
+    assert not _git(consumer, "status", "--porcelain")
+    for args in (("--dry-run",), ()):
+        result = _run_default(ROOT, consumer, *args)
+        assert result.returncode != 0
+        assert f"unmanaged consumer file conflicts: {relative}" in result.stderr
+        assert target.read_text() == local_config
+        assert not (consumer / "kit.lock").exists()
+
+    # After the owner resolves the collision explicitly, adoption is stable.
+    target.write_bytes(kit_config.read_bytes())
+    _git(consumer, "add", relative)
+    _git(consumer, "commit", "-qm", "resolve synthetic collision")
+    applied = _run_default(ROOT, consumer)
+    assert applied.returncode == 0, applied.stderr
+    followup = _run_default(ROOT, consumer, "--dry-run", "--json")
+    assert followup.returncode == 0, followup.stderr
+    plan = json.loads(followup.stdout)
+    assert plan["c1"]["add"] == plan["c1"]["change"] == []
+    assert plan["c1"]["remove_previously_managed"] == []
+    assert target.read_bytes() == kit_config.read_bytes()
+
+
 def test_c1_replacement_preserves_ignored_hardlink(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     (consumer / '.gitignore').write_text('local-copy.txt\n')
