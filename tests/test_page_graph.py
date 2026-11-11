@@ -116,10 +116,19 @@ def test_selected_graph_refuses_link_crossing_root_without_stat(tmp_path, monkey
     ('[X](dir(a)/../../../out.md)', 'crosses repository boundary'),
     ('[X](%2e%2e/%2e%2e/out.md)', 'crosses repository boundary'),
     ('[X](//[bad/../../out.md)', 'destination invalid'),
+    ('[X](//host:bad/target.md)', 'destination invalid'),
+    ('[X](//host:65536/target.md)', 'destination invalid'),
+    ('[X](//host:80/target.md)', 'link coverage unavailable'),
     ('[X](ok/%00/../target.md)', 'destination invalid'),
     ('[X](file%00.md)', 'destination invalid'),
+    ('[X](%09target.md)', 'destination invalid'),
+    ('[X](target.md%0a)', 'destination invalid'),
+    ('[X](target.md#%00)', 'destination invalid'),
     ('[X](<inside.md>)', 'link coverage unavailable'),
     ('[X][ref]\n\n[ref]: inside.md', 'link coverage unavailable'),
+    ('`[X](target.md)`', 'link coverage unavailable'),
+    ('<!-- [X](target.md) -->', 'link coverage unavailable'),
+    ('![outer ![inner][r]](target.md) [x](target.md)\n\n[r]: ../../out.md', 'crosses repository boundary'),
 ])
 def test_selected_graph_refuses_ambiguous_or_invalid_links(tmp_path, monkeypatch, markup, reason):
     name = 'memories/index.md'

@@ -121,11 +121,20 @@ def is_context_instruction(rel: str, memory_root: str, known_paths: set[str]) ->
 def _is_external(href: str, *, strict: bool = False) -> bool:
     try:
         parsed = urlparse(href)
+        if strict and parsed.netloc:
+            # Accessing .port performs validation that urlparse alone omits.
+            _port = parsed.port
+            if not parsed.hostname or parsed.netloc.rsplit('@', 1)[-1].endswith(':'):
+                raise ValueError('invalid authority')
     except ValueError:
         # Invalid URL authorities are never local page dependencies.
         if strict:
             raise RuntimeError('graph link destination invalid') from None
         return True
+    if strict and parsed.netloc and not parsed.scheme:
+        # Legacy treats protocol-relative destinations as repository paths;
+        # refusing avoids presenting that interpretation as a qualified edge.
+        raise RuntimeError('graph link coverage unavailable')
     return bool(parsed.scheme) or href.startswith("#") or href.startswith("mailto:")
 
 
@@ -215,9 +224,10 @@ def _list_values(value: Any) -> tuple[str, ...]:
 
 
 def _path_from_link(root: Path, source_rel: str, href: str, *, lexical: bool = False) -> str | None:
-    href = unquote(href.split("#", 1)[0]).strip()
-    if lexical and any(ord(character) < 32 or ord(character) == 127 for character in href):
+    decoded = unquote(href)
+    if lexical and any(ord(character) < 32 or ord(character) == 127 for character in decoded):
         raise RuntimeError('graph link destination invalid')
+    href = unquote(href.split("#", 1)[0]).strip()
     if not href or _is_external(href, strict=lexical):
         return None
     if lexical:
@@ -253,11 +263,13 @@ def _markdown_body_links(root: Path, source_rel: str, text: str, *, lexical: boo
     parsed_targets: set[str] = set()
     if lexical:
         from markdown_it import MarkdownIt
-        # Check parsed destinations as well as the legacy regex. If CommonMark
-        # sees an edge that the existing graph misses, refusing avoids a false
-        # claim of equivalent graph coverage without changing legacy semantics.
+        # Check all parsed descendants against the legacy regex. Any mismatch
+        # refuses coverage rather than silently changing graph semantics.
         for token in MarkdownIt('commonmark').parse(text):
-            for child in token.children or ():
+            pending = list(token.children or ())
+            while pending:
+                child = pending.pop()
+                pending.extend(child.children or ())
                 if child.type not in ('link_open', 'image'):
                     continue
                 href = child.attrGet('href' if child.type == 'link_open' else 'src') or ''
@@ -268,7 +280,7 @@ def _markdown_body_links(root: Path, source_rel: str, text: str, *, lexical: boo
         rel = _path_from_link(root, source_rel, match.group(1), lexical=lexical)
         if rel:
             out.add(rel)
-    if parsed_targets - out:
+    if lexical and parsed_targets != out:
         raise RuntimeError('graph Markdown link coverage unavailable')
     return tuple(sorted(out))
 
