@@ -44,3 +44,13 @@ def test_localized_headings_do_not_waive_missing_or_other_page_requirements():
     assert any('Quadrants' in error for error in event_errors)
     other_errors = validate_shape(ROOT, 'example.md', {'page_type': 'claim'}, text, shape)
     assert any('Source' in error for error in other_errors)
+
+
+@pytest.mark.parametrize(('sections', 'text', 'missing'), [
+    (['Source', 'Fonte'], '## Fonte\n', 'Source'),
+    (['Quadrants', 'Cuadrantes'], '## Cuadrantes\n', 'Quadrants'),
+])
+def test_explicit_custom_shape_requirements_are_not_merged(sections, text, missing):
+    errors = validate_shape(ROOT, 'example.md', {'page_type': 'ingestion_event'}, text,
+                            {'required_sections': sections})
+    assert any(f'`{missing}`' in error for error in errors)
