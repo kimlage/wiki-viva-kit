@@ -128,15 +128,15 @@ its scope. The responsible actor completes integration through the same wiki
 process. Track the slice's delivery separately from the canonical action's
 closure, and keep any pending consolidation visible on that action.
 
-For each work item, record the expected result and verifiable acceptance
-criteria in its existing brief or action. The executor returns evidence and
-remaining work against those criteria. An independent reviewer compares each
-criterion with the evidence and records findings and their resolution. The
-integrator checks the review, applicable validations, approved-main readback
-and reconciliation in the wiki; the coordinator checks the combined state of
-the fronts. A partial merge or a sent message does not complete the front or
-resolve a dependency. Keep pending or blocked scope visible and unsettled;
-the post-turn observer checks the effective state as described below.
+Each delivery uses a short brief in the existing action or thread: expected
+result, verifiable acceptance criteria, current state or blocker, and the next
+responsible actor. Reference common rules instead of copying them into the
+brief. The executor returns evidence and remaining work against those criteria;
+an independent reviewer compares each criterion with the evidence and records
+findings and their resolution. The integrator checks review, applicable
+validations, approved-main readback and wiki reconciliation. The coordinator
+correlates the states and evidence across fronts and reconciles discrepancies;
+a partial merge or sent message alone does not resolve a dependency.
 
 ## Thread continuity and closeout
 
