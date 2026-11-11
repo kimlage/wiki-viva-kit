@@ -44,6 +44,7 @@ from wiki_core.frontmatter import parse_frontmatter as canonical_parse_frontmatt
 from wiki_core.frontmatter import parse_frontmatter_flat_with_errors
 from wiki_core.gate import STATES as GATE_STATES
 from wiki_core.graph import build_page_graph, compute_impact, min_outbound_violations, orphan_pages, unreachable_pages
+from wiki_core.graph.page_graph import is_context_instruction
 from wiki_core.page_types import (
     PAGE_TYPES_SCHEMA_VERSION,
     load_page_type_registry,
@@ -1839,7 +1840,10 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
     # Direct callers also need the selected layout, without reading the
     # worktree configuration as a module-import side effect.
     build_local_path_regexes(config)
-    for rel in link_audit_files(config):
+    files = link_audit_files(config)
+    known_paths = set(files)
+    for rel in files:
+        instruction = is_context_instruction(rel, memory_prefix(config), known_paths)
         path = ROOT / rel
         text = _audit_read_text(path, encoding="utf-8", errors="replace")
         for lineno, line in body_lines_without_frontmatter(text):
@@ -1850,6 +1854,8 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
 
             for match in INLINE_CODE_LOCAL_PATH_RE.finditer(line):
                 value = match.group(1)
+                if instruction and value in {"AGENTS.md", "AGENTS.override.md"}:
+                    continue
                 if LOCAL_PATH_PREFIX_RE.match(value):
                     errors.append(
                         f"{rel}:{lineno}: local path must be a markdown link, not inline code: `{value}`"
@@ -1857,6 +1863,8 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
 
             for match in INLINE_CODE_RE.finditer(line):
                 code = match.group(0).strip("`")
+                if instruction and code in {"AGENTS.md", "AGENTS.override.md"}:
+                    continue
                 for value in local_paths_in_text(code):
                     if not line_has_link_for_path(line, value):
                         errors.append(
@@ -2149,10 +2157,14 @@ def audit_operational_concept_links(errors: list[str], config: WikiConfig) -> No
 
 def audit_page_graph(errors: list[str], warnings: list[str], config: WikiConfig) -> None:
     graph = build_page_graph(ROOT, config)
+    known_paths = set(graph.nodes)
+    instruction_paths = {rel for rel in graph.nodes if is_context_instruction(rel, graph.memory_root, known_paths)}
     audit_config = config.audit
     if audit_config.get("orphan_check", False):
         extra_exempt = set(audit_config.get("orphan_exempt_types") or [])
         for rel in orphan_pages(graph, extra_exempt):
+            if rel in instruction_paths:
+                continue
             errors.append(f"{rel}: orphan memory page (no inbound body/frontmatter link)")
     if audit_config.get("reachability_check", False):
         root_page = str(
@@ -2160,6 +2172,8 @@ def audit_page_graph(errors: list[str], warnings: list[str], config: WikiConfig)
             or f"{memory_prefix(config).rstrip('/')}/index.md"
         )
         for rel in unreachable_pages(graph, root_page):
+            if rel in instruction_paths:
+                continue
             errors.append(f"{rel}: unreachable from {root_page}")
     try:
         minimum = int(str(audit_config.get("min_outbound_links", 0) or 0))
@@ -2169,6 +2183,8 @@ def audit_page_graph(errors: list[str], warnings: list[str], config: WikiConfig)
     if minimum > 0:
         extra_exempt = set(audit_config.get("orphan_exempt_types") or [])
         for rel in min_outbound_violations(graph, minimum=minimum, exempt_types=extra_exempt):
+            if rel in instruction_paths:
+                continue
             warnings.append(f"{rel}: fewer than {minimum} outbound graph links")
 
 
