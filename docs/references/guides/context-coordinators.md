@@ -23,7 +23,8 @@ Where the owner explicitly authorizes an identified integrator under the
 consumer's policy, that integrator may read across contexts for audit and
 reconciliation within that authority. This does not transfer access to
 executors or authorize content or policy writes; those remain with the owner
-or authorized executor, and promotion requires authorized review. Classify
+or authorized executor. Promote only proposals authorized by the responsible
+owner and independently reviewed under applicable policy. Classify
 existing denies by purpose under the current owner direction; do not retain an
 inter-context isolation restriction automatically or relax specific secrecy,
 audience, unclassified denies or external-effect limits. The owner's decision
