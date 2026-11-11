@@ -647,6 +647,39 @@ def test_direct_link_audit_uses_supplied_localized_config(tmp_path, audit, monke
     assert any('local path must be a markdown link' in error for error in errors)
 
 
+def test_context_instructions_keep_security_checks_but_not_page_graph_obligations(tmp_path, audit, monkeypatch):
+    from tests.test_page_graph import _page, _write
+
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    defaults = WikiConfig()
+    config = WikiConfig(paths={**defaults.paths, "memory_root": "memorias"},
+                        audit={**defaults.audit, "orphan_check": True, "reachability_check": True})
+    _write(tmp_path / "AGENTS.md", "# Root instructions\n")
+    _write(tmp_path / "memorias/index.md", _page("root", "root_index", "Root", ""))
+    for name, file_name in (("one", "AGENTS.md"), ("two", "AGENTS.override.md")):
+        _write(tmp_path / f"memorias/{name}/index.md", _page(name, "context_hub", name, ""))
+        _write(tmp_path / f"memorias/{name}/{file_name}",
+               f"# Instructions\n\nRead `{file_name}` in the target repository.\n")
+    _write(tmp_path / "memorias/unpaired/AGENTS.md", "# Unpaired\n")
+    _write(tmp_path / "memorias/note.md", "Read `AGENTS.md` in the target repository.\n")
+    files = [p.relative_to(tmp_path).as_posix() for p in (tmp_path / "memorias").rglob("*.md")]
+    monkeypatch.setattr(audit, "link_audit_files", lambda config: files)
+    monkeypatch.setattr(audit, "markdown_files", lambda: files)
+    monkeypatch.setattr(audit, "_scannable_text_files", lambda: files)
+    graph_errors, link_errors, secret_errors, warnings = [], [], [], []
+    audit.audit_page_graph(graph_errors, warnings, config)
+    audit.audit_clickable_local_links(link_errors, config)
+    assert not any("memorias/one/AGENTS.md" in error or "memorias/two/AGENTS.override.md" in error for error in graph_errors + link_errors)
+    assert any("memorias/unpaired/AGENTS.md" in error for error in graph_errors)
+    assert any("memorias/note.md" in error for error in link_errors)
+
+    # Instruction classification must not remove files from secret scanning.
+    instruction = tmp_path / "memorias/one/AGENTS.md"
+    instruction.write_text(instruction.read_text() + "\nOPENAI_API_KEY=sk-" + "proj-" + "A" * 24 + "\n")
+    audit.audit_secrets(secret_errors, config)
+    assert any("memorias/one/AGENTS.md" in error for error in secret_errors)
+
+
 def test_external_angle_link_does_not_exempt_secret_or_public_pii_scan(tmp_path, audit, monkeypatch):
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     monkeypatch.setattr(audit, "link_audit_files", lambda config: ["memories/note.md"])

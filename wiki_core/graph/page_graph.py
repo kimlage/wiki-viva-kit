@@ -104,6 +104,17 @@ def _memory_prefix(config: WikiConfig) -> str:
     return str(config.paths["memory_root"]).rstrip("/") + "/"
 
 
+def is_context_instruction(rel: str, memory_root: str, known_paths: set[str]) -> bool:
+    """Recognize instruction files only in an indexed memory context."""
+    prefix = memory_root.rstrip("/") + "/"
+    path = Path(rel)
+    return (
+        rel.startswith(prefix)
+        and path.name in {"AGENTS.md", "AGENTS.override.md"}
+        and (path.parent / "index.md").as_posix() in known_paths
+    )
+
+
 def _is_external(href: str) -> bool:
     try:
         parsed = urlparse(href)
