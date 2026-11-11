@@ -118,11 +118,13 @@ def is_context_instruction(rel: str, memory_root: str, known_paths: set[str]) ->
     )
 
 
-def _is_external(href: str) -> bool:
+def _is_external(href: str, *, strict: bool = False) -> bool:
     try:
         parsed = urlparse(href)
     except ValueError:
         # Invalid URL authorities are never local page dependencies.
+        if strict:
+            raise RuntimeError('graph link destination invalid') from None
         return True
     return bool(parsed.scheme) or href.startswith("#") or href.startswith("mailto:")
 
@@ -214,7 +216,9 @@ def _list_values(value: Any) -> tuple[str, ...]:
 
 def _path_from_link(root: Path, source_rel: str, href: str, *, lexical: bool = False) -> str | None:
     href = unquote(href.split("#", 1)[0]).strip()
-    if not href or _is_external(href):
+    if lexical and any(ord(character) < 32 or ord(character) == 127 for character in href):
+        raise RuntimeError('graph link destination invalid')
+    if not href or _is_external(href, strict=lexical):
         return None
     if lexical:
         # Selected inventory already rejects symlinks; resolve link syntax
@@ -246,10 +250,26 @@ def _path_from_link(root: Path, source_rel: str, href: str, *, lexical: bool = F
 
 def _markdown_body_links(root: Path, source_rel: str, text: str, *, lexical: bool = False) -> tuple[str, ...]:
     out: set[str] = set()
+    parsed_targets: set[str] = set()
+    if lexical:
+        from markdown_it import MarkdownIt
+        # Check parsed destinations as well as the legacy regex. If CommonMark
+        # sees an edge that the existing graph misses, refusing avoids a false
+        # claim of equivalent graph coverage without changing legacy semantics.
+        for token in MarkdownIt('commonmark').parse(text):
+            for child in token.children or ():
+                if child.type not in ('link_open', 'image'):
+                    continue
+                href = child.attrGet('href' if child.type == 'link_open' else 'src') or ''
+                rel = _path_from_link(root, source_rel, href, lexical=True)
+                if rel:
+                    parsed_targets.add(rel)
     for match in MARKDOWN_LINK_RE.finditer(text):
         rel = _path_from_link(root, source_rel, match.group(1), lexical=lexical)
         if rel:
             out.add(rel)
+    if parsed_targets - out:
+        raise RuntimeError('graph Markdown link coverage unavailable')
     return tuple(sorted(out))
 
 
@@ -284,6 +304,8 @@ def build_page_graph(root: Path, config: WikiConfig, *, reads=None) -> PageGraph
     propagates the reader's error instead of silently omitting a page. In the
     selected mode, a link traversal outside the root is refused: determining
     whether it returns through a symlink would require unadmitted metadata.
+    Recognized malformed destinations and parsed Markdown edges absent from
+    the legacy graph are refused rather than treated as complete coverage.
     """
     memory_root = _memory_prefix(config)
     if reads is None:

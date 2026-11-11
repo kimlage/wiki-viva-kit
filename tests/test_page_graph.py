@@ -111,6 +111,25 @@ def test_selected_graph_refuses_link_crossing_root_without_stat(tmp_path, monkey
         build_page_graph(tmp_path, WikiConfig(), reads=reads)
 
 
+@pytest.mark.parametrize(('markup', 'reason'), [
+    ('[X](<../../out.md>)', 'crosses repository boundary'),
+    ('[X](dir(a)/../../../out.md)', 'crosses repository boundary'),
+    ('[X](%2e%2e/%2e%2e/out.md)', 'crosses repository boundary'),
+    ('[X](//[bad/../../out.md)', 'destination invalid'),
+    ('[X](ok/%00/../target.md)', 'destination invalid'),
+    ('[X](file%00.md)', 'destination invalid'),
+    ('[X](<inside.md>)', 'link coverage unavailable'),
+    ('[X][ref]\n\n[ref]: inside.md', 'link coverage unavailable'),
+])
+def test_selected_graph_refuses_ambiguous_or_invalid_links(tmp_path, monkeypatch, markup, reason):
+    name = 'memories/index.md'
+    physical = {'files': {name: {}}, 'directories': ['memories']}
+    reads = SelectedReads(tmp_path, physical, {name: _page('root', 'root_index', 'Root', markup).encode()})
+    monkeypatch.setattr(Path, 'resolve', lambda *a, **kw: pytest.fail('filesystem path resolved'))
+    with pytest.raises(RuntimeError, match=reason):
+        build_page_graph(tmp_path, WikiConfig(), reads=reads)
+
+
 def test_page_graph_builds_links_aliases_and_wanted_pages(tmp_path: Path) -> None:
     _write(
         tmp_path / "memories/index.md",
