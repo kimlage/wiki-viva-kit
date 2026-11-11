@@ -42,7 +42,12 @@ pause or interrupt an active run solely for lack of visible progress. Record a
 real blocker's evidence, missing input or dependency, responsible recipient and
 resume condition on the existing action; continue independent work. Close the
 accepted scope only after review and applicable gates, approved-main readback,
-wiki reconciliation and settlement. See the [continuity and closeout contract](docs/references/guides/context-coordinators.md#thread-continuity-and-closeout).
+wiki reconciliation and settlement. A sub-delivery or merged PR does not close a
+front with remaining scope or acceptance. After the turn ends, an authorized
+observer, coordinator or host checks the effective settled state. If it hides
+pending work, restore visibility and resume the same thread only under current
+direction and STOPs; if no observer is available, report verification pending
+without guessing its cause. See the [continuity and closeout contract](docs/references/guides/context-coordinators.md#thread-continuity-and-closeout).
 
 ## PR review policy
 
