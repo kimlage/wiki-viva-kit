@@ -70,6 +70,9 @@ def test_open_and_resume_packet_include_approved_coordinator_contract(case):
         assert 'independent review of the final SHA' in normalized
         assert "circularly block an accepted lot's closeout" in normalized
         assert 'A completed turn is not a completed delivery' in normalized
+        assert 'A sub-delivery or merged PR does not close a front with remaining scope or acceptance' in normalized
+        assert 'After the turn ends, an authorized observer, coordinator or host checks the effective settled state' in normalized
+        assert 'if no observer is available, report verification pending' in normalized
         assert 'resume the same thread' in normalized
         assert 'do not repeat the same refusal without new evidence' in normalized
         assert 'respect the runtime\'s wait, delegation and PR-watch instructions' in normalized
@@ -124,16 +127,20 @@ def test_integrator_receives_approved_agents_and_override_has_precedence(case):
     git(root, 'update-ref', 'refs/remotes/origin/main', approved)
     (root / 'AGENTS.md').write_text('synthetic unapproved worktree text\n', encoding='utf-8')
 
-    request = payload(approved, 'Resume synthetic integration')
-    request['task']['role'] = 'executor'
-    packet = prepare_packet(root, binding, request)['packet']
-    mandatory = [item for item in packet['inputs'] if item['kind'] == 'mandatory']
-    agents = next(item for item in mandatory if item['ref'] == 'AGENTS.md')
-    assert agents['revision'] == approved and agents['text'] == approved_text
-    normalized = ' '.join(agents['text'].split()).lower()
-    assert 'a completed turn is not a completed delivery' in normalized
-    assert 'do not stop at an acknowledgement' in normalized
-    assert 'wiki reconciliation' in normalized
+    for goal in ('Open synthetic integration', 'Resume synthetic integration'):
+        request = payload(approved, goal)
+        request['task']['role'] = 'executor'
+        packet = prepare_packet(root, binding, request)['packet']
+        mandatory = [item for item in packet['inputs'] if item['kind'] == 'mandatory']
+        agents = next(item for item in mandatory if item['ref'] == 'AGENTS.md')
+        assert agents['revision'] == approved and agents['text'] == approved_text
+        normalized = ' '.join(agents['text'].split()).lower()
+        assert 'a completed turn is not a completed delivery' in normalized
+        assert 'a sub-delivery or merged pr does not close a front with remaining scope or acceptance' in normalized
+        assert 'after the turn ends, an authorized observer, coordinator or host checks the effective settled state' in normalized
+        assert 'if no observer is available, report verification pending' in normalized
+        assert 'do not stop at an acknowledgement' in normalized
+        assert 'wiki reconciliation' in normalized
 
     # An approved, nonempty override wins in that folder; neither the kit's
     # normal file nor a candidate worktree edit may be treated as selected.
