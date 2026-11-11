@@ -3167,10 +3167,14 @@ def main() -> int:
 
     # A guarded request must never fall back to the unqualified global audit.
     # Dispatch before loading the worktree configuration or running checks.
+    # An explicitly supplied empty value is still a request for a guarded
+    # route, and must not fall through to the unrestricted audit.
     history_options = (args.context_base, args.context_head, args.context_branch,
-                       args.context_normative, args.context_inventory_sha256, args.context_plan)
+                       args.context_inventory_sha256)
+    history_options_present = (any(value is not None for value in history_options)
+                               or bool(args.context_normative) or args.context_plan)
     if (args.context_guard is not None or args.context_policy_revision is not None
-            or args.context_selection_sha256 is not None or any(history_options)):
+            or args.context_selection_sha256 is not None or history_options_present):
         history_checks = ('action_state_transitions', 'source_lifecycle_transitions')
         if args.only in history_checks:
             common_ok = (args.check and args.context_guard and args.context_policy_revision
@@ -3178,7 +3182,7 @@ def main() -> int:
                 and not (args.public_export or args.strict_local or args.list_stale_gaps or args.list_checks
                          or args.documentary_only or args.freshness_reviewed or args.freshness_base
                          or args.freshness_report or args.query_context or args.query_policy_revision or args.query_head))
-            digests_ok = ((args.context_plan and not args.context_inventory_sha256 and not args.context_selection_sha256)
+            digests_ok = ((args.context_plan and args.context_inventory_sha256 is None and args.context_selection_sha256 is None)
                 or (not args.context_plan and all(isinstance(value, str) and re.fullmatch(r'[0-9a-f]{64}', value)
                     for value in (args.context_inventory_sha256, args.context_selection_sha256))))
             if not common_ok or not digests_ok:
@@ -3202,7 +3206,7 @@ def main() -> int:
         if (not args.context_guard or not args.context_policy_revision
                 or not isinstance(args.context_selection_sha256, str)
                 or not re.fullmatch(r'[0-9a-f]{64}', args.context_selection_sha256) or args.only != 'secrets'
-                or any(history_options)
+                or history_options_present
                 or args.public_export or args.strict_local or args.list_stale_gaps or args.list_checks
                 or args.documentary_only or args.freshness_reviewed or args.freshness_base
                 or args.freshness_report or args.query_context or args.query_policy_revision or args.query_head):

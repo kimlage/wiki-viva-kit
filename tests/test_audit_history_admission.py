@@ -383,6 +383,56 @@ def test_mixed_guarded_cli_refuses_before_inventory(tmp_path, monkeypatch, capsy
     assert 'coverage unavailable' in capsys.readouterr().out
 
 
+def test_history_plan_rejects_explicit_empty_digest_before_inventory(tmp_path, monkeypatch, capsys):
+    _, _, args = make_case(tmp_path, monkeypatch, denied=False)
+    monkeypatch.setattr(r1, 'inventory', lambda *a, **kw: pytest.fail('inventory executed'))
+    argv = ['wiki_audit.py', '--check', '--only', 'action_state_transitions', '--context-guard', '.',
+            '--context-policy-revision', args['approved_revision'], '--context-base', args['base'],
+            '--context-head', args['head'], '--context-branch', args['branch'], '--context-normative',
+            'wiki.config.yaml', '--context-plan', '--context-inventory-sha256', '']
+    monkeypatch.setattr(sys, 'argv', argv)
+    assert audit.main() == 1
+    assert 'coverage unavailable' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('option', ['--context-base', '--context-head', '--context-branch',
+                                    '--context-inventory-sha256'])
+@pytest.mark.parametrize('mode', ['secrets', 'list', 'guarded-secrets'])
+def test_empty_history_option_refuses_before_global_bootstrap(tmp_path, option, mode):
+    # A fresh CLI process catches fallthrough during import/dispatch too. The
+    # spies cover these specific calls, not every possible OS-level read.
+    child = r'''
+import runpy, subprocess, sys
+from pathlib import Path
+root, script, option, mode = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
+import scripts._common as common
+common.ROOT = root
+import wiki_core.config as config
+def blocked(*args, **kwargs):
+    raise RuntimeError('SYNTHETIC_UNGUARDED_BOOTSTRAP')
+config.load_config = blocked
+subprocess.Popen = blocked
+sys.argv = [script, option, '']
+if mode == 'list':
+    sys.argv += ['--list-checks']
+else:
+    sys.argv += ['--check', '--only', 'secrets']
+    if mode == 'guarded-secrets':
+        sys.argv += ['--context-guard', '.', '--context-policy-revision', '0' * 40,
+                     '--context-selection-sha256', '0' * 64]
+runpy.run_path(script, run_name='__main__')
+'''
+    result = subprocess.run([sys.executable, '-c', child, str(tmp_path),
+                             str(Path(audit.__file__).resolve()), option, mode],
+                            cwd=Path(audit.__file__).resolve().parents[1],
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 1
+    assert 'coverage unavailable' in result.stdout.lower()
+    assert 'not completed' in result.stdout.lower()
+    assert 'SYNTHETIC_UNGUARDED_BOOTSTRAP' not in result.stderr
+    assert '0 error(s)' not in result.stdout
+
+
 def test_direct_cli_refuses_denied_search_with_synthetic_binding(tmp_path, monkeypatch):
     root, _, args = make_case(tmp_path, monkeypatch, denied=True)
     env = {'PATH': os.defpath, 'PYTHONDONTWRITEBYTECODE': '1',
