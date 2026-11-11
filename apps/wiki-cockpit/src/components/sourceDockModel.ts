@@ -78,7 +78,7 @@ export function streamCategory(stream: SourceStream): StreamCategory {
   const categories = new Set<StreamCategory>();
   for (const value of values as string[]) {
     const tokens = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().match(/[a-z0-9]+/g) ?? [];
-    const found = tokens.map(token => STREAM_CATEGORY_TOKENS[token]).filter(Boolean);
+    const found = tokens.filter(token => Object.prototype.hasOwnProperty.call(STREAM_CATEGORY_TOKENS, token)).map(token => STREAM_CATEGORY_TOKENS[token]);
     if (hasTypes && found.length === 0) return "other";
     found.forEach(category => categories.add(category));
   }

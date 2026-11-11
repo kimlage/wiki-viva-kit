@@ -20,5 +20,8 @@ describe("source stream navigation categories", () => {
     expect(streamCategory(stream("x", "Mixed", ["Epic", "Task"]))).toBe("other");
     expect(streamCategory(stream("x", "Unknown", ["custom"]))).toBe("other");
     expect(streamCategory(stream("x", "Invalid", [42]))).toBe("other");
+    const unusual = stream("constructor", "constructor");
+    expect(streamCategory(unusual)).toBe("other");
+    expect(groupSourceStreams([unusual])[0].streams).toEqual([unusual]);
   });
 });
