@@ -8,7 +8,7 @@ import yaml
 from wiki_core.context_packet import build_packet, qualify_folder_context
 from wiki_core.context_policy import ContextPolicy, PolicyError, load_policy, safe_path
 from wiki_core.coordination_context import CoordinationBinding
-from wiki_core.context_selection import select_query
+from wiki_core.context_selection import authority_digest, select_query
 
 
 def context(cid, parent, root, read, *, deny=(), imports=(), exports=()):
@@ -74,6 +74,15 @@ def test_exact_read_does_not_authorize_a_directory_query():
              'field': 'status', 'max_enumerated': 20, 'max_matches': 10, 'max_scan_bytes': 1000}}
     with pytest.raises(PolicyError, match='query scope not authorized'):
         select_query(p, 'root', object(), query)
+
+
+def test_authority_digest_distinguishes_prefix_from_exact_ceiling():
+    prefix = make_policy([context('root', None, '.', ['docs'])])
+    exact = make_policy([context('root', None, '.', ['file[docs/item.md]'])])
+    entry = {'target': 'docs/item.md', 'query': {'scope': 'docs'}}
+    assert prefix.permits('root', 'read', entry['target'])
+    assert exact.permits('root', 'read', entry['target'])
+    assert authority_digest(prefix, 'root', entry) != authority_digest(exact, 'root', entry)
 
 
 def test_exact_scope_does_not_replace_bilateral_connection():
