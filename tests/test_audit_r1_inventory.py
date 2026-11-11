@@ -455,6 +455,20 @@ def test_graph_missing_tracked_candidate_refuses_before_worktree_body(repo, monk
         select_page_graph_inputs(snapshot, config)
 
 
+def test_graph_over_limit_candidate_refuses_before_worktree_body(repo, monkeypatch):
+    from wiki_core.config import WikiConfig
+    from wiki_core.graph.page_graph import select_page_graph_inputs
+
+    root, _, _, _ = repo
+    memory = root / 'memories'
+    memory.mkdir()
+    (memory / 'oversized.md').write_bytes(b'x' * 2_000_001)
+    snapshot = run(repo)
+    monkeypatch.setattr(r1, '_worktree_bytes', lambda *_: pytest.fail('body read before size refusal'))
+    with pytest.raises(PolicyError, match='graph selection unavailable'):
+        select_page_graph_inputs(snapshot, WikiConfig())
+
+
 def test_merge_parents_and_missing_tracked_worktree_are_explicit(repo):
     root, base, _, _ = repo
     git(root, 'reset', '--hard', base)

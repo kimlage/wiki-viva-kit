@@ -180,6 +180,11 @@ def select_page_graph_inputs(inventory: dict, config: WikiConfig) -> dict:
             raise PolicyError('graph selection unavailable')
         names = sorted(path for path in physical if candidate(path))
         selection = select(inventory, [{'kind': 'worktree', 'path': path} for path in names])
+        limits = selection['limits']
+        sizes = [entry['size'] for entry in selection['inputs']]
+        if (any(size < 0 or size > limits['max_item_bytes'] for size in sizes)
+                or sum(sizes) > limits['max_total_bytes']):
+            raise PolicyError('graph selection unavailable')
         aliases = set(inventory['denied_oid_aliases'])
         selected = set(names)
         if (any(path in selected and entry['oid'] in aliases for path, entry in head_tree.items())
@@ -192,6 +197,7 @@ def select_page_graph_inputs(inventory: dict, config: WikiConfig) -> dict:
                 'coverage': 'worktree_graph_markdown_only',
                 'configured_root': 'external_not_verified',
                 'worktree_content_aliases': 'external_not_verified',
+                'bootstrap_and_output_audience': 'external_not_verified',
                 'host_admission': 'external_not_verified',
                 'global_audit': 'not_performed'}
         plan['plan_sha256'] = hashlib.sha256(json.dumps(plan, sort_keys=True, ensure_ascii=True,
