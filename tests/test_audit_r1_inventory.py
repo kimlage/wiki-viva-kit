@@ -385,12 +385,15 @@ def test_graph_reads_admitted_worktree_bodies_from_r1_selection(repo, monkeypatc
     memory.mkdir()
     (memory / 'index.md').write_text('---\npage_id: root\npage_type: root_index\ntitle: Root\n---\n')
     (memory / 'note.md').write_text('---\npage_id: note\npage_type: note\ntitle: Note\n---\n')
+    (memory / 'cache').mkdir()
+    (memory / 'cache/ignored.md').write_text('---\npage_id: ignored\npage_type: note\ntitle: Ignored\n---\n')
     snapshot = run(repo)
+    assert 'memories/cache/ignored.md' in snapshot['ignored']
     names = sorted(path for path in snapshot['physical']['files']
                    if path.startswith('memories/') and path.endswith('.md'))
     plan = select_page_graph_inputs(snapshot, WikiConfig())
     selection = plan['selection']
-    assert [item['path'] for item in selection['inputs']] == names
+    assert sorted(item['path'] for item in selection['inputs']) == names
     assert selection['external_admission'] == 'not_verified'
     assert plan['worktree_content_aliases'] == 'external_not_verified'
     assert plan['global_audit'] == 'not_performed'
@@ -441,6 +444,41 @@ def test_graph_known_git_alias_refuses_before_worktree_body(repo, monkeypatch):
         select_page_graph_inputs(snapshot, config)
 
 
+def test_graph_index_only_alias_refuses_before_worktree_body(repo, monkeypatch):
+    from wiki_core.config import WikiConfig
+    from wiki_core.graph.page_graph import select_page_graph_inputs
+
+    root, _, _, head = repo
+    (root / 'allowed.md').write_bytes((root / 'restricted/denied.json').read_bytes())
+    git(root, 'add', 'allowed.md')
+    snapshot = run(repo)
+    assert snapshot['trees'][head]['allowed.md']['oid'] not in snapshot['denied_oid_aliases']
+    assert next(entry['oid'] for entry in snapshot['index'] if entry['path'] == 'allowed.md') in snapshot['denied_oid_aliases']
+    monkeypatch.setattr(r1, '_worktree_bytes', lambda *_: pytest.fail('body read before index alias refusal'))
+    config = WikiConfig()
+    config.paths['memory_root'] = '.'
+    with pytest.raises(PolicyError, match='graph selection unavailable'):
+        select_page_graph_inputs(snapshot, config)
+
+
+def test_graph_index_conflict_refuses_before_worktree_body(repo, monkeypatch):
+    from wiki_core.config import WikiConfig
+    from wiki_core.graph.page_graph import select_page_graph_inputs
+
+    root, _, _, _ = repo
+    oid = git(root, 'rev-parse', 'HEAD:allowed.md')
+    git(root, 'update-index', '--force-remove', 'allowed.md')
+    subprocess.run(['git', '-C', str(root), 'update-index', '--index-info'], check=True,
+                   input=f'100644 {oid} 1\tallowed.md\n100644 {oid} 2\tallowed.md\n', text=True)
+    snapshot = run(repo)
+    assert {entry['stage'] for entry in snapshot['index'] if entry['path'] == 'allowed.md'} == {1, 2}
+    monkeypatch.setattr(r1, '_worktree_bytes', lambda *_: pytest.fail('body read before conflict refusal'))
+    config = WikiConfig()
+    config.paths['memory_root'] = '.'
+    with pytest.raises(PolicyError, match='graph selection unavailable'):
+        select_page_graph_inputs(snapshot, config)
+
+
 def test_graph_missing_tracked_candidate_refuses_before_worktree_body(repo, monkeypatch):
     from wiki_core.config import WikiConfig
     from wiki_core.graph.page_graph import select_page_graph_inputs
@@ -467,6 +505,36 @@ def test_graph_over_limit_candidate_refuses_before_worktree_body(repo, monkeypat
     monkeypatch.setattr(r1, '_worktree_bytes', lambda *_: pytest.fail('body read before size refusal'))
     with pytest.raises(PolicyError, match='graph selection unavailable'):
         select_page_graph_inputs(snapshot, WikiConfig())
+
+
+def test_graph_total_limit_refuses_before_worktree_body(repo, monkeypatch):
+    from wiki_core.config import WikiConfig
+    from wiki_core.graph.page_graph import select_page_graph_inputs
+
+    root, _, _, _ = repo
+    memory = root / 'memories'
+    memory.mkdir()
+    for number in range(5):
+        (memory / f'{number}.md').write_bytes(b'x' * 1_700_000)
+    snapshot = run(repo)
+    monkeypatch.setattr(r1, '_worktree_bytes', lambda *_: pytest.fail('body read before total size refusal'))
+    with pytest.raises(PolicyError, match='graph selection unavailable'):
+        select_page_graph_inputs(snapshot, WikiConfig())
+
+
+def test_graph_plan_digest_changes_when_inventory_selection_changes(repo):
+    from wiki_core.config import WikiConfig
+    from wiki_core.graph.page_graph import select_page_graph_inputs
+
+    root, _, _, _ = repo
+    memory = root / 'memories'
+    memory.mkdir()
+    (memory / 'index.md').write_text('synthetic root\n')
+    before = select_page_graph_inputs(run(repo), WikiConfig())
+    (memory / 'note.md').write_text('synthetic note\n')
+    after = select_page_graph_inputs(run(repo), WikiConfig())
+    assert before['selection']['selection_sha256'] != after['selection']['selection_sha256']
+    assert before['plan_sha256'] != after['plan_sha256']
 
 
 def test_merge_parents_and_missing_tracked_worktree_are_explicit(repo):

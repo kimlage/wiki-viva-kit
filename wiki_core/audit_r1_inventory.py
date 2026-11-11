@@ -93,6 +93,9 @@ class SelectedReads:
             raise RuntimeError('selected root unavailable')
         rel = self._rel(path)
         prefix = '' if rel == '.' else rel + '/'
+        if any(name.startswith(prefix) and name.endswith('.md')
+               and not is_protected_artifact(Path(name)) for name in self.missing):
+            raise RuntimeError('tracked path unavailable')
         return [self.root / name for name in sorted(self.files)
                 if name.startswith(prefix) and name.endswith('.md')
                 and not is_protected_artifact(Path(name))]

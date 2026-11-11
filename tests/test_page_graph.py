@@ -71,6 +71,33 @@ def test_page_graph_refuses_unselected_page_instead_of_omitting_it(tmp_path, mon
         build_page_graph(tmp_path, WikiConfig(), reads=reads)
 
 
+def test_page_graph_refuses_missing_tracked_page_before_parsing(tmp_path, monkeypatch):
+    allowed = 'memories/index.md'
+    missing = 'memories/missing.md'
+    physical = {'files': {allowed: {}}, 'directories': ['memories']}
+    reads = SelectedReads(tmp_path, physical, {
+        allowed: _page('root', 'root_index', 'Root', '').encode(),
+    }, missing=[missing])
+    monkeypatch.setattr(reads, 'read_text', lambda *a, **kw: pytest.fail('parsed before missing refusal'))
+    with pytest.raises(RuntimeError, match='tracked path unavailable'):
+        build_page_graph(tmp_path, WikiConfig(), reads=reads)
+
+
+def test_selected_graph_resolves_links_without_filesystem_resolution(tmp_path, monkeypatch):
+    contents = {
+        'memories/index.md': _page('root', 'root_index', 'Root',
+            '[Inside](sub/neighbor.md) [Outside](../../outside/target.md)').encode(),
+        'memories/sub/neighbor.md': _page('note', 'note', 'Note', '').encode(),
+    }
+    physical = {'files': {path: {} for path in contents},
+                'directories': ['memories', 'memories/sub']}
+    reads = SelectedReads(tmp_path, physical, contents)
+    monkeypatch.setattr(Path, 'resolve', lambda *a, **kw: pytest.fail('filesystem path resolved'))
+    graph = build_page_graph(tmp_path, WikiConfig(), reads=reads)
+    assert graph.nodes['memories/index.md'].outbound_body_links == ('memories/sub/neighbor.md',)
+    assert not graph.wanted_pages
+
+
 def test_page_graph_builds_links_aliases_and_wanted_pages(tmp_path: Path) -> None:
     _write(
         tmp_path / "memories/index.md",

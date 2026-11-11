@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import posixpath
 import re
 from collections import deque
 from dataclasses import dataclass, field
@@ -211,24 +212,33 @@ def _list_values(value: Any) -> tuple[str, ...]:
     return tuple(_fm_list_values(value))
 
 
-def _path_from_link(root: Path, source_rel: str, href: str) -> str | None:
+def _path_from_link(root: Path, source_rel: str, href: str, *, lexical: bool = False) -> str | None:
     href = unquote(href.split("#", 1)[0]).strip()
     if not href or _is_external(href):
         return None
-    if href.startswith("/"):
-        candidate = root / href.lstrip("/")
+    if lexical:
+        # Selected inventory already rejects symlinks; resolve link syntax
+        # without consulting paths outside the admitted filesystem snapshot.
+        candidate = (href.lstrip('/') if href.startswith('/')
+                     else posixpath.join(posixpath.dirname(source_rel), href))
+        rel = posixpath.normpath(candidate)
+        if rel in ('.', '..') or rel.startswith('../') or rel.startswith('/'):
+            return None
     else:
-        candidate = (root / source_rel).parent / href
-    rel = _repo_rel(root, candidate)
+        if href.startswith("/"):
+            candidate = root / href.lstrip("/")
+        else:
+            candidate = (root / source_rel).parent / href
+        rel = _repo_rel(root, candidate)
     if rel and rel.endswith(".md"):
         return rel
     return None
 
 
-def _markdown_body_links(root: Path, source_rel: str, text: str) -> tuple[str, ...]:
+def _markdown_body_links(root: Path, source_rel: str, text: str, *, lexical: bool = False) -> tuple[str, ...]:
     out: set[str] = set()
     for match in MARKDOWN_LINK_RE.finditer(text):
-        rel = _path_from_link(root, source_rel, match.group(1))
+        rel = _path_from_link(root, source_rel, match.group(1), lexical=lexical)
         if rel:
             out.add(rel)
     return tuple(sorted(out))
@@ -295,7 +305,7 @@ def build_page_graph(root: Path, config: WikiConfig, *, reads=None) -> PageGraph
         rel = path.relative_to(root).as_posix()
         text = (path.read_text(encoding="utf-8", errors="replace")
                 if reads is None else selected_texts[rel])
-        body_links = _markdown_body_links(root, rel, text)
+        body_links = _markdown_body_links(root, rel, text, lexical=reads is not None)
         fm_refs = _frontmatter_refs(frontmatter_by_rel[rel], page_id_to_rel)
         outbound_body[rel] = tuple(link for link in body_links if link in known_rels)
         outbound_refs[rel] = tuple(ref for ref in fm_refs if ref in known_rels)
