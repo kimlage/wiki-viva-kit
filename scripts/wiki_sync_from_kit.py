@@ -236,12 +236,16 @@ def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> 
             return {"kind": "other"}, None
         digest = hashlib.sha256()
         chunks: list[bytes] = []
+        total = 0
         while True:
             chunk = os.read(fd, 1024 * 1024)
             if not chunk:
                 break
             digest.update(chunk)
             if payload:
+                total += len(chunk)
+                if total > 8 * 1024 * 1024:
+                    raise SyncError("kit.lock exceeds inspection limit")
                 chunks.append(chunk)
         after = os.fstat(fd)
         identity = lambda s: (s.st_dev, s.st_ino, s.st_mode, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
@@ -256,31 +260,71 @@ def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> 
             os.close(fd)
 
 
-def _drift_index_entry(consumer: Path, rel: str) -> dict[str, Any]:
-    """Read exactly one index entry and hash its immutable Git blob."""
-    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
-    result = subprocess.run(["git", "--literal-pathspecs", "ls-files", "--stage", "-z", "--", rel],
-                            cwd=consumer, capture_output=True, env=env)
-    if result.returncode:
-        raise SyncError("consumer index unavailable")
-    records = [row for row in result.stdout.split(b"\0") if row]
-    if not records:
-        return {"kind": "missing"}
-    if len(records) != 1:
-        raise SyncError("consumer index has unmerged entries")
-    try:
-        metadata, name = records[0].split(b"\t", 1)
-        mode, oid, stage = metadata.decode("ascii").split()
-        if name.decode("utf-8") != rel or stage != "0" or mode not in {"100644", "100755"}:
-            raise ValueError("invalid index entry")
-        if not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", oid):
-            raise ValueError("invalid object id")
-    except (UnicodeError, ValueError) as exc:
-        raise SyncError("consumer index has unsafe or unmerged entry") from exc
-    blob = subprocess.run(["git", "cat-file", "blob", oid], cwd=consumer, capture_output=True, env=env)
-    if blob.returncode:
-        raise SyncError("consumer index blob unavailable")
-    return {"kind": "file", "mode": mode, "sha256": _sha256_bytes(blob.stdout)}
+def _drift_index_metadata(consumer: Path, paths: list[str]) -> dict[str, tuple[str, str]]:
+    """Read only selected index entries; refuse unmerged/non-regular records."""
+    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_NO_REPLACE_OBJECTS": "1"}
+    entries: dict[str, tuple[str, str]] = {}
+    for start in range(0, len(paths), 128):
+        selected = paths[start:start + 128]
+        result = subprocess.run(["git", "--literal-pathspecs", "ls-files", "--stage", "-z", "--", *selected],
+                                cwd=consumer, capture_output=True, env=env)
+        if result.returncode:
+            raise SyncError("consumer index unavailable")
+        for record in filter(None, result.stdout.split(b"\0")):
+            try:
+                metadata, name = record.split(b"\t", 1)
+                mode, oid, stage = metadata.decode("ascii").split()
+                rel = name.decode("utf-8")
+                if (rel not in selected or rel in entries or stage != "0" or mode not in {"100644", "100755"}
+                        or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", oid)):
+                    raise ValueError("invalid index entry")
+            except (UnicodeError, ValueError) as exc:
+                raise SyncError("consumer index has unsafe or unmerged entry") from exc
+            entries[rel] = (mode, oid)
+    return entries
+
+
+def _drift_index_states(consumer: Path, paths: list[str]) -> dict[str, dict[str, Any]]:
+    """Hash immutable selected blobs, with a bounded batch and stable index."""
+    import io
+    metadata = _drift_index_metadata(consumer, paths)
+    oids = sorted({oid for _, oid in metadata.values()})
+    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_NO_REPLACE_OBJECTS": "1"}
+    request = "".join(oid + "\n" for oid in oids).encode("ascii")
+    check = subprocess.run(["git", "cat-file", "--batch-check"], cwd=consumer,
+                           input=request, capture_output=True, env=env)
+    if check.returncode:
+        raise SyncError("consumer index blob metadata unavailable")
+    lines = check.stdout.splitlines()
+    total = 0
+    if len(lines) != len(oids):
+        raise SyncError("consumer index blob metadata incomplete")
+    for expected, line in zip(oids, lines):
+        fields = line.split()
+        if len(fields) != 3 or fields[0].decode("ascii", "replace") != expected or fields[1] != b"blob" or not fields[2].isdigit():
+            raise SyncError("consumer index blob metadata invalid")
+        total += int(fields[2])
+    if total > 128 * 1024 * 1024:
+        raise SyncError("consumer index blobs exceed inspection limit")
+    batch = subprocess.run(["git", "cat-file", "--batch"], cwd=consumer,
+                           input=request, capture_output=True, env=env)
+    if batch.returncode:
+        raise SyncError("consumer index blobs unavailable")
+    stream = io.BytesIO(batch.stdout)
+    hashes: dict[str, str] = {}
+    for expected in oids:
+        fields = stream.readline().split()
+        if len(fields) != 3 or fields[0].decode("ascii", "replace") != expected or fields[1] != b"blob" or not fields[2].isdigit():
+            raise SyncError("consumer index blobs invalid")
+        size = int(fields[2])
+        data = stream.read(size)
+        if len(data) != size or stream.read(1) != b"\n":
+            raise SyncError("consumer index blobs incomplete")
+        hashes[expected] = _sha256_bytes(data)
+    if stream.read(1) or metadata != _drift_index_metadata(consumer, paths):
+        raise SyncError("consumer index changed during drift inspection")
+    return {rel: ({"kind": "file", "mode": metadata[rel][0], "sha256": hashes[metadata[rel][1]]}
+                  if rel in metadata else {"kind": "missing"}) for rel in paths}
 
 
 def inspect_drift(consumer: Path) -> dict[str, Any]:
@@ -310,17 +354,24 @@ def inspect_drift(consumer: Path) -> dict[str, Any]:
                 or not re.fullmatch(r"[0-9a-f]{64}", expected["sha256"])
                 or expected.get("mode") not in {"100644", "100755"}):
             raise SyncError("kit.lock contains invalid managed file metadata")
+    paths = sorted(managed)
+    tree = [{"path": rel, "sha256": managed[rel]["sha256"], "mode": managed[rel]["mode"]} for rel in paths]
+    if _canonical_sha256(tree) != lock["portable_tree_sha256"]:
+        raise SyncError("kit.lock managed file digest mismatch")
+    index_states = _drift_index_states(consumer, paths)
     drift = []
-    for rel in sorted(managed):
+    for rel in paths:
         expected = {key: managed[rel][key] for key in ("sha256", "mode")}
         worktree, _ = _drift_worktree_file(consumer, rel)
-        index = _drift_index_entry(consumer, rel)
+        index = index_states[rel]
         if any(state.get("kind") != "file" or any(state.get(key) != value for key, value in expected.items())
                for state in (worktree, index)):
             drift.append({"path": rel, "expected": expected, "worktree": worktree, "index": index})
     _, final_lock = _drift_worktree_file(consumer, LOCK_NAME, payload=True)
     if final_lock != lock_bytes:
         raise SyncError("kit.lock changed during drift inspection")
+    if index_states != _drift_index_states(consumer, paths):
+        raise SyncError("consumer index changed during drift inspection")
     return {"schema_version": "wiki_viva_sync_drift.v1", "status": "drift" if drift else "clean",
             "source_sha": lock.get("source_sha"), "managed_total": len(managed), "drift": drift}
 

@@ -65,10 +65,14 @@ python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
 ```
 
 The command is read-only. It reports each differing or missing managed path,
-the lock's expected hash and mode, and the current file kind, hash and mode
-where available. Exit 0 means no drift, 1 means drift, and 2 means inspection
-was refused or could not complete; an unsafe path aborts the report. Output
-can reveal private path names, so keep it within the consumer's boundary.
+the lock's expected hash and mode, and the worktree and Git index kind, hash
+and mode where available. Untracked or deleted index entries are reported as
+missing; unmerged or unsafe entries abort the report. Exit 0 means both views
+match the lock, 1 means drift, and 2 means inspection was refused or could not
+complete. The inspection requires POSIX directory-relative no-follow reads;
+unsupported platforms fail closed. It is not an atomic snapshot against an
+actively changing worktree: stop writers and rerun before making a decision.
+Output can reveal private path names, so keep it within the consumer's boundary.
 
 The lock contains hashes, not the original bytes, and is not itself proof that
 a candidate recovery revision is correct. Preserve staged, unstaged and

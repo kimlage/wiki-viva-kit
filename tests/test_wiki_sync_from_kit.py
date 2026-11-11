@@ -553,6 +553,32 @@ def test_drift_inventory_refuses_c3_and_invalid_lock_metadata(tmp_path: Path) ->
     assert incomplete.returncode == 2 and "incomplete provenance" in incomplete.stderr
 
 
+def test_drift_inventory_refuses_lock_with_inconsistent_tree_digest(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    lock_path = consumer / "kit.lock"
+    lock = yaml.safe_load(lock_path.read_text())
+    lock["managed_files"]["portable/tool.txt"]["sha256"] = "0" * 64
+    lock_path.write_text(yaml.safe_dump(lock))
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2 and "digest mismatch" in result.stderr
+
+
+def test_drift_inventory_refuses_unmerged_index(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    oid = _git(consumer, "rev-parse", "HEAD:portable/tool.txt")
+    entry = f"0 {'0' * 40}\tportable/tool.txt\n100644 {oid} 1\tportable/tool.txt\n100644 {oid} 2\tportable/tool.txt\n"
+    result = subprocess.run(["git", "update-index", "--index-info"], cwd=consumer,
+                            input=entry, text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    inspected = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert inspected.returncode == 2 and "unmerged" in inspected.stderr
+    assert (consumer / "portable/tool.txt").read_text() == "v1\n"
+
+
 def test_unmanaged_ignored_collision_is_preserved_or_identical_noop(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     (consumer / '.gitignore').write_text('portable/\n')
