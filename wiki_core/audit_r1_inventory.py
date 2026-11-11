@@ -474,7 +474,7 @@ def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
     return result
 
 
-def select(inventory_result: dict, requested: list[dict]) -> dict:
+def select(inventory_result: dict, requested: list[dict], *, _allow_empty: bool = False) -> dict:
     """Bind explicitly requested inputs to one inventory; do not read bodies.
 
     The host must decide whether the request covers its entire gate and must
@@ -483,7 +483,8 @@ def select(inventory_result: dict, requested: list[dict]) -> dict:
     authorization, host identity, snapshot and runtime remain external.
     """
     if (not isinstance(inventory_result, dict) or not isinstance(requested, list)
-            or not requested or len(requested) > MAX_ENTRIES):
+            or type(_allow_empty) is not bool or (not requested and not _allow_empty)
+            or len(requested) > MAX_ENTRIES):
         raise PolicyError('selection unavailable')
     saved = inventory_result.get('inventory_sha256')
     body = {key: value for key, value in inventory_result.items() if key != 'inventory_sha256'}

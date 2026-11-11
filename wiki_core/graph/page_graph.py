@@ -191,7 +191,10 @@ def select_page_graph_inputs(inventory: dict, config: WikiConfig) -> dict:
         if any(candidate(path) for path in missing):
             raise PolicyError('graph selection unavailable')
         names = sorted(path for path in physical if candidate(path))
-        selection = select(inventory, [{'kind': 'worktree', 'path': path} for path in names])
+        # An empty graph is meaningful only after this check has enumerated its
+        # entire configured root. General R1 selections still refuse emptiness.
+        selection = select(inventory, [{'kind': 'worktree', 'path': path} for path in names],
+                           _allow_empty=True)
         limits = selection['limits']
         sizes = [entry['size'] for entry in selection['inputs']]
         if (any(size < 0 or size > limits['max_item_bytes'] for size in sizes)

@@ -382,6 +382,9 @@ plan, and admission must remain valid through the selected reads. Results are
 limited to that check: they do not qualify history, secrets, the remaining
 checks, cleanup, or the required integral audit. The host must protect the
 plan and results for their actual audience and isolate concurrent writers.
+An empty graph selection is allowed only when the complete configured graph
+universe was inventoried; the empty plan still requires host admission and
+changes to that inventory invalidate it.
 
 
 ## Proposal-only Git secrets check

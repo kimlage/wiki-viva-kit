@@ -85,3 +85,43 @@ def test_real_graph_check_requires_host_admission_and_reports_partial_scope(repo
     assert result['scope'] == 'page_graph_only'
     assert result['global_audit'] == 'not_performed'
     assert result['gate_state'] == 'blocked_incomplete_coverage'
+
+
+def test_empty_graph_is_inventory_bound_and_runs_the_registered_check(repo, monkeypatch):
+    root, base, _, head = repo
+    audit = _load_wiki_audit()
+    monkeypatch.setattr(audit, 'ROOT', root)
+    params = dict(trusted_binding=CoordinationBinding(('.',), 'refs/remotes/origin/main'),
+                  context_id='.', approved_revision=base, base=base, head=head,
+                  branch='wiki/synthetic', normative_paths=['wiki.config.yaml'])
+    plan = audit.audit_context_bound_graph(**params, plan_only=True)
+    assert plan['plan']['selection']['inputs'] == []
+    assert plan['plan']['selection']['inventory_sha256'] == plan['inventory_sha256']
+    with pytest.raises(PolicyError, match='selection unavailable'):
+        r1.select(run(repo), [])
+    with pytest.raises(PolicyError, match='host admission unavailable'):
+        audit.audit_context_bound_graph(**params, inventory_sha256=plan['inventory_sha256'],
+            plan_sha256=plan['plan']['plan_sha256'], host_admit=lambda _: False)
+    host_plans = []
+    def admit(value):
+        host_plans.append(value)
+        return True
+    result = audit.audit_context_bound_graph(**params, inventory_sha256=plan['inventory_sha256'],
+        plan_sha256=plan['plan']['plan_sha256'], host_admit=admit)
+    legacy_errors, legacy_warnings = [], []
+    audit.audit_page_graph(legacy_errors, legacy_warnings, WikiConfig())
+    assert result['state'] == 'completed'
+    assert result['errors'] == legacy_errors and result['warnings'] == legacy_warnings
+    assert result['source_bodies_validated'] == 0 and host_plans
+    assert result['global_audit'] == 'not_performed'
+    assert result['gate_state'] == 'blocked_incomplete_coverage'
+    (root / 'memories').mkdir()
+    (root / 'memories/new.md').write_text(_page('new'))
+    original_config_read = r1._worktree_bytes
+    monkeypatch.setattr(r1, '_worktree_bytes', lambda _root, item:
+                        pytest.fail('new graph body opened before updated admission')
+                        if item['path'].startswith('memories/') else
+                        original_config_read(_root, item))
+    with pytest.raises(PolicyError, match='graph selection changed'):
+        audit.audit_context_bound_graph(**params, inventory_sha256=plan['inventory_sha256'],
+            plan_sha256=plan['plan']['plan_sha256'], host_admit=admit)
