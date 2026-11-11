@@ -219,11 +219,20 @@ def _path_from_link(root: Path, source_rel: str, href: str, *, lexical: bool = F
     if lexical:
         # Selected inventory already rejects symlinks; resolve link syntax
         # without consulting paths outside the admitted filesystem snapshot.
-        candidate = (href.lstrip('/') if href.startswith('/')
-                     else posixpath.join(posixpath.dirname(source_rel), href))
-        rel = posixpath.normpath(candidate)
-        if rel in ('.', '..') or rel.startswith('../') or rel.startswith('/'):
-            return None
+        # A traversal that leaves the root could re-enter through an external
+        # symlink, so its legacy result cannot be established lexically.
+        parts = [] if href.startswith('/') else posixpath.dirname(source_rel).split('/')
+        parts = [part for part in parts if part and part != '.']
+        for part in href.split('/'):
+            if not part or part == '.':
+                continue
+            if part == '..':
+                if not parts:
+                    raise RuntimeError('graph link crosses repository boundary')
+                parts.pop()
+            else:
+                parts.append(part)
+        rel = '/'.join(parts)
     else:
         if href.startswith("/"):
             candidate = root / href.lstrip("/")
@@ -272,7 +281,9 @@ def build_page_graph(root: Path, config: WikiConfig, *, reads=None) -> PageGraph
 
     Supplying a reader does not qualify its selection, authority, metadata or
     coverage; those remain the caller's responsibility. An unavailable body
-    propagates the reader's error instead of silently omitting a page.
+    propagates the reader's error instead of silently omitting a page. In the
+    selected mode, a link traversal outside the root is refused: determining
+    whether it returns through a symlink would require unadmitted metadata.
     """
     memory_root = _memory_prefix(config)
     if reads is None:

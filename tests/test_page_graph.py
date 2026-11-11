@@ -86,7 +86,7 @@ def test_page_graph_refuses_missing_tracked_page_before_parsing(tmp_path, monkey
 def test_selected_graph_resolves_links_without_filesystem_resolution(tmp_path, monkeypatch):
     contents = {
         'memories/index.md': _page('root', 'root_index', 'Root',
-            '[Inside](sub/neighbor.md) [Outside](../../outside/target.md)').encode(),
+            '[Inside](sub/neighbor.md) [Absolute](/memories/sub/neighbor.md)').encode(),
         'memories/sub/neighbor.md': _page('note', 'note', 'Note', '').encode(),
     }
     physical = {'files': {path: {} for path in contents},
@@ -96,6 +96,19 @@ def test_selected_graph_resolves_links_without_filesystem_resolution(tmp_path, m
     graph = build_page_graph(tmp_path, WikiConfig(), reads=reads)
     assert graph.nodes['memories/index.md'].outbound_body_links == ('memories/sub/neighbor.md',)
     assert not graph.wanted_pages
+
+
+@pytest.mark.parametrize('returns_to_root', [False, True])
+def test_selected_graph_refuses_link_crossing_root_without_stat(tmp_path, monkeypatch, returns_to_root):
+    destination = (f'../../{tmp_path.name}/memories/index.md' if returns_to_root
+                   else '../../outside/target.md')
+    contents = {'memories/index.md': _page('root', 'root_index', 'Root',
+                                           f'[Unqualified]({destination})').encode()}
+    physical = {'files': {path: {} for path in contents}, 'directories': ['memories']}
+    reads = SelectedReads(tmp_path, physical, contents)
+    monkeypatch.setattr(Path, 'resolve', lambda *a, **kw: pytest.fail('filesystem path resolved'))
+    with pytest.raises(RuntimeError, match='graph link crosses repository boundary'):
+        build_page_graph(tmp_path, WikiConfig(), reads=reads)
 
 
 def test_page_graph_builds_links_aliases_and_wanted_pages(tmp_path: Path) -> None:
