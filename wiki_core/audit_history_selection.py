@@ -82,14 +82,21 @@ def search_base_markdown(root, binding, *, context_id, approved_revision, base, 
         raise PolicyError('historical search repository unavailable')
     paths = [item['path'] for item in plan['selection']['inputs']]
     def current():
-        return (revision(root, binding.trusted_ref) == base
-                and revision(root, 'refs/heads/' + branch) == head
-                and revision(root, 'HEAD') == head)
+        try:
+            selected_ref = 'refs/heads/' + branch
+            return (revision(root, binding.trusted_ref) == base
+                    and revision(root, selected_ref) == head
+                    and r1._git(root, 'symbolic-ref', '--quiet', 'HEAD').decode('ascii').strip() == selected_ref
+                    and revision(root, 'HEAD') == head)
+        except (OSError, ValueError, UnicodeError):
+            return False
 
     if not admitted() or not current():
         raise PolicyError('historical search admission changed')
     report = {'state': 'partial', 'check': check, 'search': 'not_completed',
               'possible_body_reads': True, 'selected_count': len(paths),
+              'size_checks_attempted': 0, 'size_checks_completed': 0,
+              'grep_batches_attempted': 0, 'grep_batches_completed': 0,
               'plan_sha256': plan_sha256, 'gate_coverage': 'not_verified',
               'global_audit': 'not_performed', 'worktree_check': 'not_performed',
               'index_bodies': 'not_inspected', 'historical_policy': 'external_not_verified',
@@ -103,7 +110,39 @@ def search_base_markdown(root, binding, *, context_id, approved_revision, base, 
                            'worktree_bodies': 'not_intentionally_read',
                            'ignored_bodies': 'not_intentionally_read'}}
     try:
-        matches = audit._grep_selected_history(base, _PATTERNS[check], paths)
+        limits = plan['selection']['limits']
+        total = 0
+        for item in plan['selection']['inputs']:
+            if not admitted() or not current():
+                return report
+            report['size_checks_attempted'] += 1
+            size = int(r1._git(root, 'cat-file', '-s', item['oid']).decode('ascii').strip())
+            report['size_checks_completed'] += 1
+            total += size
+            if size < 0 or size > limits['max_item_bytes'] or total > limits['max_total_bytes']:
+                return report
+
+        # Keep the same literal-path batch boundaries as the legacy helper;
+        # track each call so an interrupted search is not reported as complete.
+        batches, batch, encoded_size = [], [], 0
+        for path in paths:
+            size = len(path.encode('utf-8')) + len(':(literal)')
+            if size > 6000:
+                return report
+            if len(batch) >= 32 or encoded_size + size > 6000:
+                batches.append(batch)
+                batch, encoded_size = [], 0
+            batch.append(path)
+            encoded_size += size
+        if batch:
+            batches.append(batch)
+        matches = set()
+        for batch in batches:
+            if not admitted() or not current():
+                return report
+            report['grep_batches_attempted'] += 1
+            matches.update(audit._grep_selected_history(base, _PATTERNS[check], batch))
+            report['grep_batches_completed'] += 1
         if not admitted() or not current():
             return report
         after = r1.inventory(root, binding, context_id=context_id, approved_revision=approved_revision,

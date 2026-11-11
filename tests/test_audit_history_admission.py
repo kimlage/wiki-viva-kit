@@ -18,7 +18,7 @@ def git(root, *args):
                           text=True, capture_output=True).stdout.strip()
 
 
-def make_case(tmp_path, monkeypatch, *, denied, alias=False):
+def make_case(tmp_path, monkeypatch, *, denied, alias=False, oversized=False, extra_files=0, extra_size=0):
     root = tmp_path / 'synthetic'
     root.mkdir()
     git(root, 'init', '-q')
@@ -29,7 +29,11 @@ def make_case(tmp_path, monkeypatch, *, denied, alias=False):
     (root / 'memories/internal').mkdir(parents=True)
     (root / 'memories/actions').mkdir(parents=True)
     (root / 'memories/internal/denied.md').write_text('---\npage_type: action\npage_id: hidden\n---\nSynthetic.\n')
-    (root / 'memories/actions/allowed.md').write_text('---\npage_type: action\npage_id: allowed\n---\nSynthetic.\n')
+    (root / 'memories/actions/allowed.md').write_text(
+        '---\npage_type: action\npage_id: allowed\n---\nSynthetic.\n' + ('x' * 2_000_000 if oversized else ''))
+    for index in range(extra_files):
+        (root / f'memories/actions/extra-{index:03}.md').write_text(
+            f'---\npage_type: action\npage_id: extra-{index}\n---\n' + ('x' * extra_size))
     (root / 'restricted').mkdir()
     (root / 'restricted/denied.json').write_text(
         (root / 'memories/actions/allowed.md').read_text() if alias else '{"synthetic": true}\n')
@@ -157,12 +161,70 @@ def test_admission_withdrawn_after_search_reports_partial_without_matches(tmp_pa
     root, binding, args = make_case(tmp_path, monkeypatch, denied=False)
     snapshot = r1.inventory(root, binding, **args)
     plan = guarded.plan_base_markdown(snapshot, check='action_state_transitions', memory_root='memories')
-    admissions = []
+    original = audit._grep_selected_history
+    searches = []
+    def search(*args):
+        searches.append(True)
+        return original(*args)
+    monkeypatch.setattr(audit, '_grep_selected_history', search)
     def admit(_):
-        admissions.append(True)
-        return len(admissions) < 3
+        return not searches
     out = guarded.search_base_markdown(root, binding, **args, check='action_state_transitions',
         memory_root='memories', inventory_sha256=snapshot['inventory_sha256'],
         plan_sha256=plan['plan_sha256'], admit=admit)
     assert out['state'] == 'partial' and out['search'] == 'not_completed'
+    assert out['possible_body_reads'] is True and 'matching_paths' not in out
+    assert out['grep_batches_attempted'] == out['grep_batches_completed'] == 1
+
+
+def test_same_sha_other_symbolic_branch_refuses_before_grep(tmp_path, monkeypatch):
+    root, binding, args = make_case(tmp_path, monkeypatch, denied=False)
+    snapshot = r1.inventory(root, binding, **args)
+    plan = guarded.plan_base_markdown(snapshot, check='action_state_transitions', memory_root='memories')
+    git(root, 'branch', 'wiki/other', args['head'])
+    admissions = []
+    def admit(_):
+        admissions.append(True)
+        if len(admissions) == 2:
+            git(root, 'symbolic-ref', 'HEAD', 'refs/heads/wiki/other')
+        return True
+    monkeypatch.setattr(audit, '_grep_selected_history', lambda *a: pytest.fail('grep executed'))
+    with pytest.raises(PolicyError, match='admission changed'):
+        guarded.search_base_markdown(root, binding, **args, check='action_state_transitions',
+            memory_root='memories', inventory_sha256=snapshot['inventory_sha256'],
+            plan_sha256=plan['plan_sha256'], admit=admit)
+
+
+@pytest.mark.parametrize('kind', ['item', 'total'])
+def test_declared_size_limits_refuse_before_grep(tmp_path, monkeypatch, kind):
+    options = {'oversized': True} if kind == 'item' else {'extra_files': 5, 'extra_size': 1_700_000}
+    root, binding, args = make_case(tmp_path, monkeypatch, denied=False, **options)
+    snapshot = r1.inventory(root, binding, **args)
+    plan = guarded.plan_base_markdown(snapshot, check='action_state_transitions', memory_root='memories')
+    monkeypatch.setattr(audit, '_grep_selected_history', lambda *a: pytest.fail('grep executed'))
+    out = guarded.search_base_markdown(root, binding, **args, check='action_state_transitions',
+        memory_root='memories', inventory_sha256=snapshot['inventory_sha256'],
+        plan_sha256=plan['plan_sha256'], admit=lambda _: True)
+    assert out['state'] == 'partial' and out['search'] == 'not_completed'
+    assert out['size_checks_attempted'] == out['size_checks_completed'] > 0
+    assert out['grep_batches_attempted'] == out['grep_batches_completed'] == 0
+
+
+def test_second_batch_failure_reports_attempted_and_completed(tmp_path, monkeypatch):
+    root, binding, args = make_case(tmp_path, monkeypatch, denied=False, extra_files=33)
+    snapshot = r1.inventory(root, binding, **args)
+    plan = guarded.plan_base_markdown(snapshot, check='action_state_transitions', memory_root='memories')
+    original = audit._grep_selected_history
+    calls = []
+    def search(*args):
+        calls.append(True)
+        if len(calls) == 2:
+            raise audit.AuditPathBoundaryError('synthetic second batch failure')
+        return original(*args)
+    monkeypatch.setattr(audit, '_grep_selected_history', search)
+    out = guarded.search_base_markdown(root, binding, **args, check='action_state_transitions',
+        memory_root='memories', inventory_sha256=snapshot['inventory_sha256'],
+        plan_sha256=plan['plan_sha256'], admit=lambda _: True)
+    assert out['state'] == 'partial' and out['search'] == 'not_completed'
+    assert out['grep_batches_attempted'] == 2 and out['grep_batches_completed'] == 1
     assert out['possible_body_reads'] is True and 'matching_paths' not in out
