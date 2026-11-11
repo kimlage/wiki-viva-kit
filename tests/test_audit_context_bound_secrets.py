@@ -115,6 +115,41 @@ def test_denied_selected_document_blocks_before_any_scan(case, monkeypatch, caps
     assert '0 error(s)' not in output
 
 
+@pytest.mark.parametrize(('suffix', 'required_for_secrets'), [('.json', True), ('.bin', False)])
+def test_global_secrets_inventory_distinguishes_denied_required_candidate(case, monkeypatch, suffix, required_for_secrets):
+    """Metadata classifies this subcheck only; it does not approve an audit."""
+    root = case['root']
+    git(root, 'rm', 'restricted/example.md')
+    rel = 'restricted/synthetic' + suffix
+    target = root / rel
+    target.parent.mkdir(exist_ok=True)
+    target.write_text('synthetic content\n')
+    git(root, 'add', rel)
+    git(root, 'commit', '-qm', 'synthetic denied classification')
+    revision = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', revision)
+    policy = load_policy(root, revision, 'wiki.config.yaml')
+    assert not policy.permits('.', 'read', rel)
+
+    original_open = Path.open
+    def guard_open(path, *args, **kwargs):
+        if path == target:
+            pytest.fail('denied synthetic body opened during selection')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guard_open)
+    monkeypatch.setattr(audit, 'scan_file', lambda *_: pytest.fail('scan ran during selection'))
+    audit._audit_git_inventory.cache_clear()
+    audit.tracked_files.cache_clear()
+    try:
+        candidates = audit._scannable_text_files()
+        assert (rel in candidates) is required_for_secrets
+    finally:
+        audit._audit_git_inventory.cache_clear()
+        audit.tracked_files.cache_clear()
+    # `.bin` being outside this scanner does not prove other checks omit it.
+    # A required denied `.json` cannot be covered without violating this policy.
+
+
 def test_approved_full_selection_scans_tracked_and_untracked(case, monkeypatch, capsys):
     root = case['root']
     commit_policy(case)
