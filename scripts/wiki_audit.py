@@ -1870,6 +1870,79 @@ def audit_context_bound_history(*, context_id, approved_revision, base, head, br
     return report
 
 
+def audit_context_bound_graph(*, trusted_binding, context_id, approved_revision, base, head,
+                              branch, normative_paths, inventory_sha256=None, plan_sha256=None,
+                              plan_only=False, host_admit=None):
+    """Run the registered graph check only, after host admission of its readset.
+
+    The caller independently admits bootstrap, actor, policy, Git metadata,
+    audience and isolation. This function does not qualify the integral audit.
+    """
+    import copy
+    from wiki_core.audit_r1_inventory import SelectedReads, _worktree_bytes, inventory
+    from wiki_core.config import config_from_mapping
+    from wiki_core.context_policy import PolicyError, git_file
+    from wiki_core.graph.page_graph import select_page_graph_inputs
+
+    if not plan_only and not callable(host_admit):
+        raise PolicyError('graph host admission unavailable')
+    arguments = dict(context_id=context_id, approved_revision=approved_revision,
+                     base=base, head=head, branch=branch, normative_paths=normative_paths)
+
+    def prepare():
+        snapshot = inventory(ROOT, trusted_binding, **arguments)
+        # Approved config and worktree equivalence are bootstrap reads. Their
+        # independent admission must precede this function, including plan-only.
+        approved = git_file(ROOT, approved_revision, 'wiki.config.yaml')
+        config_meta = snapshot['physical']['files'].get('wiki.config.yaml')
+        if (config_meta is None or config_meta['size'] > 2_000_000 or
+                _worktree_bytes(ROOT, {'path': 'wiki.config.yaml', **config_meta}) != approved):
+            raise PolicyError('graph working configuration unavailable')
+        config = config_from_mapping(yaml.safe_load(approved.decode('utf-8')))
+        return snapshot, select_page_graph_inputs(snapshot, config), config, approved
+
+    snapshot, plan, config, approved = prepare()
+    status = {'scope': 'page_graph_only', 'global_audit': 'not_performed',
+              'gate_state': 'blocked_incomplete_coverage', 'bootstrap': 'external_not_verified',
+              'host_admission': 'external_not_verified', 'live_observation': 'not_verified',
+              'cleanup': 'external_not_verified'}
+    if plan_only:
+        return {**status, 'state': 'selection_only', 'inventory_sha256': snapshot['inventory_sha256'],
+                'plan': plan}
+    if snapshot['inventory_sha256'] != inventory_sha256 or plan['plan_sha256'] != plan_sha256:
+        raise PolicyError('graph selection changed')
+    if host_admit(copy.deepcopy(plan)) is not True:
+        raise PolicyError('graph host admission unavailable')
+    contents, attempted = {}, 0
+    try:
+        current, selected, _, current_config = prepare()
+        if (current['inventory_sha256'] != inventory_sha256 or selected['plan_sha256'] != plan_sha256
+                or current_config != approved):
+            raise PolicyError('graph selection changed')
+        for item in plan['selection']['inputs']:
+            if host_admit(copy.deepcopy(plan)) is not True:
+                raise PolicyError('graph host admission changed')
+            attempted += 1
+            contents[item['path']] = _worktree_bytes(ROOT, item)
+        if host_admit(copy.deepcopy(plan)) is not True:
+            raise PolicyError('graph host admission changed')
+        current, selected, _, current_config = prepare()
+        if (current['inventory_sha256'] != inventory_sha256 or selected['plan_sha256'] != plan_sha256
+                or current_config != approved):
+            raise PolicyError('graph selection changed')
+        missing = set(snapshot['missing_tracked']) | (set(snapshot['trees'][head]) - snapshot['physical']['files'].keys())
+        context = AuditContext(config)
+        context.graph_reads = SelectedReads(ROOT, snapshot['physical'], contents, missing=missing)
+        dict(CHECKS)['page_graph'](context)
+    except Exception:
+        return {**status, 'state': 'partial', 'source_bodies_validated': len(contents),
+                'source_body_attempts_may_have_read_bytes': attempted}
+    return {**status, 'state': 'failed' if context.errors else 'completed',
+            'errors': context.errors, 'warnings': context.warnings,
+            'source_bodies_validated': len(contents), 'source_body_attempts_may_have_read_bytes': attempted,
+            'plan_sha256': plan_sha256}
+
+
 def audit_pii(errors: list[str], warnings: list[str], config: WikiConfig, public_export: bool = False) -> None:
     """Personal data (PII) is WELCOME in private pages of this personal repo:
     it produces neither error nor warning -- storing CPF/CNPJ, amounts, counterparties
@@ -2215,8 +2288,11 @@ def audit_operational_concept_links(errors: list[str], config: WikiConfig) -> No
             )
 
 
-def audit_page_graph(errors: list[str], warnings: list[str], config: WikiConfig) -> None:
-    graph = build_page_graph(ROOT, config)
+def audit_page_graph(errors: list[str], warnings: list[str], config: WikiConfig, *, reads=None) -> None:
+    # A selected reader supplies bodies already admitted by the host; it does
+    # not prove admission or coverage of any of the other audit checks.
+    graph = (build_page_graph(ROOT, config) if reads is None
+             else build_page_graph(ROOT, config, reads=reads))
     known_paths = set(graph.nodes)
     instruction_paths = {rel for rel in graph.nodes if is_context_instruction(rel, graph.memory_root, known_paths)}
     audit_config = config.audit
@@ -3034,9 +3110,10 @@ class AuditContext:
     positional/keyword arguments the old hand-written main() used.
     """
 
-    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews", "information_audited", "query_context", "query_policy_revision", "query_head")
+    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews", "information_audited", "query_context", "query_policy_revision", "query_head", "graph_reads")
 
     def __init__(self, config: WikiConfig, public_export: bool = False) -> None:
+        self.graph_reads = None
         self.information_audited = False
         self.query_context = self.query_policy_revision = self.query_head = None
         self.errors: list[str] = []
@@ -3095,7 +3172,9 @@ CHECKS: tuple[tuple[str, "callable"], ...] = (
     ("pii", lambda ctx: audit_pii(ctx.errors, ctx.warnings, ctx.config, public_export=ctx.public_export)),
     ("clickable_local_links", lambda ctx: audit_clickable_local_links(ctx.errors, ctx.config)),
     ("obsidian_directory_links", lambda ctx: audit_obsidian_directory_links(ctx.warnings, ctx.config)),
-    ("page_graph", lambda ctx: audit_page_graph(ctx.errors, ctx.warnings, ctx.config)),
+    ("page_graph", lambda ctx: (audit_page_graph(ctx.errors, ctx.warnings, ctx.config)
+                              if ctx.graph_reads is None else
+                              audit_page_graph(ctx.errors, ctx.warnings, ctx.config, reads=ctx.graph_reads))),
     ("page_type_registry", lambda ctx: audit_page_type_registry(ctx.errors, ctx.config)),
     ("duplicate_entity_names", lambda ctx: audit_duplicate_entity_names(ctx.errors, ctx.config)),
     ("entity_mention_links", lambda ctx: audit_entity_mention_links(ctx.warnings, ctx.config, ctx.errors)),

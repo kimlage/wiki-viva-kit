@@ -193,11 +193,14 @@ def _integrator_classifications(policy, actor: str, binding: CoordinationBinding
         raise PolicyError('integrator read binding unavailable')
     if 'audit.integrator_read' in policy.effective[actor]['deny']['capabilities']:
         raise PolicyError('integrator read binding unavailable')
-    declared = {(context['id'], _scope(raw, context['root']))
+    declared = [(context['id'], _scope(raw, context['root']))
                 for context in policy.contexts.values()
-                for raw in context['policy'].get('deny', {}).get('read', [])}
+                for raw in context['policy'].get('deny', {}).get('read', [])]
     classified = frozenset(binding.context_isolation_denies)
-    if not classified.issubset(declared):
+    # Two syntactically different declarations can normalize to one scope.
+    # The host assertion does not identify which declaration it classifies;
+    # refuse the ambiguity rather than lifting an independent restriction.
+    if any(declared.count(item) != 1 for item in classified):
         raise PolicyError('integrator deny classification unavailable')
     return classified
 
@@ -216,7 +219,7 @@ def _integrator_allowed(policy, actor: str, path: str, classified: frozenset,
         if canonical_path(path) != path or is_protected_artifact(Path(path)):
             return False
         owner = policy.owner_of(path)
-        if require_qualified and actor not in policy._qualified_contexts:
+        if require_qualified and actor not in getattr(policy, '_integrator_qualified_contexts', ()):
             return False
         lineages = {item['id']: item for item in (*policy.lineage(actor), *policy.lineage(owner))}
         for context in lineages.values():

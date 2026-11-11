@@ -29,7 +29,9 @@ def bound_integrator(repo, request):
         config.setdefault('paths', {})['memory_root'] = 'finance'
     root_deny = 'self' if variant in ('root_deny', 'bootstrap_deny') else 'self/finance/tax'
     root_denies = [root_deny]
-    if variant == 'bootstrap_deny':
+    if variant == 'ambiguous_declarations':
+        root_denies.append('finance/tax')
+    if variant in ('bootstrap_deny', 'qualification_isolation'):
         root_denies.append('self/AGENTS.md')
     root_deny_policy = {'read': root_denies}
     if variant == 'capability_deny':
@@ -53,9 +55,12 @@ def bound_integrator(repo, request):
     policy = load_policy(repo, base, 'wiki.config.yaml')
     contexts = tuple(sorted(policy.contexts))
     git(repo, 'checkout', '-qb', 'wiki/synthetic-integrator')
+    classifications = (('.', '.' if variant in ('root_deny', 'bootstrap_deny') else 'finance/tax'),)
+    if variant == 'qualification_isolation':
+        classifications += (('.', 'AGENTS.md'),)
     binding = CoordinationBinding(contexts, 'refs/remotes/origin/main', 'wiki.config.yaml',
         integrator_read_context='.', integrator_policy_revision=base,
-        context_isolation_denies=(('.', '.' if variant in ('root_deny', 'bootstrap_deny') else 'finance/tax'),))
+        context_isolation_denies=classifications)
     return repo, base, binding, contexts
 
 
@@ -168,6 +173,34 @@ def test_integrator_context_need_not_be_root(bound_integrator):
     assert rows['finance/tax/private.md'] == 'denied'
     assert rows['finance/tax/credentials/synthetic.txt'] == 'denied'
     assert inventory['integrator_read']['principal_identity'] == 'external_not_verified'
+
+
+@pytest.mark.parametrize('bound_integrator', ['ambiguous_declarations'], indirect=True)
+def test_classification_refuses_distinct_declarations_with_same_resolved_scope(bound_integrator, monkeypatch):
+    monkeypatch.setattr(r1, '_worktree_bytes', lambda *_: pytest.fail('target body read'))
+    with pytest.raises(PolicyError, match='classification unavailable'):
+        snapshot(bound_integrator)
+
+
+@pytest.mark.parametrize('bound_integrator', ['qualification_isolation'], indirect=True)
+def test_integrator_qualification_does_not_qualify_ordinary_query(bound_integrator):
+    from wiki_core.context_packet import qualify_folder_context
+    from wiki_core.context_selection import select_query
+    from wiki_core.repository_reader import RepositoryReader
+
+    root, base, binding, _ = bound_integrator
+    context = 'finance/costs'
+    policy = load_policy(root, base, 'wiki.config.yaml')
+    index = policy._context_indexes[context]
+    reader = RepositoryReader(root, base)
+    with pytest.raises(PolicyError, match='context body not authorized'):
+        qualify_folder_context(root, policy, context, context, index, 100000)
+    qualify_folder_context(root, policy, context, context, index, 100000,
+                           integrator_read_binding=replace(binding, integrator_read_context=context))
+    assert context in policy._integrator_qualified_contexts
+    assert context not in policy._qualified_contexts
+    with pytest.raises(PolicyError, match='qualified folder authority unavailable'):
+        select_query(policy, context, reader, {})
 
 
 @pytest.mark.parametrize('bound_integrator', ['root_deny'], indirect=True)

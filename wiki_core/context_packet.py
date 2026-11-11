@@ -205,11 +205,18 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
         # only after the exact grant for that file has been checked.
         if refs: any(inspect_authorized(ref).strip() for ref in refs)
     policy.fresh()
-    policy._qualified_contexts.update(context['id'] for context in lineage)
-    if not hasattr(policy, '_folder_qualifications'): policy._folder_qualifications = {}
-    policy._folder_qualifications[(context_id, entry_folder, entry_index)] = {
-        'context_id': context_id, 'entry_folder': entry_folder, 'entry_index': entry_index,
-        'refs': tuple(inspection_order), 'nonempty': nonempty, 'additional_readers': tuple(additional_readers)}
+    if classified is not None:
+        # Audit qualification under host-asserted integrator authority must not
+        # qualify the context for ordinary packets, queries or normative work.
+        if not hasattr(policy, '_integrator_qualified_contexts'):
+            policy._integrator_qualified_contexts = set()
+        policy._integrator_qualified_contexts.add(context_id)
+    else:
+        policy._qualified_contexts.update(context['id'] for context in lineage)
+        if not hasattr(policy, '_folder_qualifications'): policy._folder_qualifications = {}
+        policy._folder_qualifications[(context_id, entry_folder, entry_index)] = {
+            'context_id': context_id, 'entry_folder': entry_folder, 'entry_index': entry_index,
+            'refs': tuple(inspection_order), 'nonempty': nonempty, 'additional_readers': tuple(additional_readers)}
     return reader, inspection_order
 
 

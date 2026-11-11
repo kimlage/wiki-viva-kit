@@ -374,6 +374,15 @@ is not admission. The function refuses integrator execution without that
 callback. CLI arguments and environment variables do not create this role,
 and this partial route still does not execute or approve the integral audit.
 
+The same entrypoint also exposes an in-process, host-admitted `page_graph`
+check. Its plan covers the selected worktree Markdown graph only; approved
+configuration, context and Git/bootstrap reads require prior host authority
+and can overlap that selection. A denied or missing graph input refuses the
+plan, and admission must remain valid through the selected reads. Results are
+limited to that check: they do not qualify history, secrets, the remaining
+checks, cleanup, or the required integral audit. The host must protect the
+plan and results for their actual audience and isolate concurrent writers.
+
 
 ## Proposal-only Git secrets check
 
