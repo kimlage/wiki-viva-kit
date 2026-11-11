@@ -1,4 +1,4 @@
-"""Internal R1 selection for the existing worktree secrets subcheck.
+"""Internal R1 selections for existing worktree audit subchecks.
 
 The caller must admit bootstrap, actor, output audience and isolation before
 calling. This is not the complete audit, a grant or an authenticated host.
@@ -12,6 +12,106 @@ from pathlib import Path
 
 from wiki_core.audit_r1_inventory import _worktree_bytes, inventory, select
 from wiki_core.context_policy import PolicyError
+
+
+def plan_old_paths(snapshot: dict) -> dict:
+    """Select every metadata name and Markdown body needed by old_paths."""
+    try:
+        physical = snapshot['physical']['files']
+        indexed = {entry['path'] for entry in snapshot['index']}
+        names = indexed | set(snapshot['untracked'])
+        head_tree = snapshot['trees'][snapshot['head']]
+        # Even a staged deletion must not silently remove an input from a
+        # supposedly complete check. The check examines all candidate names.
+        if (any(row['stage'] != 0 for row in snapshot['index'])
+                or any(path not in physical or path not in names for path in indexed | set(head_tree))):
+            raise PolicyError('old paths selection unavailable')
+        if any(path not in physical for path in names) or 'wiki.config.yaml' not in names:
+            raise PolicyError('old paths selection unavailable')
+        bodies = {path for path in names if path.endswith('.md')} | {'wiki.config.yaml'}
+        selection = select(snapshot, [{'kind': 'worktree', 'path': name} for name in sorted(bodies)])
+        aliases = set(snapshot['denied_oid_aliases'])
+        if (any(path in bodies and row['oid'] in aliases for path, row in head_tree.items())
+                or any(row['path'] in bodies and (row['oid'] in aliases or row['stage'] != 0)
+                       for row in snapshot['index'])):
+            raise PolicyError('old paths selection unavailable')
+        sizes = [row['size'] for row in selection['inputs']]
+        limits = selection['limits']
+        if (any(size < 0 or size > limits['max_item_bytes'] for size in sizes)
+                or sum(sizes) > limits['max_total_bytes']):
+            raise PolicyError('old paths selection unavailable')
+        plan = {'selection': selection, 'metadata_names': sorted(names),
+                'scope': 'sanitized_git_worktree_old_paths', 'ignored': 'not_selected_by_legacy_check',
+                'history_and_index_bodies': 'not_scanned', 'worktree_content_aliases': 'external_not_verified',
+                'bootstrap_and_output_audience': 'external_not_verified',
+                'host_admission': 'external_not_verified', 'global_audit': 'not_performed'}
+        plan['plan_sha256'] = hashlib.sha256(json.dumps(plan, sort_keys=True, ensure_ascii=True,
+            separators=(',', ':')).encode()).hexdigest()
+        return plan
+    except (KeyError, TypeError, AttributeError) as exc:
+        raise PolicyError('old paths selection unavailable') from exc
+
+
+def run_worktree_old_paths(root, binding, *, context_id, approved_revision, base, head,
+                           branch, normative_paths, inventory_sha256, plan_sha256, admit):
+    """Execute only the existing old_paths check after host plan admission."""
+    import yaml
+    from scripts import wiki_audit as audit
+    from wiki_core.audit_r1_inventory import SelectedReads
+    from wiki_core.config import config_from_mapping
+    from wiki_core.context_policy import git_file
+
+    if not callable(admit):
+        raise PolicyError('old paths host admission unavailable')
+    args = dict(context_id=context_id, approved_revision=approved_revision, base=base,
+                head=head, branch=branch, normative_paths=normative_paths)
+    first = inventory(root, binding, **args)
+    plan = plan_old_paths(first)
+    if first['inventory_sha256'] != inventory_sha256 or plan['plan_sha256'] != plan_sha256:
+        raise PolicyError('old paths selection changed')
+    def admitted():
+        return admit(copy.deepcopy(plan)) is True
+    if not admitted():
+        raise PolicyError('old paths host admission unavailable')
+    status = {'scope': 'sanitized_git_worktree_old_paths', 'global_audit': 'not_performed',
+              'gate_state': 'blocked_incomplete_coverage', 'bootstrap': 'external_not_verified',
+              'host_admission': 'external_not_verified', 'live_observation': 'not_verified',
+              'cleanup': 'external_not_verified', 'plan_sha256': plan_sha256,
+              'coverage': {'worktree': 'selected_markdown_and_names', 'index': 'metadata_only',
+                           'history': 'not_scanned', 'ignored': 'not_selected_by_legacy_check',
+                           'worktree_content_aliases': 'external_not_verified'}}
+    attempted = validated = 0
+    contents = {}
+    check_started = False
+    try:
+        if inventory(root, binding, **args)['inventory_sha256'] != inventory_sha256:
+            raise PolicyError('old paths selection changed')
+        for item in plan['selection']['inputs']:
+            if not admitted(): raise PolicyError('old paths admission changed')
+            attempted += 1
+            contents[item['path']] = _worktree_bytes(Path(root), item)
+            validated += 1
+        if not admitted() or inventory(root, binding, **args)['inventory_sha256'] != inventory_sha256:
+            raise PolicyError('old paths selection changed')
+        approved = git_file(Path(root), approved_revision, 'wiki.config.yaml')
+        if contents.get('wiki.config.yaml') != approved:
+            raise PolicyError('old paths working configuration unavailable')
+        context = audit.AuditContext(config_from_mapping(yaml.safe_load(approved.decode('utf-8'))))
+        context.old_paths_reads = SelectedReads(Path(root), first['physical'], contents,
+                                               missing=first['missing_tracked'])
+        context.old_paths_names = plan['metadata_names']
+        check_started = True
+        dict(audit.CHECKS)['old_paths'](context)
+        if not admitted(): raise PolicyError('old paths admission changed')
+    except Exception:
+        return {**status, 'state': 'partial',
+                'coverage': {**status['coverage'], 'worktree': 'partial_or_unknown'},
+                'check_progress': 'partial_or_unknown' if check_started else 'not_started',
+                'source_bodies_validated': validated,
+                'source_body_attempts_may_have_read_bytes': attempted}
+    return {**status, 'state': 'failed' if context.errors else 'completed',
+            'diagnostics': context.errors, 'source_bodies_validated': validated,
+            'source_body_attempts_may_have_read_bytes': attempted}
 
 
 def plan_worktree_secrets(snapshot: dict) -> dict:
@@ -120,7 +220,7 @@ def scan_worktree_secrets(root, binding, *, context_id, approved_revision, base,
             raw = _worktree_bytes(Path(root), item)
             # Validate before recording the body as usable, including when a
             # caller invokes the registered selected check independently.
-            audit._selected_secret_text(raw)
+            audit._selected_audit_text(raw)
             contents[item['path']] = raw
             validated += 1
         if not admitted():

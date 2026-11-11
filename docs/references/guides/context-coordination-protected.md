@@ -181,6 +181,14 @@ The host must qualify whether that sanitized inventory equals the required
 legacy universe, its bootstrap and output audience; the result covers neither
 history nor the other checks and cannot pass the integral gate.
 
+The same internal R1 reader can run the registered `old_paths` check using
+the sanitized inventory's complete non-ignored names and its Markdown bodies,
+plus the approved configuration. Missing HEAD/index names, denied selected
+inputs or unavailable content block that check. It conservatively refuses
+some staged deletions the legacy path would omit; the host must qualify the
+inventory, bootstrap, audience and concurrency. This covers only `old_paths`,
+not the integral audit or the other checks.
+
 For an independently authorized metadata inspection, form the candidate list
 from the sanitized inventory, retain entries whose lowercase suffix is in
 `TEXT_SCAN_SUFFIXES`, remove paths beginning with `tests/` or

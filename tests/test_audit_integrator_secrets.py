@@ -3,7 +3,7 @@ import pytest
 
 from tests.test_context_flow import repo
 from tests.test_integrator_context_read_binding import bound_integrator, snapshot
-from wiki_core import audit_secrets_selection as secrets
+from wiki_core import audit_worktree_selection as secrets
 from wiki_core.context_policy import PolicyError
 from wiki_core.coordination_context import CoordinationBinding
 

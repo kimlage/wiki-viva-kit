@@ -4,7 +4,7 @@ import pytest
 
 from tests.test_audit_r1_inventory import git, repo, run
 from tests.test_wiki_audit import _load_wiki_audit
-from wiki_core import audit_secrets_selection as secrets
+from wiki_core import audit_worktree_selection as secrets
 from wiki_core.context_policy import PolicyError
 from wiki_core.coordination_context import CoordinationBinding
 
@@ -182,3 +182,16 @@ def test_nontext_without_nul_is_partial(repo, data):
     assert result['state'] == 'partial'
     assert result['coverage']['worktree'] == 'partial_or_unknown'
     assert result['global_audit'] == 'not_performed'
+
+
+@pytest.mark.parametrize('data', [b'\xff\xfe synthetic', b'valid\x01control', b'valid\x00binary'])
+def test_selected_secrets_check_directly_refuses_nontext(tmp_path, data):
+    from wiki_core.audit_r1_inventory import SelectedReads
+
+    audit = _load_wiki_audit()
+    path = 'synthetic.json'
+    reads = SelectedReads(tmp_path, {'files': {path: {}}, 'directories': []}, {path: data})
+    errors = []
+    with pytest.raises(audit.AuditPathBoundaryError, match='nontext input unavailable'):
+        audit.audit_secrets(errors, audit.WikiConfig(), reads=reads, selected_paths=[path])
+    assert not errors

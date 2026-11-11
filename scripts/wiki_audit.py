@@ -1630,17 +1630,27 @@ LEGACY_DOCS_PREFIXES = ("docs/2026/", "docs/memorias/", "docs/memories/")
 LEGACY_DOCS_MARKERS = ("docs/2026", "docs/memorias", "docs/memories")
 
 
-def audit_old_paths(errors: list[str], config: WikiConfig) -> None:
+def audit_old_paths(errors: list[str], config: WikiConfig, *, reads=None, selected_names=None) -> None:
     allowed = {str(rel) for rel in (config.audit.get("allowed_old_path_references") or ())}
-    for rel in tracked_files():
+    if reads is None:
+        names = tracked_files()
+    else:
+        if not isinstance(selected_names, (list, tuple)) or len(set(selected_names)) != len(selected_names):
+            raise AuditPathBoundaryError('selected legacy path inputs unavailable')
+        names = selected_names
+        reads.require_files([reads.root / rel for rel in names if rel.endswith('.md')])
+    for rel in names:
         if rel.startswith(LEGACY_DOCS_PREFIXES):
             errors.append(f"{rel}: old docs path is still tracked")
         if not rel.endswith(".md"):
             continue
-        path = ROOT / rel
-        if is_in_nested_git(path, wiki_root=ROOT):
-            continue
-        text = _audit_read_text(path, encoding="utf-8", errors="replace")
+        path = (ROOT if reads is None else reads.root) / rel
+        if reads is None:
+            if is_in_nested_git(path, wiki_root=ROOT):
+                continue
+            text = _audit_read_text(path, encoding="utf-8", errors="replace")
+        else:
+            text = _selected_audit_text(reads.read_bytes(path))
         if any(marker in text for marker in LEGACY_DOCS_MARKERS) and rel not in allowed:
             errors.append(f"{rel}: old docs path reference outside migration history")
 
@@ -1657,15 +1667,15 @@ def _scannable_text_files() -> list[str]:
     return files
 
 
-def _selected_secret_text(raw: bytes) -> str:
+def _selected_audit_text(raw: bytes) -> str:
     """Refuse unsupported bytes; printable UTF-8 is not proof of text."""
     try:
         text = raw.decode('utf-8', errors='strict')
     except UnicodeDecodeError as exc:
-        raise AuditPathBoundaryError('selected secrets nontext input unavailable') from exc
+        raise AuditPathBoundaryError('selected audit nontext input unavailable') from exc
     if any((ord(char) < 32 and char not in '\t\n\r') or
            127 <= ord(char) <= 159 for char in text):
-        raise AuditPathBoundaryError('selected secrets nontext input unavailable')
+        raise AuditPathBoundaryError('selected audit nontext input unavailable')
     return text
 
 
@@ -1688,7 +1698,7 @@ def audit_secrets(errors: list[str], config: WikiConfig, *, reads=None, selected
         else:
             from wiki_core.detectors import scan_text
             raw = reads.read_bytes(reads.root / rel)
-            findings = scan_text(_selected_secret_text(raw))
+            findings = scan_text(_selected_audit_text(raw))
         for finding in findings:
             if finding.category == "secret":
                 errors.append(f"{rel}:{finding.line}: possible {finding.kind} secret ({finding.excerpt})")
@@ -3137,11 +3147,12 @@ class AuditContext:
     positional/keyword arguments the old hand-written main() used.
     """
 
-    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews", "information_audited", "query_context", "query_policy_revision", "query_head", "graph_reads", "secret_reads", "secret_paths")
+    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews", "information_audited", "query_context", "query_policy_revision", "query_head", "graph_reads", "secret_reads", "secret_paths", "old_paths_reads", "old_paths_names")
 
     def __init__(self, config: WikiConfig, public_export: bool = False) -> None:
         self.graph_reads = None
         self.secret_reads = self.secret_paths = None
+        self.old_paths_reads = self.old_paths_names = None
         self.information_audited = False
         self.query_context = self.query_policy_revision = self.query_head = None
         self.errors: list[str] = []
@@ -3195,7 +3206,9 @@ CHECKS: tuple[tuple[str, "callable"], ...] = (
                                         audit_wiki_text_storage(ctx.errors, ctx.config))),
     ("command_reference", lambda ctx: audit_command_reference(ctx.errors, ctx.config)),
     ("relations", lambda ctx: audit_relations(ctx.errors, ctx.config)),
-    ("old_paths", lambda ctx: audit_old_paths(ctx.errors, ctx.config)),
+    ("old_paths", lambda ctx: (audit_old_paths(ctx.errors, ctx.config) if ctx.old_paths_reads is None else
+                              audit_old_paths(ctx.errors, ctx.config, reads=ctx.old_paths_reads,
+                                              selected_names=ctx.old_paths_names))),
     ("secrets", lambda ctx: (audit_secrets(ctx.errors, ctx.config) if ctx.secret_reads is None else
                             audit_secrets(ctx.errors, ctx.config, reads=ctx.secret_reads,
                                           selected_paths=ctx.secret_paths))),
