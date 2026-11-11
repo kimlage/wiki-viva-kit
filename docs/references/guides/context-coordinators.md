@@ -19,6 +19,17 @@ profiles:
 
 Use real action page IDs. Assign one primary coordinator per action; missing routes remain visible instead of assigning an arbitrary bot. A profile may coordinate actions in multiple canonical contexts; never union those contexts' permissions or create tasks to fill a profile. IDs and profile labels supply routing and historical attribution, not access grants.
 
+Where the owner explicitly authorizes an identified integrator under the
+consumer's policy, that integrator may read across contexts for audit and
+reconciliation within that authority. This does not transfer access to
+executors or authorize content or policy writes; those remain with the owner
+or authorized executor, and promotion requires authorized review. Classify
+the purpose of existing denies under the current owner direction: an old
+inter-context isolation restriction is not automatically retained for that
+integrator, while secrecy, audience, unclassified denies and external effects
+remain governed by their applicable limits. A documented rule is not proof
+that a host has bound or enforced the authority.
+
 The board's **Fronts** view derives projects and initiatives from canonical
 pages, including fronts without an active action. Optional `front_refs` on a
 profile selects existing page IDs or paths for differently typed contexts.
