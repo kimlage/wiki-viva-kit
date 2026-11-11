@@ -468,7 +468,7 @@ def test_read_only_drift_inventory_reports_all_managed_changes_without_touching_
     assert result.returncode == 1, result.stderr
     report = json.loads(result.stdout)
     assert report["status"] == "drift"
-    assert [(row["path"], row["actual"]["kind"]) for row in report["drift"]] == [
+    assert [(row["path"], row["worktree"]["kind"]) for row in report["drift"]] == [
         ("generate.py", "file"), ("portable/tool.txt", "missing")
     ]
     assert all(row["expected"]["sha256"] for row in report["drift"])
@@ -478,6 +478,48 @@ def test_read_only_drift_inventory_reports_all_managed_changes_without_touching_
     assert (consumer / "generate.py").read_text() == "# unstaged synthetic drift\n"
     assert (consumer / "untracked.txt").read_text() == "synthetic work in progress\n"
     assert not (consumer / "portable/tool.txt").exists()
+
+
+def test_drift_inventory_detects_staged_change_when_worktree_matches_lock(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    target = consumer / "portable/tool.txt"
+    original = target.read_bytes()
+    target.write_text("staged synthetic change\n")
+    _git(consumer, "add", "portable/tool.txt")
+    target.write_bytes(original)
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 1, result.stderr
+    row = next(row for row in json.loads(result.stdout)["drift"] if row["path"] == "portable/tool.txt")
+    assert row["worktree"]["sha256"] == row["expected"]["sha256"]
+    assert row["index"]["sha256"] != row["expected"]["sha256"]
+    assert target.read_bytes() == original
+
+
+def test_drift_inspection_refuses_parent_symlink_swap(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "tool.txt").write_text("outside synthetic sentinel\n")
+    sync = _sync_module()
+    original = sync._check_consumer_path
+
+    def swap(root, rel):
+        original(root, rel)
+        if rel == "portable/tool.txt":
+            (consumer / "portable").rename(consumer / "preserved")
+            (consumer / "portable").symlink_to(outside, target_is_directory=True)
+
+    monkeypatch.setattr(sync, "_check_consumer_path", swap)
+    with pytest.raises(sync.SyncError, match="unsafe or unreadable"):
+        sync.inspect_drift(consumer)
+    assert (outside / "tool.txt").read_text() == "outside synthetic sentinel\n"
+    assert (consumer / "preserved/tool.txt").read_text() == "v1\n"
 
 
 def test_drift_inventory_refuses_missing_lock_and_symlink_without_mutation(tmp_path: Path) -> None:
@@ -506,6 +548,9 @@ def test_drift_inventory_refuses_c3_and_invalid_lock_metadata(tmp_path: Path) ->
     result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
     assert result.returncode == 2 and "invalid managed file metadata" in result.stderr
     assert lock_path.read_bytes() == before
+    lock_path.write_text("schema_version: wiki_viva_kit_lock.v1\nmanaged_files: {}\n")
+    incomplete = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert incomplete.returncode == 2 and "incomplete provenance" in incomplete.stderr
 
 
 def test_unmanaged_ignored_collision_is_preserved_or_identical_noop(tmp_path: Path) -> None:
