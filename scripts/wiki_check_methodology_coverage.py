@@ -489,44 +489,7 @@ def run_checks(root: Path | None = None, *, reads=None, config=None) -> dict[str
     return {"checks": checks, "errors": errors, "complete": not errors}
 
 
-class _SelectedReads:
-    """The check can consume only in-memory bytes admitted as one selection."""
-    def __init__(self, root, physical, contents):
-        self.root, self.files, self.directories, self.contents = Path(root), physical['files'], physical['directories'], contents
-
-    def _rel(self, path):
-        try:
-            return Path(path).relative_to(self.root).as_posix()
-        except ValueError:
-            raise RuntimeError('methodology selection unavailable') from None
-
-    def exists(self, path):
-        rel = self._rel(path)
-        return rel == '.' or rel in self.files or rel in self.directories
-
-    def read_bytes(self, path):
-        rel = self._rel(path)
-        if rel not in self.contents:
-            raise RuntimeError('methodology body outside admitted selection')
-        return self.contents[rel]
-
-    def read_text(self, path, *, errors='strict'):
-        return self.read_bytes(path).decode('utf-8', errors=errors)
-
-    def glob(self, path, pattern):
-        rel = self._rel(path)
-        prefix = '' if rel == '.' else rel + '/'
-        return [self.root / name for name in sorted(self.files)
-                if name.startswith(prefix) and '/' not in name[len(prefix):]
-                and fnmatch.fnmatchcase(name[len(prefix):], pattern)]
-
-    def markdown(self, path, root):
-        from wiki_core.traversal import is_protected_artifact
-        rel = self._rel(path)
-        prefix = '' if rel == '.' else rel + '/'
-        return [self.root / name for name in sorted(self.files)
-                if name.startswith(prefix) and name.endswith('.md')
-                and not is_protected_artifact(Path(name))]
+from wiki_core.audit_r1_inventory import SelectedReads as _SelectedReads
 
 
 def methodology_selection(root, binding, *, context_id, approved_revision, base, head,

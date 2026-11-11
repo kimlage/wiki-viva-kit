@@ -31,7 +31,7 @@ def is_editorial_context_hub(values: dict, context: str) -> bool:
 
 
 def discover_context_hubs(root: Path, config: WikiConfig, *, contexts=None,
-                          read_page=parse_frontmatter) -> tuple[dict[str, list[str]], list[str]]:
+                          read_page=parse_frontmatter, reads=None) -> tuple[dict[str, list[str]], list[str]]:
     """Resolve authored context_hub identities and same-context moc_parent roots.
 
     Missing identities retain the conventional relative path for the auditor's
@@ -44,10 +44,14 @@ def discover_context_hubs(root: Path, config: WikiConfig, *, contexts=None,
     errors: list[str] = []
     if context_memory_root(root, config) is None:
         return {}, ["unsafe context memory root"]
-    for path in sorted(wiki_markdown_files(base, wiki_root=root)) if base.is_dir() else []:
-        if path.is_symlink() or any(parent.is_symlink() for parent in path.parents if parent != root and root in parent.parents):
+    if reads is None:
+        candidates = sorted(wiki_markdown_files(base, wiki_root=root)) if base.is_dir() else []
+    else:
+        candidates = reads.markdown(base, root) if reads.is_dir(base) else []
+    for path in candidates:
+        if reads is None and (path.is_symlink() or any(parent.is_symlink() for parent in path.parents if parent != root and root in parent.parents)):
             continue
-        values, _ = read_page(path)
+        values, _ = read_page(path) if reads is None else read_page(reads.read_text(path, errors='replace'))
         context = values.get("context")
         if (isinstance(context, str) and context in by_context
                 and is_editorial_context_hub(values, context)):
