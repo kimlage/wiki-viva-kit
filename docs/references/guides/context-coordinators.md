@@ -19,6 +19,20 @@ profiles:
 
 Use real action page IDs. Assign one primary coordinator per action; missing routes remain visible instead of assigning an arbitrary bot. A profile may coordinate actions in multiple canonical contexts; never union those contexts' permissions or create tasks to fill a profile. IDs and profile labels supply routing and historical attribution, not access grants.
 
+Where the owner explicitly authorizes an identified integrator under the
+consumer's policy, that integrator may read across contexts for audit and
+reconciliation within that authority. This does not transfer access to
+executors or authorize content or policy writes; those remain with the owner
+or authorized executor. Promote only proposals authorized by the responsible
+owner and independently reviewed under applicable policy. Classify
+existing denies by purpose under the current owner direction; do not retain an
+inter-context isolation restriction automatically or relax specific secrecy,
+audience, unclassified denies or external-effect limits. The owner's decision
+can authorize the policy change without requiring the replaced configuration
+to already permit it. Existing enforcement applies until the authorized policy
+change is effective and the host binds the resulting authority. A documented
+rule does not itself change the protected route or prove host enforcement.
+
 The board's **Fronts** view derives projects and initiatives from canonical
 pages, including fronts without an active action. Optional `front_refs` on a
 profile selects existing page IDs or paths for differently typed contexts.
@@ -93,6 +107,12 @@ authorized source. Reuse authorization that remains valid after checking the
 executing instance's identity and access and current STOPs; do not bypass denies
 or expand scope. A slice executor need not acquire writer credentials.
 
+Before an external effect, the integrator checks the owner's applicable current
+acceptance for that version and operation, including a merge that publishes to
+production. Reuse acceptance that remains valid; if required acceptance is
+missing, hold only the dependent effect while authorized preparation, tests and
+review continue.
+
 Record the blocker on the existing action. If no retry budget is specified,
 stop the affected attempt after recording it. Do not enter a repair loop for an
 unchanged refusal. Ask a specific question only when a missing decision or new
@@ -127,6 +147,16 @@ requiring that child to acquire writer credentials or perform a merge outside
 its scope. The responsible actor completes integration through the same wiki
 process. Track the slice's delivery separately from the canonical action's
 closure, and keep any pending consolidation visible on that action.
+
+Each delivery uses a short brief in the existing action or thread: expected
+result, verifiable acceptance criteria, current state or blocker, and the next
+responsible actor. Reference common rules instead of copying them into the
+brief. The executor returns evidence and remaining work against those criteria;
+an independent reviewer compares each criterion with the evidence and records
+findings and their resolution. The integrator checks review, applicable
+validations, approved-main readback and wiki reconciliation. The coordinator
+correlates the states and evidence across fronts and reconciles discrepancies;
+a partial merge or sent message alone does not resolve a dependency.
 
 ## Thread continuity and closeout
 
