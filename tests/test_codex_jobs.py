@@ -106,6 +106,8 @@ def test_build_argv_is_sandboxed_and_never_yolo() -> None:
     assert argv[:3] == ["codex", "exec", "-"]
     assert "--sandbox" in argv and "workspace-write" in argv
     assert "--json" in argv
+    assert argv[-2:] == ["--output-last-message", "/repo/final.md"]
+    assert "-o" not in argv
     assert not any("yolo" in a or "dangerous" in a for a in argv)
     # codex exec is non-interactive: it has no approvals flag, and passing -a
     # makes the CLI exit 2 before doing anything (regression: codex-cli 0.142).
