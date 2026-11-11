@@ -32,7 +32,8 @@ def git(root: Path, *args: str) -> str:
 
 @pytest.fixture
 def make_repo(tmp_path):
-    def make(*, deny=(), conditional_ref=False):
+    def make(*, deny=(), conditional_ref=False, missing_config_ref=False,
+             missing_root=False, invalid_config_ref=False):
         root = tmp_path / 'synthetic'
         root.mkdir()
         original = _fixture_repo(root)
@@ -43,22 +44,28 @@ def make_repo(tmp_path):
         (root / 'restricted/unrelated.json').write_text('{"synthetic": true}\n')
         wip = root / 'memories/example/wip.md'
         wip.write_text('# Synthetic note\n')
-        if conditional_ref:
+        if conditional_ref or missing_config_ref or invalid_config_ref:
             source = root / 'memories/sources/team-handbook.md'
             before = source.read_text()
+            ref = ('restricted/missing.md' if missing_config_ref else
+                   'auxiliary/invalid.yaml' if invalid_config_ref else 'auxiliary/external.yaml')
             after = before.replace('config_ref: memories/sources/config/team-handbook.md',
-                                   'config_ref: auxiliary/external.yaml')
+                                   'config_ref: ' + ref)
             assert after != before
             source.write_text(after)
-            target = root / 'auxiliary/external.yaml'
-            target.parent.mkdir()
-            target.write_text(_source_config_page('synthetic-external', 'source-team-handbook'))
+            if not missing_config_ref:
+                target = root / ref
+                target.parent.mkdir()
+                target.write_text('---\npage_type: not_source_config\n---\n' if invalid_config_ref else
+                                  _source_config_page('synthetic-external', 'source-team-handbook'))
         config = {'contexts': list(original.contexts),
                   'default_context': original.default_context,
                   'root_entity': original.root_entity,
                   'context_access': {'.': {'owner': 'Synthetic', 'policy': {
                       'read': ['self'], 'write': ['self'], 'deny': {'read': list(deny)},
                       'capabilities': [], 'publication': []}}}}
+        if missing_root:
+            config['root_entity'] = {**original.root_entity, 'page': 'memories/example/missing-root.md'}
         (root / 'wiki.config.yaml').write_text(yaml.safe_dump(config))
         # Generate synthetic output before installing spies and before the Git
         # baseline, so the real check has something meaningful to compare.
@@ -208,6 +215,36 @@ def test_conditional_ref_requires_selection_then_real_check_completes(make_repo,
                      extra_paths=['auxiliary/external.yaml'])
     assert result['state'] == 'completed' and result['result']['complete'] is True
     assert_limited(result)
+
+
+def test_explicit_missing_config_ref_never_falls_back_to_completed(make_repo, monkeypatch):
+    root, binding, args = make_repo(missing_config_ref=True, deny=['self/restricted'])
+    # The unguarded compatibility path retains its existing fallback; the
+    # protected reader must not present that fallback as complete coverage.
+    from wiki_core.source_config import find_source_config
+    legacy = find_source_config(root, load_config(root), 'memories/sources/team-handbook.md')
+    assert legacy is not None
+    forbid_body(monkeypatch, root / 'restricted/missing.md')
+    inventory, selection = plan(root, binding, args)
+    result = execute(root, binding, args, inventory, selection)
+    assert result['state'] == 'partial'
+    assert_limited(result)
+
+
+def test_explicit_invalid_config_ref_never_falls_back_to_completed(make_repo):
+    root, binding, args = make_repo(invalid_config_ref=True)
+    extra = ['auxiliary/invalid.yaml']
+    inventory, selection = plan(root, binding, args, extra_paths=extra)
+    result = execute(root, binding, args, inventory, selection, extra_paths=extra)
+    assert result['state'] == 'partial'
+    assert_limited(result)
+
+
+def test_missing_explicit_root_refuses_before_selected_bodies(make_repo, monkeypatch):
+    root, binding, args = make_repo(missing_root=True)
+    forbid_body(monkeypatch, root / 'memories/input-channels/team-docs.md')
+    with pytest.raises(PolicyError, match='required input'):
+        plan(root, binding, args)
 
 
 def test_staged_unstaged_and_ignored_cache_are_bound(make_repo, monkeypatch):

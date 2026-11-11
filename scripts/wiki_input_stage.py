@@ -94,7 +94,8 @@ def input_stage_selection(root, binding, *, context_id, approved_revision, base,
     configured = str((config.root_entity or {}).get('page') or '').strip()
     root_page = relative(root / configured) if configured else None
     files = snapshot['physical']['files']
-    if page not in files or any(path not in files for path in extras):
+    if (page not in files or (root_page is not None and root_page not in files)
+            or any(path not in files for path in extras)):
         raise PolicyError('input-stage required input unavailable')
     def candidate(name):
         return ((within(name, memory) and name.endswith('.md') and

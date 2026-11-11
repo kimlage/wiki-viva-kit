@@ -87,6 +87,10 @@ def find_source_config(root: Path, config: WikiConfig, source: str, *, reads=Non
             direct = _read_config_page(config_path, paths, reads)
             if direct is not None:
                 return direct
+        if reads is not None:
+            # The guarded caller cannot call an explicit unavailable or invalid
+            # input complete merely because a different fallback exists.
+            raise RuntimeError('explicit source configuration unavailable')
 
     config_dir = paths.sources_dir / "config"
     if not (config_dir.exists() if reads is None else reads.exists(config_dir)):

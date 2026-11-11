@@ -269,7 +269,9 @@ digests via `--context-inventory-sha256` and `--context-selection-sha256`.
 The check consumes the selected bytes through an in-memory reader. Source
 `config_ref` targets may be anywhere inside the repository: an existing target
 outside the selected set causes a partial result before its body is read, not
-a silent absence. Reconcile the attempted reads, then prepare and admit a new
+a silent absence. A missing or invalid explicit `config_ref` also makes the
+guarded result partial rather than falling back; an unavailable configured root
+page is refused during planning. Reconcile the attempted reads, then prepare and admit a new
 selection with any needed extra paths; do not combine partial results into a
 gate. An in-process host may supply an external admission callback, which the
 kit does not authenticate.
