@@ -78,6 +78,29 @@ def test_admitted_real_check_has_methodology_only_coverage(make_repo, monkeypatc
     assert result['live_observation'] == 'not_verified'
 
 
+def test_real_check_accepts_inherited_normative_merge_without_granting_history(make_repo, monkeypatch):
+    root, binding, args = make_repo()
+    git(root, 'checkout', '-qb', 'wiki/inherited-side')
+    (root / 'synthetic-side.txt').write_text('synthetic ordinary change\n')
+    git(root, 'add', 'synthetic-side.txt')
+    git(root, 'commit', '-qm', 'side inherits instruction')
+    git(root, 'checkout', '-q', 'wiki/synthetic')
+    (root / 'AGENTS.md').write_text('approved current synthetic instruction\n')
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'approved instruction')
+    base = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', base)
+    git(root, 'merge', '--no-ff', '-qm', 'synthetic inherited merge', 'wiki/inherited-side')
+    args.update(approved_revision=base, base=base, head=git(root, 'rev-parse', 'HEAD'))
+    hashes = planned(root, binding, args)
+    monkeypatch.setattr(cov, 'ROOT', root)
+    result = run(root, binding, args, hashes)
+    assert result['state'] == 'completed' and result['result']['complete'] is True
+    assert result['scope'] == 'methodology_only'
+    assert result['global_audit'] == 'not_performed'
+    assert result['host_admission'] == result['bootstrap'] == 'external_not_verified'
+
+
 def test_denied_required_file_refuses_before_any_target_body(make_repo, monkeypatch):
     root, binding, args = make_repo(deny=['self/memories/sources/wiki-viva-methodology-v5.md'])
     no_target_reads(monkeypatch)

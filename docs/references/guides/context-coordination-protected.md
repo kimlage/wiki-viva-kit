@@ -194,7 +194,9 @@ context qualifier may read bootstrap bodies that overlap the later selection;
 the selection cannot retroactively authorize those reads. The worktree config
 must equal the approved config; candidate configuration is never authority.
 The host provides the complete applicable list of normative paths (including
-`wiki.config.yaml`); changes to normative history/index remain refused by R1.
+`wiki.config.yaml`); new normative changes and index divergence remain refused
+by R1. A side branch may inherit an older boundary entry only under the
+parent-propagation constraints described below.
 The host must exclude concurrent writers, including its admission callback;
 these checks are optimistic, not an atomic filesystem snapshot or OS sandbox.
 
@@ -364,13 +366,25 @@ completeness is not verified by this module.
 It requires the selected branch to be the actual worktree HEAD, rechecks refs,
 index, physical metadata and ignore classification, and refuses unsupported
 symlinks, hardlinks, nested repositories, different-device directories, sparse
-entries, changes to those normative paths in Git history/index, new untracked
+entries, new changes to those normative paths in Git history or index, new untracked
 context instructions, shallow repositories, grafts, object alternates,
 limits and Windows. Content
 relation for worktree files remains `unknown`; unstaged normative bodies are
 not inspected. Historical policy and live observation are not qualified. Paths,
 OIDs and metadata in the result may be sensitive: the host must admit the
 output channel independently.
+
+An older normative entry inherited unchanged from a boundary parent that is an
+ancestor of the approved base can appear on a side branch. All candidate
+single-parent commits must preserve their parent's normative entries. A merge
+must preserve the base entry wherever a parent contains it; otherwise its
+parents must agree on that entry. Its complete normative snapshot must match
+one parent, and HEAD and index must match the base. The inventory retains all
+commits, boundary parents and trees. This checks propagation of presence, mode
+and object ID only: ancestry does not prove historical review or authorize an
+older policy or any body read. The approved base policy and the host's
+independent bootstrap, historical-access and selection admission remain
+required; a consumer may impose a stricter rule.
 
 `select(inventory, requested)` binds explicitly requested Git blobs, index
 stages, worktree files and commit messages to the inventory digest; it refuses
