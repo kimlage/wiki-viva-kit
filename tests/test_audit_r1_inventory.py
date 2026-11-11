@@ -265,6 +265,54 @@ def test_unrelated_merge_root_is_refused_even_with_identical_tree(repo):
         run((root, base, '', merged))
 
 
+def test_merge_cannot_assemble_normative_snapshot_from_different_parents(repo):
+    root, ancestor, _, _ = repo
+    git(root, 'reset', '--hard', ancestor)
+    (root / 'AGENTS.override.md').write_text('synthetic old override\n')
+    git(root, 'add', 'AGENTS.override.md')
+    git(root, 'commit', '-qm', 'synthetic ancestor')
+    common = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-qb', 'wiki/approved-left')
+    (root / 'AGENTS.md').write_text('synthetic current instruction\n')
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'synthetic left instruction')
+    left = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-qb', 'wiki/approved-right', common)
+    (root / 'AGENTS.override.md').write_text('synthetic current override\n')
+    git(root, 'add', 'AGENTS.override.md')
+    git(root, 'commit', '-qm', 'synthetic right instruction')
+    right = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-q', 'wiki/synthetic')
+    git(root, 'reset', '--hard', left)
+    git(root, 'merge', '--no-ff', '-qm', 'synthetic approved merge', right)
+    base = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', base)
+    tree = git(root, 'rev-parse', f'{base}^{{tree}}')
+    left_child = git(root, 'commit-tree', git(root, 'rev-parse', f'{left}^{{tree}}'),
+                     '-p', left, '-m', 'synthetic inherited left')
+    right_child = git(root, 'commit-tree', git(root, 'rev-parse', f'{right}^{{tree}}'),
+                      '-p', right, '-m', 'synthetic inherited right')
+    mixed = git(root, 'commit-tree', tree, '-p', left_child, '-p', right_child,
+                '-m', 'synthetic combined instructions')
+    head = git(root, 'commit-tree', tree, '-p', base, '-p', mixed, '-m', 'synthetic final merge')
+    git(root, 'reset', '--hard', head)
+    with pytest.raises(PolicyError, match='normative history'):
+        run((root, base, '', head))
+
+
+def test_three_parent_merge_cannot_select_old_instruction(repo):
+    root, _, side, base = inherited_instruction_branches(repo)
+    base_tree = git(root, 'rev-parse', f'{base}^{{tree}}')
+    side_tree = git(root, 'rev-parse', f'{side}^{{tree}}')
+    current = git(root, 'commit-tree', base_tree, '-p', base, '-m', 'synthetic current parent')
+    old = git(root, 'commit-tree', side_tree, '-p', base, '-p', current, '-p', side,
+              '-m', 'synthetic old three-parent merge')
+    head = git(root, 'commit-tree', base_tree, '-p', old, '-m', 'restore approved instruction')
+    git(root, 'reset', '--hard', head)
+    with pytest.raises(PolicyError, match='normative history'):
+        run((root, base, '', head))
+
+
 def test_staged_context_instruction_change_is_refused(repo, monkeypatch):
     root, _, _, _ = repo
     with (root / 'AGENTS.md').open('a') as stream:
