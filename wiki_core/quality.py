@@ -15,7 +15,7 @@ from wiki_core.events import is_ingestion_event_page as _is_ingestion_event_page
 from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
 from wiki_core.graph import build_page_graph
-from wiki_core.graph.page_graph import DEFAULT_ORPHAN_EXEMPT_TYPES, PageGraph
+from wiki_core.graph.page_graph import DEFAULT_ORPHAN_EXEMPT_TYPES, PageGraph, is_context_instruction
 from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION, read_matching_result
 from wiki_core.paths import WikiPaths
 
@@ -257,6 +257,8 @@ def build_quality_report(
     frontmatter_by_rel: dict[str, dict[str, Any]] = {}
     quality_exempt_pages: list[dict[str, str]] = []
     quality_exemption_missing_reason: list[str] = []
+    known_paths = set(graph.nodes)
+    instruction_paths = {rel for rel in known_paths if is_context_instruction(rel, graph.memory_root, known_paths)}
 
     for rel, node in graph.nodes.items():
         page_path = root / rel
@@ -295,7 +297,7 @@ def build_quality_report(
             )
             if not reason:
                 quality_exemption_missing_reason.append(rel)
-        if not _is_event_rel(paths, rel):
+        if not _is_event_rel(paths, rel) and rel not in instruction_paths:
             for block in repeated_blocks_for_page(body):
                 repeated_index[block].append(rel)
 
@@ -304,18 +306,18 @@ def build_quality_report(
     low_density_pages = [
         page["path"]
         for page in pages
-        if page["page_type"] not in NAV_EXEMPT_TYPES and page["useful_lines"] < 3
+        if page["path"] not in instruction_paths and page["page_type"] not in NAV_EXEMPT_TYPES and page["useful_lines"] < 3
         and not _is_quality_exempt(frontmatter_by_rel.get(page["path"], {}), "low_density")
     ]
     thin_link_pages = [
         page["path"]
         for page in pages
-        if page["page_type"] not in NAV_EXEMPT_TYPES and page["outbound_links"] < 1
+        if page["path"] not in instruction_paths and page["page_type"] not in NAV_EXEMPT_TYPES and page["outbound_links"] < 1
     ]
     relation_pages_without_parent = [
         page["path"]
         for page in pages
-        if page["page_type"] in RELATION_PAGE_TYPES
+        if page["path"] not in instruction_paths and page["page_type"] in RELATION_PAGE_TYPES
         and not _has_hierarchy_parent(frontmatter_by_rel.get(page["path"], {}))
         and not _is_quality_exempt(
             frontmatter_by_rel.get(page["path"], {}), "hierarchy_parent"
