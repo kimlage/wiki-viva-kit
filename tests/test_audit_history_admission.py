@@ -89,7 +89,9 @@ def test_admitted_exact_search_reports_partial_gate(tmp_path, monkeypatch, check
     root, binding, args = make_case(tmp_path, monkeypatch, denied=False)
     snapshot = r1.inventory(root, binding, **args)
     plan = guarded.plan_base_markdown(snapshot, check=check, memory_root='memories')
-    assert plan['bootstrap_requirements']['git_attributes'] == 'external_authority_not_verified'
+    assert plan['bootstrap_requirements']['git_attributes'] == {
+        'possible_sources': 'worktree_including_ignored_or_external',
+        'timing': 'bootstrap_or_search_may_read', 'authority': 'external_not_verified'}
     selected = {item['path'] for item in plan['selection']['inputs']}
     assert selected == {'memories/actions/allowed.md', 'memories/internal/denied.md'}
     original = audit._grep_selected_history
@@ -295,11 +297,23 @@ def test_ignored_regular_attributes_are_disclosed_as_bootstrap(tmp_path, monkeyp
     snapshot = r1.inventory(root, binding, **args)
     assert '.gitattributes' in snapshot['ignored']
     plan = guarded.plan_base_markdown(snapshot, check='action_state_transitions', memory_root='memories')
-    assert plan['bootstrap_requirements']['git_attributes'] == 'external_authority_not_verified'
+    expected = {'possible_sources': 'worktree_including_ignored_or_external',
+                'timing': 'bootstrap_or_search_may_read', 'authority': 'external_not_verified'}
+    assert plan['bootstrap_requirements']['git_attributes'] == expected
+    received = []
+    original = audit._grep_selected_history
+    def admit(candidate):
+        received.append(candidate['bootstrap_requirements']['git_attributes'])
+        return True
+    def search(*args):
+        assert received and all(value == expected for value in received)
+        return original(*args)
+    monkeypatch.setattr(audit, '_grep_selected_history', search)
     out = guarded.search_base_markdown(root, binding, **args, check='action_state_transitions',
         memory_root='memories', inventory_sha256=snapshot['inventory_sha256'],
-        plan_sha256=plan['plan_sha256'], admit=lambda _: True)
+        plan_sha256=plan['plan_sha256'], admit=admit)
     assert out['search'] == 'completed' and out['state'] == 'partial'
+    assert received and all(value == expected for value in received)
     assert out['bootstrap_reads']['git_attributes'] == 'may_be_read_by_git_including_ignored_or_external'
 
 

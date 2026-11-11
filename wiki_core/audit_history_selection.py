@@ -44,7 +44,10 @@ def plan_base_markdown(inventory: dict, *, check: str, memory_root: str) -> dict
             'selection': selection, 'coverage': 'base_markdown_under_caller_root_only',
             'configured_root': 'external_not_verified', 'gate_coverage': 'not_verified',
             'historical_policy': 'external_not_verified', 'target_bodies': 'not_read',
-            'bootstrap_requirements': {'git_attributes': 'external_authority_not_verified',
+            'bootstrap_requirements': {'git_attributes': {
+                                           'possible_sources': 'worktree_including_ignored_or_external',
+                                           'timing': 'bootstrap_or_search_may_read',
+                                           'authority': 'external_not_verified'},
                                        'other_runtime_and_metadata': 'external_authority_not_verified'}}
     plan['plan_sha256'] = hashlib.sha256(json.dumps(plan, sort_keys=True, ensure_ascii=True,
                                       separators=(',', ':')).encode()).hexdigest()
