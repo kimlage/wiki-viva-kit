@@ -11,6 +11,16 @@ including the reported 0.41.0. This is a capability contract, not a guarantee
 that every release in a version range supports all flags; check `codex exec
 --help` for the installed version. An incompatible CLI exits with a failed
 job; the runner does not currently perform a preflight compatibility probe.
+For capability checks, connector discovery and job execution, the binary is
+selected by `WIKI_CODEX_BINARY` first, then `codex.binary` in `wiki.config.yaml`,
+then `codex` on PATH. An explicitly injected runner command remains separate.
+Relative binary paths and relative PATH entries resolve from the operator's
+working directory before the job switches to the wiki root.
+The operator fixes this selection at startup; restart it after changing the
+binary, `WIKI_CODEX_BINARY`, or PATH so the probe and job use the same choice.
+The job currently inherits the installed CLI's reasoning and MCP configuration;
+it does not guarantee isolation from the operator's configured MCP servers.
+Choose compatible settings in the Codex configuration before running a job.
 
 ## Source-management workspace
 

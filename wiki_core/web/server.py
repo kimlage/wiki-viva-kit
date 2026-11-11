@@ -1175,7 +1175,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                         "hosted_ui_same_origin": self.server.frontend_dir is not None,
                         "cors_opt_in": "exact_loopback_allowlist",
                     },
-                    "codex": probe_codex_for(self.server.config),
+                    "codex": probe_codex_for(self.server.config, binary=self.server.jobs.codex_cmd[0]),
                     "claude": probe_claude_for(self.server.config),
                 }
             )
@@ -1230,15 +1230,14 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             )
             return
         if path == "/api/codex/capability":
-            self._send_json(probe_codex_for(self.server.config))
+            self._send_json(probe_codex_for(self.server.config, binary=self.server.jobs.codex_cmd[0]))
             return
         if path == "/api/agents/capability":
-            codex_block = getattr(self.server.config, "codex", {}) or {}
             claude_block = getattr(self.server.config, "claude", {}) or {}
-            codex_binary = str(codex_block.get("binary") or "codex")
+            codex_binary = self.server.jobs.codex_cmd[0]
             claude_binary = str(claude_block.get("binary") or "claude")
             with ThreadPoolExecutor(max_workers=4) as pool:
-                codex_future = pool.submit(probe_codex_for, self.server.config)
+                codex_future = pool.submit(probe_codex_for, self.server.config, binary=codex_binary)
                 claude_future = pool.submit(probe_claude_for, self.server.config)
                 codex = codex_future.result()
                 claude = claude_future.result()
@@ -2277,7 +2276,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         jobs = self.server.jobs
         if path == "/api/codex/jobs":
             agent = str(payload.get("agent") or "codex").strip().lower()
-            capability = probe_claude_for(self.server.config) if agent == "claude" else probe_codex_for(self.server.config)
+            capability = probe_claude_for(self.server.config) if agent == "claude" else probe_codex_for(self.server.config, binary=jobs.codex_cmd[0])
             if not capability.get("usable"):
                 self._send_json(
                     {"ok": False, "error": capability.get("reason") or "Codex is not available", "codex": capability},

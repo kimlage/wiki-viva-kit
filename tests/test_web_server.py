@@ -222,6 +222,60 @@ def test_health_carries_codex_capability(server: _Server) -> None:
     assert set(body["codex"]) >= {"installed", "authed", "usable", "enabled"}
 
 
+def test_agent_connector_discovery_uses_codex_binary_override(tmp_path, monkeypatch):
+    config = _repo(tmp_path)
+    monkeypatch.setenv("WIKI_CODEX_BINARY", "synthetic-override")
+    monkeypatch.setattr(server_module, "probe_codex_for", lambda config, *, binary: {"enabled": True})
+    monkeypatch.setattr(server_module, "probe_claude_for", lambda config: {"enabled": False})
+    calls = []
+
+    def connectors(agent, *, binary):
+        calls.append((agent, binary))
+        return []
+
+    monkeypatch.setattr(server_module, "list_agent_connectors", connectors)
+    server = _Server(tmp_path, config)
+    try:
+        status, _ = server.get("/api/agents/capability")
+        assert status == 200
+        assert calls == [("codex", server.server.jobs.codex_cmd[0])]
+        assert Path(calls[0][1]).name == "synthetic-override"
+        assert Path(calls[0][1]).is_absolute()
+    finally:
+        server.close()
+
+
+def test_codex_probe_and_runner_keep_startup_binding_until_restart(tmp_path, monkeypatch):
+    import wiki_core.web.codex_probe as codex_probe
+    config = _repo(tmp_path)
+    first = tmp_path / "first-bin"
+    second = tmp_path / "second-bin"
+    first.mkdir()
+    second.mkdir()
+    monkeypatch.setenv("PATH", f"{first}:{second}")
+    monkeypatch.delenv("WIKI_CODEX_BINARY", raising=False)
+    monkeypatch.setattr(codex_probe, "_probe_auth", lambda _: (True, "synthetic"))
+    config.codex.update({"enabled": True, "binary": "codex"})
+    server = _Server(tmp_path, config)
+    try:
+        executable = second / "codex"
+        executable.write_text('#!/bin/sh\necho "synthetic-codex"\n')
+        executable.chmod(0o755)
+        status, probe = server.get("/api/codex/capability")
+        assert status == 200 and not probe["usable"]
+        assert server.server.jobs.codex_cmd == [str(first / "codex")]
+    finally:
+        server.close()
+    restarted = _Server(tmp_path, config)
+    try:
+        status, probe = restarted.get("/api/codex/capability")
+        assert status == 200 and probe["usable"]
+        assert probe["version"] == "synthetic-codex"
+        assert restarted.server.jobs.codex_cmd == [str(executable)]
+    finally:
+        restarted.close()
+
+
 def test_core_http_reads_work_without_gateway_model_or_credentials(tmp_path, monkeypatch):
     """Real local HTTP over a synthetic wiki; external adapters are forbidden.
 
