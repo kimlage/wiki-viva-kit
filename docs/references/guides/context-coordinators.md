@@ -109,8 +109,9 @@ or expand scope. A slice executor need not acquire writer credentials.
 
 Before an external effect, the integrator checks the owner's applicable current
 acceptance for that version and operation, including a merge that publishes to
-production. Reuse acceptance that remains valid; if it is missing, hold only
-the dependent effect while authorized preparation, tests and review continue.
+production. Reuse acceptance that remains valid; if required acceptance is
+missing, hold only the dependent effect while authorized preparation, tests and
+review continue.
 
 Record the blocker on the existing action. If no retry budget is specified,
 stop the affected attempt after recording it. Do not enter a repair loop for an
