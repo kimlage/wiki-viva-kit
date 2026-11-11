@@ -17,6 +17,15 @@ is paused or its current state cannot be established, do not restart or
 dispatch it. Resume only when the owner or already authorized control has
 actually released that pause. Preserve unrelated authorized work.
 
+Before an external effect, recheck the owner's current acceptance conditions
+for the exact version and operation. If required acceptance is not established,
+hold only that effect; authorized development, tests, review and PR preparation
+may continue. A merge that triggers production publication is an external effect.
+Do not request acceptance again when it remains valid.
+
+The responsible integrator rechecks these conditions before the effect; the
+coordinator communicates them without taking over product execution.
+
 When taking a front, receiving a result and before ending a turn, check the
 authorized open threads in your scope and their action, wiki or PR delivery.
 A completed turn is not a completed delivery, and inactivity alone is not a

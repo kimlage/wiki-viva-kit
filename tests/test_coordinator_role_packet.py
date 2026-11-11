@@ -70,6 +70,9 @@ def test_open_and_resume_packet_include_approved_coordinator_contract(case):
         assert 'independent review of the final SHA' in normalized
         assert "circularly block an accepted lot's closeout" in normalized
         assert 'A completed turn is not a completed delivery' in normalized
+        assert "Before an external effect, recheck the owner's current acceptance conditions for the exact version and operation" in normalized
+        assert 'A merge that triggers production publication is an external effect' in normalized
+        assert 'authorized development, tests, review and PR preparation may continue' in normalized
         assert 'A sub-delivery or merged PR does not close a front with remaining scope or acceptance' in normalized
         assert 'After the turn ends, an authorized observer, coordinator or host checks the effective settled state' in normalized
         assert 'if no observer is available, report verification pending' in normalized
@@ -136,6 +139,9 @@ def test_integrator_receives_approved_agents_and_override_has_precedence(case):
         assert agents['revision'] == approved and agents['text'] == approved_text
         normalized = ' '.join(agents['text'].split()).lower()
         assert 'a completed turn is not a completed delivery' in normalized
+        assert "before an external effect, recheck the owner's current acceptance conditions for the exact version and operation" in normalized
+        assert 'a merge that triggers production publication is an external effect' in normalized
+        assert 'authorized development, tests, review and pr preparation may continue' in normalized
         assert 'a sub-delivery or merged pr does not close a front with remaining scope or acceptance' in normalized
         assert 'after the turn ends, an authorized observer, coordinator or host checks the effective settled state' in normalized
         assert 'if no observer is available, report verification pending' in normalized

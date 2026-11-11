@@ -36,7 +36,15 @@ authorized threads and their actions, artifacts and PRs; a completed turn is not
 a completed delivery. Check for an active run before resuming an authorized,
 executable next step in the same thread with its acceptance; preserve artifacts
 and WIP, follow the result and conduct review and integration. Do not stop at
-an acknowledgement. Reconcile uncertain effects
+an acknowledgement.
+
+Before an external effect, recheck the owner's current acceptance conditions
+for the exact version and operation. If required acceptance is not established,
+hold only that effect; authorized development, tests, review and PR preparation
+may continue. A merge that triggers production publication is an external effect.
+Do not request acceptance again when it remains valid.
+
+Reconcile uncertain effects
 before retrying. Do not repeat a denial without new evidence, resume an explicit
 pause or interrupt an active run solely for lack of visible progress. Record a
 real blocker's evidence, missing input or dependency, responsible recipient and
