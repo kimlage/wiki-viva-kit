@@ -86,6 +86,20 @@ unchanged; see [bounded reads](context-reader.md).
 
 `POST /api/coordination/protected/preflight` uses the same transport and session controls. Its body fields are `context_id`, `approved_revision`, `base`, `head`, `branch`, `packet` and `result`, plus optional `additional_readers` that must belong to the fixed host allowlist and match the packet's retained selection. The packet must have no browser-supplied capability evidence or required external capabilities. Success returns `{ok: true, mode: "approved", preflight: ...}` with state `independent_review_required`; it is not permission to merge. The packet/result, exact head, base, requirements and current policy are checked again. The protected POSTs are bounded read-only calculations: they do not store or replay packet bodies under attempt keys. Every retry rechecks session, current policy and binding.
 
+The selected task-result schema is a technical dependency of the installed
+validator, read from the installed code tree; it is not task evidence declared
+in the packet. The authority already applicable to execution and its technical
+dependencies may cover that read. A missing task-data selector does not itself
+grant or deny it, and existing valid authority does not need to be requested
+again. Applicable denies and the actual scope of that authority still matter.
+The local session and context binding do not prove bootstrap authority, actor
+identity for an external system, filesystem isolation or cleanup. An unavailable
+binding or unbound context is refused before this entrypoint reaches the schema;
+Python imports and other bootstrap reads have already occurred, so that refusal
+does not establish admission of the whole runtime or earlier I/O. For a server,
+qualification of its actual startup and technical dependencies belongs to the
+authorized host; this route does not supply that proof.
+
 The operator index `/api/coordination` remains a broad caller-trust projection, marked `policy_enforced: false` and `trust_boundary: caller_trust`. Its profiles, fronts and actions are navigation and historical attribution. It is not an owner-scoped protected read. GET `/api/coordination/profiles/<id>` now returns a constant `coordination_context_required` migration response without snapshot, catalogue, page bodies or profile existence disclosure. There is no fallback from an unavailable protected binding to a legacy packet.
 
 ## Context-bound secrets-only check
