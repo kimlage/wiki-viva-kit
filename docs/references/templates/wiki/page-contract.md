@@ -78,6 +78,23 @@ attachment_policy: "Attachments live in data/raw, data/derived or docs/reference
 ---
 ```
 
+`related_pages` refers to indexed wiki pages, by page ID or repository-relative
+path within the configured memory root. An existing document outside that root
+is not a page-graph node. Move such a reference from `related_pages` to a
+clickable Markdown link in the body, preserving its meaning and destination;
+do not create a page or assert a relationship that has not been verified.
+After migrating legacy metadata, rerun the semantic inventory and the consumer's
+normal audit and review gates.
+The body link preserves the documentary reference, but does not create a typed
+`related_page` graph edge. If that edge is needed, refer to an existing verified
+wiki page representing the document, and link that page to the document.
+To locate candidates locally, search the configured memory root with
+`rg -n -A 12 '^related_pages:' <memory-root>` and inspect each field, including
+longer lists and inline values, for targets outside that root. This search is a
+review aid, not a complete parser; do not publish its potentially private output.
+Run `python3 scripts/wiki_semantic_inventory.py --check` ([script](../../../../scripts/wiki_semantic_inventory.py)) from the consumer root
+after the reviewed edits.
+
 # Title
 
 Updated at: YYYY-MM-DD
