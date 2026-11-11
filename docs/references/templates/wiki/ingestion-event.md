@@ -43,6 +43,21 @@ attachment_policy: "Source, manifest, text, and chunks must be Markdown links."
 ---
 ```
 
+`source_id` identifies the captured source; it is not itself a graph link.
+For semantic parity, each ingestion event must also declare `source_ref` or
+`source_refs` pointing to the corresponding existing wiki source page by its
+page ID or repository-relative path. For older events with only `source_id`,
+first verify the identity against the real source and add the verified page
+reference. Do not guess or create a source merely to satisfy the check. If the
+source cannot be established, retain the failure and resolve provenance first.
+To locate candidates locally, inspect the configured ingestion events directory
+from `wiki.config.yaml`: `rg -l '^source_id:' <events-directory>`. Review each
+event's frontmatter for absent or empty `source_ref` and `source_refs`, then
+compare its identity with the source's actual records. This is a candidate list,
+not proof that the records match. Keep paths and identities inside the consumer.
+After the reviewed edits, run `python3 scripts/wiki_semantic_inventory.py --check` ([script](../../../../scripts/wiki_semantic_inventory.py))
+from the consumer root, followed by its normal gates.
+
 # Event - title
 
 > Illustrate by default: sketch the source's path through ingestion with a small

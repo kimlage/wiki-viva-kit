@@ -128,6 +128,39 @@ def test_semantic_inventory_valid_case_matches_all_surfaces_and_relations(
     assert report["relations"]["unresolved"]["count"] == 0
 
 
+def test_legacy_metadata_migration_requires_verified_page_refs(tmp_path: Path) -> None:
+    config, _ = _fixture(tmp_path)
+    source = tmp_path / "memories/sources/source.md"
+    source.write_text(source.read_text().replace(
+        "page_id: source-secret\n", "page_id: source-secret\nsource_id: synthetic-source\n"
+    ))
+    event = tmp_path / "memories/system/ingestion/events/event.md"
+    event.write_text(event.read_text().replace(
+        "source_refs:\n- memories/sources/source.md\n", "source_id: synthetic-source\n"
+    ))
+    document = tmp_path / "docs/template.md"
+    _write(document, "# Synthetic document\n")
+    root_page = tmp_path / "memories/index.md"
+    root_page.write_text(root_page.read_text().replace(
+        "---\n\n#", "related_pages:\n- docs/template.md\n---\n\n#", 1
+    ))
+
+    before = build_semantic_inventory(tmp_path, config)
+    assert before["summary"]["event_error_count"] == 1
+    assert before["summary"]["relation_error_count"] == 1
+
+    # The source page was verified in this synthetic fixture; its ID alone is
+    # never treated as evidence of an identity-to-page mapping.
+    event.write_text(event.read_text().replace(
+        "source_id: synthetic-source\n",
+        "source_id: synthetic-source\nsource_refs:\n- memories/sources/source.md\n",
+    ))
+    root_page.write_text(root_page.read_text().replace(
+        "related_pages:\n- docs/template.md\n", ""
+    ) + "\n[Document](../docs/template.md)\n")
+    assert build_semantic_inventory(tmp_path, config)["status"] == "pass"
+
+
 def test_legacy_event_and_source_only_action_keep_graph_semantics_in_parity(
     tmp_path: Path,
 ) -> None:
