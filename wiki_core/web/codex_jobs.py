@@ -41,6 +41,7 @@ from wiki_core.web.git_workflows import run_git_workflow
 CODEX_JOB_SCHEMA_VERSION = "wiki_web_codex_job.v1"
 
 _DEFAULT_JOB_TIMEOUT = 600  # seconds; a per-job wall clock on the Codex subprocess
+_REASONING_EFFORTS = frozenset({"none", "minimal", "low", "medium", "high", "xhigh"})
 
 _STEP_TEMPLATE = [
     ("ground", "Ground the brief"),
@@ -59,12 +60,14 @@ def _redact(text: str) -> str:
     return SECRET_VALUE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}[REDACTED]", text)
 
 
-def build_codex_argv(binary: str, root: Path, final_path: Path) -> list[str]:
+def build_codex_argv(binary: str, root: Path, final_path: Path, *, reasoning_effort: str | None = None) -> list[str]:
     """The headless, sandboxed, streamed Codex invocation. Never ``--yolo`` /
     ``--dangerously-bypass-*``; network stays off under ``workspace-write``.
     NOTE: ``codex exec`` is non-interactive — it has NO approvals flag (``-a``
     was rejected with exit 2 by codex-cli 0.142.x); the sandbox policy is the
     entire containment contract here."""
+    if reasoning_effort is not None and (not isinstance(reasoning_effort, str) or reasoning_effort not in _REASONING_EFFORTS):
+        raise ValueError("invalid codex.job_reasoning_effort")
     return [
         binary,
         "exec",
@@ -74,6 +77,7 @@ def build_codex_argv(binary: str, root: Path, final_path: Path) -> list[str]:
         "--sandbox",
         "workspace-write",
         "--json",
+        *(["-c", f"model_reasoning_effort={reasoning_effort}"] if reasoning_effort is not None else []),
         "--output-last-message",
         str(final_path),
     ]
@@ -99,6 +103,10 @@ class JobRunner:
             raise ValueError("installed_job_runner_unavailable")
         self.root = root
         self.config = config
+        reasoning_effort = (getattr(config, "codex", {}) or {}).get("job_reasoning_effort")
+        if reasoning_effort is not None and (not isinstance(reasoning_effort, str) or reasoning_effort not in _REASONING_EFFORTS):
+            raise ValueError("invalid codex.job_reasoning_effort")
+        self.reasoning_effort = reasoning_effort
         binary = resolve_codex_binary(config)
         # codex_cmd lets tests point at a shim; production uses [binary].
         self.codex_cmd = list(codex_cmd) if codex_cmd else [binary]
@@ -478,7 +486,7 @@ class JobRunner:
         if agent == "claude":
             argv = [*self.claude_cmd, *build_claude_argv(self.claude_cmd[0], self.root)[1:]]
         else:
-            argv = [*self.codex_cmd, *build_codex_argv(self.codex_cmd[0], self.root, final_path)[1:]]
+            argv = [*self.codex_cmd, *build_codex_argv(self.codex_cmd[0], self.root, final_path, reasoning_effort=self.reasoning_effort)[1:]]
         rc, cancelled = self._run_codex(job_id, argv, stdin_text, job_dir / "log.jsonl")
         if cancelled:
             unwind()
