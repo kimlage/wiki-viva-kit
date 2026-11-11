@@ -152,12 +152,18 @@ independent work. Do not turn a local blocker into a global gate.
 
 Settle a work thread only after its required independent review and gates,
 integration into the approved main branch, result readback and reconciliation
-with the canonical wiki. A finished runtime job or a merged dependency alone
-does not establish completion of the action. Keep unresolved work and blockers
-visible on the existing action. Report actual completion, resumption or an
-actionable blocker to the existing coordinator; do not send confirmation-only
-updates. This is an operator agreement, not a scheduler, access grant or proof
-that a runtime integration exists.
+with the canonical wiki. A sub-delivery, finished runtime job or merged PR does
+not close a front with remaining scope or acceptance. After the turn ends, an
+authorized observer, coordinator or host checks the effective settled state
+through the existing host interface. A read during the turn does not prove a
+later transition. If the state hides pending work, restore visibility and resume
+the same thread only under current direction and STOPs. If no observer is
+available, report verification pending on the existing action without guessing
+its cause. Keep unresolved work and blockers visible on the existing action.
+Report actual completion, resumption or an actionable blocker to the existing
+coordinator; do not send confirmation-only updates. This is an operator
+agreement, not a scheduler, access grant or proof that a runtime integration
+exists.
 
 For a process failure, record its cause and the applicable rule or source on
 the existing action, issue, PR or log. If the rule was adequate, fix its
