@@ -1,0 +1,32 @@
+name: diagnostic-ubuntu-mirrors
+on:
+  push:
+    branches: [wiki/diagnostic-ubuntu-mirrors-20261111]
+permissions: {}
+jobs:
+  mirrors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check DNS and HTTPS for Ubuntu mirrors
+        shell: bash
+        run: |
+          set -u
+          failed=0
+          for host in archive.ubuntu.com security.ubuntu.com azure.archive.ubuntu.com; do
+            echo "::group::$host"
+            if timeout 12s getent ahostsv4 "$host"; then
+              echo "DNS: OK"
+            else
+              echo "DNS: FAILED"
+              failed=1
+            fi
+            if curl --ipv4 --head --fail --silent --show-error --connect-timeout 8 --max-time 15 "https://$host/ubuntu/dists/resolute/InRelease" >/dev/null; then
+              echo "HTTPS: OK"
+            else
+              echo "HTTPS: FAILED"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$failed"
