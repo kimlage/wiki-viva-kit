@@ -50,6 +50,7 @@ export const SYNC_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
   running: "muted",
   queued: "muted",
   failed: "bad",
+  needs_auth: "warn",
   never: "muted"
 };
 

@@ -288,7 +288,7 @@ export function SourceDock({
         <header className="dockHeader">
           <SourcePlatformIcon source={source} size={16} />
           <strong title={source.title}>{sourceDisplayName(source.title)}</strong>
-          <span className="pill pill-muted">{t("source.sync.recorded")}: {t(`source.sync.${source.sync.last_status}`)}</span>
+          <span className={`pill pill-${SYNC_TONE[source.sync.last_status] ?? "muted"}`}>{t("source.sync.recorded")}: {t(`source.sync.${source.sync.last_status}`)}</span>
           {!embedded && <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button"><X size={16} /></button>}
         </header>
 

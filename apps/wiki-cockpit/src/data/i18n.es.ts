@@ -1007,6 +1007,7 @@ export const ES: Record<string, string> = {
   "source.sync.running": "corriendo",
   "source.sync.queued": "en cola",
   "source.sync.failed": "falló",
+  "source.sync.needs_auth": "se requiere autenticación",
   "source.sync.never": "registrado, aún no ingerido",
   "source.health.aria": "Estado de la fuente",
   "source.health.fresh": "{fresh}/{total} registros activos sin trabajo pendiente",

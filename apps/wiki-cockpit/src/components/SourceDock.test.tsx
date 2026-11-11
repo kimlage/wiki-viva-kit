@@ -114,6 +114,20 @@ afterEach(() => {
 });
 
 describe("SourceDock operational workspace", () => {
+  it.each([
+    ["en", "authentication required"],
+    ["pt-BR", "autenticação necessária"],
+    ["es", "se requiere autenticación"]
+  ])("shows recorded needs_auth as a warning in %s", (language, label) => {
+    configureLanguage(language);
+    const fixture = sourceFixture();
+    const source = sourceFixture({ sync: { ...fixture.sync, last_status: "needs_auth" } });
+    const { rerender } = render(<SourceDock bundle={bundleWith(source)} sourceId="" onNotice={noop} onClose={noop} />);
+    expect(screen.getByText(label).classList.contains("pill-warn")).toBe(true);
+    rerender(<SourceDock bundle={bundleWith(source)} sourceId={source.source_id} onNotice={noop} onClose={noop} />);
+    const recorded = screen.getByText(new RegExp(label));
+    expect(recorded.classList.contains("pill-warn")).toBe(true);
+  });
   it("keeps information review visible for historical streams and links its consumer", async () => {
     const source=sourceFixture({schedule:{mode:"one_shot",cadence_days:0,cron_hint:""}});
     source.streams=[{...source.streams[0],freshness_basis:"processing_state",information_review_pending:true,
