@@ -33,7 +33,7 @@ def git(root: Path, *args: str) -> str:
 @pytest.fixture
 def make_repo(tmp_path):
     def make(*, deny=(), conditional_ref=False, missing_config_ref=False,
-             missing_root=False, invalid_config_ref=False):
+             missing_root=False, invalid_config_ref=False, raw_config_ref=None):
         root = tmp_path / 'synthetic'
         root.mkdir()
         original = _fixture_repo(root)
@@ -44,6 +44,13 @@ def make_repo(tmp_path):
         (root / 'restricted/unrelated.json').write_text('{"synthetic": true}\n')
         wip = root / 'memories/example/wip.md'
         wip.write_text('# Synthetic note\n')
+        if raw_config_ref is not None:
+            source = root / 'memories/sources/team-handbook.md'
+            before = source.read_text()
+            after = before.replace('config_ref: memories/sources/config/team-handbook.md',
+                                   'config_ref: ' + raw_config_ref)
+            assert after != before
+            source.write_text(after)
         if conditional_ref or missing_config_ref or invalid_config_ref:
             source = root / 'memories/sources/team-handbook.md'
             before = source.read_text()
@@ -237,6 +244,27 @@ def test_explicit_invalid_config_ref_never_falls_back_to_completed(make_repo):
     inventory, selection = plan(root, binding, args, extra_paths=extra)
     result = execute(root, binding, args, inventory, selection, extra_paths=extra)
     assert result['state'] == 'partial'
+    assert_limited(result)
+
+
+@pytest.mark.parametrize('raw_ref', ['[]', '[synthetic]', '{}', 'false', '123'])
+def test_nontext_config_ref_is_partial_without_breaking_legacy(make_repo, raw_ref):
+    root, binding, args = make_repo(raw_config_ref=raw_ref)
+    from wiki_core.source_config import find_source_config
+    # Legacy fallback is unchanged; the protected path must not report it as complete.
+    assert find_source_config(root, load_config(root), 'memories/sources/team-handbook.md') is not None
+    inventory, selection = plan(root, binding, args)
+    result = execute(root, binding, args, inventory, selection)
+    assert result['state'] == 'partial'
+    assert_limited(result)
+
+
+@pytest.mark.parametrize('raw_ref', ['', 'null', '""'])
+def test_empty_optional_config_ref_keeps_protected_fallback(make_repo, raw_ref):
+    root, binding, args = make_repo(raw_config_ref=raw_ref)
+    inventory, selection = plan(root, binding, args)
+    result = execute(root, binding, args, inventory, selection)
+    assert result['state'] == 'completed' and result['result']['complete'] is True
     assert_limited(result)
 
 

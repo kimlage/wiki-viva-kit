@@ -7,6 +7,7 @@ from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
+from wiki_core.frontmatter import split_frontmatter
 from wiki_core.paths import WikiPaths
 
 
@@ -77,10 +78,20 @@ def find_source_config(root: Path, config: WikiConfig, source: str, *, reads=Non
             or source_path.suffix.lower() != ".md"):
         return None
 
-    values = parse_frontmatter(source_path if reads is None else reads.read_text(source_path, errors='replace'))
+    source_text = source_path if reads is None else reads.read_text(source_path, errors='replace')
+    values = parse_frontmatter(source_text)
+    if reads is not None:
+        # The flat parser conflates an empty scalar and an empty sequence.
+        # Preserve the optional empty scalar while rejecting non-text refs;
+        # use the already-admitted bytes and never reread the source path.
+        typed_values, _ = split_frontmatter(source_text)
+        typed_ref = (typed_values or {}).get('config_ref')
+        if typed_ref is not None and not isinstance(typed_ref, str):
+            raise RuntimeError('explicit source configuration invalid')
     source_keys = {key for key in (str(values.get("page_id") or ""), paths.rel(source_path)) if key}
 
-    config_ref = str(values.get("config_ref") or "").strip()
+    config_ref = (str(values.get("config_ref") or "").strip() if reads is None
+                  else (typed_ref or '').strip())
     if config_ref:
         config_path = _repo_path(root, config_ref, reads)
         if config_path is not None:
