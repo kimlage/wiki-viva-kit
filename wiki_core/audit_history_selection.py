@@ -60,6 +60,22 @@ def search_base_markdown(root, binding, *, context_id, approved_revision, base, 
     """
     if not callable(admit):
         raise PolicyError('historical search admission unavailable')
+    # Git/runtime metadata for this precheck is itself host-admitted bootstrap.
+    # Refuse an already-wrong symbolic branch before the inventory reads the
+    # approved policy or qualifies context instruction/index bodies.
+    if (not isinstance(binding, r1.CoordinationBinding)
+            or not all(isinstance(value, str) and r1.SHA.fullmatch(value)
+                       for value in (approved_revision, base, head))
+            or approved_revision != base or not isinstance(branch, str)
+            or not r1.BRANCH.fullmatch(branch) or '..' in branch or branch.endswith('.')):
+        raise PolicyError('historical search branch unavailable')
+    try:
+        initial_ref = r1._git(Path(root), 'symbolic-ref', '--quiet', 'HEAD').decode('ascii').strip()
+        if (initial_ref != 'refs/heads/' + branch or revision(root, binding.trusted_ref) != base
+                or revision(root, initial_ref) != head or revision(root, 'HEAD') != head):
+            raise PolicyError('historical search branch unavailable')
+    except (OSError, ValueError, UnicodeError) as exc:
+        raise PolicyError('historical search branch unavailable') from exc
     first = r1.inventory(root, binding, context_id=context_id, approved_revision=approved_revision,
                          base=base, head=head, branch=branch, normative_paths=normative_paths)
     if first['inventory_sha256'] != inventory_sha256:
@@ -102,13 +118,14 @@ def search_base_markdown(root, binding, *, context_id, approved_revision, base, 
               'index_bodies': 'not_inspected', 'historical_policy': 'external_not_verified',
               'host_admission': 'not_verified', 'live_observation': 'not_verified',
               'configured_root': 'external_not_verified',
+              'bootstrap_reads': dict(first['bootstrap_reads']),
               'coverage': {'base_markdown': 'search_not_completed',
-                           'base_other_bodies': 'not_intentionally_read',
+                           'base_other_bodies': 'bootstrap_policy_or_context_may_be_read',
                            'intermediate_bodies': 'not_intentionally_read',
                            'commit_messages': 'bootstrap_read_not_scanned',
                            'index_bodies': 'not_intentionally_read',
-                           'worktree_bodies': 'not_intentionally_read',
-                           'ignored_bodies': 'not_intentionally_read'}}
+                           'worktree_bodies': 'bootstrap_ignore_rules_may_be_read',
+                           'ignored_bodies': 'bootstrap_ignore_rules_may_be_read'}}
     try:
         limits = plan['selection']['limits']
         total = 0

@@ -111,9 +111,11 @@ def test_admitted_exact_search_reports_partial_gate(tmp_path, monkeypatch, check
     assert out['worktree_check'] == 'not_performed' and out['index_bodies'] == 'not_inspected'
     assert out['coverage']['base_markdown'] == 'searched_under_caller_root'
     assert all(out['coverage'][name] == 'not_intentionally_read' for name in
-               ('base_other_bodies', 'intermediate_bodies', 'index_bodies',
-                'worktree_bodies', 'ignored_bodies'))
+               ('intermediate_bodies', 'index_bodies'))
+    assert out['coverage']['base_other_bodies'] == 'bootstrap_policy_or_context_may_be_read'
+    assert out['coverage']['worktree_bodies'] == out['coverage']['ignored_bodies'] == 'bootstrap_ignore_rules_may_be_read'
     assert out['coverage']['commit_messages'] == 'bootstrap_read_not_scanned'
+    assert out['bootstrap_reads'] == snapshot['bootstrap_reads']
 
 
 def test_search_failure_never_reports_complete(tmp_path, monkeypatch):
@@ -193,6 +195,55 @@ def test_same_sha_other_symbolic_branch_refuses_before_grep(tmp_path, monkeypatc
         guarded.search_base_markdown(root, binding, **args, check='action_state_transitions',
             memory_root='memories', inventory_sha256=snapshot['inventory_sha256'],
             plan_sha256=plan['plan_sha256'], admit=admit)
+
+
+def test_wrong_initial_symbolic_branch_refuses_before_inventory(tmp_path, monkeypatch):
+    root, binding, args = make_case(tmp_path, monkeypatch, denied=False)
+    snapshot = r1.inventory(root, binding, **args)
+    plan = guarded.plan_base_markdown(snapshot, check='action_state_transitions', memory_root='memories')
+    git(root, 'branch', 'wiki/other', args['head'])
+    git(root, 'symbolic-ref', 'HEAD', 'refs/heads/wiki/other')
+    monkeypatch.setattr(r1, 'inventory', lambda *a, **kw: pytest.fail('inventory read bootstrap'))
+    monkeypatch.setattr(audit, '_grep_selected_history', lambda *a: pytest.fail('grep executed'))
+    with pytest.raises(PolicyError, match='branch unavailable'):
+        guarded.search_base_markdown(root, binding, **args, check='action_state_transitions',
+            memory_root='memories', inventory_sha256=snapshot['inventory_sha256'],
+            plan_sha256=plan['plan_sha256'], admit=lambda _: True)
+
+
+@pytest.mark.parametrize('ref', ['refs/heads/wiki/synthetic', 'refs/remotes/origin/main'])
+def test_stale_initial_refs_refuse_before_inventory(tmp_path, monkeypatch, ref):
+    root, binding, args = make_case(tmp_path, monkeypatch, denied=False)
+    snapshot = r1.inventory(root, binding, **args)
+    plan = guarded.plan_base_markdown(snapshot, check='action_state_transitions', memory_root='memories')
+    other = git(root, 'commit-tree', args['base'] + '^{tree}', '-p', args['base'], '-m', 'synthetic newer commit')
+    git(root, 'update-ref', ref, other)
+    monkeypatch.setattr(r1, 'inventory', lambda *a, **kw: pytest.fail('inventory read bootstrap'))
+    monkeypatch.setattr(audit, '_grep_selected_history', lambda *a: pytest.fail('grep executed'))
+    with pytest.raises(PolicyError, match='branch unavailable'):
+        guarded.search_base_markdown(root, binding, **args, check='action_state_transitions',
+            memory_root='memories', inventory_sha256=snapshot['inventory_sha256'],
+            plan_sha256=plan['plan_sha256'], admit=lambda _: True)
+
+
+def test_context_bootstrap_reads_are_reported_separately(tmp_path, monkeypatch):
+    from wiki_core.repository_reader import RepositoryReader
+    root, binding, args = make_case(tmp_path, monkeypatch, denied=False)
+    snapshot = r1.inventory(root, binding, **args)
+    plan = guarded.plan_base_markdown(snapshot, check='action_state_transitions', memory_root='memories')
+    original = RepositoryReader._document
+    opened = []
+    def observe(reader, path, *a, **kw):
+        opened.append(path)
+        return original(reader, path, *a, **kw)
+    monkeypatch.setattr(RepositoryReader, '_document', observe)
+    out = guarded.search_base_markdown(root, binding, **args, check='action_state_transitions',
+        memory_root='memories', inventory_sha256=snapshot['inventory_sha256'],
+        plan_sha256=plan['plan_sha256'], admit=lambda _: True)
+    assert {'AGENTS.md', 'index.md'} <= set(opened)
+    assert out['bootstrap_reads']['context'] == 'read_may_overlap_target_paths'
+    assert out['coverage']['base_other_bodies'] == 'bootstrap_policy_or_context_may_be_read'
+    assert out['state'] == 'partial' and out['gate_coverage'] == 'not_verified'
 
 
 @pytest.mark.parametrize('kind', ['item', 'total'])
