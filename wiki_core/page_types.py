@@ -727,7 +727,9 @@ def validate_shape(
             f"{rel}: page_type `{values.get('page_type')}` not allowed in this directory"
         )
     headings = markdown_headings(text)
+    event_section_aliases = {"Source": {"Fonte", "Fuente"}, "Quadrants": {"Quadrantes", "Cuadrantes"}}
     for section in shape.get("required_sections") or []:
-        if str(section) not in headings:
+        aliases = event_section_aliases.get(str(section), set()) if values.get("page_type") == "ingestion_event" else set()
+        if str(section) not in headings and not headings.intersection(aliases):
             errors.append(f"{rel}: missing required section `{section}`")
     return errors
