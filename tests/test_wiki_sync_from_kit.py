@@ -446,6 +446,68 @@ def test_modified_previously_managed_file_is_not_pruned(tmp_path: Path) -> None:
     assert (consumer / 'portable/tool.txt').read_text() == 'local work in progress'
 
 
+def test_read_only_drift_inventory_reports_all_managed_changes_without_touching_wip(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    clean = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert clean.returncode == 0 and json.loads(clean.stdout)["drift"] == []
+    (consumer / "generate.py").write_text("# committed synthetic drift\n")
+    _git(consumer, "add", "generate.py")
+    _git(consumer, "commit", "-qm", "committed drift")
+    (consumer / "generate.py").write_text("# staged synthetic drift\n")
+    _git(consumer, "add", "generate.py")
+    (consumer / "generate.py").write_text("# unstaged synthetic drift\n")
+    (consumer / "portable/tool.txt").unlink()
+    (consumer / "untracked.txt").write_text("synthetic work in progress\n")
+    before_status = _git(consumer, "status", "--porcelain=v1")
+    before_lock = (consumer / "kit.lock").read_bytes()
+    before_index = _git(consumer, "write-tree")
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 1, result.stderr
+    report = json.loads(result.stdout)
+    assert report["status"] == "drift"
+    assert [(row["path"], row["actual"]["kind"]) for row in report["drift"]] == [
+        ("generate.py", "file"), ("portable/tool.txt", "missing")
+    ]
+    assert all(row["expected"]["sha256"] for row in report["drift"])
+    assert _git(consumer, "status", "--porcelain=v1") == before_status
+    assert _git(consumer, "write-tree") == before_index
+    assert (consumer / "kit.lock").read_bytes() == before_lock
+    assert (consumer / "generate.py").read_text() == "# unstaged synthetic drift\n"
+    assert (consumer / "untracked.txt").read_text() == "synthetic work in progress\n"
+    assert not (consumer / "portable/tool.txt").exists()
+
+
+def test_drift_inventory_refuses_missing_lock_and_symlink_without_mutation(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    missing = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert missing.returncode == 2 and "kit.lock" in missing.stderr
+    assert _run(kit, consumer, manifest).returncode == 0
+    target = consumer / "portable/tool.txt"
+    target.unlink()
+    target.symlink_to(consumer / "generate.py")
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2 and "symlink" in result.stderr
+    assert target.is_symlink()
+
+
+def test_drift_inventory_refuses_c3_and_invalid_lock_metadata(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    command = _run(kit, consumer, manifest, "--inspect-drift", "--c3-command", "python3 generate.py")
+    assert command.returncode == 2 and "cannot run C3" in command.stderr
+    lock_path = consumer / "kit.lock"
+    lock = yaml.safe_load(lock_path.read_text())
+    lock["managed_files"]["portable/tool.txt"]["sha256"] = "invalid"
+    lock_path.write_text(yaml.safe_dump(lock))
+    before = lock_path.read_bytes()
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2 and "invalid managed file metadata" in result.stderr
+    assert lock_path.read_bytes() == before
+
+
 def test_unmanaged_ignored_collision_is_preserved_or_identical_noop(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     (consumer / '.gitignore').write_text('portable/\n')

@@ -54,6 +54,31 @@ Review the conceptual diff. A first adoption does not delete unknown consumer
 files. Later adoptions may remove only paths listed as managed in the prior
 `kit.lock` and no longer present in the kit contract.
 
+### Inspect managed drift
+
+If B0 reports a changed managed file, inspect all lock-managed paths before
+deciding how to recover:
+
+```sh
+python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
+  --consumer /path/to/consumer --inspect-drift --json
+```
+
+The command is read-only. It reports each differing or missing managed path,
+the lock's expected hash and mode, and the current file kind, hash and mode
+where available. Exit 0 means no drift, 1 means drift, and 2 means inspection
+was refused or could not complete; an unsafe path aborts the report. Output
+can reveal private path names, so keep it within the consumer's boundary.
+
+The lock contains hashes, not the original bytes, and is not itself proof that
+a candidate recovery revision is correct. Preserve staged, unstaged and
+untracked work separately, identify a trusted retained copy for each path and
+verify its hash and executable mode against the lock before any restoration.
+A Git patch alone may omit untracked files or differences already committed.
+Review the recovery in the consumer's own PR; rerun inspection and B0 after
+the owner has resolved drift. This command never exports, restores or deletes
+files, runs generators, or alters the index or lock.
+
 ## 3. Create the consumer PR boundary
 
 Start from current consumer `main`, create one focused branch and ensure the

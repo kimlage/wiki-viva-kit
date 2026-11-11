@@ -17,6 +17,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -199,6 +200,33 @@ def _consumer_state(consumer: Path, paths: dict[str, dict[str, Any]]) -> dict[st
         else:
             state[rel] = {"kind": "missing"}
     return state
+
+
+def inspect_drift(consumer: Path) -> dict[str, Any]:
+    """Compare current managed files with the local lock without changing them."""
+    _check_consumer_root(consumer)
+    lock = _load_lock(consumer)
+    if not lock:
+        raise SyncError("kit.lock is required for drift inspection")
+    managed = lock.get("managed_files")
+    if not isinstance(managed, dict):
+        raise SyncError("kit.lock managed_files must be a mapping")
+    for rel, expected in managed.items():
+        _check_consumer_path(consumer, rel)
+        if (not isinstance(expected, dict)
+                or not isinstance(expected.get("sha256"), str)
+                or not re.fullmatch(r"[0-9a-f]{64}", expected["sha256"])
+                or expected.get("mode") not in {"100644", "100755"}):
+            raise SyncError("kit.lock contains invalid managed file metadata")
+    current = _consumer_state(consumer, managed)
+    drift = []
+    for rel in sorted(managed):
+        expected = {key: managed[rel][key] for key in ("sha256", "mode")}
+        actual = current[rel]
+        if actual.get("kind") != "file" or any(actual.get(key) != value for key, value in expected.items()):
+            drift.append({"path": rel, "expected": expected, "actual": actual})
+    return {"schema_version": "wiki_viva_sync_drift.v1", "status": "drift" if drift else "clean",
+            "source_sha": lock.get("source_sha"), "managed_total": len(managed), "drift": drift}
 
 
 def _git_dirty(root: Path) -> list[str]:
@@ -394,6 +422,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--consumer", type=Path, required=True)
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--dry-run", action="store_true", help="print B0 without mutation")
+    parser.add_argument("--inspect-drift", action="store_true", help="report all lock drift without mutation")
     parser.add_argument("--json", action="store_true", help="emit the plan as JSON")
     parser.add_argument("--allow-dirty", action="store_true", help="allow apply in a dirty consumer")
     parser.add_argument("--c3-command", action="append", default=[], type=_parse_command)
@@ -403,6 +432,19 @@ def main(argv: list[str] | None = None) -> int:
     consumer = args.consumer.resolve()
     manifest_path = (args.manifest.resolve() if args.manifest else kit / DEFAULT_MANIFEST)
     try:
+        if args.inspect_drift:
+            if args.c3_command:
+                raise SyncError("drift inspection cannot run C3 commands")
+            if not consumer.is_dir():
+                raise SyncError("--consumer must be an existing directory")
+            report = inspect_drift(consumer)
+            if args.json:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                print(f"Drift: {report['status']} ({len(report['drift'])} of {report['managed_total']} managed files)")
+                for item in report["drift"]:
+                    print(f"  {item['path']}: {item['actual']['kind']}")
+            return 1 if report["drift"] else 0
         if not (kit / ".git").exists() and _run(["git", "rev-parse", "--is-inside-work-tree"], cwd=kit).stdout.strip() != "true":
             raise SyncError("--kit must be a Git worktree")
         if not consumer.is_dir():
