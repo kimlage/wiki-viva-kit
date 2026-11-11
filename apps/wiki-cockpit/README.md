@@ -21,6 +21,12 @@ binary, `WIKI_CODEX_BINARY`, or PATH so the probe and job use the same choice.
 The job currently inherits the installed CLI's reasoning and MCP configuration;
 it does not guarantee isolation from the operator's configured MCP servers.
 Choose compatible settings in the Codex configuration before running a job.
+To override reasoning for jobs only, set `codex.job_reasoning_effort` in
+`wiki.config.yaml` to a value supported by the installed CLI and provider, for
+example `none`. Supported configured values are `none`, `minimal`, `low`,
+`medium`, `high`, and `xhigh`; omission retains the inherited configuration.
+Restart the operator after changing it. This does not disable MCP servers or
+guarantee that a particular provider accepts the selected effort.
 
 ## Source-management workspace
 

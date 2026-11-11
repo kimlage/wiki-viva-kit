@@ -114,6 +114,35 @@ def test_build_argv_is_sandboxed_and_never_yolo() -> None:
     assert "-a" not in argv
 
 
+def test_job_reasoning_override_is_opt_in_and_reaches_codex(tmp_path, monkeypatch) -> None:
+    config = _repo(tmp_path)
+    default = build_codex_argv("codex", tmp_path, tmp_path / "final.md")
+    assert not any("model_reasoning_effort" in arg for arg in default)
+    config.codex["job_reasoning_effort"] = "none"
+    brief = _saved_brief(tmp_path, config)
+    runner = _runner(tmp_path, config)
+    calls = []
+    original = runner._run_codex
+
+    def capture(job_id, argv, stdin_text, log_path):
+        calls.append(argv)
+        return original(job_id, argv, stdin_text, log_path)
+
+    monkeypatch.setattr(runner, "_run_codex", capture)
+    submitted = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)
+    assert runner.run_job(submitted["job_id"])["status"] == "delivered"
+    option = calls[0].index("-c")
+    assert calls[0][option + 1] == "model_reasoning_effort=none"
+
+
+@pytest.mark.parametrize("value", ["", "none -c unsafe=true", "ultra", True, []])
+def test_invalid_job_reasoning_fails_before_runner_start(tmp_path, value) -> None:
+    config = _repo(tmp_path)
+    config.codex["job_reasoning_effort"] = value
+    with pytest.raises(ValueError, match="invalid codex.job_reasoning_effort"):
+        _runner(tmp_path, config)
+
+
 def test_coordinator_brief_never_enters_executor_runner_even_if_queued(tmp_path, monkeypatch) -> None:
     config = _repo(tmp_path)
     brief = _saved_brief(tmp_path, config)
