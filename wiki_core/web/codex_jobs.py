@@ -35,6 +35,7 @@ from wiki_core.paths import WikiPaths
 from wiki_core.web.briefs import BriefStore, hash_targets, require_safe_id
 from wiki_core.web.agent_adapters import AGENT_IDS, build_claude_argv
 from wiki_core.web.commands import SECRET_VALUE_RE
+from wiki_core.web.codex_probe import resolve_codex_binary
 from wiki_core.web.git_workflows import run_git_workflow
 
 CODEX_JOB_SCHEMA_VERSION = "wiki_web_codex_job.v1"
@@ -98,8 +99,7 @@ class JobRunner:
             raise ValueError("installed_job_runner_unavailable")
         self.root = root
         self.config = config
-        codex_cfg = getattr(config, "codex", {}) or {}
-        binary = str(codex_cfg.get("binary") or "codex")
+        binary = resolve_codex_binary(config)
         # codex_cmd lets tests point at a shim; production uses [binary].
         self.codex_cmd = list(codex_cmd) if codex_cmd else [binary]
         claude_cfg = getattr(config, "claude", {}) or {}

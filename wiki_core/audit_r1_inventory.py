@@ -7,6 +7,7 @@ and output before this function runs. Target bodies are not deliberately read.
 from __future__ import annotations
 
 import hashlib
+import fnmatch
 import json
 import os
 import re
@@ -23,6 +24,71 @@ SHA = re.compile(r'(?:[a-f0-9]{40}|[a-f0-9]{64})\Z')
 BRANCH = re.compile(r'wiki/[A-Za-z0-9][A-Za-z0-9._-]*\Z')
 MAX_COMMITS = 512
 MAX_ENTRIES = 30_000
+
+
+class SelectedReads:
+    """Read only selected in-memory bodies using an admitted metadata snapshot.
+
+    A file that exists but was not selected is not represented as absent.
+    Callers must bind selection and authorize all bytes before constructing it.
+    """
+    def __init__(self, root, physical, contents, *, missing=()):
+        self.root = Path(root)
+        self.files = physical['files']
+        self.directories = physical['directories']
+        self.contents = contents
+        self.missing = set(missing)
+
+    def _rel(self, path):
+        try:
+            relative = Path(path).relative_to(self.root)
+        except ValueError:
+            raise RuntimeError('selected path unavailable') from None
+        if '..' in relative.parts:
+            raise RuntimeError('selected path unavailable')
+        return relative.as_posix()
+
+    def exists(self, path):
+        rel = self._rel(path)
+        if rel in self.missing:
+            raise RuntimeError('tracked path unavailable')
+        return rel == '.' or rel in self.files or rel in self.directories
+
+    def is_file(self, path):
+        rel = self._rel(path)
+        if rel in self.missing:
+            raise RuntimeError('tracked path unavailable')
+        return rel in self.files
+
+    def is_dir(self, path):
+        rel = self._rel(path)
+        return rel == '.' or rel in self.directories
+
+    def read_bytes(self, path):
+        rel = self._rel(path)
+        if rel not in self.contents:
+            raise RuntimeError('body outside admitted selection')
+        return self.contents[rel]
+
+    def read_text(self, path, *, errors='strict'):
+        return self.read_bytes(path).decode('utf-8', errors=errors)
+
+    def glob(self, path, pattern):
+        rel = self._rel(path)
+        prefix = '' if rel == '.' else rel + '/'
+        return [self.root / name for name in sorted(self.files)
+                if name.startswith(prefix) and '/' not in name[len(prefix):]
+                and fnmatch.fnmatchcase(name[len(prefix):], pattern)]
+
+    def markdown(self, path, root):
+        from wiki_core.traversal import is_protected_artifact
+        if Path(root) != self.root:
+            raise RuntimeError('selected root unavailable')
+        rel = self._rel(path)
+        prefix = '' if rel == '.' else rel + '/'
+        return [self.root / name for name in sorted(self.files)
+                if name.startswith(prefix) and name.endswith('.md')
+                and not is_protected_artifact(Path(name))]
 
 
 def _git(root: Path, *args: str) -> bytes:
