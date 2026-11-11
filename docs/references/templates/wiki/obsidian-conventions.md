@@ -82,6 +82,15 @@ attachment_policy: "Attachments go in data/raw, data/derived, or docs/references
 - The `## Related` section must repeat these links in Markdown for humans,
   PR review, and auditing.
 
+In the configured memory root, a file named [AGENTS.md](../../../../AGENTS.md) or `AGENTS.override.md` beside
+an `index.md` is a context instruction file. The page-graph audit does not
+require it to have an inbound link or be reachable; page-density, hierarchy and
+bad-repetition measures also exclude it. A bare inline filename for
+either instruction file is allowed inside such an instruction file; other
+local-path and broken-link checks still apply. The files remain visible to the
+graph and to privacy and secret scans. An instruction-named file without an
+index sibling retains the ordinary page checks.
+
 ### Canonical hierarchy versus collection-owned subworlds
 
 `moc_parent` has one job: it records the page's canonical structural parent.

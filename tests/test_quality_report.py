@@ -86,6 +86,34 @@ def test_quality_report_measures_links_density_and_repetition(tmp_path: Path) ->
     assert "bad_repetition_blocks" in render_markdown(report)
 
 
+def test_context_instructions_do_not_hide_repeated_memory_pages(tmp_path: Path) -> None:
+    repeated = ("A synthetic instruction paragraph repeated across several files "
+                "is deliberately long enough to be measured in the quality report.")
+    for name in ("one", "two"):
+        _write(tmp_path / f"memories/{name}/index.md", _page(name, "context_hub", name, ""))
+        _write(tmp_path / f"memories/{name}/AGENTS.md", _page(f"agent-{name}", "context_note", name, repeated))
+        _write(tmp_path / f"memories/{name}/note.md", _page(f"note-{name}", "context_note", name, repeated))
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+    blocks = report["quality_flags"]["bad_repetition_blocks"]
+    assert len(blocks) == 1
+    assert blocks[0]["pages"] == ["memories/one/note.md", "memories/two/note.md"]
+
+
+def test_quality_gate_accepts_short_context_instructions_but_not_short_page(tmp_path: Path, monkeypatch, capsys) -> None:
+    import scripts.wiki_quality_report as cli
+
+    _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", ""))
+    _write(tmp_path / "memories/example/index.md", _page("hub", "context_hub", "Hub", ""))
+    _write(tmp_path / "memories/example/AGENTS.md", "# Instructions\n\nRead `AGENTS.md`.\n")
+    config = WikiConfig(audit={**WikiConfig().audit, "quality_max_low_density": 0, "quality_max_bad_repetition": 0})
+    monkeypatch.setattr(cli, "ROOT", tmp_path)
+    monkeypatch.setattr(cli, "load_config", lambda root: config)
+    assert cli.main(["--check"]) == 0
+    _write(tmp_path / "memories/example/short.md", _page("short", "context_note", "Short", ""))
+    assert cli.main(["--check"]) == 1
+    assert "low_information_density_pages" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize(
     ("first_context", "first_type", "second_context", "second_type", "bad_count"),
     [
