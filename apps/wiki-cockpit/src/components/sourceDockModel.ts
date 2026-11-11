@@ -1,5 +1,5 @@
 import { t } from "../data/i18n";
-import type { SourceEntity } from "../types";
+import type { SourceEntity, SourceStream } from "../types";
 import type { DockTelemetryItem } from "./DockTelemetryRail";
 
 export type SourceSection = "records" | "update" | "configure" | "history";
@@ -53,6 +53,46 @@ export const SYNC_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
   needs_auth: "warn",
   never: "muted"
 };
+
+export const STREAM_CATEGORY_ORDER = ["project", "initiative", "epic", "cards", "ritual", "evidence", "discovery", "other"] as const;
+export type StreamCategory = typeof STREAM_CATEGORY_ORDER[number];
+
+// Display hints only: mixed or unknown metadata stays in Other. This never
+// changes the provider record, identity, authorization or ingestion filters.
+const STREAM_CATEGORY_TOKENS: Record<string, StreamCategory> = {
+  project: "project", projects: "project", projeto: "project", projetos: "project",
+  initiative: "initiative", initiatives: "initiative", iniciativa: "initiative", iniciativas: "initiative",
+  epic: "epic", epics: "epic", epico: "epic", epicos: "epic",
+  card: "cards", cards: "cards", issue: "cards", issues: "cards", task: "cards", tasks: "cards",
+  story: "cards", stories: "cards", bug: "cards", bugs: "cards", tarefa: "cards", tarefas: "cards",
+  ritual: "ritual", rituals: "ritual", meeting: "ritual", meetings: "ritual", reuniao: "ritual", reunioes: "ritual",
+  evidence: "evidence", evidencia: "evidence", evidencias: "evidence",
+  discovery: "discovery", discoveries: "discovery", descoberta: "discovery", descobertas: "discovery"
+};
+
+export function streamCategory(stream: SourceStream): StreamCategory {
+  const rawTypes = stream.filters?.issue_types;
+  const hasTypes = rawTypes !== undefined && rawTypes !== null;
+  const values = hasTypes ? (Array.isArray(rawTypes) ? rawTypes : [rawTypes]) : [stream.id, stream.label].filter(value => typeof value === "string");
+  if (values.some(value => typeof value !== "string")) return "other";
+  const categories = new Set<StreamCategory>();
+  for (const value of values as string[]) {
+    const tokens = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().match(/[a-z0-9]+/g) ?? [];
+    const found = tokens.map(token => STREAM_CATEGORY_TOKENS[token]).filter(Boolean);
+    if (hasTypes && found.length === 0) return "other";
+    found.forEach(category => categories.add(category));
+  }
+  return categories.size === 1 ? [...categories][0] : "other";
+}
+
+export function groupSourceStreams(streams: SourceStream[]): { category: StreamCategory; streams: SourceStream[] }[] {
+  const groups = new Map<StreamCategory, SourceStream[]>();
+  for (const stream of streams) {
+    const category = streamCategory(stream);
+    groups.set(category, [...(groups.get(category) ?? []), stream]);
+  }
+  return STREAM_CATEGORY_ORDER.filter(category => groups.has(category)).map(category => ({ category, streams: groups.get(category)! }));
+}
 
 export function ageLabel(days: number | null): string {
   if (days === null) return t("source.stream.never");
