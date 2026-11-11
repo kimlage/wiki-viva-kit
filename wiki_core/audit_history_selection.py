@@ -43,7 +43,9 @@ def plan_base_markdown(inventory: dict, *, check: str, memory_root: str) -> dict
             'head': inventory['head'], 'context_id': inventory['context_id'],
             'selection': selection, 'coverage': 'base_markdown_under_caller_root_only',
             'configured_root': 'external_not_verified', 'gate_coverage': 'not_verified',
-            'historical_policy': 'external_not_verified', 'target_bodies': 'not_read'}
+            'historical_policy': 'external_not_verified', 'target_bodies': 'not_read',
+            'bootstrap_requirements': {'git_attributes': 'external_authority_not_verified',
+                                       'other_runtime_and_metadata': 'external_authority_not_verified'}}
     plan['plan_sha256'] = hashlib.sha256(json.dumps(plan, sort_keys=True, ensure_ascii=True,
                                       separators=(',', ':')).encode()).hexdigest()
     return plan
@@ -56,7 +58,8 @@ def search_base_markdown(root, binding, *, context_id, approved_revision, base, 
 
     This is only the candidate search, not the legacy check or global audit.
     The host must independently qualify the real root, historical authority,
-    bootstrap, callback, output and isolation, including concurrent writers.
+    bootstrap (including Git attributes), callback, output and isolation,
+    including concurrent writers.
     """
     if not callable(admit):
         raise PolicyError('historical search admission unavailable')
@@ -118,14 +121,15 @@ def search_base_markdown(root, binding, *, context_id, approved_revision, base, 
               'index_bodies': 'not_inspected', 'historical_policy': 'external_not_verified',
               'host_admission': 'not_verified', 'live_observation': 'not_verified',
               'configured_root': 'external_not_verified',
-              'bootstrap_reads': dict(first['bootstrap_reads']),
+              'bootstrap_reads': {**first['bootstrap_reads'],
+                                  'git_attributes': 'may_be_read_by_git_including_ignored_or_external'},
               'coverage': {'base_markdown': 'search_not_completed',
-                           'base_other_bodies': 'bootstrap_policy_or_context_may_be_read',
+                           'base_other_bodies': 'bootstrap_policy_context_or_attributes_may_be_read',
                            'intermediate_bodies': 'not_intentionally_read',
                            'commit_messages': 'bootstrap_read_not_scanned',
                            'index_bodies': 'not_intentionally_read',
-                           'worktree_bodies': 'bootstrap_ignore_rules_may_be_read',
-                           'ignored_bodies': 'bootstrap_ignore_rules_may_be_read'}}
+                           'worktree_bodies': 'bootstrap_ignore_or_git_attributes_may_be_read',
+                           'ignored_bodies': 'bootstrap_ignore_or_git_attributes_may_be_read'}}
     try:
         limits = plan['selection']['limits']
         total = 0

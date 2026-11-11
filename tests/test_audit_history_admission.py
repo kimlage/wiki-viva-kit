@@ -1,4 +1,5 @@
 """Synthetic base-history selection; not a complete audit or OS observation."""
+import os
 from pathlib import Path
 import subprocess
 
@@ -88,6 +89,7 @@ def test_admitted_exact_search_reports_partial_gate(tmp_path, monkeypatch, check
     root, binding, args = make_case(tmp_path, monkeypatch, denied=False)
     snapshot = r1.inventory(root, binding, **args)
     plan = guarded.plan_base_markdown(snapshot, check=check, memory_root='memories')
+    assert plan['bootstrap_requirements']['git_attributes'] == 'external_authority_not_verified'
     selected = {item['path'] for item in plan['selection']['inputs']}
     assert selected == {'memories/actions/allowed.md', 'memories/internal/denied.md'}
     original = audit._grep_selected_history
@@ -112,10 +114,11 @@ def test_admitted_exact_search_reports_partial_gate(tmp_path, monkeypatch, check
     assert out['coverage']['base_markdown'] == 'searched_under_caller_root'
     assert all(out['coverage'][name] == 'not_intentionally_read' for name in
                ('intermediate_bodies', 'index_bodies'))
-    assert out['coverage']['base_other_bodies'] == 'bootstrap_policy_or_context_may_be_read'
-    assert out['coverage']['worktree_bodies'] == out['coverage']['ignored_bodies'] == 'bootstrap_ignore_rules_may_be_read'
+    assert out['coverage']['base_other_bodies'] == 'bootstrap_policy_context_or_attributes_may_be_read'
+    assert out['coverage']['worktree_bodies'] == out['coverage']['ignored_bodies'] == 'bootstrap_ignore_or_git_attributes_may_be_read'
     assert out['coverage']['commit_messages'] == 'bootstrap_read_not_scanned'
-    assert out['bootstrap_reads'] == snapshot['bootstrap_reads']
+    assert all(out['bootstrap_reads'][key] == value for key, value in snapshot['bootstrap_reads'].items())
+    assert out['bootstrap_reads']['git_attributes'] == 'may_be_read_by_git_including_ignored_or_external'
 
 
 def test_search_failure_never_reports_complete(tmp_path, monkeypatch):
@@ -242,8 +245,62 @@ def test_context_bootstrap_reads_are_reported_separately(tmp_path, monkeypatch):
         plan_sha256=plan['plan_sha256'], admit=lambda _: True)
     assert {'AGENTS.md', 'index.md'} <= set(opened)
     assert out['bootstrap_reads']['context'] == 'read_may_overlap_target_paths'
-    assert out['coverage']['base_other_bodies'] == 'bootstrap_policy_or_context_may_be_read'
+    assert out['coverage']['base_other_bodies'] == 'bootstrap_policy_context_or_attributes_may_be_read'
     assert out['state'] == 'partial' and out['gate_coverage'] == 'not_verified'
+
+
+@pytest.mark.skipif(os.name == 'nt' or not hasattr(os, 'mkfifo'), reason='requires a POSIX FIFO')
+def test_legacy_git_grep_may_open_ignored_attributes(tmp_path, monkeypatch):
+    """A FIFO proves a real Git read; this is not an OS-wide trace of the helper."""
+    root, _, args = make_case(tmp_path, monkeypatch, denied=False)
+    (root / '.git/info/exclude').write_text('/.gitattributes\n')
+    os.mkfifo(root / '.gitattributes')
+    assert git(root, 'check-ignore', '.gitattributes') == '.gitattributes'
+    original = subprocess.run
+    timed_out = []
+    def bound(argv, *a, **kw):
+        if isinstance(argv, (list, tuple)) and 'grep' in argv:
+            kw['timeout'] = 1
+            try:
+                return original(argv, *a, **kw)
+            except subprocess.TimeoutExpired:
+                timed_out.append(True)
+                raise
+        return original(argv, *a, **kw)
+    monkeypatch.setattr(subprocess, 'run', bound)
+    with pytest.raises(audit.AuditPathBoundaryError, match='search unavailable'):
+        audit._grep_selected_history(args['base'], r'page_type[[:space:]]*:',
+                                     ['memories/actions/allowed.md'])
+    assert timed_out == [True]
+
+
+@pytest.mark.skipif(os.name == 'nt' or not hasattr(os, 'mkfifo'), reason='requires a POSIX FIFO')
+def test_guarded_fifo_attributes_refuses_before_grep(tmp_path, monkeypatch):
+    root, binding, args = make_case(tmp_path, monkeypatch, denied=False)
+    (root / '.git/info/exclude').write_text('/.gitattributes\n')
+    snapshot = r1.inventory(root, binding, **args)
+    plan = guarded.plan_base_markdown(snapshot, check='action_state_transitions', memory_root='memories')
+    os.mkfifo(root / '.gitattributes')
+    monkeypatch.setattr(audit, '_grep_selected_history', lambda *a: pytest.fail('grep executed'))
+    with pytest.raises(PolicyError, match='worktree entry unsupported'):
+        guarded.search_base_markdown(root, binding, **args, check='action_state_transitions',
+            memory_root='memories', inventory_sha256=snapshot['inventory_sha256'],
+            plan_sha256=plan['plan_sha256'], admit=lambda _: True)
+
+
+def test_ignored_regular_attributes_are_disclosed_as_bootstrap(tmp_path, monkeypatch):
+    root, binding, args = make_case(tmp_path, monkeypatch, denied=False)
+    (root / '.git/info/exclude').write_text('/.gitattributes\n')
+    (root / '.gitattributes').write_text('*.md text\n')
+    snapshot = r1.inventory(root, binding, **args)
+    assert '.gitattributes' in snapshot['ignored']
+    plan = guarded.plan_base_markdown(snapshot, check='action_state_transitions', memory_root='memories')
+    assert plan['bootstrap_requirements']['git_attributes'] == 'external_authority_not_verified'
+    out = guarded.search_base_markdown(root, binding, **args, check='action_state_transitions',
+        memory_root='memories', inventory_sha256=snapshot['inventory_sha256'],
+        plan_sha256=plan['plan_sha256'], admit=lambda _: True)
+    assert out['search'] == 'completed' and out['state'] == 'partial'
+    assert out['bootstrap_reads']['git_attributes'] == 'may_be_read_by_git_including_ignored_or_external'
 
 
 @pytest.mark.parametrize('kind', ['item', 'total'])
