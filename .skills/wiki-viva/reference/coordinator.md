@@ -20,7 +20,12 @@ actually released that pause. Preserve unrelated authorized work.
 When taking a front, receiving a result and before ending a turn, check the
 authorized open threads in your scope and their action, wiki or PR delivery.
 A completed turn is not a completed delivery, and inactivity alone is not a
-blocker. If the next step is authorized and executable, reconcile current
+blocker. A sub-delivery or merged PR does not close a front with remaining scope
+or acceptance. After the turn ends, an authorized observer, coordinator or host
+checks the effective settled state. If it hides pending work, restore visibility
+and resume the same thread only under current direction and STOPs; if no observer
+is available, report verification pending without guessing its cause. If the
+next step is authorized and executable, reconcile current
 state and resume the same thread with the completed point, existing artifact,
 next step and acceptance. Preserve WIP and STOPs; do not create a second writer
 or duplicate an execution. Follow the result to the next decision or a concrete
