@@ -28,6 +28,10 @@ from typing import Any
 
 import yaml
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from wiki_core.git_env import local_git_environment, local_git_executable
+from wiki_core.git_safety import GitSafetyError, sanitized_git_argv
+
 
 DEFAULT_MANIFEST = Path("docs/references/upgrades/sync-manifest.yaml")
 LOCK_NAME = "kit.lock"
@@ -240,15 +244,18 @@ def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> 
         digest = hashlib.sha256()
         chunks: list[bytes] = []
         total = 0
+        limit = 8 * 1024 * 1024 if payload else 128 * 1024 * 1024
+        if before.st_size > limit:
+            raise SyncError("drift inspection file exceeds size limit")
         while True:
             chunk = os.read(fd, 1024 * 1024)
             if not chunk:
                 break
+            total += len(chunk)
+            if total > limit:
+                raise SyncError("drift inspection file exceeds size limit")
             digest.update(chunk)
             if payload:
-                total += len(chunk)
-                if total > 8 * 1024 * 1024:
-                    raise SyncError("kit.lock exceeds inspection limit")
                 chunks.append(chunk)
         after = os.fstat(fd)
         identity = lambda s: (s.st_dev, s.st_ino, s.st_mode, s.st_size, s.st_mtime_ns, s.st_ctime_ns, s.st_nlink)
@@ -256,7 +263,7 @@ def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> 
         named = os.stat(parts[-1], dir_fd=parent, follow_symlinks=False)
         if identity(before) != identity(after) or identity(after) != identity(named):
             raise SyncError("managed file changed during drift inspection")
-        return {"kind": "file", "sha256": digest.hexdigest(),
+        return {"kind": "file", "sha256": digest.hexdigest(), "size": total,
                 "mode": "100755" if executable else "100644"}, b"".join(chunks) if payload else None
     except OSError as exc:
         raise SyncError("unsafe or unreadable drift inspection path") from exc
@@ -265,13 +272,27 @@ def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> 
             os.close(fd)
 
 
+def _drift_git_env() -> dict[str, str]:
+    try:
+        return local_git_environment()
+    except GitSafetyError as exc:
+        raise SyncError("safe Git authority unavailable") from exc
+
+
+def _drift_git_prefix() -> list[str]:
+    try:
+        return sanitized_git_argv(["--no-lazy-fetch"], executable=local_git_executable())
+    except GitSafetyError as exc:
+        raise SyncError("safe Git authority unavailable") from exc
+
+
 def _drift_index_metadata(consumer: Path, paths: list[str]) -> dict[str, tuple[str, str]]:
     """Read only selected index entries; refuse unmerged/non-regular records."""
-    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_NO_REPLACE_OBJECTS": "1", "GIT_NO_LAZY_FETCH": "1"}
+    env = _drift_git_env()
     entries: dict[str, tuple[str, str]] = {}
     for start in range(0, len(paths), 128):
         selected = paths[start:start + 128]
-        result = subprocess.run(["git", "--no-lazy-fetch", "--literal-pathspecs", "ls-files", "--stage", "-z", "--", *selected],
+        result = subprocess.run([*_drift_git_prefix(), "--literal-pathspecs", "ls-files", "--stage", "-z", "--", *selected],
                                 cwd=consumer, capture_output=True, env=env)
         if result.returncode:
             raise SyncError("consumer index unavailable")
@@ -294,9 +315,9 @@ def _drift_index_states(consumer: Path, paths: list[str]) -> dict[str, dict[str,
     import io
     metadata = _drift_index_metadata(consumer, paths)
     oids = sorted({oid for _, oid in metadata.values()})
-    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_NO_REPLACE_OBJECTS": "1", "GIT_NO_LAZY_FETCH": "1"}
+    env = _drift_git_env()
     request = "".join(oid + "\n" for oid in oids).encode("ascii")
-    check = subprocess.run(["git", "--no-lazy-fetch", "cat-file", "--batch-check"], cwd=consumer,
+    check = subprocess.run([*_drift_git_prefix(), "cat-file", "--batch-check"], cwd=consumer,
                            input=request, capture_output=True, env=env)
     if check.returncode:
         raise SyncError("consumer index blob metadata unavailable")
@@ -311,7 +332,7 @@ def _drift_index_states(consumer: Path, paths: list[str]) -> dict[str, dict[str,
         total += int(fields[2])
     if total > 128 * 1024 * 1024:
         raise SyncError("consumer index blobs exceed inspection limit")
-    batch = subprocess.run(["git", "--no-lazy-fetch", "cat-file", "--batch"], cwd=consumer,
+    batch = subprocess.run([*_drift_git_prefix(), "cat-file", "--batch"], cwd=consumer,
                            input=request, capture_output=True, env=env)
     if batch.returncode:
         raise SyncError("consumer index blobs unavailable")
@@ -334,7 +355,10 @@ def _drift_index_states(consumer: Path, paths: list[str]) -> dict[str, dict[str,
 
 def inspect_drift(consumer: Path) -> dict[str, Any]:
     """Compare worktree and index with the local lock without changing them."""
-    _check_consumer_root(consumer)
+    top = subprocess.run([*_drift_git_prefix(), "rev-parse", "--show-toplevel"], cwd=consumer,
+                         capture_output=True, text=True, env=_drift_git_env())
+    if top.returncode or Path(top.stdout.strip()).resolve() != consumer.resolve():
+        raise SyncError("consumer path must be its Git root and Git must support --no-lazy-fetch")
     _, lock_bytes = _drift_worktree_file(consumer, LOCK_NAME, payload=True)
     if lock_bytes is None:
         raise SyncError("kit.lock is required for drift inspection")
@@ -365,9 +389,13 @@ def inspect_drift(consumer: Path) -> dict[str, Any]:
         raise SyncError("kit.lock managed file digest mismatch")
     index_states = _drift_index_states(consumer, paths)
     drift = []
+    total_worktree_bytes = 0
     for rel in paths:
         expected = {key: managed[rel][key] for key in ("sha256", "mode")}
         worktree, _ = _drift_worktree_file(consumer, rel)
+        total_worktree_bytes += int(worktree.get("size", 0))
+        if total_worktree_bytes > 512 * 1024 * 1024:
+            raise SyncError("consumer worktree exceeds inspection limit")
         index = index_states[rel]
         if any(state.get("kind") != "file" or any(state.get(key) != value for key, value in expected.items())
                for state in (worktree, index)):

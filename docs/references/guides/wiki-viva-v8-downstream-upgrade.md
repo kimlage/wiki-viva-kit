@@ -75,6 +75,9 @@ actively changing worktree: stop writers and rerun before making a decision.
 Git must support `--no-lazy-fetch`; missing index blobs cause refusal rather
 than a network fetch or repair of the object store.
 Output can reveal private path names, so keep it within the consumer's boundary.
+This legacy inspection does not qualify context denies or ownership; use it
+only when the operator has authority to read the entire lock selection. It is
+not a protected context audit or evidence that such an audit passed.
 
 The lock contains hashes, not the original bytes, and is not itself proof that
 a candidate recovery revision is correct. Preserve staged, unstaged and

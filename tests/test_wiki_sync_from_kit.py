@@ -508,6 +508,51 @@ def test_drift_inventory_detects_staged_change_when_worktree_matches_lock(tmp_pa
 
 
 @requires_safe_drift
+def test_drift_inspection_ignores_hostile_git_environment_and_fsmonitor(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    alternate_index = tmp_path / "old-index"
+    shutil.copyfile(consumer / ".git/index", alternate_index)
+    target = consumer / "portable/tool.txt"
+    original = target.read_bytes()
+    target.write_text("staged synthetic change\n")
+    _git(consumer, "add", "portable/tool.txt")
+    target.write_bytes(original)
+    marker = tmp_path / "fsmonitor-ran"
+    hook = tmp_path / "synthetic-fsmonitor"
+    hook.write_text(f'#!/bin/sh\nprintf invoked > {shlex.quote(str(marker))}\n')
+    hook.chmod(0o755)
+    _git(consumer, "config", "core.fsmonitor", str(hook))
+    monkeypatch.setenv("GIT_INDEX_FILE", str(alternate_index))
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "core.fsmonitor")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", str(hook))
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 1, result.stderr
+    row = next(row for row in json.loads(result.stdout)["drift"] if row["path"] == "portable/tool.txt")
+    assert row["index"]["sha256"] != row["expected"]["sha256"]
+    assert row["worktree"]["sha256"] == row["expected"]["sha256"]
+    assert not marker.exists()
+    assert target.read_bytes() == original
+
+
+@requires_safe_drift
+def test_drift_inspection_refuses_large_worktree_file_without_changing_it(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    target = consumer / "portable/tool.txt"
+    with target.open("wb") as handle:
+        handle.truncate(128 * 1024 * 1024 + 1)
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2 and "size limit" in result.stderr
+    assert target.stat().st_size == 128 * 1024 * 1024 + 1
+
+
+@requires_safe_drift
 def test_drift_inspection_refuses_parent_symlink_swap(tmp_path: Path, monkeypatch) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     assert _run(kit, consumer, manifest).returncode == 0
@@ -658,7 +703,7 @@ def test_drift_inspection_never_lazy_fetches_missing_index_blob(tmp_path: Path, 
     assert result.returncode == 2
     assert {p.relative_to(objects).as_posix() for p in objects.rglob("*") if p.is_file()} == before
     assert not missing_blob.exists()
-    assert "git fetch" not in trace.read_text().lower()
+    assert not trace.exists()  # inherited Git tracing is removed, not written
 
 
 @requires_safe_drift
@@ -672,13 +717,14 @@ def test_drift_inspection_refuses_git_without_no_lazy_fetch(tmp_path: Path, monk
     bindir = tmp_path / "bin"
     bindir.mkdir()
     wrapper = bindir / "git"
-    wrapper.write_text('#!/bin/sh\nif [ "$1" = "--no-lazy-fetch" ]; then exit 129; fi\n'
+    wrapper.write_text('#!/bin/sh\nfor arg in "$@"; do if [ "$arg" = "--no-lazy-fetch" ]; then exit 129; fi; done\n'
                        f'exec {shlex.quote(real_git)} "$@"\n')
     wrapper.chmod(0o755)
-    monkeypatch.setenv("PATH", f'{bindir}{os.pathsep}{os.environ.get("PATH", "")}')
     lock_before = (consumer / "kit.lock").read_bytes()
-    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
-    assert result.returncode == 2 and "index unavailable" in result.stderr
+    sync = _sync_module()
+    monkeypatch.setattr(sync, "local_git_executable", lambda: str(wrapper))
+    with pytest.raises(sync.SyncError, match="Git must support --no-lazy-fetch"):
+        sync.inspect_drift(consumer)
     assert (consumer / "kit.lock").read_bytes() == lock_before
 
 
