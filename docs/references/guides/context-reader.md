@@ -64,6 +64,24 @@ or index does not grant access. Missing access configuration grants nothing.
 Documentary copies can be excluded explicitly from ownership discovery as
 [described below](#documentary-trees-and-context-discovery).
 
+Ordinary `read` scope strings are literal path prefixes: `docs/item.md` also
+covers descendants if that path becomes a directory. To limit a read ceiling
+to one exact repository-relative path, use `file[docs/item.md]` in the `read`
+list; `file[self/item.md]` resolves relative to the context root. This is an
+explicit policy form, not a filename or filesystem-type inference. Existing
+prefix scopes, inherited denies and exact bilateral connections retain their
+rules; the exact ceiling does not grant access by itself. It does not authorize
+a directory query or make a statement about symlinks. The form is read-only;
+write and deny scopes retain their existing prefix syntax. Older policy engines
+reject brackets, so install and qualify the supporting kit before independently
+reviewing any consumer policy that uses this form. A candidate cannot authorize
+its own installation or normative change.
+
+```yaml
+read:
+  - 'file[docs/item.md]'
+```
+
 For a repository and request you are authorized to use, replace the placeholders:
 
 ```sh
