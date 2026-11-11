@@ -1812,7 +1812,8 @@ def audit_context_bound_secrets(context_id: str, approved_revision: str, approve
 
 def audit_context_bound_history(*, context_id, approved_revision, base, head, branch,
                                 normative_paths, check, inventory_sha256=None,
-                                plan_sha256=None, plan_only=False):
+                                plan_sha256=None, plan_only=False,
+                                trusted_binding=None, host_admit=None):
     """Run only the admitted base-history search, never a full audit check.
 
     The host must independently qualify bootstrap, actor, history, output and
@@ -1825,7 +1826,13 @@ def audit_context_bound_history(*, context_id, approved_revision, base, head, br
     from wiki_core.context_policy import git_file, safe_path
     from wiki_core.coordination_context import CoordinationBinding
 
-    binding = CoordinationBinding.from_environment()
+    # A trusted in-process host may bind an independently authenticated
+    # integrator. The CLI/environment cannot select that role.
+    binding = trusted_binding if trusted_binding is not None else CoordinationBinding.from_environment()
+    integrator_mode = (isinstance(binding, CoordinationBinding)
+                       and binding.integrator_read_context == context_id)
+    if (integrator_mode and not plan_only and not callable(host_admit)) or (host_admit is not None and not integrator_mode):
+        raise ValueError('integrator host admission unavailable')
     precheck_history_refs(ROOT, binding, approved_revision=approved_revision,
                           base=base, head=head, branch=branch)
     snapshot = inventory(ROOT, binding, context_id=context_id, approved_revision=approved_revision,
@@ -1844,11 +1851,16 @@ def audit_context_bound_history(*, context_id, approved_revision, base, head, br
                 'inventory_sha256': snapshot['inventory_sha256'], 'plan': plan,
                 'gate_state': 'blocked_incomplete_coverage', 'global_audit': 'not_performed',
                 'bootstrap': 'external_not_verified', 'host_admission': 'external_not_verified'}
+    def admit(candidate):
+        if candidate['plan_sha256'] != plan_sha256:
+            return False
+        return host_admit(candidate) is True if integrator_mode else True
+
     report = search_base_markdown(ROOT, binding, context_id=context_id,
         approved_revision=approved_revision, base=base, head=head, branch=branch,
         normative_paths=normative_paths, inventory_sha256=inventory_sha256,
         plan_sha256=plan_sha256, check=check, memory_root=memory_root,
-        admit=lambda candidate: candidate['plan_sha256'] == plan_sha256)
+        admit=admit)
     # The complete transition check is not run; a match list would reveal
     # content-derived paths without adding gate coverage to this CLI report.
     report.pop('matching_paths', None)

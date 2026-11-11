@@ -17,6 +17,27 @@ The trusted ref defaults to `refs/remotes/origin/main` when the allowlist is sup
 
 Every valid local operator session on the same server receives the same configured allowlist. This is a host-level trust boundary, not a per-person or per-agent identity system. A local session authenticates the operator; it is not proof of external access, business permission or sandbox isolation. Strong confidentiality requires separately qualified host/filesystem/service boundaries. Browser-supplied adapter reports and external capabilities are not accepted as evidence by these routes.
 
+For the in-process R1 audit inventory, a separately authenticated host may bind
+an integrator read context to the exact approved policy revision and the complete
+context allowlist in `CoordinationBinding`. This is a read-only audit role, not a
+profile, credential, write grant or proof that the host authenticated anyone. It
+is not accepted from a packet, client payload or environment variable, and the
+existing HTTP and CLI routes do not provision it. The host must independently
+bind the actual principal, bootstrap, output audience and isolation before use;
+an executor must not receive the integrator's binding by inheritance.
+
+The host may enumerate only previously reviewed context-isolation read denies as
+exact pairs of declaring context and resolved scope. Those classifications are
+bound to the approved revision, not inferred from a pathname or supplied by the
+candidate. A missing, stale, incomplete or undeclared classification fails closed;
+any applicable deny not explicitly classified still blocks the body. Reserved
+protected artifacts and credential/key paths remain unavailable; a specific
+`audit.integrator_read` capability deny also blocks the role. The integrator
+binding never changes owner-write checks or authorizes merge, external effects,
+secret disclosure or the candidate policy's own approval. R1 reports identity,
+classification and host admission as externally unverified; this route does not
+run the integral audit or establish its gate.
+
 ## API contract
 
 `GET /api/coordination/protected-capability` takes `X-Wiki-Admin-Session`. Without a valid session or a usable host binding it returns only `available: false` and `reason: not_available_or_not_authorized`; it does not reveal the binding. With both, it returns `schema_version: wiki.coordination-capability/v1`, `available: true`, the bound context IDs present in the approved policy, and the current `policy_revision` SHA. Polling does not keep a session alive.
@@ -344,6 +365,14 @@ history or messages, qualify the host, or pass the global or consumer gate.
 Failures after search starts report partial attempts; a missing or denied input
 is never a pass. This route does not replace the legacy check or make any R1
 gate optional.
+
+A trusted in-process host can supply the integrator binding and an admission
+callback to the same history function. The callback must independently bind
+the actual principal and approve the exact plan, including its context-isolation
+classifications, before selected bodies are searched; a matching digest alone
+is not admission. The function refuses integrator execution without that
+callback. CLI arguments and environment variables do not create this role,
+and this partial route still does not execute or approve the integral audit.
 
 
 ## Proposal-only Git secrets check

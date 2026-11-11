@@ -108,7 +108,7 @@ def guarded_context_read(reader, policy, ref, **selectors):
 
 
 @policy_stage_cache()
-def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes, *, additional_readers=()):
+def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes, *, additional_readers=(), integrator_read_binding=None):
     """Qualify the lineage after exact authorization for every reader.
 
     The caller must independently bind every reader to its trusted host; this
@@ -136,6 +136,16 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
         raise PolicyError('entry index unavailable')
     if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
         raise PolicyError('invalid byte budget')
+    classified = None
+    if integrator_read_binding is not None:
+        if additional_readers:
+            raise PolicyError('integrator bootstrap readers unavailable')
+        from wiki_core.audit_r1_inventory import _integrator_classifications
+        _check_trusted_binding(root, policy, context_id, integrator_read_binding)
+        classified = _integrator_classifications(policy, context_id, integrator_read_binding,
+                                                  policy.policy_revision)
+        if classified is None:
+            raise PolicyError('integrator read binding unavailable')
     reader = RepositoryReader(Path(root), policy.policy_revision)
     if entry_folder != '.' and not any(ref.startswith(entry_folder + '/') for ref in reader.paths):
         raise PolicyError('entry folder unavailable in approved tree')
@@ -148,8 +158,13 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
         nonlocal qualification_bytes
         guard_folder_blob(root, policy, ref)
         producer = policy.owner_of(ref)
-        if policy._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved':
-            raise PolicyError('context body not authorized')
+        if classified is None:
+            if policy._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved':
+                raise PolicyError('context body not authorized')
+        else:
+            from wiki_core.audit_r1_inventory import _integrator_allowed
+            if not _integrator_allowed(policy, context_id, ref, classified, require_qualified=False):
+                raise PolicyError('context body not authorized')
         for reader_context in additional_readers:
             if policy._connection(producer, reader_context, ref, 'interpretation', 'context', qualified=False) != 'approved':
                 raise PolicyError('additional reader not authorized for context body')

@@ -182,7 +182,54 @@ def _allowed(policy, actor: str, path: str) -> bool:
         return False
 
 
-def _physical(root: Path, policy, actor: str) -> dict:
+def _integrator_classifications(policy, actor: str, binding: CoordinationBinding,
+                                approved_revision: str) -> frozenset | None:
+    """Validate host-provided classifications against the pinned policy."""
+    from wiki_core.context_policy import _scope
+    if binding.integrator_read_context != actor:
+        return None
+    if (binding.integrator_policy_revision != approved_revision
+            or not set(policy.contexts).issubset(binding.contexts)):
+        raise PolicyError('integrator read binding unavailable')
+    if 'audit.integrator_read' in policy.effective[actor]['deny']['capabilities']:
+        raise PolicyError('integrator read binding unavailable')
+    declared = {(context['id'], _scope(raw, context['root']))
+                for context in policy.contexts.values()
+                for raw in context['policy'].get('deny', {}).get('read', [])}
+    classified = frozenset(binding.context_isolation_denies)
+    if not classified.issubset(declared):
+        raise PolicyError('integrator deny classification unavailable')
+    return classified
+
+
+def _integrator_allowed(policy, actor: str, path: str, classified: frozenset,
+                        *, require_qualified: bool = True) -> bool:
+    """Host-bound integrator read, preserving unclassified explicit denies.
+
+    The binding and classification are host assertions, not proof of the
+    principal's identity or a license to expose access credentials.
+    """
+    from wiki_core.context_policy import _scope, within
+    from wiki_core.repository_reader import canonical_path
+    from wiki_core.traversal import is_protected_artifact
+    try:
+        if canonical_path(path) != path or is_protected_artifact(Path(path)):
+            return False
+        owner = policy.owner_of(path)
+        if require_qualified and actor not in policy._qualified_contexts:
+            return False
+        lineages = {item['id']: item for item in (*policy.lineage(actor), *policy.lineage(owner))}
+        for context in lineages.values():
+            for raw in context['policy'].get('deny', {}).get('read', []):
+                scope = _scope(raw, context['root'])
+                if within(path, scope) and (context['id'], scope) not in classified:
+                    return False
+        return True
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return False
+
+
+def _physical(root: Path, policy, actor: str, classified: frozenset | None = None) -> dict:
     """Inventory names and lstat metadata; do not open file bodies.
 
     Check .gitignore against the approved policy before Git may open it. The
@@ -218,8 +265,11 @@ def _physical(root: Path, policy, actor: str) -> dict:
                     continue
                 if not stat.S_ISREG(row.st_mode) or row.st_nlink != 1:
                     raise PolicyError('worktree entry unsupported')
-                if entry.name == '.gitignore' and not _allowed(policy, actor, rel):
-                    raise PolicyError('ignore bootstrap unavailable')
+                if entry.name == '.gitignore':
+                    allowed = (_allowed(policy, actor, rel) if classified is None
+                               else _integrator_allowed(policy, actor, rel, classified))
+                    if not allowed:
+                        raise PolicyError('ignore bootstrap unavailable')
                 rows[rel] = {'mode': stat.S_IMODE(row.st_mode), 'device': row.st_dev,
                              'inode': row.st_ino, 'size': row.st_size,
                              'mtime_ns': row.st_mtime_ns, 'ctime_ns': row.st_ctime_ns,
@@ -300,10 +350,15 @@ def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
     _reject_graph_overrides(root)
     policy = _policy(root, binding, context_id, approved_revision)
     _check_trusted_binding(root, policy, context_id, binding)
+    classified = _integrator_classifications(policy, context_id, binding, approved_revision)
     context_index = policy._context_indexes.get(context_id)
     if not context_index:
         raise PolicyError('inventory context unavailable')
-    qualify_folder_context(root, policy, context_id, context_id, context_index, 1_000_000)
+    if classified is None:
+        qualify_folder_context(root, policy, context_id, context_id, context_index, 1_000_000)
+    else:
+        qualify_folder_context(root, policy, context_id, context_id, context_index, 1_000_000,
+                               integrator_read_binding=binding)
     def current_refs() -> None:
         selected_ref = 'refs/heads/' + branch
         if (revision(root, binding.trusted_ref) != base or revision(root, selected_ref) != head
@@ -345,7 +400,11 @@ def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
                 (len(entries) != 1 or entries[0]['stage'] != 0
                  or entries[0]['oid'] != original['oid'] or entries[0]['mode'] != original['mode']))):
             raise PolicyError('normative index requires independent review')
-    physical = _physical(root, policy, context_id)
+    def physical_snapshot():
+        if classified is None:
+            return _physical(root, policy, context_id)
+        return _physical(root, policy, context_id, classified)
+    physical = physical_snapshot()
     if any((is_context_instruction(path) or path in normative) and path not in trees[base]
            for path in physical['files']):
         raise PolicyError('normative worktree requires independent review')
@@ -359,7 +418,9 @@ def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
     paths = physical_files | tracked | {path for tree in trees.values() for path in tree}
     if len(paths) > MAX_ENTRIES:
         raise PolicyError('inventory limit exceeded')
-    authorization = [{'path': path, 'current_policy': 'permitted' if _allowed(policy, context_id, path) else 'denied'}
+    authorization = [{'path': path, 'current_policy': 'permitted' if
+                      (_allowed(policy, context_id, path) if classified is None else
+                       _integrator_allowed(policy, context_id, path, classified)) else 'denied'}
                      for path in sorted(paths)]
     denied = {item['path'] for item in authorization if item['current_policy'] == 'denied'}
     objects = [(path, entry['oid']) for tree in trees.values() for path, entry in tree.items()]
@@ -367,7 +428,7 @@ def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
     denied_oids = {oid for path, oid in objects if path in denied}
     aliases = sorted({oid for path, oid in objects if path not in denied and oid in denied_oids})
     current_refs()
-    if _index(root) != index or _physical(root, policy, context_id) != physical:
+    if _index(root) != index or physical_snapshot() != physical:
         raise PolicyError('inventory changed')
     if ({_name(path) for path in _nul(_git(root, 'ls-files', '--others', '--exclude-standard', '-z'))} != untracked
             or {_name(path) for path in _nul(_git(root, 'ls-files', '--others', '--ignored', '--exclude-standard', '-z'))} != ignored):
@@ -397,6 +458,14 @@ def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
               'live_observation': 'not_verified',
               'concurrency_isolation': 'external_not_verified',
               'ignore_config_identity': 'external_not_verified'}
+    if classified is not None:
+        result['integrator_read'] = {
+            'context_id': context_id, 'policy_revision': approved_revision,
+            'context_isolation_denies': [list(item) for item in sorted(classified)],
+            'principal_identity': 'external_not_verified',
+            'classification_authority': 'external_not_verified',
+            'write_authority': 'not_granted',
+        }
     result['inventory_sha256'] = hashlib.sha256(json.dumps(result, sort_keys=True,
         ensure_ascii=True, separators=(',', ':')).encode()).hexdigest()
     return result
@@ -471,6 +540,17 @@ def select(inventory_result: dict, requested: list[dict]) -> dict:
               'limits': {'max_item_bytes': 2_000_000, 'max_total_bytes': 8_000_000},
               'external_admission': 'not_verified', 'historical_policy': 'not_qualified',
               'target_bodies': 'not_read_by_selector'}
+    if 'integrator_read' in body:
+        role = body['integrator_read']
+        if (not isinstance(role, dict) or role.get('context_id') != body.get('context_id')
+                or role.get('policy_revision') != body.get('approved_revision')
+                or role.get('principal_identity') != 'external_not_verified'
+                or role.get('classification_authority') != 'external_not_verified'
+                or role.get('write_authority') != 'not_granted'):
+            raise PolicyError('selection inventory unavailable')
+        # The host must review this role and every classified scope before
+        # admission; the digest binds them but does not authenticate either.
+        result['integrator_read'] = role
     result['selection_sha256'] = hashlib.sha256(json.dumps(result, sort_keys=True,
         ensure_ascii=True, separators=(',', ':')).encode()).hexdigest()
     return result
@@ -588,7 +668,9 @@ def scan_selected(root: Path, binding: CoordinationBinding, *, context_id: str,
                 'selection_sha256': selection_sha256, 'global_audit': 'not_performed',
                 'gate_coverage': 'not_verified', 'host_admission': 'not_verified',
                 'historical_policy': 'external_not_verified',
-                'concurrency_isolation': 'external_not_verified', 'live_observation': 'not_verified'}
+                'concurrency_isolation': 'external_not_verified', 'live_observation': 'not_verified',
+                'reader_mode': 'host_integrator' if 'integrator_read' in selection else 'context_owner',
+                'principal_identity': 'external_not_verified'}
     return {'state': 'failed' if findings else 'completed', 'scanned_count': completed,
             'size_checked_count': checked_sizes,
             'secret_findings': findings, 'required_count': len(selection['inputs']),
@@ -596,4 +678,6 @@ def scan_selected(root: Path, binding: CoordinationBinding, *, context_id: str,
             'selection_sha256': selection_sha256, 'global_audit': 'not_performed',
             'gate_coverage': 'not_verified', 'host_admission': 'not_verified',
             'historical_policy': 'external_not_verified',
-            'concurrency_isolation': 'external_not_verified', 'live_observation': 'not_verified'}
+            'concurrency_isolation': 'external_not_verified', 'live_observation': 'not_verified',
+            'reader_mode': 'host_integrator' if 'integrator_read' in selection else 'context_owner',
+            'principal_identity': 'external_not_verified'}

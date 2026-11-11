@@ -24,6 +24,12 @@ class CoordinationBinding:
     trusted_ref: str
     manifest: str='wiki.config.yaml'
     repository_grants: tuple[RepositoryGrant,...]=()
+    # Host-only read role: not accepted from a packet, profile or environment.
+    # The host must separately authenticate the actual principal and classify
+    # each listed deny under the approved policy; this object is not a credential.
+    integrator_read_context: str | None = None
+    integrator_policy_revision: str | None = None
+    context_isolation_denies: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self):
         if self.manifest not in ('context.yaml', 'wiki.config.yaml'): raise ValueError('invalid coordination manifest')
@@ -40,6 +46,30 @@ class CoordinationBinding:
                 or any(item.executor not in self.contexts or item.integrator not in self.contexts for item in self.repository_grants)
                 or (self.repository_grants and self.manifest != 'wiki.config.yaml')):
             raise ValueError('invalid coordination host binding')
+        if not isinstance(self.context_isolation_denies, tuple):
+            raise ValueError('invalid integrator read binding')
+        if self.integrator_read_context is None:
+            if self.integrator_policy_revision is not None or self.context_isolation_denies:
+                raise ValueError('invalid integrator read binding')
+        else:
+            if (not isinstance(self.integrator_read_context, str)
+                    or self.integrator_read_context not in self.contexts
+                    or self.manifest != 'wiki.config.yaml'
+                    or not isinstance(self.integrator_policy_revision, str)
+                    or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', self.integrator_policy_revision)
+                    or len(self.context_isolation_denies) > 256):
+                raise ValueError('invalid integrator read binding')
+            seen_denies = set()
+            for item in self.context_isolation_denies:
+                if (not isinstance(item, tuple) or len(item) != 2
+                        or any(not isinstance(value, str) for value in item)):
+                    raise ValueError('invalid integrator read binding')
+                context, scope = item
+                safe_path(context, allow_root=True)
+                safe_path(scope, allow_root=True)
+                if item in seen_denies:
+                    raise ValueError('invalid integrator read binding')
+                seen_denies.add(item)
     @classmethod
     def from_environment(cls, env: Mapping[str,str] | None=None):
         env=os.environ if env is None else env
