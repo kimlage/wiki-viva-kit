@@ -5,7 +5,7 @@
 // the grounding), open the config. The source page's machine sync block and the
 // human recipe stay clearly separated. Everything t()'d EN+PT.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -36,6 +36,7 @@ import {
   TRACE_MODES,
   formatBytes,
   formatWhen,
+  groupSourceStreams,
   scheduleModeLabel,
   sourceScopeCounts,
   sourceDisplayName,
@@ -396,7 +397,10 @@ export function SourceDock({
               </tr>
             </thead>
             <tbody>
-              {source.streams.map((stream) => (
+              {groupSourceStreams(source.streams).map(group => (
+                <Fragment key={group.category}>
+                <tr className="sourceStreamCategory"><th scope="row" colSpan={3}>{t(`source.stream.category.${group.category}`)}</th></tr>
+                {group.streams.map((stream) => (
                 <tr
                   key={stream.id}
                   ref={(row) => {
@@ -453,6 +457,8 @@ export function SourceDock({
                     <small>{stream.privacy}</small>
                   </td>
                 </tr>
+                ))}
+                </Fragment>
               ))}
               {source.streams.length === 0 && (
                 <tr>

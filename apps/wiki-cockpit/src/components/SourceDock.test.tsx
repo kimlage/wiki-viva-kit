@@ -114,6 +114,26 @@ afterEach(() => {
 });
 
 describe("SourceDock operational workspace", () => {
+  it("groups streams for navigation and retains selection by exact stream id", () => {
+    const source = sourceFixture();
+    source.streams = [
+      { ...source.streams[0], id: "planning", label: "Planning", filters: { issue_types: ["Epic"] } },
+      { ...source.streams[1], id: "tickets", label: "Tickets", filters: { issue_types: ["Task"] } },
+      { ...source.streams[0], id: "meeting", label: "Weekly ritual" },
+      { ...source.streams[1], id: "unknown", label: "Unclassified", filters: { issue_types: ["custom"] } }
+    ];
+    const original = structuredClone(source.streams);
+    render(<SourceDock bundle={bundleWith(source)} sourceId={source.source_id} onNotice={noop} onClose={noop} />);
+    const rows = screen.getAllByRole("row");
+    const names = rows.map(row => row.textContent || "");
+    expect(names.findIndex(name => name === "Epics")).toBeLessThan(names.findIndex(name => name === "Cards"));
+    expect(names.findIndex(name => name === "Cards")).toBeLessThan(names.findIndex(name => name === "Rituals"));
+    expect(names.findIndex(name => name === "Rituals")).toBeLessThan(names.findIndex(name => name === "Other"));
+    const tickets = screen.getByRole("row", { name: /Stream tickets:/ });
+    fireEvent.keyDown(tickets, { key: "Enter" });
+    expect(tickets.getAttribute("aria-selected")).toBe("true");
+    expect(source.streams).toEqual(original);
+  });
   it.each([
     ["en", "authentication required"],
     ["pt-BR", "autenticação necessária"],
