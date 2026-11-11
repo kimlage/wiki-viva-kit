@@ -26,7 +26,8 @@ To override reasoning for jobs only, set `codex.job_reasoning_effort` in
 example `none`. Supported configured values are `none`, `minimal`, `low`,
 `medium`, `high`, and `xhigh`; omission retains the inherited configuration.
 Restart the operator after changing it. This does not disable MCP servers or
-guarantee that a particular provider accepts the selected effort.
+guarantee that a particular provider accepts the selected effort. An invalid
+configured value prevents operator startup, even when the Codex runner is disabled.
 
 ## Source-management workspace
 
