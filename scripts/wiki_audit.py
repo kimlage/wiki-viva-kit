@@ -3173,15 +3173,19 @@ def main() -> int:
                        args.context_inventory_sha256)
     history_options_present = (any(value is not None for value in history_options)
                                or bool(args.context_normative) or args.context_plan)
+    incompatible_modes = (args.public_export or args.strict_local or args.list_stale_gaps or args.list_checks
+                          or args.documentary_only or args.freshness_reviewed
+                          or any(value is not None for value in
+                                 (args.freshness_base, args.freshness_report, args.query_context,
+                                  args.query_policy_revision, args.query_head)))
     if (args.context_guard is not None or args.context_policy_revision is not None
             or args.context_selection_sha256 is not None or history_options_present):
         history_checks = ('action_state_transitions', 'source_lifecycle_transitions')
         if args.only in history_checks:
             common_ok = (args.check and args.context_guard and args.context_policy_revision
                 and args.context_base and args.context_head and args.context_branch and args.context_normative
-                and not (args.public_export or args.strict_local or args.list_stale_gaps or args.list_checks
-                         or args.documentary_only or args.freshness_reviewed or args.freshness_base
-                         or args.freshness_report or args.query_context or args.query_policy_revision or args.query_head))
+                and all(path.strip() for path in args.context_normative)
+                and not incompatible_modes)
             digests_ok = ((args.context_plan and args.context_inventory_sha256 is None and args.context_selection_sha256 is None)
                 or (not args.context_plan and all(isinstance(value, str) and re.fullmatch(r'[0-9a-f]{64}', value)
                     for value in (args.context_inventory_sha256, args.context_selection_sha256))))
@@ -3207,9 +3211,7 @@ def main() -> int:
                 or not isinstance(args.context_selection_sha256, str)
                 or not re.fullmatch(r'[0-9a-f]{64}', args.context_selection_sha256) or args.only != 'secrets'
                 or history_options_present
-                or args.public_export or args.strict_local or args.list_stale_gaps or args.list_checks
-                or args.documentary_only or args.freshness_reviewed or args.freshness_base
-                or args.freshness_report or args.query_context or args.query_policy_revision or args.query_head):
+                or incompatible_modes):
             print('ERROR: context-bound mode requires only the secrets check and an approved context, policy and selection digest')
             print('wiki_audit: secrets coverage unavailable; check not completed')
             return 1

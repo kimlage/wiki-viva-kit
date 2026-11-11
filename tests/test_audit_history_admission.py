@@ -395,6 +395,66 @@ def test_history_plan_rejects_explicit_empty_digest_before_inventory(tmp_path, m
     assert 'coverage unavailable' in capsys.readouterr().out
 
 
+@pytest.mark.parametrize('option', ['--query-context', '--query-policy-revision', '--query-head',
+                                    '--freshness-base'])
+@pytest.mark.parametrize('mode', ['plan', 'execute', 'secrets'])
+def test_empty_incompatible_option_refuses_before_guarded_bootstrap(monkeypatch, capsys, option, mode):
+    def unexpected(*_args, **_kwargs):
+        pytest.fail('incompatible mode reached a guarded or global reader')
+    monkeypatch.setattr(audit, 'audit_context_bound_history', unexpected)
+    monkeypatch.setattr(audit, 'audit_context_bound_secrets', unexpected)
+    monkeypatch.setattr(audit, 'load_config', unexpected)
+    argv = ['wiki_audit.py', '--check', '--context-guard', '.', '--context-policy-revision', '0' * 40]
+    if mode == 'secrets':
+        argv += ['--only', 'secrets', '--context-selection-sha256', '0' * 64]
+    else:
+        argv += ['--only', 'action_state_transitions', '--context-base', '0' * 40,
+                 '--context-head', '1' * 40, '--context-branch', 'wiki/synthetic',
+                 '--context-normative', 'wiki.config.yaml']
+        if mode == 'plan':
+            argv += ['--context-plan']
+        else:
+            argv += ['--context-inventory-sha256', '0' * 64, '--context-selection-sha256', '1' * 64]
+    monkeypatch.setattr(sys, 'argv', argv + [option, ''])
+    assert audit.main() == 1
+    assert 'coverage unavailable' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('path', ['', '   '])
+def test_empty_normative_path_refuses_before_precheck(monkeypatch, capsys, path):
+    monkeypatch.setattr(audit, 'audit_context_bound_history',
+                        lambda **kwargs: pytest.fail('history precheck executed'))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--check', '--only', 'action_state_transitions',
+        '--context-guard', '.', '--context-policy-revision', '0' * 40, '--context-base', '0' * 40,
+        '--context-head', '1' * 40, '--context-branch', 'wiki/synthetic', '--context-normative', path,
+        '--context-plan'])
+    assert audit.main() == 1
+    assert 'coverage unavailable' in capsys.readouterr().out
+
+
+def test_direct_cli_empty_query_option_refuses_before_precheck():
+    child = r'''
+import runpy, subprocess, sys
+import wiki_core.config as config
+def blocked(*args, **kwargs):
+    raise RuntimeError('SYNTHETIC_UNGUARDED_BOOTSTRAP')
+config.load_config = blocked
+subprocess.Popen = blocked
+script = sys.argv[1]
+sys.argv = [script, '--check', '--only', 'action_state_transitions', '--context-guard', '.',
+            '--context-policy-revision', '0' * 40, '--context-base', '0' * 40,
+            '--context-head', '1' * 40, '--context-branch', 'wiki/synthetic',
+            '--context-normative', 'wiki.config.yaml', '--context-plan', '--query-context', '']
+runpy.run_path(script, run_name='__main__')
+'''
+    result = subprocess.run([sys.executable, '-c', child, str(Path(audit.__file__).resolve())],
+                            cwd=Path(audit.__file__).resolve().parents[1],
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 1
+    assert 'coverage unavailable' in result.stdout.lower()
+    assert 'SYNTHETIC_UNGUARDED_BOOTSTRAP' not in result.stderr
+
+
 @pytest.mark.parametrize('option', ['--context-base', '--context-head', '--context-branch',
                                     '--context-inventory-sha256'])
 @pytest.mark.parametrize('mode', ['secrets', 'list', 'guarded-secrets'])
