@@ -37,17 +37,18 @@ def bound_integrator(repo, request):
     if variant == 'capability_deny':
         root_deny_policy['capabilities'] = ['audit.integrator_read']
     config['context_access']['.']['policy']['deny'] = root_deny_policy
-    tax_denies = ['self/private.md']
+    tax_denies = [] if variant == 'audit_no_specific' else ['self/private.md']
     if variant == 'overlap':
         tax_denies.append('self')
     config['context_access']['finance/tax']['policy']['deny'] = {'read': tax_denies}
     config_path.write_text(yaml.safe_dump(config))
-    if variant != 'history':
+    if variant not in ('history', 'audit_no_specific'):
         (repo / 'finance/tax/private.md').write_text('Synthetic confidential body.\n')
     if variant == 'ignore':
         (repo / 'finance/tax/.gitignore').write_text('synthetic-cache/\n')
-    (repo / 'finance/tax/credentials').mkdir()
-    (repo / 'finance/tax/credentials/synthetic.txt').write_text('Synthetic protected path.\n')
+    if variant != 'audit_no_specific':
+        (repo / 'finance/tax/credentials').mkdir()
+        (repo / 'finance/tax/credentials/synthetic.txt').write_text('Synthetic protected path.\n')
     git(repo, 'add', '.')
     git(repo, 'commit', '-qm', 'synthetic approved read boundaries')
     git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')

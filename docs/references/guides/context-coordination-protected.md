@@ -170,6 +170,15 @@ that other checks passed. A global audit remains an independently authorized
 caller-trust operation and must not run where its body reads cross a deny;
 `--query-context` restricts query recomputation only.
 
+The internal R1 worktree-secrets selection also supports the host-bound
+integrator role described above. It plans the sanitized Git candidate set
+before selected bodies, refuses denied or missing eligible inputs and known
+Git-object aliases, and executes the registered secrets check only after host
+admission. A binary candidate or interrupted scan reports partial coverage.
+The host must qualify whether that sanitized inventory equals the required
+legacy universe, its bootstrap and output audience; the result covers neither
+history nor the other checks and cannot pass the integral gate.
+
 For an independently authorized metadata inspection, form the candidate list
 from the sanitized inventory, retain entries whose lowercase suffix is in
 `TEXT_SCAN_SUFFIXES`, remove paths beginning with `tests/` or

@@ -1657,12 +1657,29 @@ def _scannable_text_files() -> list[str]:
     return files
 
 
-def audit_secrets(errors: list[str], config: WikiConfig) -> None:
+def audit_secrets(errors: list[str], config: WikiConfig, *, reads=None, selected_paths=None) -> None:
     """Credentials/secrets can never be versioned (absolute block, any file)."""
     if not config.audit.get("forbid_access_secrets", True):
+        if reads is not None:
+            raise AuditPathBoundaryError('selected secrets check disabled')
         return
-    for rel in _scannable_text_files():
-        for finding in scan_file(_guard_audit_path(ROOT / rel)):
+    if reads is None:
+        candidates = _scannable_text_files()
+    else:
+        if not isinstance(selected_paths, (list, tuple)) or len(set(selected_paths)) != len(selected_paths):
+            raise AuditPathBoundaryError('selected secrets inputs unavailable')
+        candidates = selected_paths
+        reads.require_files([reads.root / rel for rel in candidates])
+    for rel in candidates:
+        if reads is None:
+            findings = scan_file(_guard_audit_path(ROOT / rel))
+        else:
+            from wiki_core.detectors import scan_text
+            raw = reads.read_bytes(reads.root / rel)
+            if b'\0' in raw:
+                raise AuditPathBoundaryError('selected secrets binary input unavailable')
+            findings = scan_text(raw.decode('utf-8', errors='replace'))
+        for finding in findings:
             if finding.category == "secret":
                 errors.append(f"{rel}:{finding.line}: possible {finding.kind} secret ({finding.excerpt})")
 
@@ -3110,10 +3127,11 @@ class AuditContext:
     positional/keyword arguments the old hand-written main() used.
     """
 
-    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews", "information_audited", "query_context", "query_policy_revision", "query_head", "graph_reads")
+    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews", "information_audited", "query_context", "query_policy_revision", "query_head", "graph_reads", "secret_reads", "secret_paths")
 
     def __init__(self, config: WikiConfig, public_export: bool = False) -> None:
         self.graph_reads = None
+        self.secret_reads = self.secret_paths = None
         self.information_audited = False
         self.query_context = self.query_policy_revision = self.query_head = None
         self.errors: list[str] = []
@@ -3168,7 +3186,9 @@ CHECKS: tuple[tuple[str, "callable"], ...] = (
     ("command_reference", lambda ctx: audit_command_reference(ctx.errors, ctx.config)),
     ("relations", lambda ctx: audit_relations(ctx.errors, ctx.config)),
     ("old_paths", lambda ctx: audit_old_paths(ctx.errors, ctx.config)),
-    ("secrets", lambda ctx: audit_secrets(ctx.errors, ctx.config)),
+    ("secrets", lambda ctx: (audit_secrets(ctx.errors, ctx.config) if ctx.secret_reads is None else
+                            audit_secrets(ctx.errors, ctx.config, reads=ctx.secret_reads,
+                                          selected_paths=ctx.secret_paths))),
     ("pii", lambda ctx: audit_pii(ctx.errors, ctx.warnings, ctx.config, public_export=ctx.public_export)),
     ("clickable_local_links", lambda ctx: audit_clickable_local_links(ctx.errors, ctx.config)),
     ("obsidian_directory_links", lambda ctx: audit_obsidian_directory_links(ctx.warnings, ctx.config)),
