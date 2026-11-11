@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -13,6 +15,11 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/wiki_sync_from_kit.py"
+requires_safe_drift = pytest.mark.skipif(
+    os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd
+    or os.access not in os.supports_dir_fd or os.access not in os.supports_follow_symlinks,
+    reason="drift inspection requires POSIX no-follow and directory-relative reads",
+)
 
 
 def _git(root: Path, *args: str) -> str:
@@ -446,6 +453,7 @@ def test_modified_previously_managed_file_is_not_pruned(tmp_path: Path) -> None:
     assert (consumer / 'portable/tool.txt').read_text() == 'local work in progress'
 
 
+@requires_safe_drift
 def test_read_only_drift_inventory_reports_all_managed_changes_without_touching_wip(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     assert _run(kit, consumer, manifest).returncode == 0
@@ -480,6 +488,7 @@ def test_read_only_drift_inventory_reports_all_managed_changes_without_touching_
     assert not (consumer / "portable/tool.txt").exists()
 
 
+@requires_safe_drift
 def test_drift_inventory_detects_staged_change_when_worktree_matches_lock(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     assert _run(kit, consumer, manifest).returncode == 0
@@ -498,6 +507,7 @@ def test_drift_inventory_detects_staged_change_when_worktree_matches_lock(tmp_pa
     assert target.read_bytes() == original
 
 
+@requires_safe_drift
 def test_drift_inspection_refuses_parent_symlink_swap(tmp_path: Path, monkeypatch) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     assert _run(kit, consumer, manifest).returncode == 0
@@ -522,6 +532,25 @@ def test_drift_inspection_refuses_parent_symlink_swap(tmp_path: Path, monkeypatc
     assert (consumer / "preserved/tool.txt").read_text() == "v1\n"
 
 
+@pytest.mark.parametrize("relative", ["portable/tool.txt", "kit.lock"])
+@requires_safe_drift
+def test_drift_inspection_refuses_external_hardlink(tmp_path: Path, relative: str) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside synthetic sentinel\n")
+    target = consumer / relative
+    target.unlink()
+    os.link(outside, target)
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2 and "hard-linked" in result.stderr
+    assert result.stdout == ""
+    assert outside.read_text() == "outside synthetic sentinel\n"
+
+
+@requires_safe_drift
 def test_drift_inventory_refuses_missing_lock_and_symlink_without_mutation(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     missing = _run(kit, consumer, manifest, "--inspect-drift", "--json")
@@ -535,6 +564,7 @@ def test_drift_inventory_refuses_missing_lock_and_symlink_without_mutation(tmp_p
     assert target.is_symlink()
 
 
+@requires_safe_drift
 def test_drift_inventory_refuses_c3_and_invalid_lock_metadata(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     assert _run(kit, consumer, manifest).returncode == 0
@@ -553,6 +583,7 @@ def test_drift_inventory_refuses_c3_and_invalid_lock_metadata(tmp_path: Path) ->
     assert incomplete.returncode == 2 and "incomplete provenance" in incomplete.stderr
 
 
+@requires_safe_drift
 def test_drift_inventory_refuses_lock_with_inconsistent_tree_digest(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     assert _run(kit, consumer, manifest).returncode == 0
@@ -564,6 +595,7 @@ def test_drift_inventory_refuses_lock_with_inconsistent_tree_digest(tmp_path: Pa
     assert result.returncode == 2 and "digest mismatch" in result.stderr
 
 
+@requires_safe_drift
 def test_drift_inventory_refuses_unmerged_index(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     assert _run(kit, consumer, manifest).returncode == 0
@@ -577,6 +609,77 @@ def test_drift_inventory_refuses_unmerged_index(tmp_path: Path) -> None:
     inspected = _run(kit, consumer, manifest, "--inspect-drift", "--json")
     assert inspected.returncode == 2 and "unmerged" in inspected.stderr
     assert (consumer / "portable/tool.txt").read_text() == "v1\n"
+
+
+@requires_safe_drift
+@pytest.mark.parametrize("mode", [0o641, 0o650, 0o644, 0o755])
+def test_drift_inspection_uses_same_execute_mode_as_b0(tmp_path: Path, mode: int) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    target = consumer / "portable/tool.txt"
+    target.chmod(mode)
+    b0 = _run(kit, consumer, manifest, "--dry-run", "--json")
+    inspected = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    expected_drift = os.access(target, os.X_OK)
+    assert (b0.returncode != 0) == expected_drift
+    assert (inspected.returncode == 1) == expected_drift
+
+
+def test_drift_inspection_fails_closed_without_safe_directory_reads(tmp_path: Path, monkeypatch) -> None:
+    sync = _sync_module()
+    monkeypatch.setattr(sync.os, "supports_dir_fd", set())
+    with pytest.raises(sync.SyncError, match="requires no-follow directory-relative reads"):
+        sync._drift_worktree_file(tmp_path, "kit.lock")
+
+
+@requires_safe_drift
+def test_drift_inspection_never_lazy_fetches_missing_index_blob(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    remote = tmp_path / "promisor.git"
+    subprocess.run(["git", "clone", "--bare", "--no-hardlinks", str(consumer), str(remote)],
+                   check=True, capture_output=True)
+    _git(consumer, "config", "remote.origin.url", str(remote))
+    _git(consumer, "config", "remote.origin.promisor", "true")
+    _git(consumer, "config", "remote.origin.partialclonefilter", "blob:none")
+    oid = _git(consumer, "rev-parse", "HEAD:portable/tool.txt")
+    missing_blob = consumer / ".git/objects" / oid[:2] / oid[2:]
+    assert missing_blob.is_file()
+    missing_blob.unlink()
+    objects = consumer / ".git/objects"
+    before = {p.relative_to(objects).as_posix() for p in objects.rglob("*") if p.is_file()}
+    trace = tmp_path / "synthetic-git-trace"
+    monkeypatch.setenv("GIT_TRACE", str(trace))
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2
+    assert {p.relative_to(objects).as_posix() for p in objects.rglob("*") if p.is_file()} == before
+    assert not missing_blob.exists()
+    assert "git fetch" not in trace.read_text().lower()
+
+
+@requires_safe_drift
+def test_drift_inspection_refuses_git_without_no_lazy_fetch(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    real_git = shutil.which("git")
+    assert real_git
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    wrapper = bindir / "git"
+    wrapper.write_text('#!/bin/sh\nif [ "$1" = "--no-lazy-fetch" ]; then exit 129; fi\n'
+                       f'exec {shlex.quote(real_git)} "$@"\n')
+    wrapper.chmod(0o755)
+    monkeypatch.setenv("PATH", f'{bindir}{os.pathsep}{os.environ.get("PATH", "")}')
+    lock_before = (consumer / "kit.lock").read_bytes()
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2 and "index unavailable" in result.stderr
+    assert (consumer / "kit.lock").read_bytes() == lock_before
 
 
 def test_unmanaged_ignored_collision_is_preserved_or_identical_noop(tmp_path: Path) -> None:

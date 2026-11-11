@@ -205,7 +205,8 @@ def _consumer_state(consumer: Path, paths: dict[str, dict[str, Any]]) -> dict[st
 
 def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> tuple[dict[str, Any], bytes | None]:
     """Read a regular file through a no-follow directory chain, or refuse."""
-    if os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+    if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd
+            or os.access not in os.supports_dir_fd or os.access not in os.supports_follow_symlinks):
         raise SyncError("drift inspection requires no-follow directory-relative reads")
     directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
     flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0)
@@ -234,6 +235,8 @@ def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> 
         before = os.fstat(fd)
         if not stat.S_ISREG(before.st_mode):
             return {"kind": "other"}, None
+        if before.st_nlink != 1:
+            raise SyncError("drift inspection refuses hard-linked files")
         digest = hashlib.sha256()
         chunks: list[bytes] = []
         total = 0
@@ -248,11 +251,13 @@ def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> 
                     raise SyncError("kit.lock exceeds inspection limit")
                 chunks.append(chunk)
         after = os.fstat(fd)
-        identity = lambda s: (s.st_dev, s.st_ino, s.st_mode, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
-        if identity(before) != identity(after):
+        identity = lambda s: (s.st_dev, s.st_ino, s.st_mode, s.st_size, s.st_mtime_ns, s.st_ctime_ns, s.st_nlink)
+        executable = os.access(parts[-1], os.X_OK, dir_fd=parent, follow_symlinks=False)
+        named = os.stat(parts[-1], dir_fd=parent, follow_symlinks=False)
+        if identity(before) != identity(after) or identity(after) != identity(named):
             raise SyncError("managed file changed during drift inspection")
         return {"kind": "file", "sha256": digest.hexdigest(),
-                "mode": "100755" if before.st_mode & 0o111 else "100644"}, b"".join(chunks) if payload else None
+                "mode": "100755" if executable else "100644"}, b"".join(chunks) if payload else None
     except OSError as exc:
         raise SyncError("unsafe or unreadable drift inspection path") from exc
     finally:
@@ -262,11 +267,11 @@ def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> 
 
 def _drift_index_metadata(consumer: Path, paths: list[str]) -> dict[str, tuple[str, str]]:
     """Read only selected index entries; refuse unmerged/non-regular records."""
-    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_NO_REPLACE_OBJECTS": "1"}
+    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_NO_REPLACE_OBJECTS": "1", "GIT_NO_LAZY_FETCH": "1"}
     entries: dict[str, tuple[str, str]] = {}
     for start in range(0, len(paths), 128):
         selected = paths[start:start + 128]
-        result = subprocess.run(["git", "--literal-pathspecs", "ls-files", "--stage", "-z", "--", *selected],
+        result = subprocess.run(["git", "--no-lazy-fetch", "--literal-pathspecs", "ls-files", "--stage", "-z", "--", *selected],
                                 cwd=consumer, capture_output=True, env=env)
         if result.returncode:
             raise SyncError("consumer index unavailable")
@@ -289,9 +294,9 @@ def _drift_index_states(consumer: Path, paths: list[str]) -> dict[str, dict[str,
     import io
     metadata = _drift_index_metadata(consumer, paths)
     oids = sorted({oid for _, oid in metadata.values()})
-    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_NO_REPLACE_OBJECTS": "1"}
+    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_NO_REPLACE_OBJECTS": "1", "GIT_NO_LAZY_FETCH": "1"}
     request = "".join(oid + "\n" for oid in oids).encode("ascii")
-    check = subprocess.run(["git", "cat-file", "--batch-check"], cwd=consumer,
+    check = subprocess.run(["git", "--no-lazy-fetch", "cat-file", "--batch-check"], cwd=consumer,
                            input=request, capture_output=True, env=env)
     if check.returncode:
         raise SyncError("consumer index blob metadata unavailable")
@@ -306,7 +311,7 @@ def _drift_index_states(consumer: Path, paths: list[str]) -> dict[str, dict[str,
         total += int(fields[2])
     if total > 128 * 1024 * 1024:
         raise SyncError("consumer index blobs exceed inspection limit")
-    batch = subprocess.run(["git", "cat-file", "--batch"], cwd=consumer,
+    batch = subprocess.run(["git", "--no-lazy-fetch", "cat-file", "--batch"], cwd=consumer,
                            input=request, capture_output=True, env=env)
     if batch.returncode:
         raise SyncError("consumer index blobs unavailable")
