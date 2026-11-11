@@ -151,6 +151,51 @@ def _physical(root: Path, policy, actor: str) -> dict:
     return {'files': rows, 'directories': directories}
 
 
+def _check_normative_history(root: Path, base: str, head: str, history: list[dict],
+                             trees: dict, normative: set[str]) -> None:
+    """Check propagation; historical ancestry is not proof of authority."""
+    candidates = {item['commit'] for item in history}
+    boundary = {parent for item in history for parent in item['parents']
+                if parent not in candidates}
+    for parent in boundary:
+        try:
+            _git(root, 'merge-base', '--is-ancestor', parent, base)
+        except ValueError as exc:
+            raise PolicyError('normative history requires independent review') from exc
+
+    paths = sorted(normative)
+    def state(commit):
+        return tuple((trees[commit].get(path) or {}).get(key)
+                     for path in paths for key in ('mode', 'oid'))
+
+    approved = state(base)
+    if state(head) != approved:
+        raise PolicyError('normative history requires independent review')
+    for item in history:
+        parents = item['parents']
+        if not parents:
+            raise PolicyError('normative history requires independent review')
+        current = state(item['commit'])
+        parent_states = [state(parent) for parent in parents]
+        if len(parents) == 1:
+            if current != parent_states[0]:
+                raise PolicyError('normative history requires independent review')
+            continue
+        # Do not synthesize a combination of normative entries from multiple
+        # parents, even if each entry is individually inherited.
+        if current not in parent_states:
+            raise PolicyError('normative history requires independent review')
+        for offset in range(0, len(approved), 2):
+            original = approved[offset:offset + 2]
+            inherited = [value[offset:offset + 2] for value in parent_states]
+            result = current[offset:offset + 2]
+            if original in inherited:
+                if result != original:
+                    raise PolicyError('normative history requires independent review')
+            elif any(value != inherited[0] for value in inherited) or result != inherited[0]:
+                raise PolicyError('normative history requires independent review')
+
+
 def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
               approved_revision: str, base: str, head: str, branch: str,
               normative_paths: list[str]) -> dict:
@@ -216,10 +261,9 @@ def inventory(root: Path, binding: CoordinationBinding, *, context_id: str,
     normative.update(entry['path'] for entry in index if is_context_instruction(entry['path']))
     if trees[base].get('wiki.config.yaml') is None:
         raise PolicyError('normative history requires independent review')
+    _check_normative_history(root, base, head, history, trees, normative)
     for path in normative:
         original = trees[base].get(path)
-        if any(tree.get(path) != original for tree in trees.values()):
-            raise PolicyError('normative history requires independent review')
         entries = [entry for entry in index if entry['path'] == path]
         if ((original is None and entries) or (original is not None and
                 (len(entries) != 1 or entries[0]['stage'] != 0

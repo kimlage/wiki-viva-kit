@@ -168,6 +168,154 @@ def test_intermediate_context_instruction_change_then_revert_is_refused(repo):
         run((root, base, '', git(root, 'rev-parse', 'HEAD')))
 
 
+def inherited_instruction_branches(repo):
+    root, ancestor, _, _ = repo
+    git(root, 'reset', '--hard', ancestor)
+    git(root, 'checkout', '-qb', 'wiki/inherited-side')
+    (root / 'allowed.md').write_text('synthetic side change\n')
+    git(root, 'add', 'allowed.md')
+    git(root, 'commit', '-qm', 'side inherits earlier instruction')
+    side = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-q', 'wiki/synthetic')
+    (root / 'AGENTS.md').write_text('approved current synthetic instruction\n')
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'approved current instruction')
+    base = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', base)
+    return root, ancestor, side, base
+
+
+def test_inherited_approved_ancestor_instruction_is_preserved_in_merge(repo):
+    """Keep the side and boundary parent without inferring historical grants."""
+    root, ancestor, side, base = inherited_instruction_branches(repo)
+    git(root, 'merge', '--no-ff', '-qm', 'synthetic inherited merge', 'wiki/inherited-side')
+    head = git(root, 'rev-parse', 'HEAD')
+    assert git(root, 'show', f'{base}:AGENTS.md') == git(root, 'show', f'{head}:AGENTS.md')
+    assert git(root, 'show', f'{side}:AGENTS.md') == git(root, 'show', f'{ancestor}:AGENTS.md')
+    assert git(root, 'show', f'{side}:AGENTS.md') != git(root, 'show', f'{base}:AGENTS.md')
+    git(root, 'merge-base', '--is-ancestor', ancestor, base)
+    result = run((root, base, '', head))
+    assert side in result['trees'] and ancestor in result['trees']
+    assert result['trees'][side]['AGENTS.md'] == result['trees'][ancestor]['AGENTS.md']
+    assert result['trees'][head]['AGENTS.md'] == result['trees'][base]['AGENTS.md']
+    assert result['historical_policy'] == 'not_qualified'
+    with pytest.raises(PolicyError, match='selection unavailable'):
+        r1.select(result, [{'kind': 'git_blob', 'revision': side, 'path': 'restricted/denied.json'}])
+
+
+@pytest.mark.parametrize('merged_instruction', ['old', 'novel'])
+def test_merge_cannot_choose_old_or_create_instruction_then_restore(repo, merged_instruction):
+    root, _, side, base = inherited_instruction_branches(repo)
+    approved = (root / 'AGENTS.md').read_text()
+    git(root, 'merge', '--no-ff', '--no-commit', 'wiki/inherited-side')
+    candidate = git(root, 'show', f'{side}:AGENTS.md') + '\n' if merged_instruction == 'old' else 'new synthetic instruction\n'
+    (root / 'AGENTS.md').write_text(candidate)
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'synthetic disallowed merge instruction')
+    (root / 'AGENTS.md').write_text(approved)
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'restore approved instruction')
+    with pytest.raises(PolicyError, match='normative history'):
+        run((root, base, '', git(root, 'rev-parse', 'HEAD')))
+
+
+def test_instruction_mode_change_then_restore_is_refused(repo):
+    root, base, _, _ = repo
+    git(root, 'reset', '--hard', base)
+    (root / 'AGENTS.md').chmod(0o755)
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'synthetic mode change')
+    (root / 'AGENTS.md').chmod(0o644)
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'restore mode')
+    with pytest.raises(PolicyError, match='normative history'):
+        run((root, base, '', git(root, 'rev-parse', 'HEAD')))
+
+
+@pytest.mark.parametrize('operation', ['add', 'delete'])
+def test_instruction_add_or_delete_then_restore_is_refused(repo, operation):
+    root, base, _, _ = repo
+    git(root, 'reset', '--hard', base)
+    path = root / ('AGENTS.override.md' if operation == 'add' else 'AGENTS.md')
+    original = path.read_text() if path.exists() else None
+    if operation == 'add':
+        path.write_text('synthetic new instruction\n')
+    else:
+        path.unlink()
+    git(root, 'add', '-A')
+    git(root, 'commit', '-qm', 'synthetic normative change')
+    if original is None:
+        path.unlink()
+    else:
+        path.write_text(original)
+    git(root, 'add', '-A')
+    git(root, 'commit', '-qm', 'restore normative state')
+    with pytest.raises(PolicyError, match='normative history'):
+        run((root, base, '', git(root, 'rev-parse', 'HEAD')))
+
+
+def test_unrelated_merge_root_is_refused_even_with_identical_tree(repo):
+    root, base, _, _ = repo
+    git(root, 'reset', '--hard', base)
+    tree = git(root, 'rev-parse', f'{base}^{{tree}}')
+    unrelated = git(root, 'commit-tree', tree, '-m', 'synthetic unrelated root')
+    merged = git(root, 'commit-tree', tree, '-p', base, '-p', unrelated, '-m', 'synthetic unrelated merge')
+    git(root, 'reset', '--hard', merged)
+    with pytest.raises(PolicyError, match='normative history'):
+        run((root, base, '', merged))
+
+
+def test_merge_cannot_assemble_normative_snapshot_from_different_parents(repo):
+    root, ancestor, _, _ = repo
+    git(root, 'reset', '--hard', ancestor)
+    (root / 'AGENTS.override.md').write_text('synthetic old override\n')
+    git(root, 'add', 'AGENTS.override.md')
+    git(root, 'commit', '-qm', 'synthetic ancestor')
+    common = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-qb', 'wiki/approved-left')
+    (root / 'AGENTS.md').write_text('synthetic current instruction\n')
+    git(root, 'add', 'AGENTS.md')
+    git(root, 'commit', '-qm', 'synthetic left instruction')
+    left = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-qb', 'wiki/approved-right', common)
+    (root / 'AGENTS.override.md').write_text('synthetic current override\n')
+    git(root, 'add', 'AGENTS.override.md')
+    git(root, 'commit', '-qm', 'synthetic right instruction')
+    right = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-q', 'wiki/synthetic')
+    git(root, 'reset', '--hard', left)
+    git(root, 'merge', '--no-ff', '-qm', 'synthetic approved merge', right)
+    base = git(root, 'rev-parse', 'HEAD')
+    git(root, 'update-ref', 'refs/remotes/origin/main', base)
+    tree = git(root, 'rev-parse', f'{base}^{{tree}}')
+    left_child = git(root, 'commit-tree', git(root, 'rev-parse', f'{left}^{{tree}}'),
+                     '-p', left, '-m', 'synthetic inherited left')
+    right_child = git(root, 'commit-tree', git(root, 'rev-parse', f'{right}^{{tree}}'),
+                      '-p', right, '-m', 'synthetic inherited right')
+    mixed = git(root, 'commit-tree', tree, '-p', left_child, '-p', right_child,
+                '-m', 'synthetic combined instructions')
+    head = git(root, 'commit-tree', tree, '-p', base, '-p', mixed, '-m', 'synthetic final merge')
+    git(root, 'reset', '--hard', head)
+    with pytest.raises(PolicyError, match='normative history'):
+        run((root, base, '', head))
+
+
+def test_three_parent_merge_cannot_select_old_instruction(repo):
+    root, _, side, base = inherited_instruction_branches(repo)
+    base_tree = git(root, 'rev-parse', f'{base}^{{tree}}')
+    side_tree = git(root, 'rev-parse', f'{side}^{{tree}}')
+    current = git(root, 'commit-tree', base_tree, '-p', base, '-m', 'synthetic current parent')
+    old = git(root, 'commit-tree', side_tree, '-p', base, '-p', current, '-p', side,
+              '-m', 'synthetic old three-parent merge')
+    # The final merge itself preserves the approved parent. Rejection must be
+    # caused by the earlier three-parent merge that selected the older entry.
+    head = git(root, 'commit-tree', base_tree, '-p', base, '-p', old,
+               '-m', 'preserve approved instruction')
+    git(root, 'reset', '--hard', head)
+    with pytest.raises(PolicyError, match='normative history'):
+        run((root, base, '', head))
+
+
 def test_staged_context_instruction_change_is_refused(repo, monkeypatch):
     root, _, _, _ = repo
     with (root / 'AGENTS.md').open('a') as stream:
