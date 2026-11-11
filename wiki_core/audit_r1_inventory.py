@@ -73,6 +73,13 @@ class SelectedReads:
     def read_text(self, path, *, errors='strict'):
         return self.read_bytes(path).decode('utf-8', errors=errors)
 
+    def require_files(self, paths):
+        """Refuse an incomplete selection before a consumer parses any body."""
+        for path in paths:
+            rel = self._rel(path)
+            if rel in self.missing or rel not in self.files or rel not in self.contents:
+                raise RuntimeError('body outside admitted selection')
+
     def glob(self, path, pattern):
         rel = self._rel(path)
         prefix = '' if rel == '.' else rel + '/'

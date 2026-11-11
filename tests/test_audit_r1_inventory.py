@@ -376,6 +376,85 @@ def test_denied_oid_alias_is_visible_before_any_target_read(repo):
         r1.select(result, [{'kind': 'git_blob', 'revision': result['head'], 'path': 'allowed.md'}])
 
 
+def test_graph_reads_admitted_worktree_bodies_from_r1_selection(repo, monkeypatch):
+    from wiki_core.config import WikiConfig
+    from wiki_core.graph.page_graph import build_page_graph, select_page_graph_inputs
+
+    root, _, _, _ = repo
+    memory = root / 'memories'
+    memory.mkdir()
+    (memory / 'index.md').write_text('---\npage_id: root\npage_type: root_index\ntitle: Root\n---\n')
+    (memory / 'note.md').write_text('---\npage_id: note\npage_type: note\ntitle: Note\n---\n')
+    snapshot = run(repo)
+    names = sorted(path for path in snapshot['physical']['files']
+                   if path.startswith('memories/') and path.endswith('.md'))
+    plan = select_page_graph_inputs(snapshot, WikiConfig())
+    selection = plan['selection']
+    assert [item['path'] for item in selection['inputs']] == names
+    assert selection['external_admission'] == 'not_verified'
+    assert plan['worktree_content_aliases'] == 'external_not_verified'
+    assert plan['global_audit'] == 'not_performed'
+    # A fixture-only host admits the selection; neither this stub nor its
+    # digest proves authority in a real deployment.
+    fixture_host_approves = lambda _candidate: True
+    assert fixture_host_approves(plan)
+    contents = {item['path']: r1._worktree_bytes(root, item) for item in selection['inputs']}
+    reads = r1.SelectedReads(root, snapshot['physical'], contents, missing=snapshot['missing_tracked'])
+    monkeypatch.setattr(Path, 'read_text', lambda *a, **kw: pytest.fail('graph opened worktree body'))
+    graph = build_page_graph(root, WikiConfig(), reads=reads)
+    assert set(graph.nodes) == set(names)
+    assert snapshot['global_audit'] == 'not_performed' and selection['gate_coverage'] == 'not_verified'
+
+
+def test_graph_candidate_deny_refuses_r1_selection_before_worktree_body(repo, monkeypatch):
+    from wiki_core.config import WikiConfig
+    from wiki_core.graph.page_graph import select_page_graph_inputs
+
+    root, _, _, _ = repo
+    (root / 'restricted/denied.md').write_text('synthetic denied graph page\n')
+    snapshot = run(repo)
+    names = sorted(path for path in snapshot['physical']['files'] if path.endswith('.md'))
+    assert 'restricted/denied.md' in names
+    monkeypatch.setattr(r1, '_worktree_bytes', lambda *_: pytest.fail('body read before denial'))
+    config = WikiConfig()
+    config.paths['memory_root'] = '.'
+    with pytest.raises(PolicyError, match='selection unavailable'):
+        select_page_graph_inputs(snapshot, config)
+
+
+def test_graph_known_git_alias_refuses_before_worktree_body(repo, monkeypatch):
+    from wiki_core.config import WikiConfig
+    from wiki_core.graph.page_graph import select_page_graph_inputs
+
+    root, base, _, _ = repo
+    git(root, 'reset', '--hard', base)
+    (root / 'allowed.md').write_bytes((root / 'restricted/denied.json').read_bytes())
+    git(root, 'add', 'allowed.md')
+    git(root, 'commit', '-qm', 'synthetic graph alias')
+    head = git(root, 'rev-parse', 'HEAD')
+    snapshot = run((root, base, '', head))
+    assert snapshot['trees'][head]['allowed.md']['oid'] in snapshot['denied_oid_aliases']
+    monkeypatch.setattr(r1, '_worktree_bytes', lambda *_: pytest.fail('body read before alias refusal'))
+    config = WikiConfig()
+    config.paths['memory_root'] = '.'
+    with pytest.raises(PolicyError, match='graph selection unavailable'):
+        select_page_graph_inputs(snapshot, config)
+
+
+def test_graph_missing_tracked_candidate_refuses_before_worktree_body(repo, monkeypatch):
+    from wiki_core.config import WikiConfig
+    from wiki_core.graph.page_graph import select_page_graph_inputs
+
+    root, _, _, _ = repo
+    git(root, 'rm', '-f', 'allowed.md')
+    snapshot = run(repo)
+    monkeypatch.setattr(r1, '_worktree_bytes', lambda *_: pytest.fail('body read before missing refusal'))
+    config = WikiConfig()
+    config.paths['memory_root'] = '.'
+    with pytest.raises(PolicyError, match='graph selection unavailable'):
+        select_page_graph_inputs(snapshot, config)
+
+
 def test_merge_parents_and_missing_tracked_worktree_are_explicit(repo):
     root, base, _, _ = repo
     git(root, 'reset', '--hard', base)

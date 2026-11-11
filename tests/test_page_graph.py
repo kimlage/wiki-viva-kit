@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+from wiki_core.audit_r1_inventory import SelectedReads
 from wiki_core.config import WikiConfig
 from wiki_core.graph import (
     PAGE_GRAPH_SCHEMA_VERSION,
@@ -36,6 +39,36 @@ sensitive_data_policy: private_sensitive_allowed
 
 {body}
 """
+
+
+def test_page_graph_uses_selected_bodies_without_reopening_files(tmp_path, monkeypatch):
+    contents = {
+        'memories/index.md': _page('root', 'root_index', 'Root', '[Project](projects/x.md)').encode(),
+        'memories/projects/x.md': _page('x', 'project', 'Project', '[Root](../index.md)').encode(),
+    }
+    for rel, body in contents.items():
+        _write(tmp_path / rel, body.decode())
+    expected = build_page_graph(tmp_path, WikiConfig())
+    physical = {'files': {path: {} for path in contents},
+                'directories': ['memories', 'memories/projects']}
+    reads = SelectedReads(tmp_path, physical, contents)
+    monkeypatch.setattr(Path, 'read_text', lambda *a, **kw: pytest.fail('filesystem body reopened'))
+    graph = build_page_graph(tmp_path, WikiConfig(), reads=reads)
+    assert graph.nodes == expected.nodes
+    assert graph.aliases == expected.aliases and graph.wanted_pages == expected.wanted_pages
+
+
+def test_page_graph_refuses_unselected_page_instead_of_omitting_it(tmp_path, monkeypatch):
+    allowed = 'memories/index.md'
+    denied = 'memories/restricted.md'
+    physical = {'files': {allowed: {}, denied: {}}, 'directories': ['memories']}
+    reads = SelectedReads(tmp_path, physical, {
+        allowed: _page('root', 'root_index', 'Root', '').encode(),
+    })
+    monkeypatch.setattr(Path, 'read_text', lambda *a, **kw: pytest.fail('unselected body opened'))
+    monkeypatch.setattr(reads, 'read_text', lambda *a, **kw: pytest.fail('graph parsed before complete selection'))
+    with pytest.raises(RuntimeError, match='body outside admitted selection'):
+        build_page_graph(tmp_path, WikiConfig(), reads=reads)
 
 
 def test_page_graph_builds_links_aliases_and_wanted_pages(tmp_path: Path) -> None:

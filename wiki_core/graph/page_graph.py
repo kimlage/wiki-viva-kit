@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections import deque
 from dataclasses import dataclass, field
@@ -149,6 +151,56 @@ def parse_frontmatter(path: Path) -> dict[str, Any]:
     return parse_frontmatter_flat(path)
 
 
+def select_page_graph_inputs(inventory: dict, config: WikiConfig) -> dict:
+    """Select worktree Markdown candidates without opening their bodies.
+
+    The host must qualify the approved configuration, inventory, actor and
+    worktree aliases independently. Known Git-object aliases are refused here;
+    worktree metadata alone does not prove the content or absence of an alias.
+    Missing tracked/HEAD Markdown is conservatively unavailable. The result is
+    not a complete audit or a host admission.
+    """
+    from wiki_core.audit_r1_inventory import select
+    from wiki_core.context_policy import PolicyError, safe_path
+    from wiki_core.traversal import is_protected_artifact
+
+    try:
+        configured = config.paths['memory_root']
+        if not isinstance(configured, str) or not configured:
+            raise PolicyError('graph selection unavailable')
+        memory_root = safe_path(configured.rstrip('/'), allow_root=True)
+        prefix = '' if memory_root == '.' else memory_root + '/'
+        physical = inventory['physical']['files']
+        head_tree = inventory['trees'][inventory['head']]
+        def candidate(path):
+            return (path.startswith(prefix) and path.endswith('.md')
+                    and not is_protected_artifact(Path(path)))
+        missing = set(inventory['missing_tracked']) | (set(head_tree) - set(physical))
+        if any(candidate(path) for path in missing):
+            raise PolicyError('graph selection unavailable')
+        names = sorted(path for path in physical if candidate(path))
+        selection = select(inventory, [{'kind': 'worktree', 'path': path} for path in names])
+        aliases = set(inventory['denied_oid_aliases'])
+        selected = set(names)
+        if (any(path in selected and entry['oid'] in aliases for path, entry in head_tree.items())
+                or any(entry['path'] in selected and entry['oid'] in aliases
+                       for entry in inventory['index'])
+                or any(entry['path'] in selected and entry['stage'] != 0
+                       for entry in inventory['index'])):
+            raise PolicyError('graph selection unavailable')
+        plan = {'memory_root': memory_root, 'selection': selection,
+                'coverage': 'worktree_graph_markdown_only',
+                'configured_root': 'external_not_verified',
+                'worktree_content_aliases': 'external_not_verified',
+                'host_admission': 'external_not_verified',
+                'global_audit': 'not_performed'}
+        plan['plan_sha256'] = hashlib.sha256(json.dumps(plan, sort_keys=True, ensure_ascii=True,
+                                            separators=(',', ':')).encode()).hexdigest()
+        return plan
+    except (KeyError, TypeError, AttributeError) as exc:
+        raise PolicyError('graph selection unavailable') from exc
+
+
 def _list_values(value: Any) -> tuple[str, ...]:
     return tuple(_fm_list_values(value))
 
@@ -199,15 +251,31 @@ def _aliases(values: dict[str, Any]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(aliases))
 
 
-def build_page_graph(root: Path, config: WikiConfig) -> PageGraph:
+def build_page_graph(root: Path, config: WikiConfig, *, reads=None) -> PageGraph:
+    """Build the graph from the filesystem or an already-admitted reader.
+
+    Supplying a reader does not qualify its selection, authority, metadata or
+    coverage; those remain the caller's responsibility. An unavailable body
+    propagates the reader's error instead of silently omitting a page.
+    """
     memory_root = _memory_prefix(config)
-    files = _markdown_files(root, memory_root)
+    if reads is None:
+        files = _markdown_files(root, memory_root)
+    else:
+        files = sorted(reads.markdown(root / memory_root.rstrip('/'), root))
+        reads.require_files(files)
 
     frontmatter_by_rel: dict[str, dict[str, Any]] = {}
+    selected_texts: dict[str, str] = {}
     page_id_to_rel: dict[str, str] = {}
     for path in files:
         rel = path.relative_to(root).as_posix()
-        values = parse_frontmatter(path)
+        if reads is None:
+            values = parse_frontmatter(path)
+        else:
+            text = reads.read_text(path, errors='replace')
+            selected_texts[rel] = text
+            values = parse_frontmatter_flat(text)
         frontmatter_by_rel[rel] = values
         page_id = str(values.get("page_id") or "").strip()
         if page_id:
@@ -219,7 +287,8 @@ def build_page_graph(root: Path, config: WikiConfig) -> PageGraph:
     known_rels = set(frontmatter_by_rel)
     for path in files:
         rel = path.relative_to(root).as_posix()
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = (path.read_text(encoding="utf-8", errors="replace")
+                if reads is None else selected_texts[rel])
         body_links = _markdown_body_links(root, rel, text)
         fm_refs = _frontmatter_refs(frontmatter_by_rel[rel], page_id_to_rel)
         outbound_body[rel] = tuple(link for link in body_links if link in known_rels)
