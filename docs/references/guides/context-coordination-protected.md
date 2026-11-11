@@ -315,6 +315,36 @@ historical baseline. Missing or unverified baseline authority must be handled
 by the caller's independent gate. Once a base has been selected, failure or
 movement while enumerating and searching it makes coverage unavailable.
 
+The existing audit entrypoint also offers a **partial base-history search** for
+one transition check under an independently admitted folder binding. For example,
+the host may request a plan with `--check --only action_state_transitions`,
+`--context-guard CONTEXT`, `--context-policy-revision BASE_SHA`,
+`--context-base BASE_SHA`, `--context-head HEAD_SHA`, `--context-branch BRANCH`,
+one or more `--context-normative PATH` options and `--context-plan`. The host
+must supply its complete independently qualified normative scope, including
+`wiki.config.yaml`. The alternative check name is `source_lifecycle_transitions`.
+The approved Git configuration selects the memory root; a candidate worktree
+configuration is not used as authority. A denied candidate or denied object
+alias refuses the entire search before grep, not just the denied path.
+
+After independent approval of the full plan and its output audience, the host
+can repeat the command without `--context-plan`, passing the returned inventory
+digest as `--context-inventory-sha256` and the plan digest as
+`--context-selection-sha256`. Digests bind bytes but do not authenticate actor
+or admission. Git/runtime startup, policy and context bodies, Git attributes
+(including ignored or external sources), metadata, historical authority and
+concurrency isolation must be independently qualified before invocation.
+Bootstrap reads may overlap the later selection. Plan output includes path and
+object metadata; do not emit it to an unqualified audience.
+
+Both planning and execution deliberately return nonzero, even when the selected
+grep completes. The result is partial and does not execute the transition check,
+read its action-adoption receipt or changed worktree bodies, audit intermediate
+history or messages, qualify the host, or pass the global or consumer gate.
+Failures after search starts report partial attempts; a missing or denied input
+is never a pass. This route does not replace the legacy check or make any R1
+gate optional.
+
 
 ## Proposal-only Git secrets check
 

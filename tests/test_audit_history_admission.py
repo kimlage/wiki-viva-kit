@@ -2,6 +2,8 @@
 import os
 from pathlib import Path
 import subprocess
+import sys
+import json
 
 import pytest
 import yaml
@@ -315,6 +317,109 @@ def test_ignored_regular_attributes_are_disclosed_as_bootstrap(tmp_path, monkeyp
     assert out['search'] == 'completed' and out['state'] == 'partial'
     assert received and all(value == expected for value in received)
     assert out['bootstrap_reads']['git_attributes'] == 'may_be_read_by_git_including_ignored_or_external'
+
+
+def invoke_audit_cli(monkeypatch, args, check, *, plan=False, inventory=None, selection=None):
+    argv = ['wiki_audit.py', '--check', '--only', check, '--context-guard', '.',
+            '--context-policy-revision', args['approved_revision'], '--context-base', args['base'],
+            '--context-head', args['head'], '--context-branch', args['branch'],
+            '--context-normative', 'wiki.config.yaml']
+    if plan:
+        argv.append('--context-plan')
+    else:
+        argv.extend(['--context-inventory-sha256', inventory, '--context-selection-sha256', selection])
+    monkeypatch.setattr(sys, 'argv', argv)
+    monkeypatch.setenv('WIKI_COORDINATION_ALLOWED_CONTEXTS', '.')
+    monkeypatch.setenv('WIKI_COORDINATION_TRUSTED_REF', 'refs/remotes/origin/main')
+    monkeypatch.delenv('WIKI_COORDINATION_CONTEXT_MODE', raising=False)
+    monkeypatch.delenv('WIKI_COORDINATION_MANIFEST', raising=False)
+    monkeypatch.delenv('WIKI_COORDINATION_REPOSITORY_GRANTS', raising=False)
+    return audit.main()
+
+
+@pytest.mark.parametrize('check', ['action_state_transitions', 'source_lifecycle_transitions'])
+def test_cli_denied_base_candidate_refuses_before_grep(tmp_path, monkeypatch, capsys, check):
+    _, _, args = make_case(tmp_path, monkeypatch, denied=True)
+    monkeypatch.setattr(audit, '_grep_selected_history', lambda *a: pytest.fail('grep executed'))
+    monkeypatch.setattr(audit, '_history_text', lambda *a: pytest.fail('history body opened'))
+    assert invoke_audit_cli(monkeypatch, args, check, plan=True) == 1
+    output = json.loads(capsys.readouterr().out)
+    assert output['state'] == 'refused'
+    assert output['gate_state'] == 'blocked_incomplete_coverage'
+    assert output['global_audit'] == 'not_performed'
+    assert invoke_audit_cli(monkeypatch, args, check, inventory='0' * 64, selection='0' * 64) == 1
+    assert json.loads(capsys.readouterr().out)['state'] == 'refused'
+
+
+@pytest.mark.parametrize('check', ['action_state_transitions', 'source_lifecycle_transitions'])
+def test_cli_admitted_history_search_never_passes_transition_gate(tmp_path, monkeypatch, capsys, check):
+    _, _, args = make_case(tmp_path, monkeypatch, denied=False)
+    assert invoke_audit_cli(monkeypatch, args, check, plan=True) == 1
+    proposed = json.loads(capsys.readouterr().out)
+    assert proposed['state'] == 'selection_only'
+    assert proposed['gate_state'] == 'blocked_incomplete_coverage'
+    assert proposed['plan']['target_bodies'] == 'not_read_by_selector_bootstrap_may_overlap'
+    original = audit._grep_selected_history
+    calls = []
+    def observe(*args):
+        calls.append(args)
+        return original(*args)
+    monkeypatch.setattr(audit, '_grep_selected_history', observe)
+    assert invoke_audit_cli(monkeypatch, args, check,
+        inventory=proposed['inventory_sha256'], selection='0' * 64) == 1
+    assert json.loads(capsys.readouterr().out)['state'] == 'refused' and not calls
+    assert invoke_audit_cli(monkeypatch, args, check,
+        inventory=proposed['inventory_sha256'], selection=proposed['plan']['plan_sha256']) == 1
+    output = json.loads(capsys.readouterr().out)
+    assert calls and output['search'] == 'completed' and output['state'] == 'partial'
+    assert output['gate_state'] == 'blocked_incomplete_coverage'
+    assert output['global_audit'] == 'not_performed' and 'matching_paths' not in output
+
+
+def test_mixed_guarded_cli_refuses_before_inventory(tmp_path, monkeypatch, capsys):
+    _, _, args = make_case(tmp_path, monkeypatch, denied=False)
+    monkeypatch.setattr(r1, 'inventory', lambda *a, **kw: pytest.fail('inventory executed'))
+    assert invoke_audit_cli(monkeypatch, args, 'action_state_transitions,secrets', plan=True) == 1
+    assert 'coverage unavailable' in capsys.readouterr().out
+
+
+def test_direct_cli_refuses_denied_search_with_synthetic_binding(tmp_path, monkeypatch):
+    root, _, args = make_case(tmp_path, monkeypatch, denied=True)
+    env = {'PATH': os.defpath, 'PYTHONDONTWRITEBYTECODE': '1',
+           'WIKI_INSTALLED_CONTENT_ROOT': str(root), 'WIKI_COORDINATION_ALLOWED_CONTEXTS': '.',
+           'WIKI_COORDINATION_TRUSTED_REF': 'refs/remotes/origin/main'}
+    argv = [sys.executable, str(Path(audit.__file__).resolve()), '--check', '--only',
+            'action_state_transitions', '--context-guard', '.', '--context-policy-revision',
+            args['approved_revision'], '--context-base', args['base'], '--context-head', args['head'],
+            '--context-branch', args['branch'], '--context-normative', 'wiki.config.yaml', '--context-plan']
+    result = subprocess.run(argv, cwd=root, env=env, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 1
+    output = json.loads(result.stdout)
+    assert output['state'] == 'refused' and output['gate_state'] == 'blocked_incomplete_coverage'
+
+
+def test_direct_cli_admitted_search_remains_partial(tmp_path, monkeypatch):
+    root, _, args = make_case(tmp_path, monkeypatch, denied=False)
+    env = {'PATH': os.defpath, 'PYTHONDONTWRITEBYTECODE': '1',
+           'WIKI_INSTALLED_CONTENT_ROOT': str(root), 'WIKI_COORDINATION_ALLOWED_CONTEXTS': '.',
+           'WIKI_COORDINATION_TRUSTED_REF': 'refs/remotes/origin/main'}
+    argv = [sys.executable, str(Path(audit.__file__).resolve()), '--check', '--only',
+            'source_lifecycle_transitions', '--context-guard', '.', '--context-policy-revision',
+            args['approved_revision'], '--context-base', args['base'], '--context-head', args['head'],
+            '--context-branch', args['branch'], '--context-normative', 'wiki.config.yaml']
+    proposed = subprocess.run(argv + ['--context-plan'], cwd=root, env=env,
+                              capture_output=True, text=True, timeout=30)
+    assert proposed.returncode == 1
+    plan = json.loads(proposed.stdout)
+    assert plan['state'] == 'selection_only'
+    result = subprocess.run(argv + ['--context-inventory-sha256', plan['inventory_sha256'],
+                            '--context-selection-sha256', plan['plan']['plan_sha256']],
+                            cwd=root, env=env, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 1
+    output = json.loads(result.stdout)
+    assert output['state'] == 'partial' and output['search'] == 'completed'
+    assert output['gate_state'] == 'blocked_incomplete_coverage'
+    assert output['global_audit'] == 'not_performed' and 'matching_paths' not in output
 
 
 @pytest.mark.parametrize('kind', ['item', 'total'])

@@ -1810,6 +1810,54 @@ def audit_context_bound_secrets(context_id: str, approved_revision: str, approve
         return unavailable()
 
 
+def audit_context_bound_history(*, context_id, approved_revision, base, head, branch,
+                                normative_paths, check, inventory_sha256=None,
+                                plan_sha256=None, plan_only=False):
+    """Run only the admitted base-history search, never a full audit check.
+
+    The host must independently qualify bootstrap, actor, history, output and
+    concurrency. Matching digests bind a selection but do not authenticate it.
+    """
+    from wiki_core.audit_history_selection import (plan_base_markdown, precheck_history_refs,
+                                                    search_base_markdown)
+    from wiki_core.audit_r1_inventory import inventory
+    from wiki_core.config import config_from_mapping
+    from wiki_core.context_policy import git_file, safe_path
+    from wiki_core.coordination_context import CoordinationBinding
+
+    binding = CoordinationBinding.from_environment()
+    precheck_history_refs(ROOT, binding, approved_revision=approved_revision,
+                          base=base, head=head, branch=branch)
+    snapshot = inventory(ROOT, binding, context_id=context_id, approved_revision=approved_revision,
+                         base=base, head=head, branch=branch, normative_paths=normative_paths)
+    # The approved configuration is a separately host-admitted bootstrap read;
+    # the candidate worktree never chooses the selection root.
+    approved_config = git_file(ROOT, approved_revision, 'wiki.config.yaml')
+    config = config_from_mapping(yaml.safe_load(approved_config.decode('utf-8')))
+    configured_root = config.paths['memory_root']
+    if not isinstance(configured_root, str) or not configured_root:
+        raise ValueError('history memory root unavailable')
+    memory_root = safe_path(configured_root.rstrip('/'))
+    plan = plan_base_markdown(snapshot, check=check, memory_root=memory_root)
+    if plan_only:
+        return {'state': 'selection_only', 'scope': 'base_markdown_history_search_only',
+                'inventory_sha256': snapshot['inventory_sha256'], 'plan': plan,
+                'gate_state': 'blocked_incomplete_coverage', 'global_audit': 'not_performed',
+                'bootstrap': 'external_not_verified', 'host_admission': 'external_not_verified'}
+    report = search_base_markdown(ROOT, binding, context_id=context_id,
+        approved_revision=approved_revision, base=base, head=head, branch=branch,
+        normative_paths=normative_paths, inventory_sha256=inventory_sha256,
+        plan_sha256=plan_sha256, check=check, memory_root=memory_root,
+        admit=lambda candidate: candidate['plan_sha256'] == plan_sha256)
+    # The complete transition check is not run; a match list would reveal
+    # content-derived paths without adding gate coverage to this CLI report.
+    report.pop('matching_paths', None)
+    report['scope'] = 'base_markdown_history_search_only'
+    report['gate_state'] = 'blocked_incomplete_coverage'
+    report['bootstrap'] = 'external_not_verified'
+    return report
+
+
 def audit_pii(errors: list[str], warnings: list[str], config: WikiConfig, public_export: bool = False) -> None:
     """Personal data (PII) is WELCOME in private pages of this personal repo:
     it produces neither error nor warning -- storing CPF/CNPJ, amounts, counterparties
@@ -3106,18 +3154,55 @@ def main() -> int:
     parser.add_argument("--query-context", help="trusted global integration operator only; context limits query recomputation, not the global audit or its private output")
     parser.add_argument("--query-policy-revision", help="exact current trusted policy SHA")
     parser.add_argument("--query-head", help="exact clean proposal HEAD SHA")
-    parser.add_argument("--context-guard", help="host-bound context for the secrets-only qualified check")
-    parser.add_argument("--context-policy-revision", help="exact current approved policy SHA for the qualified secrets check")
+    parser.add_argument("--context-guard", help="host-bound context for a bounded audit route")
+    parser.add_argument("--context-policy-revision", help="exact current approved policy SHA for the bounded route")
     parser.add_argument("--context-selection-sha256", help="externally approved SHA-256 of the versioned selection contract")
+    parser.add_argument('--context-base', help='approved base full Git revision for bounded history search')
+    parser.add_argument('--context-head', help='candidate head full Git revision for bounded history search')
+    parser.add_argument('--context-branch', help='candidate wiki branch for bounded history search')
+    parser.add_argument('--context-normative', action='append', default=[], help='host-declared normative path; include wiki.config.yaml')
+    parser.add_argument('--context-inventory-sha256', help='externally admitted R1 inventory digest')
+    parser.add_argument('--context-plan', action='store_true', help='prepare history selection only; not an audit check')
     args = parser.parse_args()
 
     # A guarded request must never fall back to the unqualified global audit.
     # Dispatch before loading the worktree configuration or running checks.
+    history_options = (args.context_base, args.context_head, args.context_branch,
+                       args.context_normative, args.context_inventory_sha256, args.context_plan)
     if (args.context_guard is not None or args.context_policy_revision is not None
-            or args.context_selection_sha256 is not None):
+            or args.context_selection_sha256 is not None or any(history_options)):
+        history_checks = ('action_state_transitions', 'source_lifecycle_transitions')
+        if args.only in history_checks:
+            common_ok = (args.check and args.context_guard and args.context_policy_revision
+                and args.context_base and args.context_head and args.context_branch and args.context_normative
+                and not (args.public_export or args.strict_local or args.list_stale_gaps or args.list_checks
+                         or args.documentary_only or args.freshness_reviewed or args.freshness_base
+                         or args.freshness_report or args.query_context or args.query_policy_revision or args.query_head))
+            digests_ok = ((args.context_plan and not args.context_inventory_sha256 and not args.context_selection_sha256)
+                or (not args.context_plan and all(isinstance(value, str) and re.fullmatch(r'[0-9a-f]{64}', value)
+                    for value in (args.context_inventory_sha256, args.context_selection_sha256))))
+            if not common_ok or not digests_ok:
+                print('ERROR: bounded history search requires one check, context, revisions, branch and normative scope')
+                print('wiki_audit: transition check coverage unavailable; check not completed')
+                return 1
+            try:
+                output = audit_context_bound_history(context_id=args.context_guard,
+                    approved_revision=args.context_policy_revision, base=args.context_base,
+                    head=args.context_head, branch=args.context_branch, normative_paths=args.context_normative,
+                    check=args.only, inventory_sha256=args.context_inventory_sha256,
+                    plan_sha256=args.context_selection_sha256, plan_only=args.context_plan)
+            except (ValueError, OSError, RuntimeError, TypeError, KeyError):
+                output = {'state': 'refused', 'scope': 'base_markdown_history_search_only',
+                          'gate_state': 'blocked_incomplete_coverage', 'global_audit': 'not_performed',
+                          'bootstrap': 'external_not_verified', 'host_admission': 'external_not_verified'}
+            print(json.dumps(output, ensure_ascii=False, sort_keys=True))
+            # Neither a plan nor this candidate search executes the transition
+            # check or proves host admission, so neither can pass its gate.
+            return 1
         if (not args.context_guard or not args.context_policy_revision
                 or not isinstance(args.context_selection_sha256, str)
                 or not re.fullmatch(r'[0-9a-f]{64}', args.context_selection_sha256) or args.only != 'secrets'
+                or any(history_options)
                 or args.public_export or args.strict_local or args.list_stale_gaps or args.list_checks
                 or args.documentary_only or args.freshness_reviewed or args.freshness_base
                 or args.freshness_report or args.query_context or args.query_policy_revision or args.query_head):

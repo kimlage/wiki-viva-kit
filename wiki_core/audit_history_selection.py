@@ -43,7 +43,8 @@ def plan_base_markdown(inventory: dict, *, check: str, memory_root: str) -> dict
             'head': inventory['head'], 'context_id': inventory['context_id'],
             'selection': selection, 'coverage': 'base_markdown_under_caller_root_only',
             'configured_root': 'external_not_verified', 'gate_coverage': 'not_verified',
-            'historical_policy': 'external_not_verified', 'target_bodies': 'not_read',
+            'historical_policy': 'external_not_verified',
+            'target_bodies': 'not_read_by_selector_bootstrap_may_overlap',
             'bootstrap_requirements': {'git_attributes': {
                                            'possible_sources': 'worktree_including_ignored_or_external',
                                            'timing': 'bootstrap_or_search_may_read',
@@ -54,18 +55,8 @@ def plan_base_markdown(inventory: dict, *, check: str, memory_root: str) -> dict
     return plan
 
 
-def search_base_markdown(root, binding, *, context_id, approved_revision, base, head,
-                         branch, normative_paths, inventory_sha256, plan_sha256,
-                         check, memory_root, admit):
-    """Run the existing literal-path grep after selection and host admission.
-
-    This is only the candidate search, not the legacy check or global audit.
-    The host must independently qualify the real root, historical authority,
-    bootstrap (including Git attributes), callback, output and isolation,
-    including concurrent writers.
-    """
-    if not callable(admit):
-        raise PolicyError('historical search admission unavailable')
+def precheck_history_refs(root, binding, *, approved_revision, base, head, branch):
+    """Check selected refs before inventory; Git/bootstrap authority is external."""
     # Git/runtime metadata for this precheck is itself host-admitted bootstrap.
     # Refuse an already-wrong symbolic branch before the inventory reads the
     # approved policy or qualifies context instruction/index bodies.
@@ -82,6 +73,22 @@ def search_base_markdown(root, binding, *, context_id, approved_revision, base, 
             raise PolicyError('historical search branch unavailable')
     except (OSError, ValueError, UnicodeError) as exc:
         raise PolicyError('historical search branch unavailable') from exc
+
+
+def search_base_markdown(root, binding, *, context_id, approved_revision, base, head,
+                         branch, normative_paths, inventory_sha256, plan_sha256,
+                         check, memory_root, admit):
+    """Run the existing literal-path grep after selection and host admission.
+
+    This is only the candidate search, not the legacy check or global audit.
+    The host must independently qualify the real root, historical authority,
+    bootstrap (including Git attributes), callback, output and isolation,
+    including concurrent writers.
+    """
+    if not callable(admit):
+        raise PolicyError('historical search admission unavailable')
+    precheck_history_refs(root, binding, approved_revision=approved_revision,
+                          base=base, head=head, branch=branch)
     first = r1.inventory(root, binding, context_id=context_id, approved_revision=approved_revision,
                          base=base, head=head, branch=branch, normative_paths=normative_paths)
     if first['inventory_sha256'] != inventory_sha256:
