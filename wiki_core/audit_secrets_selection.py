@@ -118,8 +118,9 @@ def scan_worktree_secrets(root, binding, *, context_id, approved_revision, base,
                 raise PolicyError('secrets admission changed')
             attempted += 1
             raw = _worktree_bytes(Path(root), item)
-            if b'\0' in raw:
-                raise PolicyError('secrets binary input unavailable')
+            # Validate before recording the body as usable, including when a
+            # caller invokes the registered selected check independently.
+            audit._selected_secret_text(raw)
             contents[item['path']] = raw
             validated += 1
         if not admitted():

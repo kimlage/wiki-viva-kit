@@ -168,3 +168,17 @@ def test_binary_eligible_input_reports_partial_not_scan_success(repo):
     result = secrets.scan_worktree_secrets(**args, inventory_sha256=snapshot['inventory_sha256'],
         plan_sha256=plan['plan_sha256'], admit=lambda _: True)
     assert result['state'] == 'partial' and result['global_audit'] == 'not_performed'
+
+
+@pytest.mark.parametrize('data', [b'\xff\xfe synthetic', b'valid\x01control'])
+def test_nontext_without_nul_is_partial(repo, data):
+    root, base = _approve_fixture(repo, clear_deny=True)
+    (root / 'synthetic.json').write_bytes(data)
+    args = _args(root, base)
+    snapshot = _inventory(args)
+    plan = secrets.plan_worktree_secrets(snapshot)
+    result = secrets.scan_worktree_secrets(**args, inventory_sha256=snapshot['inventory_sha256'],
+        plan_sha256=plan['plan_sha256'], admit=lambda _: True)
+    assert result['state'] == 'partial'
+    assert result['coverage']['worktree'] == 'partial_or_unknown'
+    assert result['global_audit'] == 'not_performed'

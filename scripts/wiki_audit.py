@@ -1657,6 +1657,18 @@ def _scannable_text_files() -> list[str]:
     return files
 
 
+def _selected_secret_text(raw: bytes) -> str:
+    """Refuse unsupported bytes; printable UTF-8 is not proof of text."""
+    try:
+        text = raw.decode('utf-8', errors='strict')
+    except UnicodeDecodeError as exc:
+        raise AuditPathBoundaryError('selected secrets nontext input unavailable') from exc
+    if any((ord(char) < 32 and char not in '\t\n\r') or
+           127 <= ord(char) <= 159 for char in text):
+        raise AuditPathBoundaryError('selected secrets nontext input unavailable')
+    return text
+
+
 def audit_secrets(errors: list[str], config: WikiConfig, *, reads=None, selected_paths=None) -> None:
     """Credentials/secrets can never be versioned (absolute block, any file)."""
     if not config.audit.get("forbid_access_secrets", True):
@@ -1676,9 +1688,7 @@ def audit_secrets(errors: list[str], config: WikiConfig, *, reads=None, selected
         else:
             from wiki_core.detectors import scan_text
             raw = reads.read_bytes(reads.root / rel)
-            if b'\0' in raw:
-                raise AuditPathBoundaryError('selected secrets binary input unavailable')
-            findings = scan_text(raw.decode('utf-8', errors='replace'))
+            findings = scan_text(_selected_secret_text(raw))
         for finding in findings:
             if finding.category == "secret":
                 errors.append(f"{rel}:{finding.line}: possible {finding.kind} secret ({finding.excerpt})")

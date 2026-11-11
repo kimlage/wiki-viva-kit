@@ -174,7 +174,9 @@ The internal R1 worktree-secrets selection also supports the host-bound
 integrator role described above. It plans the sanitized Git candidate set
 before selected bodies, refuses denied or missing eligible inputs and known
 Git-object aliases, and executes the registered secrets check only after host
-admission. A binary candidate or interrupted scan reports partial coverage.
+admission. Invalid UTF-8, unsupported control characters or an interrupted
+scan report partial coverage. A printable UTF-8 byte sequence alone does not
+prove that its source was text; the host must qualify that remaining limit.
 The host must qualify whether that sanitized inventory equals the required
 legacy universe, its bootstrap and output audience; the result covers neither
 history nor the other checks and cannot pass the integral gate.
