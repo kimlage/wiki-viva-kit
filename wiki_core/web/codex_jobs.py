@@ -73,7 +73,7 @@ def build_codex_argv(binary: str, root: Path, final_path: Path) -> list[str]:
         "--sandbox",
         "workspace-write",
         "--json",
-        "-o",
+        "--output-last-message",
         str(final_path),
     ]
 
