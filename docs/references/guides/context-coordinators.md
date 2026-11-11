@@ -24,11 +24,13 @@ consumer's policy, that integrator may read across contexts for audit and
 reconciliation within that authority. This does not transfer access to
 executors or authorize content or policy writes; those remain with the owner
 or authorized executor, and promotion requires authorized review. Classify
-the purpose of existing denies under the current owner direction: an old
-inter-context isolation restriction is not automatically retained for that
-integrator, while secrecy, audience, unclassified denies and external effects
-remain governed by their applicable limits. A documented rule is not proof
-that a host has bound or enforced the authority.
+existing denies by purpose under the current owner direction; do not retain an
+inter-context isolation restriction automatically or relax specific secrecy,
+audience, unclassified denies or external-effect limits. The owner's decision
+can authorize the policy change without requiring the replaced configuration
+to already permit it. Existing enforcement applies until the authorized policy
+change is effective and the host binds the resulting authority. A documented
+rule does not itself change the protected route or prove host enforcement.
 
 The board's **Fronts** view derives projects and initiatives from canonical
 pages, including fronts without an active action. Optional `front_refs` on a
