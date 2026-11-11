@@ -51,3 +51,16 @@ def test_refuses_unknown_fields_and_duplicate_paths():
     with pytest.raises(WorkspaceManifestError): validate_manifest(data)
     data = fixture(); data['directories'].append('team')
     with pytest.raises(WorkspaceManifestError): validate_manifest(data)
+
+
+@pytest.mark.parametrize('bad', ['CON', 'team/foo.', 'team/.git/config', 'team/AUX.txt'])
+def test_refuses_platform_reserved_paths(bad):
+    data = fixture(); data['directories'].append(bad)
+    with pytest.raises(WorkspaceManifestError): validate_manifest(data)
+
+
+def test_refuses_case_collision_and_invalid_git_branch():
+    data = fixture(); data['directories'].append('Team/other')
+    with pytest.raises(WorkspaceManifestError): validate_manifest(data)
+    data = fixture(); data['repositories'][0]['default_branch'] = 'a.lock/b'
+    with pytest.raises(WorkspaceManifestError): validate_manifest(data)

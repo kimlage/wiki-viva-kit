@@ -23,6 +23,10 @@ def _path(value: Any) -> str:
     parts = value.split('/')
     if any(part in ('', '.', '..') for part in parts) or PurePosixPath(value).is_absolute():
         raise WorkspaceManifestError('invalid portable path')
+    if any(part.endswith(('.', ' ')) or part.casefold() == '.git' or
+           re.fullmatch(r'(?i)(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?', part)
+           for part in parts):
+        raise WorkspaceManifestError('invalid portable path')
     return value
 
 
@@ -67,8 +71,17 @@ def validate_manifest(data: Any) -> dict[str, Any]:
         if item['identity'] != identity:
             raise WorkspaceManifestError('repository identity mismatch')
         branch = item['default_branch']
-        if not isinstance(branch, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._/-]*', branch) or '..' in branch or '//' in branch or branch.endswith(('/', '.', '.lock')) or '/.' in branch:
+        if not isinstance(branch, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._/-]*', branch) or '..' in branch or '//' in branch or branch.endswith(('/', '.')) or any(p.startswith('.') or p.endswith('.lock') for p in branch.split('/')):
             raise WorkspaceManifestError('invalid default branch')
+    folded: dict[str, str] = {}
+    for path in occupied:
+        parts = path.split('/')
+        for i in range(1, len(parts) + 1):
+            prefix = '/'.join(parts[:i])
+            key = prefix.casefold()
+            if key in folded and folded[key] != prefix:
+                raise WorkspaceManifestError('case-colliding path')
+            folded[key] = prefix
     for path, kind in occupied.items():
         for parent in PurePosixPath(path).parents:
             ancestor = str(parent)
