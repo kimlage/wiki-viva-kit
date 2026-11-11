@@ -232,6 +232,63 @@ operator. Synthetic Python instrumentation is not system-wide I/O observation;
 host isolation, live observation, termination and cleanup remain external.
 The HEAD/index metadata check is not coverage of historical or index bodies.
 
+## Context-bound input-stage check
+
+The existing `wiki_input_stage.py --check` supports an R1-selected worktree
+readset, independently of the methodology check. An invocation without a
+context guard keeps the legacy caller-trust behavior. The guarded route does
+not run or qualify another check, the global audit, preflight, gate composition,
+review or merge.
+
+Before planning or execution the host independently admits the executable and
+imports, approved policy and instruction bodies, approved and worktree config,
+Git metadata and commit objects, ignore rules, filesystem metadata and the
+output channel. Bootstrap bodies can overlap later selected targets. The
+worktree config must match approved config. A digest binds selection metadata;
+it does not authenticate the actor, external approval or host. The host must
+prevent concurrent replacement, including during its admission callback. The
+inventory retains its conservative restrictions on normative changes,
+symlinks, hardlinks, nested repositories and mounts, and is not an OS sandbox.
+
+Use `--check --context-guard CONTEXT --context-policy-revision APPROVED_SHA
+--context-base BASE_SHA --context-head HEAD_SHA --context-branch wiki/BRANCH`
+with each `--context-normative PATH` and `--context-plan`. The plan's paths and
+metadata require an independently authorized output channel. The selected set
+includes Markdown under the configured memory root, the configured root page,
+the stage output, a present stage cache (including ignored cache) and any
+explicit `--context-extra-path PATH` inputs. Extra paths are an explicit
+selection, not a grant; R1's current-policy and deny checks still apply. The
+current R1 selector requires each selected body to have the acting owner, so
+cross-owner inputs remain unavailable even if another contract permits them.
+Missing tracked eligible targets and unavailable or denied selected inputs
+refuse before selected bodies. Per-body and total limits are 2 MB and 8 MB.
+
+An authorized host may independently review and admit the plan and invoke the
+same command without `--context-plan`, supplying the inventory and selection
+digests via `--context-inventory-sha256` and `--context-selection-sha256`.
+The check consumes the selected bytes through an in-memory reader. Source
+`config_ref` targets may be anywhere inside the repository: an existing target
+outside the selected set causes a partial result before its body is read, not
+a silent absence. A missing or invalid explicit `config_ref` also makes the
+guarded result partial rather than falling back; an unavailable configured root
+page is refused during planning. Reconcile the attempted reads, then prepare and admit a new
+selection with any needed extra paths; do not combine partial results into a
+gate. An in-process host may supply an external admission callback, which the
+kit does not authenticate.
+
+`completed` means only that the deterministic input-stage comparison
+completed. The result retains `gate_state: blocked_external_qualification`,
+external admission/bootstrap/cleanup and live observation not verified, and
+both the guarded planning and execution CLI return nonzero: planning prints a
+`selection_only` result, not a passed check, and this process cannot independently
+attest its own host, observer or cleanup after exit. Worktree and ignored
+labels cover selected bodies only; index is metadata only; Git bootstrap may
+read commit objects including messages, whose bodies are not audited here.
+Partial results count bodies validated and attempts that may have read bytes.
+Output readsets and paths can be sensitive. Independently qualified authority,
+observation and cleanup, plus any applicable consumer gates and review, remain
+necessary; no digest or callback self-approves these requirements.
+
 ## Legacy lifecycle history selection
 
 The legacy action-state and source-lifecycle checks enumerate historical Git
