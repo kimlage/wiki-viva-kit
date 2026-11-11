@@ -150,6 +150,16 @@ record the exact blocker, evidence, dependency or missing input and responsible
 provider on the existing action, route it to the coordinator and continue
 independent work. Do not turn a local blocker into a global gate.
 
+In T3, link every PR created, taken over or pushed as the host requires, including
+open PRs. A watch is separate from a link: unwatching keeps the PR linked, and
+the host may settle a thread when a linked PR merges. After a sub-delivery is
+merged and its approved-main result read back, if the broader front remains open,
+retain the PR, reviewed head and merge evidence in its existing action or history;
+unlink only merged and read-back PRs and explicitly mark the thread unsettled before the
+turn ends. Do not unlink open PRs or skip review, gates or wiki reconciliation.
+An authorized observer must still check the effective state after the turn.
+Do not attribute an unexpected settled state without evidence of its cause.
+
 Settle a work thread only after its required independent review and gates,
 integration into the approved main branch, result readback and reconciliation
 with the canonical wiki. A sub-delivery, finished runtime job or merged PR does

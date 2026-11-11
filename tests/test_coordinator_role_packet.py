@@ -76,6 +76,10 @@ def test_open_and_resume_packet_include_approved_coordinator_contract(case):
         assert 'resume the same thread' in normalized
         assert 'do not repeat the same refusal without new evidence' in normalized
         assert 'respect the runtime\'s wait, delegation and PR-watch instructions' in normalized
+        assert 'stopping a watch does not remove its link' in normalized
+        assert 'unlink only merged and read-back PRs' in normalized
+        assert 'explicitly mark the thread unsettled before ending the turn' in normalized
+        assert 'Preserve links to open PRs' in normalized
         assert packet['enforcement_claim'].startswith('none')
         result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
                   'task_id': 'synthetic-action', 'context_id': '.',

@@ -31,6 +31,15 @@ next step and acceptance. Preserve WIP and STOPs; do not create a second writer
 or duplicate an execution. Follow the result to the next decision or a concrete
 blocker; respect the runtime's wait, delegation and PR-watch instructions.
 
+In T3, link each PR created, taken over or pushed as required by the host;
+stopping a watch does not remove its link. After a merged sub-delivery and
+approved-main readback, if the front still has pending scope, retain its PR,
+review and merge evidence in the existing history, unlink only merged and
+read-back PRs,
+and explicitly mark the thread unsettled before ending the turn. Preserve links
+to open PRs. An authorized observer checks the effective state after the turn;
+an earlier read does not prove that later state or explain an unknown cause.
+
 Reconcile a failed or uncertain effect before retrying; do not repeat the same
 refusal without new evidence. If no progress is possible, record the exact
 blocker, evidence, dependency or missing input and responsible provider on the
