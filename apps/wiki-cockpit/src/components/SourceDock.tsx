@@ -5,7 +5,7 @@
 // the grounding), open the config. The source page's machine sync block and the
 // human recipe stay clearly separated. Everything t()'d EN+PT.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -36,6 +36,7 @@ import {
   TRACE_MODES,
   formatBytes,
   formatWhen,
+  groupSourceStreams,
   scheduleModeLabel,
   sourceScopeCounts,
   sourceDisplayName,
@@ -231,6 +232,9 @@ export function SourceDock({
                     <span className="sourceListState">
                       {s.pending_streams > 0 && <span className="pill pill-warn">{t("source.list.pendingN", { n: s.pending_streams })}</span>}
                       <span className={`pill pill-${tone}`}>{t(`source.sync.${s.sync.last_status}`)}</span>
+                      {s.lifecycle?.last_attempt_state === "needs_auth" && s.sync.last_status !== "needs_auth" && (
+                        <span className="pill pill-warn">{t("source.lifecycle.lastAttempt")}: {t("source.sync.needs_auth")}</span>
+                      )}
                     </span>
                   </button>
                 </li>
@@ -288,7 +292,10 @@ export function SourceDock({
         <header className="dockHeader">
           <SourcePlatformIcon source={source} size={16} />
           <strong title={source.title}>{sourceDisplayName(source.title)}</strong>
-          <span className="pill pill-muted">{t("source.sync.recorded")}: {t(`source.sync.${source.sync.last_status}`)}</span>
+          <span className={`pill pill-${SYNC_TONE[source.sync.last_status] ?? "muted"}`}>{t("source.sync.recorded")}: {t(`source.sync.${source.sync.last_status}`)}</span>
+          {source.lifecycle?.last_attempt_state === "needs_auth" && source.sync.last_status !== "needs_auth" && (
+            <span className="pill pill-warn">{t("source.lifecycle.lastAttempt")}: {t("source.sync.needs_auth")}</span>
+          )}
           {!embedded && <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button"><X size={16} /></button>}
         </header>
 
@@ -396,7 +403,10 @@ export function SourceDock({
               </tr>
             </thead>
             <tbody>
-              {source.streams.map((stream) => (
+              {groupSourceStreams(source.streams).map(group => (
+                <Fragment key={group.category}>
+                <tr className="sourceStreamCategory"><th scope="rowgroup" colSpan={3}>{t(`source.stream.category.${group.category}`)}</th></tr>
+                {group.streams.map((stream) => (
                 <tr
                   key={stream.id}
                   ref={(row) => {
@@ -453,6 +463,8 @@ export function SourceDock({
                     <small>{stream.privacy}</small>
                   </td>
                 </tr>
+                ))}
+                </Fragment>
               ))}
               {source.streams.length === 0 && (
                 <tr>
