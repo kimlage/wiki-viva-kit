@@ -2409,8 +2409,8 @@ def audit_page_type_registry(errors: list[str], config: WikiConfig) -> None:
 # identified by a `source_id:` in the frontmatter) must declare the pages they
 # were consolidated into, and each of those pages must reference the source
 # back (referential proof of integration — content judgment stays human).
-CLAIMS_HEADERS = ("## Claims candidatos", "## Candidate claims")
-EMPTY_BULLETS = ("- (nenhum)", "- (none)")
+CLAIMS_HEADERS = ("## Claims candidatos", "## Candidate claims", "## Afirmaciones candidatas")
+EMPTY_BULLETS = ("- (nenhum)", "- (none)", "- (ninguno)")
 
 
 def _claims_section_bullets(text: str) -> list[str]:
