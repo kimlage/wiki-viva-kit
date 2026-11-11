@@ -307,7 +307,10 @@ def test_three_parent_merge_cannot_select_old_instruction(repo):
     current = git(root, 'commit-tree', base_tree, '-p', base, '-m', 'synthetic current parent')
     old = git(root, 'commit-tree', side_tree, '-p', base, '-p', current, '-p', side,
               '-m', 'synthetic old three-parent merge')
-    head = git(root, 'commit-tree', base_tree, '-p', old, '-m', 'restore approved instruction')
+    # The final merge itself preserves the approved parent. Rejection must be
+    # caused by the earlier three-parent merge that selected the older entry.
+    head = git(root, 'commit-tree', base_tree, '-p', base, '-p', old,
+               '-m', 'preserve approved instruction')
     git(root, 'reset', '--hard', head)
     with pytest.raises(PolicyError, match='normative history'):
         run((root, base, '', head))
