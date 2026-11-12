@@ -85,8 +85,8 @@ projection_inputs:
   - resolvido_em_
 - page_types:
   - action
-  path_prefix: memories/actions
-  path_depth: 1
+  path_prefix: memories
+  path_directory: actions
   exclude_names:
   - completed.md
   - concluidas.md
@@ -98,8 +98,8 @@ projection_inputs:
   - action_state
 - page_types:
   - action
-  path_prefix: memories/actions
-  path_depth: 1
+  path_prefix: memories
+  path_directory: actions
   exclude_names:
   - completed.md
   - concluidas.md
@@ -115,8 +115,8 @@ projection_inputs:
   - cancelled
 - page_types:
   - action
-  path_prefix: memories/actions
-  path_depth: 1
+  path_prefix: memories
+  path_directory: actions
   exclude_names:
   - completed.md
   - concluidas.md
@@ -129,7 +129,8 @@ projection_inputs:
   - action_state
 - page_types:
   - source
-  path_prefix: memories/sources
+  path_prefix: memories
+  path_directory: sources
   fields:
   - page_id
   - ingestion_state

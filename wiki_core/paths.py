@@ -65,6 +65,77 @@ class WikiPaths:
     def sources_dir(self) -> Path:
         return self.memory_root / self.config.paths["sources_dirname"]
 
+    def _collection_layout(self, dirname_key: str) -> tuple[Path, str]:
+        """Validate the configured names before discovering or selecting pages."""
+        from .context_policy import safe_path
+
+        memory = safe_path(self.config.paths["memory_root"])
+        dirname = safe_path(self.config.paths[dirname_key])
+        if Path(memory).is_absolute() or Path(dirname).is_absolute() or len(Path(dirname).parts) != 1:
+            raise ValueError("collection dirname must be one path segment")
+        return self.root / memory, dirname
+
+    def collection_root(self, path: Path, dirname_key: str) -> Path | None:
+        """Nearest named collection owning a path, without scanning other contexts.
+
+        This is layout membership only, never an access or routing grant.
+        """
+        memory, dirname = self._collection_layout(dirname_key)
+        try:
+            relative = path.relative_to(memory)
+        except ValueError:
+            return None
+        if ".." in relative.parts:
+            return None
+        for parent in relative.parents:
+            if parent.name == dirname:
+                return memory / parent
+        return None
+
+    def collection_files(self, dirname_key: str, *, reads=None) -> list[Path]:
+        """Legacy and context-local Markdown, once each, inside the wiki boundary.
+
+        Discover names under memory only; callers still filter page types and
+        enforce their explicit selection/authorization. Guarded callers use
+        their admitted metadata and bodies, never a new filesystem readset.
+        """
+        from .traversal import wiki_markdown_files
+
+        memory, _ = self._collection_layout(dirname_key)
+        candidates = (wiki_markdown_files(memory, wiki_root=self.root) if reads is None
+                      else reads.markdown(memory, self.root))
+        return [path for path in candidates if self.collection_root(path, dirname_key) is not None]
+
+    def action_files(self) -> list[Path]:
+        return self.collection_files("actions_dirname")
+
+    def source_files(self, *, reads=None) -> list[Path]:
+        return self.collection_files("sources_dirname", reads=reads)
+
+    def collection_selector(self, dirname_key: str) -> dict[str, str]:
+        """Projection predicate matching discovery, including future local pages."""
+        memory, dirname = self._collection_layout(dirname_key)
+        return {"path_prefix": self.rel(memory), "path_directory": dirname}
+
+    def action_path(self, page_ref: str) -> Path:
+        """Select one action path without requiring the legacy global directory."""
+        from .context_policy import safe_path
+        from .traversal import require_wiki_boundaries
+
+        try:
+            memory, _ = self._collection_layout("actions_dirname")
+            require_wiki_boundaries(self.root, directories=(memory,))
+        except ValueError:
+            raise ValueError("invalid configured actions directory") from None
+        path = self.root / safe_path(page_ref)
+        if path.suffix.lower() != ".md" or self.collection_root(path, "actions_dirname") is None:
+            raise ValueError("action outside configured actions directory")
+        try:
+            require_wiki_boundaries(self.root, files=(path,))
+        except ValueError:
+            raise ValueError("invalid configured actions directory") from None
+        return path
+
     @property
     def log_page(self) -> Path:
         return self.system_dir / "log.md"

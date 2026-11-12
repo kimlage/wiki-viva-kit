@@ -20,7 +20,7 @@ import yaml
 from pathlib import Path
 from typing import Any
 
-from wiki_core.traversal import wiki_markdown_files
+from wiki_core.traversal import require_wiki_boundaries, wiki_markdown_files
 from wiki_core.action_transition import integrate_action_body, transition_action_page
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.frontmatter import parse_frontmatter
@@ -62,6 +62,10 @@ def _safe(root: Path, ref: str) -> Path:
             break
         if parent.is_symlink():
             raise ProposalError("proposal_symlink_not_eligible")
+    try:
+        require_wiki_boundaries(root, files=(target,))
+    except ValueError:
+        raise ProposalError("proposal_path_crosses_repository_boundary") from None
     return target
 
 
@@ -242,8 +246,10 @@ def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_run
             {"body", "contribution", "recorded_at", "transition", "consolidations"})
     action_ref = action["page_ref"]
     action_path = _safe(root, action_ref)
-    if not action_path.is_relative_to(paths.actions_dir):
-        raise ProposalError("proposal_action_outside_actions")
+    try:
+        paths.action_path(action_ref)
+    except ValueError:
+        raise ProposalError("proposal_action_outside_actions") from None
     readset[action_ref] = _bytes(root, action_ref)
     if readset[action_ref] is None or _sha(readset[action_ref]) != action["expected_sha256"]:
         raise ProposalError("proposal_action_revision_mismatch")

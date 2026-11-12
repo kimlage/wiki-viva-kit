@@ -8,9 +8,13 @@ description: Route reading, editing and delegation in Markdown/Git living-wiki r
 ## Choose the task first
 
 Identify your role and authorized read scope before opening repository content.
-An authorized coordinator or integrator uses the checkout instructions, configured
-memory index and [task entry points](../../scripts/README.md#task-entry-points)
-to route work. A packet-bound executor follows the scoped handoff below.
+An authorized coordinator or integrator uses the checkout instructions and the
+index for the selected context to route work. For a concrete folder entry, start
+in that folder: read applicable ancestor/local AGENTS instructions, its context
+index and the skills required there, within the authorized scope. The global
+index and [task entry points](../../scripts/README.md#task-entry-points) help with
+cross-context work when needed. A packet-bound executor follows the scoped
+handoff below.
 Consumer-specific requirements apply within the current authority; navigation
 links never grant additional read access.
 
@@ -69,8 +73,11 @@ or run global maintenance.
    and context index; see [bounded ingestion](../../docs/references/guides/bounded-ingestion.md)
    for selection and its limits. Neither the folder nor a link grants access,
    and local preparation is separate from the approved packet in step 3.
-2. Read [wiki.config.yaml](../../wiki.config.yaml) and the index under configured
-   `paths.memory_root`.
+2. Read [wiki.config.yaml](../../wiki.config.yaml) for configured names and resolve
+   the selected folder's context index under `paths.memory_root`, including
+   nested contexts. Use its ancestor/local instructions and applicable skills;
+   the global memory index is required only when the task needs root or
+   cross-context navigation. A local query does not require global execution.
 3. Read the consumer's current approval policy, operational contract and
    ingestion process identified by its entry instructions. For a task handoff,
    use the complete protected packet with explicit canonical context, current
@@ -84,15 +91,27 @@ or run global maintenance.
    relying on a handoff; do not silently widen scope or change configuration.
    See [protected coordination](../../docs/references/guides/context-coordination-protected.md).
 
-4. Select the configured root entity and applicable source/channel/template
-   inputs. The global generated input-stage catalog is coordinator navigation;
+4. Select applicable source/channel/template inputs for this context and the
+   configured root entity only when the task consumes it. The global generated
+   input-stage catalog is coordinator navigation;
    do not insert its complete body as every task's mandatory instruction.
-5. Open the operation page resolved by `WikiPaths.operation_page` when it exists.
-6. Open the operational-pass page resolved by `WikiPaths.operational_pass_page`
-   when it exists and read the top "Short-term memory" section before older
-   execution/event pages.
-7. When resuming ingestion or integration, the responsible integrator runs `python3 scripts/wiki_consolidate.py --check` ([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py)): sources stuck mid-flow (deep read without integration) show up immediately.
-8. Select the context-specific local skill only after the root memory explains the context.
+5. Recover the selected context's existing actions, source pages, pending work
+   and responsible threads from its index/handoff. Inspect current runs and
+   reconcile uncertain effects before resuming the same action and IDs; a
+   finished turn alone does not close delivery. Open the global operation page
+   resolved by `WikiPaths.operation_page` only for an applicable dependency or
+   authorized cross-context coordination, not as a prerequisite to every folder.
+6. Use the selected context's current handoff/short-term memory before older
+   execution/event pages. Open `WikiPaths.operational_pass_page` when the task
+   needs the global operational pass; its existence does not widen a local read.
+7. When resuming ingestion or integration, the responsible integrator checks for
+   deep reads awaiting integration within the authorized scope. For an authorized
+   repository-wide check, run [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py)
+   with `--check`; a local lookup alone does not trigger that global operation.
+8. Select the context-specific skills from its index and applicable instructions.
+   Missing local instructions, evidence or authority are a concrete pending item
+   on the existing action/handoff, with recipient and resume condition; they do
+   not justify opening every context or inventing a parallel action list.
 9. Treat configured `paths.references_root` as references, templates and audit
    history, not as live memory.
 10. For new sources, the responsible integrator creates or confirms input-stage context, manifest, text/chunks, event, LLM context plan, integration (consolidated event with `consolidated_into` closed) and PR-ready proposal.
@@ -113,6 +132,9 @@ or run global maintenance.
 - Apply already granted authorization within its stated scope without requesting
   the same consent again. Preserve independent review and technical gates;
   policy does not grant missing tool access or override a tool denial.
+- Record technical review and any required human acceptance separately; neither
+  discovery, a prepared proposal nor a merged sub-delivery closes remaining
+  acceptance. Preserve current STOPs and pending handoffs on the same action.
 - Resolve historical wording through the current canonical policy. Record a
   missing decision or capability on the existing action instead of repeatedly
   assigning the unchanged blocker to new agents.
