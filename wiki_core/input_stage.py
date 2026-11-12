@@ -178,11 +178,11 @@ def _bundle_from_config(config: WikiConfig) -> tuple[list[str], list[str]]:
     return list_values(bundle.get("required")), list_values(bundle.get("optional"))
 
 
-def _root_payload(page: dict[str, Any], config: WikiConfig, *, include_aqal: bool = True) -> dict[str, Any]:
+def _root_payload(page: dict[str, Any], config: WikiConfig) -> dict[str, Any]:
     values = dict(page["values"])
     cfg_required, cfg_optional = _bundle_from_config(config)
     required = _dedupe(cfg_required + list_values(values.get("perspective_bundle_required"))
-                       + ([item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids] if include_aqal else []))
+                       + [item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids])
     optional = _dedupe(
         [
             item

@@ -231,6 +231,7 @@ def test_approved_pipeline_reads_current_policy_and_committed_perspective_before
     from wiki_core.coordination_context import CoordinationBinding
     from wiki_core.ingest.protected import prepare
     from wiki_core.context_packet import validate_result as validate_task_result
+    from tests.test_protected_ingestion import AQAL_REFS
     def git(*args):
         return subprocess.run(['git', '-C', str(tmp_path), *args], check=True, capture_output=True, text=True).stdout.strip()
     _write(tmp_path / '.gitignore', 'data/derived/\n')
@@ -240,6 +241,8 @@ def test_approved_pipeline_reads_current_policy_and_committed_perspective_before
     _write(tmp_path / 'memories/policy.md', 'Approved mandatory policy body.\n')
     perspective = tmp_path / 'memories/perspective.md'
     _write(perspective, '---\npage_id: perspective-synthetic\npage_type: perspective\n---\n# Perspective\nOriginal required interpretation.\n')
+    for name, ref in AQAL_REFS.items():
+        _write(tmp_path / ref, f'---\npage_id: {name}\npage_type: perspective\n---\n# Lens\n')
     config = {'repo_id': 'synthetic', 'context_access': {'.': {'owner': 'operator',
         'policy': {'read': ['self'], 'write': ['self'], 'capabilities': [], 'publication': [], 'deny': {}}}},
         'root_entity': {'page': 'memories/root.md', 'perspective_bundle': {'required': ['perspective-synthetic'], 'optional': []}}}
@@ -252,7 +255,7 @@ def test_approved_pipeline_reads_current_policy_and_committed_perspective_before
     args = dict(context_id='.', approved_revision=approved, entry_folder='.', entry_index='index.md',
         source_ref='source.md', source_context='system',
         context_selection={'root_entity': 'memories/root.md', 'templates': ['memories/policy.md']},
-        perspective_refs={'perspective-synthetic': 'memories/perspective.md'})
+        perspective_refs={**AQAL_REFS, 'perspective-synthetic': 'memories/perspective.md'})
     before = prepare(tmp_path, binding, **args)['request']; package = before['block_context_package']
     schema = json.loads((ROOT / 'docs/references/schemas/wiki-task-context-v1.schema.json').read_text())
     validate(package, schema)

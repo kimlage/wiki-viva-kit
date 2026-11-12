@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 from tests.test_folder_policy_core import git, repo, write
-from tests.test_protected_ingestion import prepared_repo, _nested_integrator_repo, _result_for
+from tests.test_protected_ingestion import AQAL_REFS, prepared_repo, _nested_integrator_repo, _result_for
 from wiki_core.coordination_context import CoordinationBinding
 from wiki_core.ingest.cache_partition import partition_component
 from wiki_core.ingest.protected import prepare, record, inspect, consolidate
@@ -23,7 +23,7 @@ def test_source_partition_lifecycle_and_another_source_stays_denied(prepared_rep
     config['llm'] = {'protected_cache_mode': 'by_source_v1'}
     config['context_access']['.']['policy']['read'] = [
         'AGENTS.md', 'index.md', 'alpha', 'source.txt', 'source2.txt',
-        'memories/sources/synthetic.md', 'memories/system/ingestion/events', part,
+        'memories/sources/synthetic.md', 'memories/system/ingestion/events', part, *AQAL_REFS.values(),
     ]
     config['context_access']['.']['policy']['write'] = ['alpha', 'memories/system/ingestion/events', part]
     write(root, 'wiki.config.yaml', yaml.safe_dump(config))
@@ -33,7 +33,7 @@ def test_source_partition_lifecycle_and_another_source_stays_denied(prepared_rep
     sha = git(root, 'rev-parse', 'HEAD')
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
     args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
-                source_ref='source.txt', context_selection={'omit_root_entity': True})
+                source_ref='source.txt', context_selection={'omit_root_entity': True}, perspective_refs=AQAL_REFS)
     prepared = prepare(root, binding, **args, source_context='system')
     request = prepared['request']
     assert (root / part / 'source-manifests' / (prepared['source_id'] + '.json')).is_file()
@@ -41,7 +41,8 @@ def test_source_partition_lifecycle_and_another_source_stays_denied(prepared_rep
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+              'perspectives_required': request['perspectives_required'],
+              'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
     ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
     assert record(root, binding, **args, **ids, results=[result])['recorded'] == 1
     observed = inspect(root, binding, **args, **ids, view='results', chunk_ids=[row['chunk_id']])
@@ -69,7 +70,7 @@ def test_nested_integrator_partition_rechecks_both_actors(prepared_repo, monkeyp
     config['llm'] = {'protected_cache_mode': 'by_source_v1'}
     config['context_access']['.']['policy']['read'] = [
         'AGENTS.md', 'index.md', 'alpha', 'memories/sources/synthetic.md',
-        'memories/system/ingestion/events', part]
+        'memories/system/ingestion/events', part, *AQAL_REFS.values()]
     config['context_access']['.']['policy']['write'] = ['alpha', 'memories/system/ingestion/events', part]
     write(root, 'wiki.config.yaml', yaml.safe_dump(config))
     git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'authorize nested partition')
@@ -78,7 +79,7 @@ def test_nested_integrator_partition_rechecks_both_actors(prepared_repo, monkeyp
     binding = CoordinationBinding(('alpha', '.'), 'refs/remotes/origin/main', 'wiki.config.yaml')
     args = dict(context_id='alpha', approved_revision=sha, entry_folder='alpha',
                 entry_index='alpha/index.md', source_ref='alpha/source.txt', artifact_context='.',
-                context_selection={'omit_root_entity': True})
+                context_selection={'omit_root_entity': True}, perspective_refs=AQAL_REFS)
     prepared = prepare(root, binding, **args, source_context='alpha')
     ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
     assert record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])['recorded'] == 1
@@ -121,7 +122,7 @@ def test_reincluded_json_is_blocked_before_any_capture_write(prepared_repo, mode
     with pytest.raises(ValueError, match='ignored and untracked'):
         prepare(root, binding, context_id='.', approved_revision=git(root, 'rev-parse', 'HEAD'),
                 entry_folder='.', entry_index='index.md', source_ref='source.txt',
-                source_context='system', context_selection={'omit_root_entity': True})
+                source_context='system', context_selection={'omit_root_entity': True}, perspective_refs=AQAL_REFS)
     assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
 
 

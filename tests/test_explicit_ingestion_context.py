@@ -11,7 +11,67 @@ from wiki_core.context_packet import build_packet
 from wiki_core.context_policy import PolicyError, load_policy
 from wiki_core.ingest.explicit_context import (ExplicitContextError,
     explicit_ingestion_evidence, resolve_explicit_ingestion_context)
+from wiki_core.quadrants import DEFAULT_QUADRANT_MAP
 from tests.test_protected_ingestion import prepared_repo
+
+
+AQAL = [perspective for ids in DEFAULT_QUADRANT_MAP.values() for perspective in ids]
+
+
+def write_aqal(root):
+    refs = {name: f'memories/lenses/{name}.md' for name in AQAL}
+    for name, ref in refs.items():
+        write(root, ref, f'---\npage_id: {name}\npage_type: perspective\n---\n# Lens\n')
+    return refs
+
+
+def test_local_hub_requires_aqal_without_reading_unselected_perspectives(prepared_repo, monkeypatch):
+    from wiki_core.coordination_context import CoordinationBinding
+    from wiki_core.ingest.protected import prepare
+    from wiki_core.repository_reader import RepositoryReader
+
+    root, _ = prepared_repo
+    write(root, 'person.md', '---\npage_id: person\npage_type: root_entity\n---\n# Person\n')
+    write(root, 'company.md', '---\npage_id: company\npage_type: context_hub\n'
+          'moc_parent: person\nperspective_bundle_required: [perspective-financial]\n---\n# Company\n')
+    refs = {name: f'lenses/{name}.md' for name in [*AQAL, 'perspective-financial']}
+    for name, ref in refs.items():
+        write(root, ref, f'---\npage_id: {name}\npage_type: perspective\n---\n# Lens\n')
+    cfg = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    cfg['root_entity'] = {'page': 'person.md', 'entity_type': 'person',
+                          'perspective_bundle': {'required': [], 'optional': []}}
+    write(root, 'wiki.config.yaml', yaml.safe_dump(cfg))
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'synthetic root and lenses')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    selection = {'root_entity': 'company.md'}
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+                source_ref='source.txt', source_context='synthetic', context_selection=selection)
+    original_read = RepositoryReader.read
+    def no_lens_reads(reader, ref, **kwargs):
+        if ref.startswith('lenses/'):
+            pytest.fail('unselected perspective body was read')
+        return original_read(reader, ref, **kwargs)
+    with monkeypatch.context() as patch:
+        patch.setattr(RepositoryReader, 'read', no_lens_reads)
+        with pytest.raises(ValueError, match='perspective selection unavailable'):
+            prepare(root, binding, **args, perspective_refs={'perspective-financial': refs['perspective-financial']})
+        with pytest.raises(ValueError, match='perspective selection unavailable'):
+            prepare(root, binding, **args, perspective_refs={name: ref for name, ref in refs.items() if name != AQAL[-1]})
+    denied = {**refs, AQAL[0]: 'beta/private.md'}
+    with monkeypatch.context() as patch:
+        def no_private_read(reader, ref, **kwargs):
+            if ref == 'beta/private.md':
+                pytest.fail('unauthorized perspective body was read')
+            return original_read(reader, ref, **kwargs)
+        patch.setattr(RepositoryReader, 'read', no_private_read)
+        with pytest.raises(ValueError):
+            prepare(root, binding, **args, perspective_refs=denied)
+    request = prepare(root, binding, **args, perspective_refs=refs)['request']
+    assert set(request['perspectives_required']) == {*AQAL, 'perspective-financial'}
+    assert set(refs.values()) <= {row['ref'] for row in request['block_context_package']['inputs']}
+    assert 'person.md' not in {row['ref'] for row in request['block_context_package']['inputs']}
 
 
 @pytest.fixture
@@ -51,7 +111,7 @@ def test_explicit_source_channel_local_root_and_template(selected_repo):
     assert resolved['root_entity']['page_id'] == 'local-root'
     assert resolved['input_channel']['page_id'] == 'channel-a'
     assert resolved['source_config']['page_id'] == 'config-a'
-    assert resolved['perspectives_required'] == ['local-lens', 'channel-lens', 'source-lens']
+    assert resolved['perspectives_required'] == ['local-lens', *AQAL, 'channel-lens', 'source-lens']
     assert 'global-lens' not in json.dumps(resolved)
     assert resolved['target_pages'] == ['target.md']
     assert resolved['source_page_association'] == 'operator_selected_unverified'
@@ -72,6 +132,7 @@ def test_explicit_target_mode_preserves_declared_context_and_records_omissions(p
     from tests.test_protected_ingestion import _result_for
 
     root, _ = prepared_repo
+    refs = write_aqal(root)
     write(root, 'memories/sources/synthetic.md',
           '---\npage_id: source-synthetic\npage_type: source\nconfig_ref: memories/source-config.md\n---\n# Source\n')
     write(root, 'memories/source-config.md',
@@ -110,7 +171,7 @@ def test_explicit_target_mode_preserves_declared_context_and_records_omissions(p
     selection = {'omit_root_entity': True, 'source_page': 'memories/sources/synthetic.md',
                  'target_selection': 'explicit', 'target_pages': ['alpha/index.md']}
     args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
-                source_ref='source.txt', context_selection=selection)
+                source_ref='source.txt', context_selection=selection, perspective_refs=refs)
     prepared = prepare(root, binding, **args, source_context='synthetic')
     partition = root / 'data/derived/wiki/.wiki-viva-protected' / partition_component('.', '.', 'source.txt')
     assert (partition / 'source-manifests' / (prepared['source_id'] + '.json')).is_file()
@@ -123,6 +184,8 @@ def test_explicit_target_mode_preserves_declared_context_and_records_omissions(p
         item['ref'] for item in request['block_context_package']['inputs']}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     result = _result_for(request)
+    result['perspectives_required'] = request['perspectives_required']
+    result['perspectives'] = {name: {'status': 'extracted'} for name in request['perspectives_required']}
     assert record(root, binding, **args, **ids, results=[result])['recorded'] == 1
     row = request['chunks'][0]
     assert inspect(root, binding, **args, **ids, view='results', chunk_ids=[row['chunk_id']])['results']
@@ -333,14 +396,17 @@ def test_captured_source_path_cannot_match_another_page_id(field, role, suffix):
 
 
 def test_global_root_only_when_explicit_and_omission_is_recorded(selected_repo):
+    from wiki_core.input_stage import _root_payload
     repo, config = selected_repo
     selected = {'root_entity': 'global-root.md'}
     result = resolve_explicit_ingestion_context(packet_for(repo, selected), selected, config)
-    assert result['perspectives_required'] == ['global-lens']
+    assert result['perspectives_required'] == ['global-lens', *AQAL]
+    page = {'page_id': 'global-root', 'path': 'global-root.md', 'title': 'global-root', 'values': {}}
+    assert result['root_entity'] == _root_payload(page, config)
     omitted = {'omit_root_entity': True}
     packet = packet_for(repo, omitted)
     result = resolve_explicit_ingestion_context(packet, omitted, config)
-    assert result['root_entity'] is None and result['perspectives_required'] == []
+    assert result['root_entity'] is None and result['perspectives_required'] == AQAL
     assert any('intentionally omitted' in value for value in result['context_omissions'])
     assert 'global-root.md' not in {row['ref'] for row in packet['inputs']}
     with pytest.raises(ExplicitContextError, match='select or explicitly omit'):
@@ -442,6 +508,33 @@ def test_skipped_perspective_and_pending_reason_remain_visible(selected_repo):
                for gap in result['context_omissions'])
 
 
+def test_aqal_cannot_be_skipped_even_with_root_omitted(selected_repo):
+    repo, config = selected_repo
+    write(repo, 'source-config.md', f'---\npage_id: config-a\npage_type: source_config\n'
+          f'perspectives_skip_with_reason: [{AQAL[0]}]\n---\n# Config\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'attempt to skip lens')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    selection = {'source_config': 'source-config.md', 'omit_root_entity': True}
+    result = resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
+    assert result['perspectives_required'] == AQAL
+    assert AQAL[0] not in result['perspectives_skipped']
+
+
+def test_captured_source_perspectives_are_compared_without_implicit_aqal():
+    from types import SimpleNamespace
+    from wiki_core.ingest.protected import _validate_source_context
+
+    projected = {'perspectives_required': [*AQAL, 'perspective-financial']}
+    source = SimpleNamespace(text='---\nperspectives_required: [perspective-financial]\n---\n# Source\n')
+    _validate_source_context(source, projected)
+    source.text = '---\nperspectives_required: [unqualified]\n---\n# Source\n'
+    with pytest.raises(ValueError, match='source perspectives require explicit qualification'):
+        _validate_source_context(source, projected)
+    source.text = '---\nperspectives_required: 123\n---\n# Source\n'
+    with pytest.raises(ValueError, match='source perspectives require explicit qualification'):
+        _validate_source_context(source, projected)
+
+
 def test_two_files_of_same_repo_may_reference_one_authorized_source_page(selected_repo):
     repo, config = selected_repo
     write(repo, 'repo-source.md', '---\npage_id: repo-source\npage_type: source\nplatform: repo\n'
@@ -460,6 +553,7 @@ def test_selected_context_is_requalified_across_source_stages(prepared_repo, mon
     import datetime
     import hashlib
     root, _ = prepared_repo
+    refs = write_aqal(root)
     write(root, 'memories/sources/synthetic.md', '---\npage_id: source-synthetic\npage_type: source\nconfig_ref: memories/config.md\n---\n# Source\n')
     write(root, 'memories/config.md', '---\npage_id: config\npage_type: source_config\ninput_channel_ref: channel\nperspectives_required: [lens]\n---\n# Config\n')
     write(root, 'memories/channel.md', '---\npage_id: channel\npage_type: input_channel\n---\n# Channel\n')
@@ -473,17 +567,19 @@ def test_selected_context_is_requalified_across_source_stages(prepared_repo, mon
         'source_config': 'memories/config.md', 'input_channel': 'memories/channel.md',
         'templates': ['memories/template.md']}
     args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
-        source_ref='source.txt', context_selection=selection, perspective_refs={'lens': 'memories/lens.md'})
+        source_ref='source.txt', context_selection=selection,
+        perspective_refs={**refs, 'lens': 'memories/lens.md'})
     prepared = prepare(root, binding, **args, source_context='system')
     request = prepared['request']; row = request['chunks'][0]
-    assert request['perspectives_required'] == ['lens']
+    assert request['perspectives_required'] == [*AQAL, 'lens']
     assert request['input_channel']['page_id'] == 'channel'
     assert any('intentionally omitted' in gap for gap in request['block_context_package']['coverage']['missing'])
     assert any(row['ref'] == 'memories/template.md' for row in request['block_context_package']['inputs'])
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
         **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-        'perspectives_required': ['lens'], 'perspectives': {'lens': {'status': 'extracted'}}}
+        'perspectives_required': [*AQAL, 'lens'],
+        'perspectives': {name: {'status': 'extracted'} for name in [*AQAL, 'lens']}}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     with monkeypatch.context() as patch:
         import wiki_core.ingest.protected as protected

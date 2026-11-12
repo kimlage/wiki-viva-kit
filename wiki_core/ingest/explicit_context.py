@@ -293,8 +293,12 @@ def resolve_explicit_ingestion_context(packet, selection, config):
             root_config = replace(config, root_entity={'page': root_page['path'],
                 'entity_type': str(root_page['values'].get('root_entity_type') or root_page['page_type']),
                 'perspective_bundle': {'required': [], 'optional': []}, 'input_stage_page': ''})
-        root = _root_payload(root_page, root_config, include_aqal=False)
-    perspectives = _resolved_perspectives(root, channel, source_config)
+        root = _root_payload(root_page, root_config)
+    # The canonical lenses are required even when the business root was
+    # explicitly omitted. Their IDs grant no access to perspective pages.
+    resolution_root = root or {'perspective_bundle': {'required': [
+        item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids]}}
+    perspectives = _resolved_perspectives(resolution_root, channel, source_config)
     gaps = []
     if selected['omit_root_entity']:
         gaps.append('Business root intentionally omitted; if required, block substantive interpretation until selected.')

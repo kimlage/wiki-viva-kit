@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 from tests.test_folder_policy_core import repo, write, git, enable_alpha
-from tests.test_protected_ingestion import prepared_repo, _nested_integrator_repo
+from tests.test_protected_ingestion import AQAL_REFS, prepared_repo, _nested_integrator_repo
 from wiki_core.coordination_context import CoordinationBinding
 from wiki_core.ingest.protected import prepare, record
 from wiki_core.repository_reader import RepositoryReader
@@ -27,7 +27,7 @@ def test_protected_source_selection_rebinds_foreign_owner_before_read(prepared_r
     git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     sha = git(root, 'rev-parse', 'HEAD')
     args = {'context_id': '.', 'approved_revision': sha, 'entry_folder': '.', 'entry_index': 'index.md',
-            'source_ref': 'source.txt', 'source_context': 'system',
+            'source_ref': 'source.txt', 'source_context': 'system', 'perspective_refs': AQAL_REFS,
             'context_selection': {'omit_root_entity': True, 'source_page': 'alpha/shared-source.md'}}
     limited = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
     original = RepositoryReader.read
@@ -50,7 +50,8 @@ def test_protected_source_selection_rebinds_foreign_owner_before_read(prepared_r
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+              'perspectives_required': request['perspectives_required'],
+              'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     opened.clear()
     with pytest.raises(ValueError, match='authorized requalification'):
@@ -90,7 +91,8 @@ def test_nested_executor_reads_selected_root_page_only_with_exact_grant(prepared
     sha = git(root, 'rev-parse', 'HEAD')
     args = {'context_id': 'alpha', 'approved_revision': sha, 'entry_folder': 'alpha',
             'entry_index': 'alpha/index.md', 'source_ref': 'source.txt', 'source_context': 'alpha',
-            'artifact_context': '.', 'context_selection': {'omit_root_entity': True, 'source_page': page}}
+            'artifact_context': '.', 'perspective_refs': AQAL_REFS,
+            'context_selection': {'omit_root_entity': True, 'source_page': page}}
     binding = CoordinationBinding(('.', 'alpha'), 'refs/remotes/origin/main', 'wiki.config.yaml')
     opened = []
     original = RepositoryReader.read
@@ -115,6 +117,7 @@ def test_nested_executor_reads_selected_root_page_only_with_exact_grant(prepared
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+              'perspectives_required': request['perspectives_required'],
+              'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     assert record(root, binding, **{key: value for key, value in args.items() if key != 'source_context'}, **ids, results=[result])['recorded'] == 1

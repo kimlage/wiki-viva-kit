@@ -291,8 +291,16 @@ def _validate_source_context(extracted, projected):
             declared = source_meta.get(key)
             if declared is not None and declared != '' and not declared_reference_matches(declared, selected):
                 raise ValueError('source configuration requires explicit qualification')
-        if source_meta.get('perspectives_required') and source_meta['perspectives_required'] != projected['perspectives_required']:
-            raise ValueError('source perspectives require explicit qualification')
+        if source_meta.get('perspectives_required'):
+            from wiki_core.quadrants import DEFAULT_QUADRANT_MAP
+            if (not isinstance(source_meta['perspectives_required'], list)
+                    or any(not isinstance(item, str) for item in source_meta['perspectives_required'])):
+                raise ValueError('source perspectives require explicit qualification')
+            aqal = {item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids}
+            declared = [item for item in source_meta['perspectives_required'] if item not in aqal]
+            qualified = [item for item in projected['perspectives_required'] if item not in aqal]
+            if declared != qualified:
+                raise ValueError('source perspectives require explicit qualification')
 
 
 def _request_path(paths, source_id, request_id, repository_context=None):
