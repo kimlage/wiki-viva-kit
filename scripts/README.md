@@ -23,14 +23,25 @@ Workspace helper; see [.env.example](../.env.example) for configuration.
 
 The selected batch is checked locally for access secrets before provider access,
 including dry-run. Text is scanned directly; PDF, DOCX, XLSX and EML use the
-existing local extractors too. A detected secret or unavailable/incomplete
-content validation stops that batch without uploading it. Private information
-is not itself a secret and remains governed by the authorized destination.
+existing local extractors too. Decoded XLSX and DOCX table values and key/value
+associations are checked with the existing structured secret detector; scanning
+only their escaped JSON serialization is insufficient. A nonempty extracted
+body does not establish coverage of the container. DOCX headers, footers,
+comments and notes, XLSX comments (including threaded comments), and PDF
+annotations are refused because these parts are not covered by the body
+extractors. Office part declarations are checked inside the captured ZIP;
+`pypdf` parses the captured PDF page dictionaries, including compressed objects.
+Missing parsers, encrypted PDFs and parsing failures also refuse validation.
+A detected secret or unavailable/incomplete content validation stops that batch
+without uploading it. Private information is not itself a secret and remains
+governed by the authorized destination.
 Unsupported binary formats require a supported validation path; an empty or
 failed extraction is not evidence that their contents are safe to publish.
 The uploader sends the captured, checked bytes, so changing the original file
 after validation cannot replace the uploaded content. The existing captured
 extractors retain their format and size limits; no parser failure grants a pass.
+This is a bounded content check, not OCR or a general inspection of every
+possible embedded object or format feature.
 
 Updates use the manifest's exact ID after checking its name, folder and trash
 state. An unmapped name collision, missing ID or destination mismatch requires

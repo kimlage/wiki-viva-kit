@@ -22,21 +22,30 @@ import datetime as dt
 import hashlib
 import io
 import json
+import logging
 import mimetypes
 import os
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from wiki_core.detectors import scan_text  # noqa: E402
+from wiki_core.detectors import contains_secret_structure, scan_text  # noqa: E402
 from wiki_core.extractors.text import extract_captured  # noqa: E402
 
 MANIFEST_PATH = ROOT / "data" / "drive_artifacts_manifest.json"
 ENV_PATH = ROOT / ".env"
+
+
+class _RefusePDFDiagnostic(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        # A parser warning may contain source values even in strict mode.
+        raise ValueError("PDF content validation unavailable")
 
 
 def load_env(path: Path = ENV_PATH) -> dict[str, str]:
@@ -61,6 +70,61 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def require_container_coverage(suffix: str, raw: bytes) -> None:
+    """Refuse known parts omitted by the body extractors, using captured bytes.
+
+    Office content types identify parts even when their ZIP paths are renamed.
+    PDF page dictionaries must be parsed: annotations can be encoded or stored
+    in compressed objects and need not contain a searchable raw marker.
+    """
+    if suffix in {".docx", ".xlsx"}:
+        omitted_types = (
+            "wordprocessingml.header+", "wordprocessingml.footer+",
+            "wordprocessingml.comments+", "wordprocessingml.footnotes+",
+            "wordprocessingml.endnotes+", "spreadsheetml.comments+",
+            "threadedcomments+",
+        )
+        word_ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+        omitted_roots = {word_ns + name for name in ("hdr", "ftr", "comments", "footnotes", "endnotes")}
+        omitted_roots.update({
+            "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}comments",
+            "{http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments}ThreadedComments",
+        })
+        omitted_relations = {"header", "footer", "comments", "footnotes", "endnotes", "threadedcomment"}
+        # extract_captured has already enforced the protected archive limits.
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            content_types = ET.fromstring(archive.read("[Content_Types].xml"))
+            if any(any(kind in part.get("ContentType", "").lower() for kind in omitted_types)
+                   for part in content_types):
+                raise ValueError("Office part not covered by content extraction")
+            # Also inspect roots and relationships: a default/generic content
+            # type must not hide a part the body reader still omits.
+            for name in archive.namelist():
+                if name.lower().endswith((".xml", ".rels")):
+                    root = ET.fromstring(archive.read(name))
+                    if (root.tag in omitted_roots or
+                            any(part.get("Type", "").rsplit("/", 1)[-1].lower() in omitted_relations
+                                for part in root)):
+                        raise ValueError("Office part not covered by content extraction")
+    elif suffix == ".pdf":
+        from pypdf import PdfReader  # noqa: PLC0415
+        logger = logging.getLogger("pypdf")
+        level = logger.level
+        diagnostic = _RefusePDFDiagnostic()
+        # Refuse diagnostics before they can reach source-bearing log output;
+        # restore the caller's logging configuration even on parser failure.
+        logger.handlers.insert(0, diagnostic)
+        logger.setLevel(logging.WARNING)
+        try:
+            reader = PdfReader(io.BytesIO(raw), strict=True)
+            if reader.is_encrypted or any(page.get("/Annots") for page in reader.pages):
+                raise ValueError("PDF part not covered by content extraction")
+        finally:
+            logger.removeHandler(diagnostic)
+            logger.setLevel(level)
+            diagnostic.close()
+
+
 def validate_artifact(path: Path) -> bytes:
     """Capture and check the selected bytes; never echo a detected secret."""
     raw = path.read_bytes()
@@ -68,20 +132,29 @@ def validate_artifact(path: Path) -> bytes:
         raise RuntimeError("Artifact contains an access secret; publication refused")
     try:
         formats = {".pdf": "pdf", ".docx": "document", ".xlsx": "spreadsheet", ".eml": "email"}
-        if path.suffix.lower() in formats:
-            extracted = extract_captured(str(path), formats[path.suffix.lower()], raw)
+        suffix = path.suffix.lower()
+        if suffix in formats:
+            extracted = extract_captured(str(path), formats[suffix], raw)
             if extracted.warnings or (raw and not extracted.text.strip()):
                 raise ValueError("incomplete extraction")
-            text = extracted.text
+            require_container_coverage(suffix, raw)
+            values: list[object] = [extracted.text]
+            # Tables are JSON lines containing escaped cell strings. Check the
+            # decoded values and associations as well as the serialized text.
+            for unit in extracted.units:
+                if unit["kind"] in {"sheet_row", "doc_table_row"}:
+                    values.append(json.loads(unit["text"]))
         else:
             text = raw.decode("utf-8-sig")
             if "\x00" in text:
                 raise ValueError("unsupported binary content")
+            values = [text]
+        secret = contains_secret_structure(values)
     except Exception:
         # Parser diagnostics may contain source content. Report only the missing
         # validation, before importing a provider or changing a manifest.
         raise RuntimeError("Artifact content validation unavailable; publication refused") from None
-    if any(f.category == "secret" for f in scan_text(text)):
+    if secret:
         raise RuntimeError("Artifact contains an access secret; publication refused")
     return raw
 

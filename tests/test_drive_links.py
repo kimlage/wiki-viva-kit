@@ -8,10 +8,14 @@ network.
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
+import logging
 import sys
 import builtins
+import traceback
 import types
+import zipfile
 
 import pytest
 from pathlib import Path
@@ -112,6 +116,7 @@ def test_publish_env_parser(tmp_path):
 def no_network(monkeypatch):
     import socket
     monkeypatch.setattr(socket.socket, "connect", lambda *a, **k: pytest.fail("network"))
+    monkeypatch.setattr(socket.socket, "connect_ex", lambda *a, **k: pytest.fail("network"))
 
 
 def _block_provider_imports(monkeypatch):
@@ -161,13 +166,19 @@ class _FakeDrive:
         return request
 
 
-def _install_fake_google(monkeypatch, drive):
-    # No real helper, Google libraries, account, credentials or network.
+def _install_fake_google(monkeypatch, drive, *, real_media=False):
+    # No real helper, account, credentials or network. The optional media class
+    # only wraps captured bytes locally; all service requests remain fake.
+    if real_media:
+        MediaIoBaseUpload = pytest.importorskip("googleapiclient.http").MediaIoBaseUpload
     monkeypatch.setattr(sys, "path", list(sys.path))
     calls = {"build": [], "media": []}
     pkg = types.ModuleType("googleapiclient")
     http = types.ModuleType("googleapiclient.http")
-    http.MediaIoBaseUpload = lambda *a, **k: calls["media"].append((a, k)) or object()
+    def media(*args, **kwargs):
+        calls["media"].append((args, kwargs))
+        return MediaIoBaseUpload(*args, **kwargs) if real_media else object()
+    http.MediaIoBaseUpload = media
     common = types.ModuleType("common")
     clients = types.ModuleType("common.google_clients")
     clients.DRIVE_SCOPE_FULL = "synthetic-scope"
@@ -354,20 +365,226 @@ def test_secret_in_later_artifact_rejects_whole_batch_before_provider(tmp_path, 
 def test_unvalidated_or_extracted_secret_content_never_reaches_provider(tmp_path, monkeypatch, failure):
     pub, _ = _publisher(tmp_path, monkeypatch)
     artifact = tmp_path / ("artifact.bin" if failure == "binary" else "artifact.pdf")
-    artifact.write_bytes(b"\x00synthetic binary")
+    artifact.write_bytes(b"\x00synthetic binary" if failure == "binary" else _pdf_artifact()[2])
     def extracted(*args):
         if failure == "exception":
             raise ValueError("source content must not leak")
         return types.SimpleNamespace(
             text="-----BEGIN " + "PRIVATE KEY-----" if failure == "secret" else "synthetic text",
             warnings=["extraction incomplete"] if failure == "warning" else [],
+            units=[],
         )
     monkeypatch.setattr(pub, "extract_captured", extracted)
     _block_provider_imports(monkeypatch)
     before = pub.MANIFEST_PATH.read_bytes()
-    with pytest.raises(RuntimeError) as error:
+    with pytest.raises(RuntimeError, match="contains an access secret" if failure == "secret" else "validation unavailable") as error:
         pub.publish([artifact], "synthetic-folder")
     assert "source content must not leak" not in str(error.value)
+    assert pub.MANIFEST_PATH.read_bytes() == before
+
+
+def _office_artifact(case, value):
+    target = io.BytesIO()
+    if case.startswith("docx"):
+        from docx import Document
+        document = Document()
+        document.add_paragraph("Synthetic body")
+        if case == "docx-header":
+            document.sections[0].header.paragraphs[0].text = value
+        elif case == "docx-footer":
+            document.sections[0].footer.paragraphs[0].text = value
+        else:
+            document.add_table(rows=1, cols=1).cell(0, 0).text = value
+        document.save(target)
+        return ".docx", "document", target.getvalue()
+    from openpyxl import Workbook
+    from openpyxl.comments import Comment
+    workbook = Workbook()
+    workbook.active["A1"] = "Synthetic body"
+    if case == "xlsx-comment":
+        workbook.active["A1"].comment = Comment(value, "Synthetic author")
+    else:
+        workbook.active["B1"] = value
+    workbook.save(target)
+    workbook.close()
+    return ".xlsx", "spreadsheet", target.getvalue()
+
+
+def _pdf_artifact(annotation=None, *, body="Synthetic PDF content"):
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import (ArrayObject, ByteStringObject, DecodedStreamObject, DictionaryObject,
+                              NameObject, NumberObject)
+    from tests.test_protected_capture_formats import pdf_bytes
+    writer = PdfWriter()
+    writer.add_page(PdfReader(io.BytesIO(pdf_bytes())).pages[0])
+    stream = DecodedStreamObject()
+    stream.set_data(b"BT /F1 12 Tf 20 250 Td (" + body.encode("ascii") + b") Tj ET")
+    writer.pages[0][NameObject("/Contents")] = writer._add_object(stream)
+    if annotation is not None:
+        note = DictionaryObject({
+            NameObject("/Type"): NameObject("/Annot"),
+            NameObject("/Subtype"): NameObject("/Text"),
+            NameObject("/Rect"): ArrayObject([NumberObject(n) for n in (0, 0, 20, 20)]),
+            # A real PDF hex string in UTF-16BE; raw UTF-8 scanning cannot see it.
+            NameObject("/Contents"): ByteStringObject(b"\xfe\xff" + annotation.encode("utf-16-be")),
+        })
+        writer.pages[0][NameObject("/Annots")] = ArrayObject([writer._add_object(note)])
+    target = io.BytesIO()
+    writer.write(target)
+    return ".pdf", "pdf", target.getvalue()
+
+
+@pytest.mark.parametrize("case", ["docx-header", "xlsx-comment", "pdf-annotation", "docx-table", "xlsx-cell"])
+@pytest.mark.parametrize("dry_run", [False, True])
+@pytest.mark.parametrize("matching", [False, True])
+@pytest.mark.parametrize("real_media", [False, True])
+def test_real_container_bypasses_are_refused_before_provider(tmp_path, monkeypatch, case, dry_run, matching, real_media):
+    from wiki_core.detectors import scan_text
+    from wiki_core.extractors.text import extract_captured
+    pub, first = _publisher(tmp_path, monkeypatch)
+    value = (json.dumps({"client_id": "synthetic-client", "refresh_token": "synthetic-short"})
+             if case in {"docx-table", "xlsx-cell"} else "-----BEGIN " + "PRIVATE KEY-----\nsynthetic-only")
+    suffix, kind, data = (_pdf_artifact(value) if case == "pdf-annotation" else _office_artifact(case, value))
+    artifact = tmp_path / ("later" + suffix)
+    artifact.write_bytes(data)
+    # Prove the original gap using the real extractor, not a patched provider
+    # response or extractor. Both old scans miss the omitted/escaped material.
+    assert not any(f.category == "secret" for f in scan_text(data.decode("utf-8", errors="replace")))
+    extracted = extract_captured(str(artifact), kind, data)
+    assert extracted.text.strip() and not extracted.warnings
+    assert not any(f.category == "secret" for f in scan_text(extracted.text))
+    drive = _FakeDrive(list=lambda **k: {"files": []}, create=lambda **k: {"id": "synthetic-id"})
+    calls = _install_fake_google(monkeypatch, drive, real_media=real_media)
+    if matching:
+        pub.MANIFEST_PATH.write_text(json.dumps({"folder_id": "synthetic-folder", "files": {
+            artifact.name: {"sha256": pub.hashlib.sha256(data).hexdigest(), "drive_file_id": "synthetic-id"}}}))
+    before = pub.MANIFEST_PATH.read_bytes()
+    with pytest.raises(RuntimeError, match="publication refused") as error:
+        pub.publish([first, artifact], "synthetic-folder", dry_run=dry_run)
+    rendered = "".join(traceback.format_exception(error.type, error.value, error.tb))
+    assert value not in rendered and "synthetic-short" not in rendered and "synthetic-only" not in rendered
+    assert not drive.calls and calls == {"build": [], "media": []}
+    assert pub.MANIFEST_PATH.read_bytes() == before
+
+
+@pytest.mark.parametrize("case", ["docx-table", "xlsx-cell", "pdf", "eml", "txt"])
+@pytest.mark.parametrize("real_media", [False, True])
+def test_real_covered_formats_publish_synthetic_pii(tmp_path, monkeypatch, case, real_media):
+    from wiki_core.detectors import scan_text
+    value = "Synthetic CPF 529.982.247-25"
+    assert any(f.category == "pii" for f in scan_text(value))
+    pub, _ = _publisher(tmp_path, monkeypatch)
+    if case == "pdf":
+        suffix, _, data = _pdf_artifact(body=value)
+    elif case in {"eml", "txt"}:
+        suffix = "." + case
+        data = (("From: synthetic@example.invalid\nSubject: Synthetic\n\n" if case == "eml" else "") + value).encode()
+    else:
+        suffix, _, data = _office_artifact(case, value)
+    artifact = tmp_path / ("covered" + suffix)
+    artifact.write_bytes(data)
+    uploaded = []
+    def create(media_body, **kwargs):
+        if real_media:
+            uploaded.append(media_body.getbytes(0, media_body.size()))
+        return {"id": "synthetic-id"}
+    drive = _FakeDrive(list=lambda **k: {"files": []}, create=create)
+    calls = _install_fake_google(monkeypatch, drive, real_media=real_media)
+    pub.publish([artifact], "synthetic-folder")
+    assert [method for method, _ in drive.calls] == ["list", "create"]
+    assert calls["media"][0][0][0].getvalue() == data
+    if real_media:
+        assert uploaded == [data]
+    entry = json.loads(pub.MANIFEST_PATH.read_text())["files"][artifact.name]
+    assert entry["sha256"] == pub.hashlib.sha256(data).hexdigest()
+
+
+@pytest.mark.parametrize("case", ["docx-header", "docx-footer", "xlsx-comment", "pdf-annotation"])
+def test_uncovered_parts_are_refused_even_without_a_detected_secret(tmp_path, monkeypatch, case):
+    pub, _ = _publisher(tmp_path, monkeypatch)
+    suffix, _, data = (_pdf_artifact("Synthetic note") if case == "pdf-annotation"
+                       else _office_artifact(case, "Synthetic note"))
+    artifact = tmp_path / ("uncovered" + suffix)
+    artifact.write_bytes(data)
+    before = pub.MANIFEST_PATH.read_bytes()
+    _block_provider_imports(monkeypatch)
+    with pytest.raises(RuntimeError, match="validation unavailable"):
+        pub.publish([artifact], "synthetic-folder")
+    assert pub.MANIFEST_PATH.read_bytes() == before
+
+
+@pytest.mark.parametrize("case", ["docx-header", "xlsx-comment"])
+def test_office_part_coverage_is_not_inferred_from_its_name_or_content_type(tmp_path, monkeypatch, case):
+    from wiki_core.extractors.text import extract_captured
+    pub, _ = _publisher(tmp_path, monkeypatch)
+    suffix, kind, original = _office_artifact(case, "Synthetic omitted text")
+    target = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(original)) as archive, zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as rewritten:
+        old = next(name for name in archive.namelist()
+                   if name.endswith(".xml") and ("/header" in name or "/comment" in name))
+        new = str(Path(old).with_name("synthetic-part.xml"))
+        for entry in archive.infolist():
+            data = archive.read(entry)
+            if entry.filename == "[Content_Types].xml":
+                from xml.etree import ElementTree as ET
+                root = ET.fromstring(data)
+                for part in root:
+                    if part.get("PartName") == "/" + old:
+                        part.set("PartName", "/" + new)
+                        part.set("ContentType", "application/xml")
+                data = ET.tostring(root)
+            elif entry.filename.endswith(".rels"):
+                data = data.replace(Path(old).name.encode(), Path(new).name.encode())
+            rewritten.writestr(new if entry.filename == old else entry.filename, data)
+    artifact = tmp_path / ("renamed" + suffix)
+    artifact.write_bytes(target.getvalue())
+    extracted = extract_captured(str(artifact), kind, artifact.read_bytes())
+    assert extracted.text.strip() and not extracted.warnings
+    _block_provider_imports(monkeypatch)
+    with pytest.raises(RuntimeError, match="validation unavailable"):
+        pub.validate_artifact(artifact)
+
+
+@pytest.mark.parametrize("suffix", [".docx", ".xlsx", ".pdf"])
+def test_real_parser_failures_have_opaque_tracebacks(tmp_path, monkeypatch, suffix):
+    pub, _ = _publisher(tmp_path, monkeypatch)
+    artifact = tmp_path / ("malformed" + suffix)
+    artifact.write_bytes(b"malformed synthetic source diagnostic must stay opaque")
+    before = pub.MANIFEST_PATH.read_bytes()
+    _block_provider_imports(monkeypatch)
+    with pytest.raises(RuntimeError, match="validation unavailable") as error:
+        pub.publish([artifact], "synthetic-folder")
+    assert "source diagnostic" not in "".join(traceback.format_exception(error.type, error.value, error.tb))
+    assert pub.MANIFEST_PATH.read_bytes() == before
+
+
+@pytest.mark.parametrize("failure", ["missing-parser", "diagnostic"])
+def test_pdf_structure_check_fails_opaquely_without_parser_or_on_diagnostic(tmp_path, monkeypatch, caplog, failure):
+    import pypdf
+    pub, _ = _publisher(tmp_path, monkeypatch)
+    artifact = tmp_path / "checked.pdf"
+    artifact.write_bytes(_pdf_artifact()[2])
+    logger = logging.getLogger("pypdf")
+    original_handlers, original_level = list(logger.handlers), logger.level
+    before = pub.MANIFEST_PATH.read_bytes()
+    _block_provider_imports(monkeypatch)
+    if failure == "missing-parser":
+        original_import = builtins.__import__
+        def guarded(name, *args, **kwargs):
+            if name == "pypdf":
+                raise ImportError("synthetic source diagnostic must not leak")
+            return original_import(name, *args, **kwargs)
+        monkeypatch.setattr(builtins, "__import__", guarded)
+    else:
+        def reader(*args, **kwargs):
+            logging.getLogger("pypdf._reader").warning("synthetic source diagnostic must not leak")
+            pytest.fail("parser diagnostic was not refused")
+        monkeypatch.setattr(pypdf, "PdfReader", reader)
+    with pytest.raises(RuntimeError, match="validation unavailable") as error:
+        pub.publish([artifact], "synthetic-folder")
+    assert "source diagnostic" not in "".join(traceback.format_exception(error.type, error.value, error.tb))
+    assert "source diagnostic" not in caplog.text
+    assert logger.handlers == original_handlers and logger.level == original_level
     assert pub.MANIFEST_PATH.read_bytes() == before
 
 
@@ -391,12 +608,12 @@ def test_upload_uses_checked_bytes_when_original_changes_before_provider(tmp_pat
 def test_structured_validation_receives_captured_bytes_without_reopening(tmp_path, monkeypatch):
     pub, _ = _publisher(tmp_path, monkeypatch)
     artifact = tmp_path / "artifact.pdf"
-    artifact.write_bytes(b"synthetic captured PDF bytes")
+    artifact.write_bytes(_pdf_artifact()[2])
     original = artifact.read_bytes()
     def extract(source, kind, content):
         assert (source, kind, content) == (str(artifact), "pdf", original)
         artifact.write_bytes(b"different contents after capture")
-        return types.SimpleNamespace(text="synthetic extracted text", warnings=[])
+        return types.SimpleNamespace(text="synthetic extracted text", warnings=[], units=[])
     monkeypatch.setattr(pub, "extract_captured", extract)
     assert pub.validate_artifact(artifact) == original
 
