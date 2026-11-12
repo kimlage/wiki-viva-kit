@@ -14,6 +14,107 @@ from wiki_core.audit_r1_inventory import _worktree_bytes, inventory, select
 from wiki_core.context_policy import PolicyError
 
 
+def plan_command_reference(snapshot: dict, config) -> dict:
+    """Select the configured reference plus names required by this check."""
+    from wiki_core.context_policy import safe_path
+    try:
+        physical = snapshot['physical']['files']
+        indexed = {entry['path'] for entry in snapshot['index']}
+        names = indexed | set(snapshot['untracked'])
+        head_tree = snapshot['trees'][snapshot['head']]
+        if (any(row['stage'] != 0 for row in snapshot['index'])
+                or any(path not in physical or path not in names for path in indexed | set(head_tree))):
+            raise PolicyError('command reference selection unavailable')
+        reference = safe_path(config.paths['command_reference_page'])
+        bodies = {reference, 'wiki.config.yaml'}
+        if not bodies <= set(physical):
+            raise PolicyError('command reference selection unavailable')
+        selection = select(snapshot, [{'kind': 'worktree', 'path': name} for name in sorted(bodies)])
+        aliases = set(snapshot['denied_oid_aliases'])
+        if (any(path in bodies and row['oid'] in aliases for path, row in head_tree.items())
+                or any(row['path'] in bodies and (row['oid'] in aliases or row['stage'] != 0)
+                       for row in snapshot['index'])):
+            raise PolicyError('command reference selection unavailable')
+        limits = selection['limits']
+        sizes = [row['size'] for row in selection['inputs']]
+        if (any(size < 0 or size > limits['max_item_bytes'] for size in sizes)
+                or sum(sizes) > limits['max_total_bytes']):
+            raise PolicyError('command reference selection unavailable')
+        plan = {'selection': selection, 'metadata_names': sorted(names), 'reference': reference,
+                'scope': 'sanitized_git_worktree_command_reference',
+                'ignored_reference_selected': reference in snapshot['ignored'],
+                'history_and_index_bodies': 'not_scanned', 'worktree_content_aliases': 'external_not_verified',
+                'bootstrap_and_output_audience': 'external_not_verified',
+                'host_admission': 'external_not_verified', 'global_audit': 'not_performed'}
+        plan['plan_sha256'] = hashlib.sha256(json.dumps(plan, sort_keys=True, ensure_ascii=True,
+            separators=(',', ':')).encode()).hexdigest()
+        return plan
+    except (KeyError, TypeError, AttributeError) as exc:
+        raise PolicyError('command reference selection unavailable') from exc
+
+
+def run_worktree_command_reference(root, binding, *, context_id, approved_revision, base, head,
+                                   branch, normative_paths, inventory_sha256, plan_sha256, admit):
+    """Run only the registered command-reference check after host admission."""
+    import yaml
+    from scripts import wiki_audit as audit
+    from wiki_core.audit_r1_inventory import SelectedReads
+    from wiki_core.config import config_from_mapping
+    from wiki_core.context_policy import git_file
+    if not callable(admit): raise PolicyError('command reference host admission unavailable')
+    args = dict(context_id=context_id, approved_revision=approved_revision, base=base,
+                head=head, branch=branch, normative_paths=normative_paths)
+    first = inventory(root, binding, **args)
+    # The host independently admits this approved-config bootstrap read.
+    approved = git_file(Path(root), approved_revision, 'wiki.config.yaml')
+    config = config_from_mapping(yaml.safe_load(approved.decode('utf-8')))
+    plan = plan_command_reference(first, config)
+    if first['inventory_sha256'] != inventory_sha256 or plan['plan_sha256'] != plan_sha256:
+        raise PolicyError('command reference selection changed')
+    def admitted(): return admit(copy.deepcopy(plan)) is True
+    if not admitted(): raise PolicyError('command reference host admission unavailable')
+    status = {'scope': 'sanitized_git_worktree_command_reference', 'global_audit': 'not_performed',
+              'gate_state': 'blocked_incomplete_coverage', 'bootstrap': 'external_not_verified',
+              'host_admission': 'external_not_verified', 'live_observation': 'not_verified',
+              'cleanup': 'external_not_verified', 'plan_sha256': plan_sha256,
+              'coverage': {'worktree': 'reference_and_configuration_only', 'index': 'metadata_only',
+                           'history': 'not_scanned', 'ignored_reference_selected': plan['ignored_reference_selected'],
+                           'worktree_content_aliases': 'external_not_verified'}}
+    attempted = validated = 0
+    contents = {}
+    check_started = False
+    try:
+        if inventory(root, binding, **args)['inventory_sha256'] != inventory_sha256:
+            raise PolicyError('command reference selection changed')
+        for item in plan['selection']['inputs']:
+            if not admitted(): raise PolicyError('command reference admission changed')
+            attempted += 1
+            raw = _worktree_bytes(Path(root), item)
+            audit._selected_audit_text(raw)
+            contents[item['path']] = raw
+            validated += 1
+        if not admitted() or inventory(root, binding, **args)['inventory_sha256'] != inventory_sha256:
+            raise PolicyError('command reference selection changed')
+        if contents.get('wiki.config.yaml') != approved:
+            raise PolicyError('command reference working configuration unavailable')
+        context = audit.AuditContext(config)
+        context.command_reads = SelectedReads(Path(root), first['physical'], contents,
+                                             missing=first['missing_tracked'])
+        context.command_names = plan['metadata_names']
+        check_started = True
+        dict(audit.CHECKS)['command_reference'](context)
+        if not admitted(): raise PolicyError('command reference admission changed')
+    except Exception:
+        return {**status, 'state': 'partial',
+                'coverage': {**status['coverage'], 'worktree': 'partial_or_unknown'},
+                'check_progress': 'partial_or_unknown' if check_started else 'not_started',
+                'source_bodies_validated': validated,
+                'source_body_attempts_may_have_read_bytes': attempted}
+    return {**status, 'state': 'failed' if context.errors else 'completed',
+            'diagnostics': context.errors, 'source_bodies_validated': validated,
+            'source_body_attempts_may_have_read_bytes': attempted}
+
+
 def plan_old_paths(snapshot: dict) -> dict:
     """Select every metadata name and Markdown body needed by old_paths."""
     try:
@@ -89,7 +190,11 @@ def run_worktree_old_paths(root, binding, *, context_id, approved_revision, base
         for item in plan['selection']['inputs']:
             if not admitted(): raise PolicyError('old paths admission changed')
             attempted += 1
-            contents[item['path']] = _worktree_bytes(Path(root), item)
+            raw = _worktree_bytes(Path(root), item)
+            # Count a body only after the same text validation used by the
+            # selected check. A failed read/validation may still touch bytes.
+            audit._selected_audit_text(raw)
+            contents[item['path']] = raw
             validated += 1
         if not admitted() or inventory(root, binding, **args)['inventory_sha256'] != inventory_sha256:
             raise PolicyError('old paths selection changed')

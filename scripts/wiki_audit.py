@@ -1325,7 +1325,7 @@ def audit_freshness_budget(
         )
 
 
-def audit_command_reference(errors: list[str], config: WikiConfig) -> None:
+def audit_command_reference(errors: list[str], config: WikiConfig, *, reads=None, selected_names=None) -> None:
     """Doc-code gate of the meta-wiki (P2): the command reference must not drift.
 
     Every tracked `wiki_*.py` CLI anywhere in the repo must be cited in the configured
@@ -1333,13 +1333,23 @@ def audit_command_reference(errors: list[str], config: WikiConfig) -> None:
     repo. Cheap to maintain (one row in the table) and kills silent doc-code drift.
     """
     ref_rel = str(config.paths["command_reference_page"])
-    ref_path = ROOT / ref_rel
+    ref_path = (ROOT if reads is None else reads.root) / ref_rel
+    if reads is None:
+        names = tracked_files()
+        reference_exists = ref_path.exists()
+    else:
+        if not isinstance(selected_names, (list, tuple)) or len(set(selected_names)) != len(selected_names):
+            raise AuditPathBoundaryError('selected command reference inputs unavailable')
+        names = selected_names
+        reference_exists = reads.exists(ref_path)
+        if reference_exists:
+            reads.require_files([ref_path])
     tracked_clis = {
         Path(rel).name
-        for rel in tracked_files()
+        for rel in names
         if Path(rel).name.startswith("wiki_") and rel.endswith(".py")
     }
-    if not ref_path.exists():
+    if not reference_exists:
         # FAIL LOUD: with wiki CLIs tracked, a missing reference page means the
         # doc-code gate cannot run at all (it used to no-op silently). With no
         # wiki CLIs tracked the gate is inapplicable and stays quiet.
@@ -1349,7 +1359,8 @@ def audit_command_reference(errors: list[str], config: WikiConfig) -> None:
                 f"({len(tracked_clis)} tracked wiki CLI(s) to document)"
             )
         return
-    text = _audit_read_text(ref_path, encoding="utf-8")
+    text = (_audit_read_text(ref_path, encoding="utf-8") if reads is None
+            else _selected_audit_text(reads.read_bytes(ref_path)))
     mentioned = set(re.findall(r"\b(wiki_[a-z0-9_]+\.py)\b", text))
     for name in sorted(tracked_clis - mentioned):
         errors.append(f"{ref_rel}: undocumented CLI: {name}")
@@ -3147,12 +3158,13 @@ class AuditContext:
     positional/keyword arguments the old hand-written main() used.
     """
 
-    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews", "information_audited", "query_context", "query_policy_revision", "query_head", "graph_reads", "secret_reads", "secret_paths", "old_paths_reads", "old_paths_names")
+    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews", "information_audited", "query_context", "query_policy_revision", "query_head", "graph_reads", "secret_reads", "secret_paths", "old_paths_reads", "old_paths_names", "command_reads", "command_names")
 
     def __init__(self, config: WikiConfig, public_export: bool = False) -> None:
         self.graph_reads = None
         self.secret_reads = self.secret_paths = None
         self.old_paths_reads = self.old_paths_names = None
+        self.command_reads = self.command_names = None
         self.information_audited = False
         self.query_context = self.query_policy_revision = self.query_head = None
         self.errors: list[str] = []
@@ -3204,7 +3216,9 @@ CHECKS: tuple[tuple[str, "callable"], ...] = (
     ("freshness_budget", _run_freshness_check),
     ("drive_artifact_links", lambda ctx: (audit_drive_artifact_links(ctx.warnings, ctx.config),
                                         audit_wiki_text_storage(ctx.errors, ctx.config))),
-    ("command_reference", lambda ctx: audit_command_reference(ctx.errors, ctx.config)),
+    ("command_reference", lambda ctx: (audit_command_reference(ctx.errors, ctx.config) if ctx.command_reads is None else
+                                      audit_command_reference(ctx.errors, ctx.config, reads=ctx.command_reads,
+                                                              selected_names=ctx.command_names))),
     ("relations", lambda ctx: audit_relations(ctx.errors, ctx.config)),
     ("old_paths", lambda ctx: (audit_old_paths(ctx.errors, ctx.config) if ctx.old_paths_reads is None else
                               audit_old_paths(ctx.errors, ctx.config, reads=ctx.old_paths_reads,

@@ -189,6 +189,12 @@ some staged deletions the legacy path would omit; the host must qualify the
 inventory, bootstrap, audience and concurrency. This covers only `old_paths`,
 not the integral audit or the other checks.
 
+For the registered `command_reference` check, an internal selected route
+binds the sanitized Git name inventory and the configured reference body to
+the approved configuration. An ignored reference is still selected when the
+legacy check would open it; a denied or missing reference fails closed. This
+is a per-check result and does not qualify any other audit surface.
+
 For an independently authorized metadata inspection, form the candidate list
 from the sanitized inventory, retain entries whose lowercase suffix is in
 `TEXT_SCAN_SUFFIXES`, remove paths beginning with `tests/` or

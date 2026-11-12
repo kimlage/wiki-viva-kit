@@ -93,5 +93,7 @@ def test_old_paths_nontext_markdown_is_partial(repo):
     result = selected.run_worktree_old_paths(**args, inventory_sha256=snapshot['inventory_sha256'],
         plan_sha256=plan['plan_sha256'], admit=lambda _: True)
     assert result['state'] == 'partial'
-    assert result['check_progress'] == 'partial_or_unknown'
+    assert result['check_progress'] == 'not_started'
+    assert result['source_body_attempts_may_have_read_bytes'] == result['source_bodies_validated'] + 1
+    assert result['source_bodies_validated'] < len(plan['selection']['inputs'])
     assert result['global_audit'] == 'not_performed'
