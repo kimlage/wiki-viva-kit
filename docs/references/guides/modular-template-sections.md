@@ -140,6 +140,9 @@ content, authorization, native loading or task coverage.
 When native discovery selects an `AGENTS.override.md` in a folder, it replaces
 that folder's `AGENTS.md`; it does not combine the two. Keep any necessary local
 instructions in the file that will actually be selected.
+In an indexed memory context, a `CLAUDE.md` tool instruction such as
+`@AGENTS.md` receives the same page-audit treatment without becoming a context
+policy source.
 Folder location defines instruction ancestry; editorial metadata and a hub's
 `moc_parent` do not define it. The kit's own development instructions are not
 automatically consumer policy. No pages are generated during synchronization.

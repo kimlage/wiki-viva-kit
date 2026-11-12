@@ -1925,6 +1925,8 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
             without_links_or_code = INLINE_CODE_RE.sub("", without_links)
             for match in BARE_LOCAL_PATH_RE.finditer(without_links_or_code):
                 value = match.group(1)
+                if instruction and Path(rel).name == "CLAUDE.md" and line.strip() == "@AGENTS.md":
+                    continue
                 if bare_local_path_exists(value):
                     errors.append(
                         f"{rel}:{lineno}: local path must be a markdown link: `{value}`"

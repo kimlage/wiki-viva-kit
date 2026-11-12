@@ -680,6 +680,32 @@ def test_context_instructions_keep_security_checks_but_not_page_graph_obligation
     assert any("memorias/one/AGENTS.md" in error for error in secret_errors)
 
 
+def test_claude_instruction_in_indexed_context_is_not_a_memory_page_obligation(tmp_path, audit, monkeypatch):
+    from tests.test_page_graph import _page, _write
+    from wiki_core.context_policy import is_context_instruction as is_policy_instruction
+
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    defaults = WikiConfig()
+    config = WikiConfig(audit={**defaults.audit, "orphan_check": True, "reachability_check": True,
+                               "min_outbound_links": 1})
+    _write(tmp_path / "AGENTS.md", "# Root instructions\n")
+    _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", ""))
+    _write(tmp_path / "memories/example/index.md", _page("example", "context_hub", "Example", ""))
+    _write(tmp_path / "memories/example/AGENTS.md", "# Instructions\n")
+    _write(tmp_path / "memories/example/CLAUDE.md", "@AGENTS.md\n\nRead `AGENTS.md`.\n")
+    _write(tmp_path / "memories/unindexed/CLAUDE.md", "@AGENTS.md\n")
+    files = [p.relative_to(tmp_path).as_posix() for p in (tmp_path / "memories").rglob("*.md")]
+    monkeypatch.setattr(audit, "link_audit_files", lambda config: files)
+    graph_errors, link_errors, warnings = [], [], []
+    audit.audit_page_graph(graph_errors, warnings, config)
+    audit.audit_clickable_local_links(link_errors, config)
+    assert not any("memories/example/CLAUDE.md" in item for item in graph_errors + link_errors + warnings)
+    assert any("memories/unindexed/CLAUDE.md: orphan memory page" in item for item in graph_errors)
+    assert any("memories/unindexed/CLAUDE.md: unreachable" in item for item in graph_errors)
+    assert any("memories/unindexed/CLAUDE.md" in item for item in link_errors)
+    assert not is_policy_instruction("memories/example/CLAUDE.md")
+
+
 def test_external_angle_link_does_not_exempt_secret_or_public_pii_scan(tmp_path, audit, monkeypatch):
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     monkeypatch.setattr(audit, "link_audit_files", lambda config: ["memories/note.md"])
