@@ -152,6 +152,39 @@ def test_apply_rejects_stale_preview(tmp_path: Path) -> None:
         apply_source_operation(tmp_path, config, "source-a", "file-a", updates, preview["preview_token"])
 
 
+def test_local_source_updates_same_config_and_preserves_content_bound_selection(tmp_path):
+    from wiki_core.frontmatter import parse_frontmatter
+    from wiki_core.web.sources import build_sources_payload
+    config = _repo(tmp_path)
+    legacy = tmp_path / 'memories/sources'
+    local = tmp_path / 'memories/team/research/nested/sources'
+    local.parent.mkdir(parents=True)
+    legacy.rename(local)
+    source = local / 'source-a.md'
+    source.write_text(source.read_text().replace('memories/sources/config/',
+                                                'memories/team/research/nested/sources/config/'))
+    original = source.read_bytes()
+    before, _ = parse_frontmatter(source)
+    updates = {'selected': False, 'skip_reason': 'Synthetic reviewed selection'}
+    preview = preview_source_operation(tmp_path, config, 'source-a', 'file-a', updates)
+    pending_updates = {'label': 'Pending synthetic label'}
+    stale = preview_source_operation(tmp_path, config, 'source-a', 'file-a', pending_updates)
+    result = apply_source_operation(tmp_path, config, 'source-a', 'file-a', updates, preview['preview_token'])
+    assert result['changed_files'] == [before['config_ref']]
+    assert source.read_bytes() == original and not legacy.exists()
+    payload = build_sources_payload(tmp_path, config)
+    assert len(payload['sources']) == 1
+    row = payload['sources'][0]
+    assert row['source_id'] == before['page_id'] and row['context'] == before['context']
+    assert row['path'] == source.relative_to(tmp_path).as_posix()
+    assert row['streams'][0]['selected'] is False
+    config_path = tmp_path / before['config_ref']
+    stable = config_path.read_bytes()
+    with pytest.raises(ValueError, match='source_operation_preview_stale'):
+        apply_source_operation(tmp_path, config, 'source-a', 'file-a', pending_updates, stale['preview_token'])
+    assert config_path.read_bytes() == stable
+
+
 def test_unknown_and_unsafe_fields_are_rejected(tmp_path: Path) -> None:
     config = _repo(tmp_path)
     with pytest.raises(ValueError, match="source_operation_unknown_field"):

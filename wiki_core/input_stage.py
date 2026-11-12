@@ -143,12 +143,8 @@ def _pages_by_type(root: Path, paths: WikiPaths, page_type: str, reads=None) -> 
 
 
 def _source_pages(root: Path, paths: WikiPaths, reads=None) -> list[dict[str, Any]]:
-    if not (paths.sources_dir.exists() if reads is None else reads.exists(paths.sources_dir)):
-        return []
     pages = []
-    source_paths = (sorted(wiki_markdown_files(paths.sources_dir, wiki_root=paths.root))
-                    if reads is None else reads.markdown(paths.sources_dir, paths.root))
-    for path in source_paths:
+    for path in paths.source_files(reads=reads):
         if path.name in {"index.md", "README.md"}:
             continue
         page = _read_page(root, path, reads)
@@ -744,7 +740,7 @@ def render_input_stage_markdown(
         f"moc_parent: {config.paths['memory_root']}/index.md",
         *(yaml.safe_dump({'projection_inputs':[
             *([{'paths':['wiki.config.yaml'],'fields':['body']}] if catalog.get('config_ref') else []),
-            {'page_types':sorted(SOURCE_PAGE_TYPES),'path_prefix':WikiPaths(Path('.'),config).sources_dir.as_posix(),
+            {'page_types':sorted(SOURCE_PAGE_TYPES),**WikiPaths(Path('.'),config).collection_selector('sources_dirname'),
              'fields':_source_fields(),'title_fallback':'blank'},
             {'page_types':['input_channel'],'fields':_channel_fields(),'title_fallback':'blank'},
             {'page_types':['context_hub'],'path_prefix':config.paths['memory_root'],

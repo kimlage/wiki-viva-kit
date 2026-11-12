@@ -17,7 +17,8 @@ projection_inputs:
   - body
 - page_types:
   - source
-  path_prefix: memories/sources
+  path_prefix: memories
+  path_directory: sources
   fields:
   - page_type
 parent_projection:
