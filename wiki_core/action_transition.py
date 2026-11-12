@@ -2004,13 +2004,17 @@ def validate_action_transition_diffs(
         # its first parent, HEAD or a merge-base for the actual audited base.
         navigation.git('merge-base', '--is-ancestor', base, navigation.head)
         chain = navigation.git('rev-list', '--parents', '--reverse', '--topo-order',
-                               '--ancestry-path', base + '..' + navigation.head).decode().splitlines()
+                               base + '..' + navigation.head).decode().splitlines()
         if len(chain) > 4096:
             return refused
         page_id = old.get('page_id')
         versions = {base: (previous_text, previous_ref)}
-        for row in chain:
-            revision = row.split()[0]
+        new_revisions = {row.split()[0] for row in chain}
+        boundaries = {p for row in chain for p in row.split()[1:]} - new_revisions - {base}
+        # Every excluded parent belongs to the already approved history. Keep
+        # its actual action version as the boundary; never silently drop a
+        # merge edge or revalidate the entire approved past.
+        for revision in [*sorted(boundaries), *[row.split()[0] for row in chain]]:
             locations = navigation.ids(revision).get(page_id, [])
             if len(locations) != 1:
                 return refused
@@ -2019,10 +2023,11 @@ def validate_action_transition_diffs(
             versions[revision] = (text, ref)
         observed = [text for text, _ in versions.values()]
         stages = {base: {base}}
+        stages.update({revision: {revision} for revision in boundaries})
         def admit(text, ref, parents, revision):
             authored = document(text)[0].get(_HISTORY_FIELD) or []
             if (not isinstance(authored, list) or authored != history[:len(authored)]
-                    or len(authored) < len(prior)):
+                    ):
                 return None
             if any(parent not in stages for parent in parents):
                 return None
@@ -2030,8 +2035,9 @@ def validate_action_transition_diffs(
                    for parent in parents):
                 return None
             ancestors = set().union(*(stages[parent] for parent in parents))
-            if authored == prior:
-                if any(structural_navigation(navigation, versions[parent][1], versions[parent][0], text,
+            if len(authored) <= len(prior):
+                if all((document(versions[parent][0])[0].get(_HISTORY_FIELD) or []) == authored
+                        and structural_navigation(navigation, versions[parent][1], versions[parent][0], text,
                         destination=ref, hierarchy_revision=revision) for parent in parents):
                     return ancestors | ({revision} if revision in versions else set())
             else:
@@ -2045,7 +2051,6 @@ def validate_action_transition_diffs(
             return None
         for row in chain:
             revision, *parents = row.split()
-            parents = [p for p in parents if p in versions]
             admitted = admit(*versions[revision], parents, revision)
             if admitted is None:
                 return refused

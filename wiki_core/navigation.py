@@ -163,11 +163,11 @@ class NavigationHistory:
         return result
 
     @cached_property
-    def former_paths(self):
+    def moves(self):
         """Only exact moves can taint a reoccupied path; no similarity aliases."""
         rows = self.git('log', '--format=', '--name-status', '-z', '--diff-filter=R',
                         '--find-renames=100%', '-m', self.head, '--', self.prefix).split(b'\0')
-        result = set()
+        result = []
         index = 0
         while index < len(rows):
             status = rows[index].strip()
@@ -176,9 +176,17 @@ class NavigationHistory:
                 continue
             if status != b'R100' or index + 1 >= len(rows):
                 raise ValueError('invalid navigation rename history')
-            result.add(rows[index].decode('utf-8'))
+            result.append((rows[index].decode('utf-8'), rows[index + 1].decode('utf-8')))
             index += 2
         return result
+
+    @cached_property
+    def former_paths(self):
+        return {before for before, _ in self.moves}
+
+    @cached_property
+    def moved_paths(self):
+        return {after for _, after in self.moves}
 
     def existing_reference_safe(self, source: str, text: str, ref: str, *, href: bool = False,
                                 body_offset: int | None = None) -> bool:
@@ -193,7 +201,16 @@ class NavigationHistory:
             require_wiki_boundaries(self.root, files=(path,))
             if not path.exists() or not target.endswith('.md'):
                 return True
-            if not (self.git_root / '.git').exists() or target not in self.former_paths:
+            if not (self.git_root / '.git').exists():
+                return True
+            # A relative href's base is part of its meaning. Even when the
+            # interpreted destination exists, an exact source move may have
+            # silently changed the target. A newly authored blob at the new
+            # location can establish its own reference; the old blob cannot.
+            moved_source = href and (source in self.moved_paths or (
+                source not in self.tree(self.head) and
+                bool(self.ids(self.head).get(document(text)[0].get('page_id')))))
+            if target not in self.former_paths and not moved_source:
                 return True
             return self.resolve(source, text, ref, href=href, _occupied=True, body_offset=body_offset) == target
         except (ValueError, OSError, UnicodeError, yaml.YAMLError):
@@ -490,6 +507,10 @@ def structural_navigation(history: NavigationHistory, source: str, before: str, 
             if old_body[cursor_a:a.start(1)] != new_body[cursor_b:b.start(1)]:
                 return False
             x, y = a[1], b[1]
+            if (x == y and link_path(source, x) != link_path(destination or source, y)
+                    and not history.existing_reference_safe(destination or source, after, y,
+                        href=True, body_offset=b.start())):
+                return False
             if x != y:
                 # Historical typed declarations must remain byte-for-byte,
                 # rather than becoming stale markers after a path rewrite.

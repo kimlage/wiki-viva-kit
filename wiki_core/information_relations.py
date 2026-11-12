@@ -196,12 +196,33 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
         text = file.read_bytes().decode('utf-8')
         _values, body = parse_frontmatter(text)
         def resolve(ref):
+            if ref in by_path and not navigation.existing_reference_safe(page.path, text, ref):
+                return []
             targets = [ref] if ref in by_path else paths_by_id.get(ref, [])
             if not targets:
                 canonical = navigation.resolve(page.path, text, ref)
                 if canonical in by_path:
                     targets = [canonical]
             return targets
+        def resolve_current(ref):
+            # Current obligations require an explicitly reconciled canonical
+            # reference. A historic path must not bind its new occupant.
+            if ref in by_path:
+                return [ref] if navigation.existing_reference_safe(page.path, text, ref) else []
+            return paths_by_id.get(ref, [])
+        def validate_requirement(entry, target):
+            pin = entry.get('consumed_revision')
+            if not pin or entry.get('query') or entry.get('source_kind'):
+                return
+            # The pin is an observation of an identity, not permission to
+            # consume whichever page currently occupies the same pathname.
+            target_id = by_path[target]
+            at_pin = navigation.text(pin, entry['target'])
+            pinned_id = parse_frontmatter(at_pin)[0].get('page_id') if at_pin else target_id
+            locations = navigation.ids(pin).get(pinned_id, [])
+            if (pinned_id != target_id or len(locations) != 1
+                    or not navigation.continuous(pin, locations[0], target_id, target)):
+                raise ValueError('information requirement pin has unsafe or ambiguous identity')
         represented = {e["field"] for e in edges if e["path"] == page.path}
         for field in FRONTMATTER_REF_FIELDS:
             if field in represented:
@@ -229,8 +250,9 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
                                   field=field))
         try:
             edges.extend(operational_consumption_edges(root, page.path, page.values, body,
-                lambda ref: [ref] if ref in by_path else paths_by_id.get(ref, []),
-                resolve_normative=normative_ref, resolve_historical=resolve, include_body=False))
+                resolve_current,
+                resolve_normative=normative_ref, resolve_historical=resolve,
+                validate_requirement=validate_requirement, include_body=False))
             edges.extend(projection_input_edges(page.path,page.values,node_values,default_context=config.default_context))
         except ValueError as exc:
             errors.append(f"{page.path}: {exc}")
@@ -245,6 +267,7 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
             match = MARKDOWN_LINK_RE.match(body, offset) if isinstance(offset, int) else None
             if match and not navigation.existing_reference_safe(page.path, text, match[1], href=True, body_offset=offset):
                 errors.append(f'{page.path}: unsafe or ambiguous historical link identity')
+                continue
             if occurrence['target'] not in by_path:
                 # Resolve against the untouched literal syntax, preserving the
                 # occurrence's authored role and original digest.
@@ -381,7 +404,8 @@ def dependency_edges(graph: dict, *, origin: str = "current") -> tuple[list[dict
     return dependencies, contextual
 
 
-def information_requirements(values: dict, resolve, *, resolve_normative=None, resolve_historical=None) -> list[dict]:
+def information_requirements(values: dict, resolve, *, resolve_normative=None, resolve_historical=None,
+                             validate_requirement=None) -> list[dict]:
     """Normalize authored current/historical consumption into the same edges.
 
     A requirement describes an intended use, not an exception to PR review or
@@ -435,17 +459,20 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None, r
                 entry = {**entry, 'historical_target': entry['target']}
         if len(targets) != 1:
             raise ValueError('information requirement target is missing or ambiguous')
+        if validate_requirement:
+            validate_requirement(entry, targets[0])
         result.append({**entry, 'target': targets[0]})
     return result
 
 
-def operational_consumption_edges(root: Path, path: str, values: dict, body: str, resolve, *, resolve_normative=None, resolve_historical=None, include_body=True) -> list[dict]:
+def operational_consumption_edges(root: Path, path: str, values: dict, body: str, resolve, *, resolve_normative=None, resolve_historical=None, validate_requirement=None, include_body=True) -> list[dict]:
     """The same operational declarations feed readers, agents and admission."""
     edges = [dict(source=path, target=r['target'], type='operational_prerequisite',
                   direction='directed', basis='frontmatter', path=path,
                   field='information_requirements', requirement=r)
              for r in information_requirements(values, resolve, resolve_normative=resolve_normative,
-                                                resolve_historical=resolve_historical)]
+                                                resolve_historical=resolve_historical,
+                                                validate_requirement=validate_requirement)]
     if include_body:
         edges.extend(edge for edge in _body_occurrences(root, path, body, set())
                      if edge['type'] == 'operational_prerequisite')
