@@ -1326,10 +1326,14 @@ def _graph_payload(
             return None
         if ref in known_ids:
             return ref
+        if ref.endswith('.md'):
+            source_ref = str(source['path'])
+            text = (root / source_ref).read_bytes().decode('utf-8')
+            if not navigation.existing_reference_safe(source_ref, text, ref):
+                return None
         target = id_by_path.get(ref)
         if target is None and ref.endswith('.md'):
-            source_ref = str(source['path'])
-            canonical = navigation.resolve(source_ref, (root / source_ref).read_bytes().decode('utf-8'), ref)
+            canonical = navigation.resolve(source_ref, text, ref)
             target = id_by_path.get(canonical)
         return target
 

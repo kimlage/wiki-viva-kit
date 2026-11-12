@@ -808,7 +808,7 @@ def audit_action_state_transitions(errors: list[str]) -> None:
                     "[action_page_deleted]"
                 )
             continue
-        current_text = _audit_read_text(current_path, encoding="utf-8", errors="replace")
+        current_text = _audit_read_bytes(current_path).decode('utf-8', errors='replace')
         current_values, _body = canonical_parse_frontmatter(current_text)
         current_is_action = str(current_values.get("page_type") or "") == "action"
         previous_text = base_by_path.get(rel)
@@ -1906,19 +1906,28 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
     # Direct callers also need the selected layout, without reading the
     # worktree configuration as a module-import side effect.
     build_local_path_regexes(config)
-    from wiki_core.navigation import NavigationHistory
+    from wiki_core.navigation import NavigationHistory, document
     navigation = NavigationHistory(ROOT)
     files = link_audit_files(config)
     known_paths = set(files)
     for rel in files:
         instruction = is_context_instruction(rel, memory_prefix(config), known_paths)
         path = ROOT / rel
-        text = _audit_read_text(path, encoding="utf-8", errors="replace")
+        text = _audit_read_bytes(path).decode('utf-8', errors='replace')
+        try:
+            body = document(text)[1]
+        except ValueError:
+            body = text
+        body_start = len(text) - len(body)
+        line_offsets = [0]
+        for line in text.splitlines(keepends=True):
+            line_offsets.append(line_offsets[-1] + len(line))
         for lineno, line in body_lines_without_frontmatter(text):
             for match in MARKDOWN_LINK_RE.finditer(line):
                 href = match.group(1)
-                if (not navigation.existing_reference_safe(rel, text, href, href=True)
-                        or (not local_link_target_exists(rel, href) and not navigation.resolve(rel, text, href, href=True))):
+                offset = line_offsets[lineno - 1] + match.start() - body_start
+                if (not navigation.existing_reference_safe(rel, text, href, href=True, body_offset=offset)
+                        or (not local_link_target_exists(rel, href) and not navigation.resolve(rel, text, href, href=True, body_offset=offset))):
                     errors.append(f"{rel}:{lineno}: markdown link target does not exist: `{href}`")
 
             for match in INLINE_CODE_LOCAL_PATH_RE.finditer(line):

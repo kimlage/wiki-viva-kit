@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import posixpath
+import re
 from functools import cached_property
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -85,7 +86,9 @@ class NavigationHistory:
         self.revision = revision
         self.trees: dict[str, dict[str, tuple[str, str]]] = {}
         self.blobs: dict[str, str] = {}
-        self.identities: dict[str, dict[str, list[str]]] = {}
+        self.identities: dict[tuple, dict[str, list[str]]] = {}
+        self.page_ids: dict[str, str | None] = {}
+        self.origins: dict[str, list[str]] = {}
         self.last_proof: dict | None = None
         self.readset: dict[str, tuple[str, int, str]] = {}
 
@@ -99,6 +102,17 @@ class NavigationHistory:
     @cached_property
     def head(self):
         return self.git('rev-parse', '--verify', (self.revision or 'HEAD') + '^{commit}').decode().strip()
+
+    @cached_property
+    def object_format(self):
+        return self.git('rev-parse', '--show-object-format').decode().strip()
+
+    @cached_property
+    def parents(self):
+        # One bounded DAG read per invocation, reused by source and target
+        # lineages. Missing/truncated ancestry still fails closed.
+        rows = self.git('rev-list', '--parents', '--topo-order', '--max-count=4096', self.head).decode().splitlines()
+        return {parts[0]: parts[1:] for row in rows if (parts := row.split())}
 
     def tree(self, revision: str):
         if revision not in self.trees:
@@ -122,17 +136,21 @@ class NavigationHistory:
         return self.blobs[oid]
 
     def ids(self, revision: str):
-        if revision not in self.identities:
+        tree = self.tree(revision)
+        pages = tuple((path, entry) for path, entry in tree.items()
+                      if path.startswith(self.prefix) and path.endswith('.md'))
+        if pages not in self.identities:
             result = {}
-            for path in self.tree(revision):
-                if path.startswith(self.prefix) and path.endswith('.md'):
-                    text = self.text(revision, path)
-                    if text is not None:
-                        page_id = document(text)[0].get('page_id')
-                        if isinstance(page_id, str) and page_id:
-                            result.setdefault(page_id, []).append(path)
-            self.identities[revision] = result
-        return self.identities[revision]
+            for path, (mode, oid) in pages:
+                if mode not in {'100644', '100755'}:
+                    continue
+                if oid not in self.page_ids:
+                    page_id = document(self.text(revision, path))[0].get('page_id')
+                    self.page_ids[oid] = page_id if isinstance(page_id, str) and page_id else None
+                if self.page_ids[oid]:
+                    result.setdefault(self.page_ids[oid], []).append(path)
+            self.identities[pages] = result
+        return self.identities[pages]
 
     @cached_property
     def current_ids(self):
@@ -162,7 +180,8 @@ class NavigationHistory:
             index += 2
         return result
 
-    def existing_reference_safe(self, source: str, text: str, ref: str, *, href: bool = False) -> bool:
+    def existing_reference_safe(self, source: str, text: str, ref: str, *, href: bool = False,
+                                body_offset: int | None = None) -> bool:
         """A new occupant must not silently steal an unchanged historical link."""
         try:
             target = link_path(source, ref) if href else safe_path(ref)
@@ -176,7 +195,7 @@ class NavigationHistory:
                 return True
             if not (self.git_root / '.git').exists() or target not in self.former_paths:
                 return True
-            return self.resolve(source, text, ref, href=href, _occupied=True) == target
+            return self.resolve(source, text, ref, href=href, _occupied=True, body_offset=body_offset) == target
         except (ValueError, OSError, UnicodeError, yaml.YAMLError):
             return False
 
@@ -216,8 +235,9 @@ class NavigationHistory:
                 if path == old:
                     return True
                 continue
-            parents = self.git('rev-list', '--parents', '-n', '1', commit).decode().split()[1:]
-            for parent in parents:
+            if commit not in self.parents:
+                raise ValueError('navigation ancestry limit exceeded')
+            for parent in self.parents[commit]:
                 candidates = self.ids(parent).get(page_id, [])
                 if len(candidates) != 1:
                     continue
@@ -242,15 +262,68 @@ class NavigationHistory:
         except (ValueError, OSError, UnicodeError, yaml.YAMLError):
             return False
 
-    def resolve(self, source: str, text: str, ref: str, *, href: bool = False, _occupied: bool = False) -> str | None:
-        """Resolve only references with an exact, committed document preimage."""
+    def _record_origins(self, source: str, values: dict, body: str, ref: str, body_offset: int):
+        """An append preserves a dated record, never an alias for new entries.
+
+        The complete old body must remain an exact prefix, and the occurrence
+        must belong to a complete dated H2 record inside it. No substring or
+        similarity matching, changed association, or copied record qualifies.
+        """
+        for revision in self.parents:
+            locations = self.ids(revision).get(values['page_id'], [])
+            if len(locations) != 1:
+                continue
+            origin = locations[0]
+            old_text = self.text(revision, origin)
+            old, old_body = document(old_text)
+            if (old_body == body or not body.startswith(old_body)
+                    or not (old_body.endswith('\n') or body[len(old_body):].startswith('\n'))
+                    or not re.match(r'## \[\d{4}-\d{2}-\d{2}[^\r\n]*\]\s', body[len(old_body):].lstrip('\r\n'))
+                    or body_offset >= len(old_body)
+                    or {k: v for k, v in old.items() if k != 'updated_at'}
+                    != {k: v for k, v in values.items() if k != 'updated_at'}):
+                continue
+            records = [token for token in parse_role_markdown(old_body)[0]
+                       if token.type == 'heading_open' and token.tag == 'h2']
+            lines = old_body.splitlines(keepends=True)
+            starts = [sum(map(len, lines[:token.map[0]])) for token in records]
+            start = next((start for start in reversed(starts) if start <= body_offset), None)
+            if start is None or not re.match(r'## \[\d{4}-\d{2}-\d{2}[^\r\n]*\]\s', old_body[start:]):
+                continue
+            if not any(m.start() == body_offset and m[1] == ref for m in inline_links(old_body)):
+                continue
+            relevant = {revision}
+            for commit in reversed(self.parents):
+                if any(parent in relevant for parent in self.parents[commit]):
+                    relevant.add(commit)
+            preserved = self.head in relevant
+            for commit in relevant:
+                paths = self.ids(commit).get(values['page_id'], [])
+                if len(paths) != 1 or not document(self.text(commit, paths[0]))[1].startswith(old_body):
+                    preserved = False
+                    break
+            if not preserved:
+                # Yield the origin as incompatible, rather than letting a later
+                # blob-count event or reverted record renew its attribution.
+                yield revision, origin, old_text, {'invalid_record_lineage': True}
+                continue
+            yield revision, origin, old_text, dict(body_offset=body_offset,
+                record_start=start, record_end=next((s for s in starts if s > start), len(old_body)))
+
+    def resolve(self, source: str, text: str, ref: str, *, href: bool = False, _occupied: bool = False,
+                body_offset: int | None = None) -> str | None:
+        """Prove a committed document or an exact preserved dated occurrence."""
         try:
             self.last_proof = None
             safe_path(source)
             require_wiki_path(self.root, source)
             values, body = document(text)
+            if not source.startswith(self.prefix) or not isinstance(values.get('page_id'), str) or not values['page_id']:
+                return None
             if href:
-                if not any(m[1] == ref for m in inline_links(body)):
+                occurrences = [m for m in inline_links(body) if m[1] == ref
+                               and (body_offset is None or m.start() == body_offset)]
+                if not occurrences:
                     return None
             elif not (any(ref == item for field in _PATH_FIELDS
                          for item in (values.get(field, []) if isinstance(values.get(field), list)
@@ -264,14 +337,16 @@ class NavigationHistory:
                     or (require_wiki_path(self.root, target).exists() and not _occupied)):
                 return None  # a current path is never an alias
             # Compute the repository's native object ID without writing objects.
-            algorithm = self.git('rev-parse', '--show-object-format').decode().strip()
             raw = text.encode('utf-8')
-            oid = hashlib.new(algorithm, b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
-            revisions = [self.head, *self.git('log', '--format=%H', '--find-object=' + oid, self.head).decode().split()]
+            oid = hashlib.new(self.object_format, b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+            if oid not in self.origins:
+                self.origins[oid] = [self.head, *self.git('log', '--format=%H', '--find-object=' + oid, self.head).decode().split()]
+            revisions = self.origins[oid]
             if len(revisions) > 4096:
                 return None
             resolutions = {}
             invalid_lineage = False
+            origins_with_proof = []
             for revision in dict.fromkeys(revisions):
                 # A moved record may retain its bytes and original relative hrefs.
                 origins = [p for p, entry in self.tree(revision).items()
@@ -279,9 +354,19 @@ class NavigationHistory:
                 if len(origins) != 1:
                     continue
                 origin = origins[0]
-                source_id = document(text)[0].get('page_id')
-                if origin != source and (not source_id or
-                        not self.continuous(revision, origin, source_id, source)):
+                source_id = values.get('page_id')
+                if not self.continuous(revision, origin, source_id, source):
+                    invalid_lineage = True
+                    continue
+                origins_with_proof.append((revision, origin, text, {}))
+            # A changed whole-document blob is never claimed as an old preimage.
+            # Only an individually located, preserved record may use this path.
+            if href and len(occurrences) == 1 and re.search(r'(?m)^## \[\d{4}-\d{2}-\d{2}', body):
+                origins_with_proof.extend(self._record_origins(source, values, body, ref, occurrences[0].start()))
+            for revision, origin, origin_text, occurrence_proof in origins_with_proof:
+                if (occurrence_proof.get('invalid_record_lineage')
+                        or not self.continuous(revision, origin, values['page_id'], source)):
+                    invalid_lineage = True
                     continue
                 old = link_path(origin, ref) if href else safe_path(ref)
                 old_text = self.text(revision, old) if old else None
@@ -293,10 +378,13 @@ class NavigationHistory:
                 candidates = self.current_ids.get(page_id, [])
                 if len(candidates) == 1 and self.continuous(revision, old, page_id, candidates[0]):
                     resolutions[candidates[0]] = dict(source_revision=revision, source_path=origin,
-                        historical_target=old, target=candidates[0], page_id=page_id)
+                        historical_target=old, target=candidates[0], page_id=page_id,
+                        **({'occurrence': occurrence_proof} if occurrence_proof else {}))
                 else:
                     invalid_lineage = True
-            if len(resolutions) == 1 and not (_occupied and invalid_lineage):
+            # find-object reports global blob-count events, including unrelated
+            # copies. They cannot renew a source's earlier, broken target lineage.
+            if len(resolutions) == 1 and not invalid_lineage:
                 self.last_proof = next(iter(resolutions.values()))
                 return next(iter(resolutions))
             return None
@@ -309,8 +397,43 @@ _PATH_FIELDS = frozenset({'source_refs', 'source_ref', 'evidence_refs', 'related
     'consolidated_into', 'backlinks_expected', 'moc_parent', 'collection_refs'})
 
 
+def _hub_reframing(history: NavigationHistory, old: dict, new: dict, destination: str,
+                   revision: str) -> bool:
+    """A committed child hub is a distinct hierarchy node, never an alias.
+
+    This predicate is available only to the C3 ancestry audit. It conveys no
+    owner/route authority and cannot admit a general frontmatter edit.
+    """
+    def hub(ref):
+        ref = safe_path(ref)
+        paths = [ref] if ref in history.tree(revision) else history.ids(revision).get(ref, [])
+        if len(paths) != 1 or not paths[0].startswith(history.prefix):
+            raise ValueError('invalid hierarchy hub')
+        path = paths[0]
+        require_wiki_path(history.root, path)
+        values, _ = document(history.text(revision, path))
+        page_id = values.get('page_id')
+        if (values.get('page_type') != 'context_hub' or not page_id
+                or history.ids(revision).get(page_id) != [path]):
+            raise ValueError('invalid hierarchy hub')
+        return path, values
+    if old.get('page_type') != 'action' or new.get('page_type') != 'action':
+        return False
+    parent_path, parent = hub(old.get('moc_parent'))
+    child_path, child = hub(new.get('moc_parent'))
+    if parent['page_id'] == child['page_id'] or parent_path == child_path:
+        return False
+    if hub(child.get('moc_parent'))[0] != parent_path:
+        return False
+    authority = ('context', 'owner_kind', 'owner_ref', 'visibility', 'gate', 'sensitive_data_policy', 'sources_policy')
+    if any(parent.get(k) != child.get(k) for k in authority):
+        return False
+    return (old.get('context') == new.get('context') == child.get('context')
+            and destination.startswith(posixpath.dirname(child_path) + '/'))
+
+
 def structural_navigation(history: NavigationHistory, source: str, before: str, after: str,
-                          *, destination: str | None = None) -> bool:
+                          *, destination: str | None = None, hierarchy_revision: str | None = None) -> bool:
     """Every delta must retarget a proven reference to its canonical identity.
 
     No prose, labels, fragments, role digests, dates, ownership or historical
@@ -339,9 +462,14 @@ def structural_navigation(history: NavigationHistory, source: str, before: str, 
             if not isinstance(a, list) or not isinstance(b, list) or len(a) != len(b):
                 return False
             for x, y, node in zip(a, b, scalar_nodes):
-                if x != y and (not isinstance(x, str) or not isinstance(y, str)
-                              or history.resolve(source, before, x) != y):
-                    return False
+                if x != y:
+                    if not isinstance(x, str) or not isinstance(y, str):
+                        return False
+                    reframe = (field == 'moc_parent' and hierarchy_revision is not None
+                               and isinstance(old[field], str)
+                               and _hub_reframing(history, old, new, destination, hierarchy_revision))
+                    if not reframe and history.resolve(source, before, x) != y:
+                        return False
                 if x != y:
                     start, end = node.start_mark.index, node.end_mark.index
                     raw = old_match[1][start:end]

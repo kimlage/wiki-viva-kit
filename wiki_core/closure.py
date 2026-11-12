@@ -52,6 +52,8 @@ def _candidate_counts(values: dict[str, Any], text: str) -> dict[str, int]:
 
 
 def build_ingestion_closure_report(root: Path, config: WikiConfig) -> dict[str, Any]:
+    from wiki_core.navigation import NavigationHistory
+    navigation = NavigationHistory(root)
     paths = WikiPaths(root, config)
     events: list[dict[str, Any]] = []
     events_by_source_ref: dict[str, list[str]] = {}
@@ -67,9 +69,24 @@ def build_ingestion_closure_report(root: Path, config: WikiConfig) -> dict[str, 
             continue
         rel = paths.rel(path)
         text = _body(path)
-        consolidated = _list_values(values.get("consolidated_into"))
-        source_refs = _list_values(values.get("source_refs"))
-        source_refs.extend(_list_values(values.get("source_ref")))
+        original = path.read_bytes().decode('utf-8')
+        relocations = []
+        def project(refs, field):
+            result = []
+            for ref in refs:
+                if ref.endswith('.md'):
+                    if not navigation.existing_reference_safe(rel, original, ref):
+                        raise ValueError('ambiguous historical ingestion reference')
+                    canonical = navigation.resolve(rel, original, ref)
+                    if canonical:
+                        relocations.append(dict(field=field, literal_target=ref,
+                            **navigation.last_proof))
+                        ref = canonical
+                result.append(ref)
+            return result
+        consolidated = project(_list_values(values.get("consolidated_into")), 'consolidated_into')
+        source_refs = project(_list_values(values.get("source_refs")), 'source_refs')
+        source_refs.extend(project(_list_values(values.get("source_ref")), 'source_ref'))
         source_refs.extend(_list_values(values.get("source_id")))
         candidate_counts = _candidate_counts(values, text)
         candidate_total = sum(candidate_counts.values())
@@ -103,6 +120,7 @@ def build_ingestion_closure_report(root: Path, config: WikiConfig) -> dict[str, 
                 "candidate_units_per_target": round(
                     candidate_total / max(len(unique_consolidated), 1), 2
                 ),
+                **({'relocation_provenance': relocations} if relocations else {}),
             }
         )
 

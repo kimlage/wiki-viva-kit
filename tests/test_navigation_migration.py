@@ -22,6 +22,7 @@ from wiki_core.operational_pass import build_operational_pass_page
 from wiki_core.freshness_impact import repository_report
 from wiki_core.graph.page_graph import build_page_graph
 from wiki_core.semantic_inventory import build_semantic_inventory
+from wiki_core.web.snapshot import build_snapshot
 import datetime as dt
 
 
@@ -450,3 +451,265 @@ def test_navigation_writer_rechecks_the_selected_identity_before_writing(repo, m
     with pytest.raises(ActionTransitionError, match='stale_navigation_revision'):
         reconcile_action_navigation(repo, action, body.replace('../guide.md', '../navigation/guide.md'), expected_sha256=sha(action))
     assert action.read_text() == before
+
+
+def test_operational_role_keeps_canonical_freshness_dependency_after_promotion(repo):
+    page(repo, 'guide')
+    record = page(repo, 'record', stale=True,
+                  body=declare_link_role('[Required](guide.md)', 'operational_prerequisite') + '\n')
+    original = record.read_bytes()
+    commit(repo)
+    move(repo, 'memories/guide.md', 'memories/navigation/guide.md'); commit(repo)
+    graph = authored_graph(repo, load_config(repo))
+    assert graph['errors'] == []
+    edges = [e for e in graph['edges'] if e['type'] == 'operational_prerequisite']
+    assert len(edges) == 1
+    assert edges[0]['target'] == 'memories/navigation/guide.md'
+    assert edges[0]['historical_target'] == 'memories/guide.md'
+    assert edges[0]['role_declaration']['link_sha256'] in record.read_text()
+    git(repo, 'checkout', '-qb', 'future')
+    canonical = repo / 'memories/navigation/guide.md'
+    canonical.write_text(canonical.read_text() + '\nA later factual change.\n')
+    impact = repository_report(repo, load_config(repo), 'main', today=dt.date(2026, 10, 18))
+    assert not impact['ok']
+    assert any(r['path'] == 'memories/record.md' and r['reason'] == 'affected_dependent' for r in impact['blockers'])
+    assert record.read_bytes() == original
+
+
+def test_source_blob_copy_count_events_do_not_renew_deleted_target_identity(repo):
+    target = page(repo, 'guide')
+    record = page(repo, 'record', body='[Observed](guide.md)\n')
+    raw = target.read_bytes(); commit(repo)
+    move(repo, 'memories/guide.md', 'memories/navigation/guide.md'); commit(repo)
+    (repo / 'memories/navigation/guide.md').unlink(); commit(repo)
+    target.write_bytes(raw); commit(repo)
+    move(repo, 'memories/guide.md', 'memories/final/guide.md'); commit(repo)
+    assert NavigationHistory(repo).resolve('memories/record.md', record.read_text(), 'guide.md', href=True) is None
+    move(repo, 'memories/final/guide.md', 'memories/guide.md'); commit(repo)
+    copy = repo / 'memories/record-copy.md'
+    copy.write_bytes(record.read_bytes()); commit(repo)
+    copy.unlink(); commit(repo)
+    move(repo, 'memories/guide.md', 'memories/final/guide.md'); commit(repo)
+    assert NavigationHistory(repo).resolve('memories/record.md', record.read_text(), 'guide.md', href=True) is None
+
+
+def test_reoccupied_path_is_not_valid_in_graph_or_snapshot(repo):
+    old = page(repo, 'guide')
+    page(repo, 'record', body='[Observed](guide.md)\n', related_pages=['memories/guide.md'])
+    commit(repo)
+    move(repo, 'memories/guide.md', 'memories/navigation/guide.md'); commit(repo)
+    old.write_text('---\npage_id: replacement\n---\nDifferent occupant.\n'); commit(repo)
+    node = build_page_graph(repo, load_config(repo)).nodes['memories/record.md']
+    assert old.relative_to(repo).as_posix() not in node.outbound_links
+    snapshot = build_snapshot(repo, load_config(repo), generated_at='2026-11-12T12:00:00Z')
+    assert not any(e['source'] == 'record' and e['target'] == 'replacement'
+                   for e in snapshot['graph.json']['edges'])
+
+
+def test_history_cache_is_local_reuses_parents_and_retains_write_revalidation(repo, monkeypatch):
+    _, record, canonical = historical_fixture(repo)
+    for n in range(8):
+        (repo / 'unrelated.txt').write_text(str(n)); commit(repo)
+    history = NavigationHistory(repo)
+    calls = []
+    original = history.git
+    def counted(*args):
+        calls.append(args)
+        return original(*args)
+    monkeypatch.setattr(history, 'git', counted)
+    for _ in range(2):
+        assert history.resolve('memories/record.md', record.read_text(), 'guide.md#original', href=True) == 'memories/navigation/guide.md'
+    assert len([args for args in calls if args[0] == 'rev-list']) == 1
+    assert len(history.identities) == 2  # two distinct memory trees, not ten commits
+    canonical.write_text(canonical.read_text() + '\nConcurrent change.\n')
+    assert not history.confirm()
+
+
+@pytest.mark.parametrize('mutation', ['none', 'invented', 'fact', 'association', 'role', 'resurrection', 'occupied', 'no_id', 'outside', 'reverted_record', 'undated_addition'])
+def test_appended_log_resolves_only_an_exact_preserved_dated_occurrence(repo, mutation):
+    guide = page(repo, 'guide')
+    old_entry = '## [2026-07-10] Original observation\n\n' + declare_link_role('[Observed](guide.md)', 'review_record') + '\n'
+    log = page(repo, 'log', body='# Log\n\n' + old_entry)
+    original = log.read_bytes(); commit(repo)
+    move(repo, 'memories/guide.md', 'memories/navigation/guide.md'); commit(repo)
+    if mutation == 'resurrection':
+        target = repo / 'memories/navigation/guide.md'
+        raw = target.read_bytes(); target.unlink(); commit(repo)
+        target.write_bytes(raw); commit(repo)
+    elif mutation == 'occupied':
+        guide.write_text('---\npage_id: replacement\n---\nDifferent fact.\n'); commit(repo)
+    elif mutation == 'reverted_record':
+        log.write_text(log.read_text().replace('Original observation', 'Committed factual detour')); commit(repo)
+        log.write_bytes(original); commit(repo)
+    addition = '\n## [2026-07-11] Later observation\n\nA new entry.\n'
+    log.write_bytes(original + addition.encode())
+    if mutation == 'undated_addition':
+        log.write_bytes(original + b'\n## [Unbounded record]\n\nNew observation.\n')
+    if mutation == 'invented':
+        log.write_text(log.read_text() + '\n## [2026-07-12] Invented\n\n[New old alias](guide.md)\n')
+        ref = 'guide.md'
+        offset = _parse_document(log.read_text())[1].index('[New old alias]')
+    else:
+        ref = 'guide.md'
+        if mutation == 'fact': log.write_text(log.read_text().replace('Original observation', 'Changed assertion'))
+        elif mutation == 'association': log.write_text(log.read_text().replace('[2026-07-10]', '[2026-07-09]'))
+        elif mutation == 'role': log.write_text(log.read_text().replace('review_record', 'factual_support'))
+        elif mutation == 'no_id': log.write_text(log.read_text().replace('page_id: log\n', ''))
+        elif mutation == 'outside':
+            dest = repo / 'outside.md'; dest.write_bytes(log.read_bytes()); log = dest
+        offset = _parse_document(log.read_text())[1].index('[Observed]')
+    nav = NavigationHistory(repo)
+    result = nav.resolve(log.relative_to(repo).as_posix(), log.read_text(), ref, href=True, body_offset=offset)
+    if mutation == 'none':
+        assert result == 'memories/navigation/guide.md'
+        assert nav.last_proof['occurrence']['body_offset'] == offset
+        assert nav.text(nav.last_proof['source_revision'], 'memories/log.md') != log.read_text()
+        graph = authored_graph(repo, load_config(repo))
+        edge = next(e for e in graph['edges'] if e.get('authored_role') == 'review_record')
+        assert edge['target'] == result
+        assert old_entry.encode() in log.read_bytes()
+    else:
+        assert result is None
+
+
+@pytest.mark.parametrize('writer', ['reconcile', 'page_edit', 'integrate'])
+@pytest.mark.parametrize('logical_body', [False, True])
+def test_crlf_navigation_cas_and_terminal_frontmatter_use_exact_bytes(repo, writer, logical_body):
+    page(repo, 'guide')
+    action = _write_action(repo)
+    action.write_text(action.read_text() + '\n[Evidence](../guide.md)\n')
+    transition_action_page(repo, action, 'in_progress', recorded_at='2026-07-11T01:00:00Z')
+    transition_action_page(repo, action, 'done', completion_receipt='Synthetic done.', recorded_at='2026-07-11T02:00:00Z')
+    action.write_bytes(action.read_bytes().replace(b'\n', b'\r\n')); commit(repo)
+    move(repo, 'memories/guide.md', 'memories/navigation/guide.md'); commit(repo)
+    before = action.read_bytes()
+    _, body = _parse_document(before.decode())
+    edited = body.replace('../guide.md', '../navigation/guide.md')
+    submitted = edited.replace('\r\n', '\n') if logical_body else edited
+    def write(expected):
+        if writer == 'reconcile':
+            return reconcile_action_navigation(repo, action, submitted, expected_sha256=expected)
+        if writer == 'page_edit':
+            return transition_action_page(repo, action, 'done', page_edit={'body': submitted}, expected_sha256=expected)
+        return integrate_action_body(repo, action, submitted, expected_sha256=expected, contribution={})
+    with pytest.raises(ActionTransitionError, match='stale_action_revision'):
+        write(hashlib.sha256(action.read_text().encode()).hexdigest())
+    assert action.read_bytes() == before
+    result = write(sha(action))
+    assert (result.receipt_id if writer == 'page_edit' else result['receipt_id']) == ''
+    assert action.read_bytes().split(b'---', 2)[1] == before.split(b'---', 2)[1]
+    assert action.read_bytes().endswith(edited.encode())
+
+
+@pytest.mark.parametrize('mode', ['clean', 'detour', 'revert', 'cas', 'revision', 'both'])
+def test_bridge_checks_all_committed_versions_and_each_new_receipt_cas(repo, monkeypatch, mode):
+    page(repo, 'guide')
+    action = _write_action(repo)
+    action.write_text(action.read_text() + '\n[Evidence](../guide.md)\n')
+    base = commit(repo); previous = action.read_text()
+    git(repo, 'checkout', '-qb', 'proposal')
+    move(repo, 'memories/guide.md', 'memories/navigation/guide.md'); commit(repo)
+    _, body = _parse_document(previous)
+    reconcile_action_navigation(repo, action, body.replace('../guide.md', '../navigation/guide.md'), expected_sha256=sha(action))
+    structural = action.read_text(); commit(repo)
+    if mode in {'detour', 'revert'}:
+        action.write_text(structural.replace('attention_basis: Synthetic transition coverage.', 'attention_basis: Unreviewed fact.'))
+        commit(repo)
+        action.write_text(structural)
+        if mode == 'revert': commit(repo)
+    transition_action_page(repo, action, 'open', page_edit={'title': 'First reviewed title'},
+        expected_sha256=sha(action), recorded_at='2026-07-12T12:00:00Z')
+    commit(repo)  # the real second preimage exists on this proposal's ancestry
+    transition_action_page(repo, action, 'open', page_edit={'title': 'Second reviewed title'},
+        expected_sha256=sha(action), recorded_at='2026-07-12T12:01:00Z')
+    if mode in {'cas', 'revision', 'both'}:
+        fm, body = _parse_document(action.read_text())
+        entry = fm['action_state_history'][-1]
+        if mode in {'cas', 'both'}: entry['before_sha256'] = '0' * 64
+        if mode in {'revision', 'both'}: entry['before_revision'] = '0' * 64
+        entry['receipt_id'] = _receipt_id(entry)
+        action.write_text(_render_document(fm, body))
+    commit(repo)
+    errors = audit_action(repo, monkeypatch)
+    assert (errors == []) == (mode == 'clean'), errors
+    assert git(repo, 'rev-parse', 'main') == base
+
+
+def test_fresh_projection_uses_historical_event_origin_not_its_own_blob(repo, monkeypatch):
+    from wiki_core.closure import build_ingestion_closure_report
+    page(repo, 'source-synthetic')
+    page(repo, 'guide')
+    observed = commit(repo)
+    event = page(repo, 'system/ingestion/events/synthetic', source_id='synthetic',
+        source_refs=['memories/source-synthetic.md'], consolidated_into=['memories/guide.md'],
+        information_requirements=[dict(target='memories/guide.md', fields=['body'], temporal='historical',
+                                      max_age_days=30, consumed_revision=observed)],
+        body=declare_link_role('[Observed](../../../guide.md)', 'review_record') + '\n')
+    event.write_text(event.read_text().replace('page_type: project', 'page_type: ingestion_event'))
+    original = event.read_bytes(); event_commit = commit(repo)
+    move(repo, 'memories/guide.md', 'memories/navigation/guide.md'); commit(repo)
+    report = build_ingestion_closure_report(repo, load_config(repo))
+    row = report['events'][0]
+    assert row['consolidated_into'] == ['memories/navigation/guide.md']
+    proof = row['relocation_provenance'][0]
+    assert proof['source_revision'] == event_commit
+    assert proof['source_path'] == event.relative_to(repo).as_posix()
+    # A newly compiled snapshot has no historical whole-blob preimage; its
+    # edge is derived from the unchanged event, not a copied legacy URL.
+    snapshot = build_snapshot(repo, load_config(repo), generated_at='2026-11-12T12:00:00Z')
+    assert any(e['source'] == 'system/ingestion/events/synthetic' and e['target'] == 'guide'
+               and e['type'] == 'impact' for e in snapshot['graph.json']['edges'])
+    edge = next(e for e in authored_graph(repo, load_config(repo))['edges'] if e['field'] == 'information_requirements')
+    assert edge['requirement']['consumed_revision'] == observed
+    assert event.read_bytes() == original
+
+
+@pytest.mark.parametrize('mutation', ['none', 'owner', 'context', 'state', 'fact', 'date', 'history', 'non_hub', 'unrelated_hub', 'unsafe', 'body', 'cas', 'child_policy', 'detour', 'revert'])
+def test_committed_hierarchy_reframing_is_distinct_from_identity_relocation(repo, monkeypatch, mutation):
+    alpha = page(repo, 'alpha', context='example')
+    alpha.write_text(alpha.read_text().replace('page_type: project', 'page_type: context_hub'))
+    action = _write_action(repo, extra={'moc_parent': 'memories/alpha.md'})
+    before = action.read_text(); base = commit(repo)
+    git(repo, 'checkout', '-qb', 'hierarchy')
+    child = page(repo, 'nested/index', context='example', moc_parent='memories/alpha.md')
+    child.write_text(child.read_text().replace('page_id: nested/index', 'page_id: alpha-child').replace('page_type: project', 'page_type: context_hub'))
+    move(repo, action.relative_to(repo).as_posix(), 'memories/nested/action.md')
+    action = repo / 'memories/nested/action.md'
+    action.write_text(before.replace('moc_parent: memories/alpha.md', 'moc_parent: memories/nested/index.md'))
+    if mutation in {'owner', 'context', 'state', 'fact', 'date', 'history', 'body'}:
+        fm, body = _parse_document(action.read_text())
+        if mutation == 'owner': fm['owner_kind'] = 'human'; fm['owner_ref'] = 'other'
+        elif mutation == 'context': fm['context'] = 'other'
+        elif mutation == 'state': fm['action_state'] = 'in_progress'
+        elif mutation == 'fact': fm['attention_basis'] = 'Changed factual basis.'
+        elif mutation == 'date': fm['updated_at'] = '2026-07-12'
+        elif mutation == 'history': fm['action_state_history'] = [{'receipt_id': 'invented'}]
+        elif mutation == 'body': body += '\nA factual addition.\n'
+        action.write_text(_render_document(fm, body))
+    elif mutation == 'non_hub': child.write_text(child.read_text().replace('context_hub', 'project'))
+    elif mutation == 'unrelated_hub': child.write_text(child.read_text().replace('moc_parent: memories/alpha.md', 'moc_parent: memories/elsewhere.md'))
+    elif mutation == 'unsafe': action.write_text(action.read_text().replace('memories/nested/index.md', '../outside.md'))
+    elif mutation == 'child_policy': child.write_text(child.read_text().replace('page_type: context_hub', 'page_type: context_hub\nowner_kind: human\nowner_ref: another-owner'))
+    commit(repo)
+    if mutation in {'detour', 'revert'}:
+        structural = action.read_bytes()
+        action.write_text(action.read_text().replace('attention_basis: Synthetic transition coverage.', 'attention_basis: Committed detour.'))
+        commit(repo)
+        action.write_bytes(structural)
+        if mutation == 'revert': commit(repo)
+    if mutation == 'history':
+        from wiki_core.action_transition import validate_action_transition_diffs
+        assert validate_action_transition_diffs(repo, 'memories/nested/action.md',
+            'memories/actions/action-synthetic-review.md', before, action.read_text(), base)
+        return
+    transition_action_page(repo, action, _parse_document(action.read_text())[0]['action_state'],
+        page_edit={'title': 'Reviewed hierarchy action'}, expected_sha256=sha(action), recorded_at='2026-07-12T12:00:00Z')
+    if mutation == 'cas':
+        fm, body = _parse_document(action.read_text())
+        fm['action_state_history'][0]['before_sha256'] = '0' * 64
+        fm['action_state_history'][0]['receipt_id'] = _receipt_id(fm['action_state_history'][0])
+        action.write_text(_render_document(fm, body))
+    commit(repo)
+    errors = audit_action(repo, monkeypatch)
+    assert (errors == []) == (mutation == 'none'), errors
+    assert git(repo, 'rev-parse', 'main') == base

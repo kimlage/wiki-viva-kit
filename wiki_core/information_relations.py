@@ -193,8 +193,8 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
         file = root / page.path
         if file.is_symlink():
             errors.append(f"{page.path}: symlink memory cannot establish freshness evidence")
-        _values, body = parse_frontmatter(file)
         text = file.read_bytes().decode('utf-8')
+        _values, body = parse_frontmatter(text)
         def resolve(ref):
             targets = [ref] if ref in by_path else paths_by_id.get(ref, [])
             if not targets:
@@ -230,7 +230,7 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
         try:
             edges.extend(operational_consumption_edges(root, page.path, page.values, body,
                 lambda ref: [ref] if ref in by_path else paths_by_id.get(ref, []),
-                resolve_normative=normative_ref, resolve_historical=resolve))
+                resolve_normative=normative_ref, resolve_historical=resolve, include_body=False))
             edges.extend(projection_input_edges(page.path,page.values,node_values,default_context=config.default_context))
         except ValueError as exc:
             errors.append(f"{page.path}: {exc}")
@@ -243,18 +243,17 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
         for occurrence in _body_occurrences(root, page.path, body, navigation_targets):
             offset = occurrence.get('body_offset')
             match = MARKDOWN_LINK_RE.match(body, offset) if isinstance(offset, int) else None
-            if match and not navigation.existing_reference_safe(page.path, text, match[1], href=True):
+            if match and not navigation.existing_reference_safe(page.path, text, match[1], href=True, body_offset=offset):
                 errors.append(f'{page.path}: unsafe or ambiguous historical link identity')
             if occurrence['target'] not in by_path:
                 # Resolve against the untouched literal syntax, preserving the
                 # occurrence's authored role and original digest.
                 if match:
-                    canonical = navigation.resolve(page.path, text, match[1], href=True)
+                    canonical = navigation.resolve(page.path, text, match[1], href=True, body_offset=offset)
                     if canonical:
                         occurrence = {**occurrence, 'target': canonical, 'historical_target': occurrence['target'],
                                       'relocation_provenance': dict(navigation.last_proof)}
-            if occurrence["type"] != "operational_prerequisite":
-                edges.append(occurrence)
+            edges.append(occurrence)
     return {"documents": {p.path: (root / p.path).read_bytes().decode("utf-8") for p in pages},
             "nodes": {p.path: p.values for p in pages}, "edges": edges,
             "errors": sorted(set(errors))}
@@ -440,13 +439,14 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None, r
     return result
 
 
-def operational_consumption_edges(root: Path, path: str, values: dict, body: str, resolve, *, resolve_normative=None, resolve_historical=None) -> list[dict]:
+def operational_consumption_edges(root: Path, path: str, values: dict, body: str, resolve, *, resolve_normative=None, resolve_historical=None, include_body=True) -> list[dict]:
     """The same operational declarations feed readers, agents and admission."""
     edges = [dict(source=path, target=r['target'], type='operational_prerequisite',
                   direction='directed', basis='frontmatter', path=path,
                   field='information_requirements', requirement=r)
              for r in information_requirements(values, resolve, resolve_normative=resolve_normative,
                                                 resolve_historical=resolve_historical)]
-    edges.extend(edge for edge in _body_occurrences(root, path, body, set())
-                 if edge['type'] == 'operational_prerequisite')
+    if include_body:
+        edges.extend(edge for edge in _body_occurrences(root, path, body, set())
+                     if edge['type'] == 'operational_prerequisite')
     return edges

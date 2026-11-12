@@ -653,6 +653,7 @@ def _atomic_write(path: Path, text: str) -> bool:
         with tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",
+            newline="",
             dir=path.parent,
             prefix=f".{path.name}.",
             suffix=".tmp",
@@ -729,7 +730,7 @@ def _transition_action_page_locked(
         raise ActionTransitionError("invalid_target_state", next_state=target)
     path, page_ref = _contained_action_path(root, page)
     try:
-        before_text = path.read_text(encoding="utf-8")
+        before_text = path.read_bytes().decode('utf-8')
     except OSError as exc:
         raise ActionTransitionError("action_read_failed") from exc
     before_sha256 = _sha256_text(before_text)
@@ -1206,7 +1207,7 @@ def integrate_action_body(
         raise ActionTransitionError("action_writes_unsupported_on_windows")
     path, ref = _contained_action_path(root, page)
     with _TRANSITION_LOCK, _action_file_lock(root, ref):
-        before = path.read_text(encoding="utf-8")
+        before = path.read_bytes().decode('utf-8')
         if _sha256_text(before) != expected_sha256:
             raise ActionTransitionError("stale_action_revision")
         fm, old_body = _parse_document(before)
@@ -1279,6 +1280,14 @@ def _write_navigation_body(root: Path, path: Path, ref: str, before: str, body: 
     match = FRONTMATTER_RE.match(before)
     if not match or not isinstance(body, str) or old_body == body:
         raise ActionTransitionError('terminal_action_body_immutable')
+    # Text adapters may submit LF logical lines for a uniformly CRLF file.
+    # Restore its representation before the exact structural comparison; this
+    # cannot admit a prose/label/fragment delta or rewrite frontmatter bytes.
+    if ('\r\n' in old_body and '\n' not in old_body.replace('\r\n', '')
+            and '\r' not in body):
+        body = body.replace('\n', '\r\n')
+    if old_body == body:
+        raise ActionTransitionError('terminal_action_body_immutable')
     # Keep the original YAML bytes, including historical records and dates.
     after = before[:match.end()] + body
     navigation = NavigationHistory(root)
@@ -1288,7 +1297,7 @@ def _write_navigation_body(root: Path, path: Path, ref: str, before: str, body: 
     _assert_no_secrets(after)
     if not navigation.confirm():
         raise ActionTransitionError('stale_navigation_revision')
-    if path.read_text(encoding='utf-8') != before:
+    if path.read_bytes() != before.encode('utf-8'):
         raise ActionTransitionError('stale_action_revision')
     synced = _atomic_write(path, after)
     return {'kind': 'navigation_reconciliation', 'receipt_id': '',
@@ -1306,7 +1315,7 @@ def reconcile_action_navigation(root: Path, page: Path | str, body: str, *, expe
         raise ActionTransitionError('action_writes_unsupported_on_windows')
     path, ref = _contained_action_path(root, page)
     with _TRANSITION_LOCK, _action_file_lock(root, ref):
-        before = path.read_text(encoding='utf-8')
+        before = path.read_bytes().decode('utf-8')
         if (not isinstance(expected_sha256, str) or not _SHA256_RE.fullmatch(expected_sha256)
                 or _sha256_text(before) != expected_sha256):
             raise ActionTransitionError('stale_action_revision')
@@ -1877,6 +1886,87 @@ def action_transition_diagnostics(
     return ()
 
 
+def _bound_navigation_writer_delta(before: str, after: str) -> bool:
+    """Native validation plus exact body and non-writer-field bindings."""
+    from wiki_core.navigation import document
+    from wiki_core.information_relations import semantic_equal
+    if action_transition_diagnostics(before, after):
+        return False
+    old, body = document(before)
+    new, new_body = document(after)
+    additions = (new.get(_HISTORY_FIELD) or [])[len(old.get(_HISTORY_FIELD) or []):]
+    writer_fields = {*_SUPPORT_FIELDS, 'action_state', _HISTORY_FIELD, 'updated_at'}
+    if any(entry.get('page_edit') for entry in additions):
+        writer_fields.update({'title', 'owner_kind', 'owner_ref'})
+    if any(not semantic_equal(old.get(k), new.get(k)) or (k in old) != (k in new)
+           for k in (set(old) | set(new)) - writer_fields):
+        return False
+    exact_body = _sha256_text(body)
+    for entry in additions:
+        binding = (entry.get('page_edit') or {}).get('body_bytes')
+        material = entry.get('contribution') if entry.get('kind') in {'body_integration', 'body_consolidation'} else None
+        if binding:
+            if binding.get('before_sha256') != exact_body:
+                return False
+            exact_body = binding.get('after_sha256')
+        elif material:
+            if material.get('before_body_sha256') != exact_body:
+                return False
+            exact_body = material.get('after_body_sha256')
+    return exact_body == _sha256_text(new_body)
+
+
+def _navigation_receipt_chain(stage: str, current: str, observed: list[str]) -> bool:
+    """Prove every new CAS from exact known material, without changing receipts.
+
+    Prefer actual committed preimages. A native canonical prefix can also be
+    checked when its values/body are still present in the observed documents
+    (e.g. a title edit followed by a body edit before committing). Overwritten
+    unknown values are never invented or recovered from their one-way hashes.
+    """
+    from wiki_core.navigation import document
+    old, _ = document(stage)
+    new, _ = document(current)
+    prior = old.get(_HISTORY_FIELD) or []
+    history = new.get(_HISTORY_FIELD) or []
+    if not _bound_navigation_writer_delta(stage, current):
+        return False
+    documents = [stage, *observed, current]
+    by_hash = {(_sha256_text(text), _revision_sha256(text)): text for text in documents}
+    bodies = set(document(text)[1] for text in documents)
+    witnesses = []
+    for index in range(len(prior), len(history)):
+        entry = history[index]
+        key = (entry.get('before_sha256'), entry.get('before_revision'))
+        witness = by_hash.get(key)
+        if witness is None and index > len(prior):
+            # Check the existing writer's serialization; this is a local proof,
+            # not a fabricated Git ancestor, new receipt format or stored state.
+            prefix = dict(new)
+            prefix[_HISTORY_FIELD] = history[:index]
+            prefix['action_state'] = entry['from']
+            factual = [e for e in history[len(prior):index]
+                       if e.get('kind') not in {'comment', 'body_consolidation'}]
+            if factual:
+                prefix['updated_at'] = _receipt_calendar_date(factual[-1]).isoformat()
+            elif 'updated_at' in old:
+                prefix['updated_at'] = old['updated_at']
+            else:
+                prefix.pop('updated_at', None)
+            for body in bodies:
+                candidate = _render_document(prefix, body)
+                if (_sha256_text(candidate), _revision_sha256(candidate)) == key:
+                    witness = candidate
+                    break
+        if witness is None or (document(witness)[0].get(_HISTORY_FIELD) or []) != history[:index]:
+            return False
+        witnesses.append(witness)
+    if not witnesses or witnesses[0] != stage:
+        return False
+    return all(_bound_navigation_writer_delta(a, b)
+               for a, b in zip(witnesses, [*witnesses[1:], current]))
+
+
 def validate_action_transition_diffs(
     root: Path, page_ref: str, previous_ref: str, previous_text: str,
     current_text: str, base_ref: str | None,
@@ -1888,7 +1978,6 @@ def validate_action_transition_diffs(
     Their bytes, hashes, causal chain and ordinary validations stay intact.
     """
     from wiki_core.navigation import NavigationHistory, document, structural_navigation
-    from wiki_core.information_relations import semantic_equal
     ordinary = action_transition_diagnostics(previous_text, current_text)
     try:
         old, _ = document(previous_text)
@@ -1898,68 +1987,77 @@ def validate_action_transition_diffs(
         if not isinstance(prior, list) or not isinstance(history, list) or history[:len(prior)] != prior:
             return ordinary
         navigation = NavigationHistory(root)
-        if history == prior:
-            if structural_navigation(navigation, previous_ref, previous_text, current_text, destination=page_ref):
+        needs_bridge = (bool(ordinary) or previous_ref != page_ref
+                        or old.get('moc_parent') != new.get('moc_parent'))
+        if not needs_bridge:
+            return ordinary
+        refused = ordinary or (ActionTransitionDiagnostic('action_navigation_chain_mismatch',
+            'navigation requires a continuous structural stage and exact writer preimages'),)
+        if not base_ref:
+            if history == prior and structural_navigation(navigation, previous_ref, previous_text, current_text, destination=page_ref):
                 return action_transition_diagnostics(previous_text, previous_text)
-            return ordinary
-        if not ordinary or not base_ref:
-            return ordinary
-        first = history[len(prior)]
-        if not isinstance(first, dict):
-            return ordinary
+            return refused
         base = navigation.git('rev-parse', '--verify', base_ref + '^{commit}').decode().strip()
         if navigation.text(base, previous_ref) != previous_text:
-            return ordinary
+            return refused
         # Include proposal parents of a CI merge result, without substituting
         # its first parent, HEAD or a merge-base for the actual audited base.
         navigation.git('merge-base', '--is-ancestor', base, navigation.head)
         chain = navigation.git('rev-list', '--parents', '--reverse', '--topo-order',
                                '--ancestry-path', base + '..' + navigation.head).decode().splitlines()
         if len(chain) > 4096:
-            return ordinary
+            return refused
         page_id = old.get('page_id')
-        admitted = {base: (previous_text, previous_ref)}
+        versions = {base: (previous_text, previous_ref)}
         for row in chain:
-            revision, *parents = row.split()
+            revision = row.split()[0]
             locations = navigation.ids(revision).get(page_id, [])
             if len(locations) != 1:
-                continue
+                return refused
             ref = locations[0]
             text = navigation.text(revision, ref)
-            if not any(structural_navigation(navigation, admitted[parent][1], admitted[parent][0], text, destination=ref)
-                       for parent in parents if parent in admitted):
-                continue
-            admitted[revision] = (text, ref)
-            if (_sha256_text(text) != first.get('before_sha256')
-                    or _revision_sha256(text) != first.get('before_revision')):
-                continue
-            candidate, candidate_body = document(text)
-            # No unbound frontmatter may be hidden after the structural stage.
-            writer_fields = {*_SUPPORT_FIELDS, 'action_state', _HISTORY_FIELD, 'updated_at'}
-            if any(entry.get('page_edit') for entry in history[len(prior):]):
-                writer_fields.update({'title', 'owner_kind', 'owner_ref'})
-            if any(not semantic_equal(candidate.get(k), new.get(k)) or (k in candidate) != (k in new)
-                   for k in (set(candidate) | set(new)) - writer_fields):
-                return ordinary
-            exact_body = _sha256_text(candidate_body)
-            for entry in history[len(prior):]:
-                edit = entry.get('page_edit') or {}
-                binding = edit.get('body_bytes')
-                material = entry.get('contribution') if entry.get('kind') in {'body_integration', 'body_consolidation'} else None
-                if binding:
-                    if binding.get('before_sha256') != exact_body:
-                        return ordinary
-                    exact_body = binding.get('after_sha256')
-                elif material:
-                    if material.get('before_body_sha256') != exact_body:
-                        return ordinary
-                    exact_body = material.get('after_body_sha256')
-            if exact_body != _sha256_text(document(current_text)[1]):
-                return ordinary
-            return action_transition_diagnostics(text, current_text)
+            versions[revision] = (text, ref)
+        observed = [text for text, _ in versions.values()]
+        stages = {base: {base}}
+        def admit(text, ref, parents, revision):
+            authored = document(text)[0].get(_HISTORY_FIELD) or []
+            if (not isinstance(authored, list) or authored != history[:len(authored)]
+                    or len(authored) < len(prior)):
+                return None
+            if any(parent not in stages for parent in parents):
+                return None
+            if any(len(document(versions[parent][0])[0].get(_HISTORY_FIELD) or []) > len(authored)
+                   for parent in parents):
+                return None
+            ancestors = set().union(*(stages[parent] for parent in parents))
+            if authored == prior:
+                if any(structural_navigation(navigation, versions[parent][1], versions[parent][0], text,
+                        destination=ref, hierarchy_revision=revision) for parent in parents):
+                    return ancestors | ({revision} if revision in versions else set())
+            else:
+                first = authored[len(prior)]
+                for stage in ancestors:
+                    stage_text = versions[stage][0]
+                    if (_sha256_text(stage_text) == first.get('before_sha256')
+                            and _revision_sha256(stage_text) == first.get('before_revision')
+                            and _navigation_receipt_chain(stage_text, text, observed)):
+                        return {stage}
+            return None
+        for row in chain:
+            revision, *parents = row.split()
+            parents = [p for p in parents if p in versions]
+            admitted = admit(*versions[revision], parents, revision)
+            if admitted is None:
+                return refused
+            stages[revision] = admitted
+        if navigation.head not in stages:
+            return refused
+        if admit(current_text, page_ref, [navigation.head], navigation.head) is not None:
+            return action_transition_diagnostics(previous_text, previous_text)
+        return refused
     except (ValueError, OSError, UnicodeError, yaml.YAMLError, TypeError, AttributeError):
-        return ordinary
-    return ordinary
+        return ordinary or (ActionTransitionDiagnostic('action_navigation_chain_mismatch',
+            'navigation ancestry or exact writer preimage is unavailable'),)
 
 
 __all__ = [
