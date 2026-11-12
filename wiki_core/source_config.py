@@ -135,6 +135,8 @@ def merge_perspectives(
     channel_required = channel_required or []
     channel_optional = channel_optional or []
     skipped = set(source_config.get("perspectives_skip_with_reason") or []) if source_config else set()
+    from wiki_core.quadrants import DEFAULT_QUADRANT_MAP
+    protected = {item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids} & set(root_required)
     merged_required = _dedupe(
         [
             item
@@ -144,7 +146,7 @@ def merge_perspectives(
                 + list(source_config.get("perspectives_required") or [] if source_config else [])
                 + list(required)
             )
-            if item not in skipped
+            if item not in skipped or item in protected
         ]
     )
     merged_optional = _dedupe(

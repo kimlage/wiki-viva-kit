@@ -65,6 +65,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_performance.py](../../../scripts/wiki_performance.py) | Plan, run and verify fail-closed performance evidence |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarize a PR |
 | [wiki_quadrant_contract.py](../../../scripts/wiki_quadrant_contract.py) | Print the AQAL quadrant contract |
+| [wiki_integral_map.py](../../../scripts/wiki_integral_map.py) | Generate or check one anchor integral map |
 | [wiki_quadrant_projection_report.py](../../../scripts/wiki_quadrant_projection_report.py) | Review quadrant projections |
 | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Report quality/cost telemetry |
 | [wiki_read.py](../../../scripts/wiki_read.py) | Read explicitly scoped Git content by revision, stable section or frontmatter field |
