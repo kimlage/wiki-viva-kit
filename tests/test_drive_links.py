@@ -167,7 +167,7 @@ def _install_fake_google(monkeypatch, drive):
     calls = {"build": [], "media": []}
     pkg = types.ModuleType("googleapiclient")
     http = types.ModuleType("googleapiclient.http")
-    http.MediaFileUpload = lambda *a, **k: calls["media"].append((a, k)) or object()
+    http.MediaIoBaseUpload = lambda *a, **k: calls["media"].append((a, k)) or object()
     common = types.ModuleType("common")
     clients = types.ModuleType("common.google_clients")
     clients.DRIVE_SCOPE_FULL = "synthetic-scope"
@@ -240,6 +240,7 @@ def test_publish_creates_or_updates_exact_manifest_target(tmp_path, monkeypatch,
         assert effect["body"] == {"name": artifact.name, "parents": ["synthetic-folder"]}
     assert calls["build"] == [(("drive", "v3"), {"required_scopes": ["synthetic-scope"]})]
     assert calls["media"][0][1] == {"mimetype": "text/csv", "chunksize": 8 * 1024 * 1024, "resumable": True}
+    assert calls["media"][0][0][0].getvalue() == artifact.read_bytes()
 
 
 @pytest.mark.parametrize("problem", ["name", "parents", "trashed", "missing-trashed", "id", "404", "update-error", "collision", "page"])
@@ -334,6 +335,70 @@ def test_matching_local_sha_skips_upload_without_claiming_remote_verification(tm
     monkeypatch.setattr(pub, "save_manifest", lambda *a, **k: pytest.fail("manifest write"))
     assert "remote unverified" in pub.publish([artifact], "synthetic-folder")["results"][0]
     assert pub.MANIFEST_PATH.read_bytes() == before
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_secret_in_later_artifact_rejects_whole_batch_before_provider(tmp_path, monkeypatch, dry_run):
+    pub, artifact = _publisher(tmp_path, monkeypatch)
+    secret = tmp_path / "later.txt"
+    secret.write_text("-----BEGIN " + "PRIVATE KEY-----\nsynthetic-only\n")
+    before = pub.MANIFEST_PATH.read_bytes()
+    _block_provider_imports(monkeypatch)
+    with pytest.raises(RuntimeError, match="contains an access secret") as error:
+        pub.publish([artifact, secret], "synthetic-folder", dry_run=dry_run)
+    assert "synthetic-only" not in str(error.value)
+    assert pub.MANIFEST_PATH.read_bytes() == before
+
+
+@pytest.mark.parametrize("failure", ["secret", "warning", "exception", "binary"])
+def test_unvalidated_or_extracted_secret_content_never_reaches_provider(tmp_path, monkeypatch, failure):
+    pub, _ = _publisher(tmp_path, monkeypatch)
+    artifact = tmp_path / ("artifact.bin" if failure == "binary" else "artifact.pdf")
+    artifact.write_bytes(b"\x00synthetic binary")
+    def extracted(*args):
+        if failure == "exception":
+            raise ValueError("source content must not leak")
+        return types.SimpleNamespace(
+            text="-----BEGIN " + "PRIVATE KEY-----" if failure == "secret" else "synthetic text",
+            warnings=["extraction incomplete"] if failure == "warning" else [],
+        )
+    monkeypatch.setattr(pub, "extract_captured", extracted)
+    _block_provider_imports(monkeypatch)
+    before = pub.MANIFEST_PATH.read_bytes()
+    with pytest.raises(RuntimeError) as error:
+        pub.publish([artifact], "synthetic-folder")
+    assert "source content must not leak" not in str(error.value)
+    assert pub.MANIFEST_PATH.read_bytes() == before
+
+
+def test_upload_uses_checked_bytes_when_original_changes_before_provider(tmp_path, monkeypatch):
+    pub, artifact = _publisher(tmp_path, monkeypatch)
+    original = artifact.read_bytes()
+    validate = pub.validate_artifact
+    def replace_after_validation(path):
+        captured = validate(path)
+        path.write_text("different synthetic content")
+        return captured
+    monkeypatch.setattr(pub, "validate_artifact", replace_after_validation)
+    drive = _FakeDrive(list=lambda **k: {"files": []}, create=lambda **k: {"id": "synthetic-id"})
+    calls = _install_fake_google(monkeypatch, drive)
+    pub.publish([artifact], "synthetic-folder")
+    assert calls["media"][0][0][0].getvalue() == original
+    saved = json.loads(pub.MANIFEST_PATH.read_text())["files"][artifact.name]
+    assert saved["sha256"] == pub.hashlib.sha256(original).hexdigest()
+
+
+def test_structured_validation_receives_captured_bytes_without_reopening(tmp_path, monkeypatch):
+    pub, _ = _publisher(tmp_path, monkeypatch)
+    artifact = tmp_path / "artifact.pdf"
+    artifact.write_bytes(b"synthetic captured PDF bytes")
+    original = artifact.read_bytes()
+    def extract(source, kind, content):
+        assert (source, kind, content) == (str(artifact), "pdf", original)
+        artifact.write_bytes(b"different contents after capture")
+        return types.SimpleNamespace(text="synthetic extracted text", warnings=[])
+    monkeypatch.setattr(pub, "extract_captured", extract)
+    assert pub.validate_artifact(artifact) == original
 
 
 @pytest.mark.parametrize("dry_run", [False, True])

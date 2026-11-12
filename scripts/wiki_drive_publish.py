@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import io
 import json
 import mimetypes
 import os
@@ -28,6 +29,12 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from wiki_core.detectors import scan_text  # noqa: E402
+from wiki_core.extractors.text import extract_captured  # noqa: E402
+
 MANIFEST_PATH = ROOT / "data" / "drive_artifacts_manifest.json"
 ENV_PATH = ROOT / ".env"
 
@@ -52,6 +59,31 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def validate_artifact(path: Path) -> bytes:
+    """Capture and check the selected bytes; never echo a detected secret."""
+    raw = path.read_bytes()
+    if any(f.category == "secret" for f in scan_text(raw.decode("utf-8", errors="replace"))):
+        raise RuntimeError("Artifact contains an access secret; publication refused")
+    try:
+        formats = {".pdf": "pdf", ".docx": "document", ".xlsx": "spreadsheet", ".eml": "email"}
+        if path.suffix.lower() in formats:
+            extracted = extract_captured(str(path), formats[path.suffix.lower()], raw)
+            if extracted.warnings or (raw and not extracted.text.strip()):
+                raise ValueError("incomplete extraction")
+            text = extracted.text
+        else:
+            text = raw.decode("utf-8-sig")
+            if "\x00" in text:
+                raise ValueError("unsupported binary content")
+    except Exception:
+        # Parser diagnostics may contain source content. Report only the missing
+        # validation, before importing a provider or changing a manifest.
+        raise RuntimeError("Artifact content validation unavailable; publication refused") from None
+    if any(f.category == "secret" for f in scan_text(text)):
+        raise RuntimeError("Artifact contains an access secret; publication refused")
+    return raw
 
 
 def execute_drive_upload(request, *, label: str) -> dict[str, str]:
@@ -114,19 +146,23 @@ def publish(paths: list[Path], folder_id: str, *, dry_run: bool = False) -> dict
             raise ValueError(f"Duplicate artifact name in this batch: {path.name}")
         names.add(path.name)
 
+    # Validate the complete selected batch before any provider import, including
+    # local dry-run and files whose manifest hashes already match.
+    captured = {path: validate_artifact(path) for path in paths if path.is_file()}
     drive = None
     results: list[str] = []
     for path in paths:
-        if not path.is_file():
+        if path not in captured:
             print(f"WARNING: {path} does not exist; skipping", file=sys.stderr)
             continue
-        digest = sha256_file(path)
+        content = captured[path]
+        digest = hashlib.sha256(content).hexdigest()
         entry = files.get(path.name, {})
         if entry.get("sha256") == digest and entry.get("drive_file_id"):
             results.append(f"{path.name}: local manifest has matching sha (remote unverified); skipped")
             continue
         if dry_run:
-            results.append(f"{path.name}: would upload ({path.stat().st_size} bytes; remote unverified)")
+            results.append(f"{path.name}: would upload ({len(content)} bytes; remote unverified)")
             continue
         if drive is None:
             # The helper and Google libraries are local dependencies. Resolve
@@ -135,7 +171,7 @@ def publish(paths: list[Path], folder_id: str, *, dry_run: bool = False) -> dict
                 Path.home() / ".codex" / "skills" / "google-workspace-files" / "scripts"
             )
             sys.path.insert(0, helper)
-            from googleapiclient.http import MediaFileUpload  # noqa: PLC0415
+            from googleapiclient.http import MediaIoBaseUpload  # noqa: PLC0415
             from common.google_clients import DRIVE_SCOPE_FULL, build_service  # noqa: PLC0415
 
             drive = build_service("drive", "v3", required_scopes=[DRIVE_SCOPE_FULL])
@@ -158,8 +194,8 @@ def publish(paths: list[Path], folder_id: str, *, dry_run: bool = False) -> dict
             if matches.get("files") or matches.get("nextPageToken"):
                 raise RuntimeError(f"{path.name}: remote name is not reconciled with the manifest")
 
-        media = MediaFileUpload(
-            str(path), mimetype=mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+        media = MediaIoBaseUpload(
+            io.BytesIO(content), mimetype=mimetypes.guess_type(path.name)[0] or "application/octet-stream",
             chunksize=8 * 1024 * 1024, resumable=True,
         )
         if existing_id:
