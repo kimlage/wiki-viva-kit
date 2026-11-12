@@ -293,7 +293,7 @@ def resolve_explicit_ingestion_context(packet, selection, config):
             root_config = replace(config, root_entity={'page': root_page['path'],
                 'entity_type': str(root_page['values'].get('root_entity_type') or root_page['page_type']),
                 'perspective_bundle': {'required': [], 'optional': []}, 'input_stage_page': ''})
-        root = _root_payload(root_page, root_config)
+        root = _root_payload(root_page, root_config, include_aqal=False)
     perspectives = _resolved_perspectives(root, channel, source_config)
     gaps = []
     if selected['omit_root_entity']:

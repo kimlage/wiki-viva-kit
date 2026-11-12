@@ -196,6 +196,11 @@ target_pages:
 # Team handbook config
 """,
     )
+    for perspective in ("perspective-identity-intent", "perspective-artifacts-evidence"):
+        _write(tmp_path / f"memories/perspectives/{perspective}.md",
+               f"---\npage_id: {perspective}\npage_type: perspective\n---\n# Lens\n")
+    _write(tmp_path / "memories/perspectives/privacy.md",
+           "---\npage_id: perspective-privacy-publication\npage_type: perspective\n---\n# Privacy\n")
     return cfg
 
 
@@ -225,8 +230,8 @@ def test_compile_input_stage_inherits_root_channel_and_source_config(tmp_path: P
     assert source["resolved_perspectives"]["required"] == [
         "perspective-identity-intent",
         "perspective-artifacts-evidence",
-        "perspective-systems-processes",
         "perspective-roles-relationships",
+        "perspective-systems-processes",
     ]
     assert source["resolved_perspectives"]["optional"] == [
         "perspective-privacy-publication",
@@ -462,6 +467,9 @@ def test_render_input_stage_markdown_uses_localized_layout_and_language(tmp_path
         paths={**cfg.paths, "memory_root": "memorias"},
         root_entity={**cfg.root_entity, "input_stage_page": "memorias/sistema/estagio-entrada.md"},
     )
+    for perspective in ("perspective-identity-intent", "perspective-privacy-publication"):
+        _write(tmp_path / f"memorias/perspectives/{perspective}.md",
+               f"---\npage_id: {perspective}\npage_type: perspective\n---\n# Lens\n")
     catalog = compile_input_stage(tmp_path, cfg, generated_at="2026-06-25")
 
     md = render_input_stage_markdown(catalog, cfg)
@@ -981,3 +989,57 @@ def test_flat_root_entity_exception_requires_explicit_configuration(tmp_path):
     # satisfy the configured domain's separate hub requirement by its filename.
     assert catalog['sources'][0]['target_pages']==['memories/example/index.md']
     assert any('context example: context hub unavailable' in w for w in catalog['warnings'])
+
+
+def test_anchor_bundles_follow_destination_chain_and_reject_unknown_ids(tmp_path: Path) -> None:
+    cfg = _fixture_repo(tmp_path)
+    _write(tmp_path / 'memories/perspectives/finance.md',
+           '---\npage_id: perspective-finance\npage_type: perspective\n---\n# Finance\n')
+    _write(tmp_path / 'memories/perspectives/operations.md',
+           '---\npage_id: perspective-operations\npage_type: perspective\n---\n# Operations\n')
+    _write(tmp_path / 'memories/other/index.md',
+           '---\npage_id: other\npage_type: context_hub\n'
+           'moc_parent: memories/example/index.md\n'
+           'perspective_bundle_required: [perspective-operations]\n---\n# Other\n')
+    _write(tmp_path / 'memories/company/index.md',
+           '---\npage_id: company\npage_type: context_hub\ncontext: example\n'
+           'moc_parent: memories/example/index.md\n'
+           'perspective_bundle_optional: [perspective-finance]\n---\n# Company\n')
+    _write(tmp_path / 'memories/company/project.md',
+           '---\npage_id: project\npage_type: project\n'
+           'moc_parent: company\n'
+           'perspective_bundle_required: [perspective-finance]\n---\n# Project\n')
+    _write(tmp_path / 'memories/company/output.md',
+           '---\npage_id: output\npage_type: claim\nmoc_parent: project\n---\n# Output\n')
+    config = tmp_path / 'memories/sources/config/team-handbook.md'
+    config.write_text(config.read_text().replace('  - memories/example/index.md\n---',
+                                                 '  - memories/company/output.md\n---'))
+    source = compile_input_stage(tmp_path, cfg)['sources'][0]
+    required = source['resolved_perspectives']['required']
+    assert {'perspective-identity-intent', 'perspective-artifacts-evidence',
+            'perspective-roles-relationships', 'perspective-systems-processes',
+            'perspective-finance'} <= set(required)
+    assert 'perspective-finance' not in source['resolved_perspectives']['optional']
+    assert 'perspective-operations' not in required
+    assert 'perspective-finance' in input_context_for_source(tmp_path, cfg, 'source-team-handbook')['perspectives_required']
+    project = tmp_path / 'memories/company/project.md'
+    project.write_text(project.read_text().replace('perspective-finance', 'perspective-missing'))
+    with pytest.raises(ValueError, match='unknown perspective id.*perspective-missing'):
+        compile_input_stage(tmp_path, cfg)
+
+
+def test_root_aqal_perspectives_cannot_be_skipped(tmp_path: Path) -> None:
+    from wiki_core.source_config import merge_perspectives
+
+    cfg = _fixture_repo(tmp_path)
+    config = tmp_path / 'memories/sources/config/team-handbook.md'
+    config.write_text(config.read_text().replace(
+        'perspectives_optional:\n',
+        'perspectives_skip_with_reason: [perspective-identity-intent]\nperspectives_optional:\n'))
+    source = compile_input_stage(tmp_path, cfg)['sources'][0]
+    resolved = source['resolved_perspectives']
+    assert 'perspective-identity-intent' in resolved['required']
+    assert 'perspective-identity-intent' not in resolved['skipped']
+    required, _ = merge_perspectives(source['source_config'], required=[], optional=[],
+                                     root_required=resolved['required'])
+    assert 'perspective-identity-intent' in required

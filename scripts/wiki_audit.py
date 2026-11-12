@@ -2895,9 +2895,10 @@ def audit_source_config_perspectives(errors: list[str], config: WikiConfig) -> N
         "source_config": ("perspectives_required", "perspectives_optional"),
     }
     for _page_id, (rel, values) in sorted(catalog.items()):
-        fields = fields_by_type.get(str(values.get("page_type") or ""))
-        if not fields:
-            continue
+        fields = list(fields_by_type.get(str(values.get("page_type") or ""), ()))
+        for field in ("perspective_bundle_required", "perspective_bundle_optional"):
+            if field in values and field not in fields:
+                fields.append(field)
         for field in fields:
             for perspective_id in list_values(values, field):
                 if perspective_id not in perspective_ids:

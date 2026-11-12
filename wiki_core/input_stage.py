@@ -178,10 +178,11 @@ def _bundle_from_config(config: WikiConfig) -> tuple[list[str], list[str]]:
     return list_values(bundle.get("required")), list_values(bundle.get("optional"))
 
 
-def _root_payload(page: dict[str, Any], config: WikiConfig) -> dict[str, Any]:
+def _root_payload(page: dict[str, Any], config: WikiConfig, *, include_aqal: bool = True) -> dict[str, Any]:
     values = dict(page["values"])
     cfg_required, cfg_optional = _bundle_from_config(config)
-    required = _dedupe(cfg_required + list_values(values.get("perspective_bundle_required")))
+    required = _dedupe(cfg_required + list_values(values.get("perspective_bundle_required"))
+                       + ([item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids] if include_aqal else []))
     optional = _dedupe(
         [
             item
@@ -297,6 +298,8 @@ def _resolved_perspectives(
     config_required = list((source_config or {}).get("perspectives_required") or [])
     config_optional = list((source_config or {}).get("perspectives_optional") or [])
     skipped = set((source_config or {}).get("perspectives_skip_with_reason") or [])
+    aqal = {item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids}
+    skipped -= aqal & set(root_required)
     required = _dedupe(
         [item for item in root_required + channel_required + config_required if item not in skipped]
     )
@@ -309,6 +312,45 @@ def _resolved_perspectives(
         ]
     )
     return {"required": required, "optional": optional, "skipped": sorted(skipped)}
+
+
+def _target_bundle(root_entity, targets, pages, anchor_types):
+    """Merge anchor additions along each declared destination's parent chain."""
+    root_bundle = (root_entity or {}).get("perspective_bundle") or {}
+    required = list(root_bundle.get("required") or [])
+    optional = list(root_bundle.get("optional") or [])
+    by_key = {key: page for page in pages for key in _page_keys(page)}
+    known = {page["page_id"] for page in pages if page["page_type"] == "perspective"}
+    for page in pages:
+        values = page["values"]
+        for field in ("perspective_bundle_required", "perspective_bundle_optional"):
+            raw = values.get(field)
+            if raw is not None and (not isinstance(raw, list) or any(not isinstance(item, str) or not item.strip() for item in raw)):
+                raise ValueError(f"{page['path']}: {field} must be a list of perspective IDs")
+        declared = list_values(values.get("perspective_bundle_required")) + list_values(values.get("perspective_bundle_optional"))
+        if not declared:
+            continue
+        if page["page_type"] not in anchor_types:
+            raise ValueError(f"{page['path']}: perspective bundle requires a block anchor")
+        unknown = sorted(set(declared) - known)
+        if unknown:
+            raise ValueError(f"{page['path']}: unknown perspective id(s): {', '.join(unknown)}")
+    for target in targets:
+        current = by_key.get(target)
+        chain = []
+        seen = set()
+        while current and current["path"] not in seen:
+            seen.add(current["path"])
+            chain.append(current)
+            current = by_key.get(str(current["values"].get("moc_parent") or ""))
+        for page in reversed(chain):
+            if page["page_type"] not in anchor_types or page["path"] == (root_entity or {}).get("path"):
+                continue
+            required.extend(list_values(page["values"].get("perspective_bundle_required")))
+            optional.extend(list_values(page["values"].get("perspective_bundle_optional")))
+    required = _dedupe(required)
+    return {"perspective_bundle": {"required": required,
+            "optional": _dedupe([item for item in optional if item not in required])}}
 
 
 def _source_input_status(source_page: dict[str, Any], source_config: dict[str, Any] | None) -> str:
@@ -373,6 +415,35 @@ def compile_input_stage(
                     resolved_hubs[context] = page["path"]
         if resolved_hubs[context] is None and (registered or invalid):
             warnings.append(f"context {context}: context hub unavailable; root/channel/config targets do not substitute for it")
+    # Use the same guarded reader as the rest of the input-stage compiler.
+    pages = [_read_page(root, path, reads) for path in _md_pages(paths, reads)]
+    has_local_bundles = any(p["page_type"] != "root_entity" and
+        (p["values"].get("perspective_bundle_required") or p["values"].get("perspective_bundle_optional")) for p in pages)
+    anchor_types = {"root_entity", "context_hub", "project", "holon", "source", "template_block", "ontology_index", "source_registry"}
+    if has_local_bundles:
+        if reads is not None:
+            # Registry bytes must be in the admitted selection, never bypass the reader.
+            from wiki_core.templates_registry import TemplateRegistry, _merge_named_section
+            data = {}
+            for name in ("wiki.templates.yaml", "wiki.templates.local.yaml"):
+                path = root / name
+                if reads.exists(path):
+                    part = yaml.safe_load(reads.read_text(path)) or {}
+                    for section in ("bases", "types"):
+                        data[section] = _merge_named_section(data.get(section), part.get(section))
+            registry = TemplateRegistry(None, "", data.get("types", {}), data.get("bases", {}))
+        else:
+            from wiki_core.templates_registry import load_template_registry
+            registry = load_template_registry(root, config)
+        if registry.raw_types:
+            anchor_types = {name for name in registry.raw_types if registry.resolve(name).can_anchor_blocks}
+    # Validate configured root declarations as well as every page declaration.
+    known_perspectives = {p["page_id"] for p in pages if p["page_type"] == "perspective"}
+    cfg_required, cfg_optional = _bundle_from_config(config)
+    unknown = sorted(set(cfg_required + cfg_optional) - known_perspectives)
+    if unknown:
+        raise ValueError(f"root entity: unknown perspective id(s): {', '.join(unknown)}")
+    _target_bundle(root_entity, [], pages, anchor_types)  # validate even without sources
     source_rows: list[dict[str, Any]] = []
 
     for source_page in source_pages:
@@ -413,7 +484,8 @@ def compile_input_stage(
                 "source_config": source_config,
                 "input_channel": channel,
                 "quadrants": quadrants,
-                "resolved_perspectives": _resolved_perspectives(root_entity, channel, source_config),
+                "resolved_perspectives": _resolved_perspectives(
+                    _target_bundle(root_entity, target_pages, pages, anchor_types), channel, source_config),
                 "target_pages": target_pages,
                 "privacy_boundary": str(values.get("visibility") or config.default_visibility),
                 "refresh_policy": str(values.get("refresh_policy") or ""),

@@ -106,6 +106,8 @@ page_types:
       updated_at: date
       stale_after_days: string
       collection: object
+      perspective_bundle_required: list
+      perspective_bundle_optional: list
   dashboard:
     template: docs/references/templates/wiki/operation.md
     allowed_dirs:
@@ -238,7 +240,10 @@ page_types:
     allowed_dirs:
       - memories/projects
     required_frontmatter: *relation_required
-    field_types: *relation_field_types
+    field_types:
+      <<: *relation_field_types
+      perspective_bundle_required: list
+      perspective_bundle_optional: list
   process:
     template: docs/references/templates/wiki/process.md
     allowed_dirs:
