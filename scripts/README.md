@@ -13,12 +13,24 @@ Choose the existing entry point by the intended task. The labels below are
 not new commands or services. Read the checkout instructions and configured
 memory index first; retain any stronger consumer context requirement.
 
-**Drive artifact publication is suspended.** `wiki_drive_publish.py` refuses
-all publication and manifest writes before authentication or network access;
-its `--dry-run` only inspects local files and cannot verify remote state. This
-also affects consumers after C1 sync. Existing Drive objects and manifests are
-not migrated or reconciled by the sync. The concurrency and interrupted-effect
-work remains open in [issue #234](https://github.com/kimlage/wiki-viva-kit/issues/234).
+**Drive artifacts:** [wiki_drive_publish.py](wiki_drive_publish.py) uploads the
+authorized files to the configured destination and saves their manifest links.
+Account access and configuration do not grant authorization for a file, action
+or destination; retain privacy and secret checks for that scope. `--dry-run`
+reads only local files and the manifest, without authentication, network or
+writes, and cannot verify remote state. Uploads use the existing local Google
+Workspace helper; see [.env.example](../.env.example) for configuration.
+
+Updates use the manifest's exact ID after checking its name, folder and trash
+state. An unmapped name collision, missing ID or destination mismatch requires
+reconciliation; the publisher does not overwrite the first name match or create
+a replacement after an update error. Successful uploads are saved individually
+with complete local manifest replacement. Coordinate writers for the same
+objects and manifest, and reconcile an uncertain effect before repeating it.
+These checks do not provide remote CAS, name uniqueness, cross-host coordination
+or durable upload intent. Those limits remain open in
+[issue #234](https://github.com/kimlage/wiki-viva-kit/issues/234). C1 sync restores
+this route without migrating existing objects or reconciling their manifests.
 
 | Task | Existing entry | Scope and next step |
 | --- | --- | --- |

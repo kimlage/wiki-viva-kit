@@ -4,7 +4,8 @@ A local link to a gitignored file may break on GitHub. The manifest
 data/drive_artifacts_manifest.json can record existing filename -> view_url
 entries, which this helper resolves during page generation. Availability and
 authorization of an existing link must be verified independently. Publication
-through scripts/wiki_drive_publish.py is temporarily suspended.
+through scripts/wiki_drive_publish.py requires authorization for the files and
+destination, with privacy and secret safeguards. Dry-run does not verify Drive.
 """
 
 from __future__ import annotations
