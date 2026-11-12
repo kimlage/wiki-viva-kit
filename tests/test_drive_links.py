@@ -588,6 +588,63 @@ def test_real_container_bypasses_are_refused_before_provider(tmp_path, monkeypat
     assert pub.MANIFEST_PATH.read_bytes() == before
 
 
+@pytest.mark.parametrize("formula", [False, True])
+@pytest.mark.parametrize("dimension", ["A1:B1", "A1:A3"])
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_xlsx_dimensions_cannot_hide_credentials_from_publisher(tmp_path, monkeypatch, formula, dimension, dry_run):
+    from tests.test_protected_capture_formats import xlsx_with_declared_dimension
+    rows = [("client_id", "synthetic-client"), ("refresh_token", "synthetic-short")]
+    if formula:
+        rows = [(f'="{key}"', value) for key, value in rows]
+    data = xlsx_with_declared_dimension(_association_table(".xlsx", rows), dimension)
+    pub, first = _publisher(tmp_path, monkeypatch)
+    artifact = tmp_path / "understated.xlsx"
+    artifact.write_bytes(data)
+    drive = _FakeDrive(list=lambda **k: {"files": []}, create=lambda **k: {"id": "synthetic-id"})
+    calls = _install_fake_google(monkeypatch, drive, real_media=True)
+    before = pub.MANIFEST_PATH.read_bytes()
+    with pytest.raises(RuntimeError, match="validation unavailable" if formula else "contains an access secret"):
+        pub.publish([first, artifact], "synthetic-folder", dry_run=dry_run)
+    assert not drive.calls and calls == {"build": [], "media": []}
+    assert pub.MANIFEST_PATH.read_bytes() == before
+
+
+@pytest.mark.parametrize("layout", ["reversed_cells", "reversed_rows", "duplicate_cell", "mismatched_row"])
+def test_xlsx_layout_cannot_drop_or_overwrite_credential_cells(tmp_path, monkeypatch, layout):
+    import xml.etree.ElementTree as ET
+    data = _association_table(".xlsx", [("password", "a1Bc2De3Fg4Hi5Jk6Lm7")])
+    target = io.BytesIO()
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    with zipfile.ZipFile(io.BytesIO(data)) as source, zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as dest:
+        for item in source.infolist():
+            content = source.read(item.filename)
+            if item.filename == "xl/worksheets/sheet1.xml":
+                root = ET.fromstring(content)
+                rows = root.find(ns + "sheetData")
+                if layout == "reversed_cells":
+                    rows[1][:] = list(reversed(rows[1]))
+                elif layout == "reversed_rows":
+                    rows[:] = list(reversed(rows))
+                elif layout == "duplicate_cell":
+                    benign = ET.fromstring(ET.tostring(rows[1][1]))
+                    benign.find(ns + "is").find(ns + "t").text = "Synthetic harmless value"
+                    rows[1].append(benign)
+                else:
+                    rows[1][1].set("r", "B1")
+                content = ET.tostring(root)
+            dest.writestr(item, content)
+    pub, first = _publisher(tmp_path, monkeypatch)
+    artifact = tmp_path / "inconsistent.xlsx"
+    artifact.write_bytes(target.getvalue())
+    drive = _FakeDrive(list=lambda **k: {"files": []}, create=lambda **k: {"id": "synthetic-id"})
+    calls = _install_fake_google(monkeypatch, drive, real_media=True)
+    before = pub.MANIFEST_PATH.read_bytes()
+    with pytest.raises(RuntimeError, match="validation unavailable"):
+        pub.publish([first, artifact], "synthetic-folder")
+    assert not drive.calls and calls == {"build": [], "media": []}
+    assert pub.MANIFEST_PATH.read_bytes() == before
+
+
 @pytest.mark.parametrize("case", ["docx-table", "xlsx-cell", "pdf", "eml", "txt"])
 @pytest.mark.parametrize("real_media", [False, True])
 def test_real_covered_formats_publish_synthetic_pii(tmp_path, monkeypatch, case, real_media):

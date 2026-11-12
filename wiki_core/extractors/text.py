@@ -130,6 +130,38 @@ def _spreadsheet_value(value, data_type=None):
     raise ValueError('spreadsheet cell type requires explicit review')
 
 
+def _check_xlsx_cell_layout(sheet):
+    """Verify the actual worksheet before streaming can omit/reorder cells."""
+    import xml.etree.ElementTree as ET
+    from openpyxl.utils.cell import coordinate_to_tuple
+
+    # Use the same resolved worksheet part as openpyxl, including renamed parts.
+    with sheet._get_source() as source:
+        root = ET.parse(source).getroot()
+    ns = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
+    rows = root.find(ns + 'sheetData')
+    previous_row = max_column = 0
+    for row in (() if rows is None else rows):
+        row_index = int(row.get('r', previous_row + 1))
+        if row.tag != ns + 'row' or row_index <= previous_row:
+            raise ValueError('spreadsheet cell layout requires explicit review')
+        if row_index > 100_000:
+            raise ValueError('spreadsheet dimensions exceed protected limit')
+        column = 0
+        for cell in row:
+            cell_row, cell_column = (coordinate_to_tuple(cell.get('r'))
+                                    if cell.get('r') else (row_index, column + 1))
+            if cell.tag != ns + 'c' or cell_row != row_index or cell_column <= column:
+                raise ValueError('spreadsheet cell layout requires explicit review')
+            if cell_column > 1024:
+                raise ValueError('spreadsheet dimensions exceed protected limit')
+            column = cell_column
+        max_column = max(max_column, column)
+        if row_index * max_column > 2_000_000:
+            raise ValueError('spreadsheet dimensions exceed protected limit')
+        previous_row = row_index
+
+
 def _extract_xlsx_captured(data: bytes):
     """Retain formulas alongside cached values without recalculating them."""
     from openpyxl import load_workbook
@@ -146,17 +178,24 @@ def _extract_xlsx_captured(data: bytes):
         if formulas.sheetnames != cached.sheetnames:
             raise ValueError('spreadsheet sheets unavailable')
         for sheet, values in zip(formulas.worksheets, cached.worksheets):
+            _check_xlsx_cell_layout(sheet)
             max_row, max_column = sheet.max_row or 0, sheet.max_column or 0
             if (max_row > 100_000 or max_column > 1024 or max_row * max_column > 2_000_000):
                 raise ValueError('spreadsheet dimensions exceed protected limit')
+            # Worksheet dimension metadata can understate actual cells. Stream
+            # both views independently of it; the loop enforces actual limits.
+            sheet.reset_dimensions()
+            values.reset_dimensions()
             pairs = itertools.zip_longest(sheet.iter_rows(), values.iter_rows())
             visited_cells = 0
+            actual_max_column = 0
             for row_index, (formula_row, value_row) in enumerate(pairs, start=1):
                 if (formula_row is None or value_row is None or len(formula_row) != len(value_row)
                         or row_index > 100_000 or len(formula_row) > 1024):
                     raise ValueError('spreadsheet dimensions exceed protected limit')
                 visited_cells += len(formula_row)
-                if visited_cells > 2_000_000:
+                actual_max_column = max(actual_max_column, len(formula_row))
+                if visited_cells > 2_000_000 or row_index * actual_max_column > 2_000_000:
                     raise ValueError('spreadsheet dimensions exceed protected limit')
                 cells = []
                 for formula_cell, value_cell in zip(formula_row, value_row):
