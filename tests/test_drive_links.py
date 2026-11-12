@@ -434,6 +434,83 @@ def _pdf_artifact(annotation=None, *, body="Synthetic PDF content"):
     return ".pdf", "pdf", target.getvalue()
 
 
+def _association_table(suffix, rows):
+    target = io.BytesIO()
+    if suffix == ".docx":
+        from docx import Document
+        document = Document()
+        document.add_paragraph("Synthetic table body")
+        table = document.add_table(rows=0, cols=2)
+        for values in rows:
+            for cell, value in zip(table.add_row().cells, values):
+                cell.text = value
+        document.save(target)
+    else:
+        from openpyxl import Workbook
+        workbook = Workbook()
+        workbook.active.append(["Synthetic table body"])
+        for values in rows:
+            workbook.active.append(values)
+        workbook.save(target)
+        workbook.close()
+    return target.getvalue()
+
+
+@pytest.mark.parametrize("suffix", [".docx", ".xlsx"])
+@pytest.mark.parametrize("layout", ["fields", "headers", "reversed"])
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_real_table_credential_associations_refused_before_provider(tmp_path, monkeypatch, suffix, layout, dry_run):
+    from wiki_core.detectors import contains_secret_structure
+    from wiki_core.extractors.text import extract_captured
+    credentials = {"client_id": "synthetic-client", "refresh_token": "synthetic-short"}
+    assert contains_secret_structure(credentials)
+    rows = list(credentials.items())
+    if layout == "headers":
+        rows = list(zip(*rows))
+    elif layout == "reversed":
+        rows = [tuple(reversed(row)) for row in rows]
+    pub, first = _publisher(tmp_path, monkeypatch)
+    artifact = tmp_path / ("credentials" + suffix)
+    data = _association_table(suffix, rows)
+    artifact.write_bytes(data)
+    extracted = extract_captured(str(artifact), "document" if suffix == ".docx" else "spreadsheet", data)
+    assert not extracted.warnings and extracted.text.strip()
+    # Decoding the extractor envelopes still misses the association.
+    assert not contains_secret_structure([json.loads(unit["text"]) for unit in extracted.units
+                                          if unit["kind"] in {"sheet_row", "doc_table_row"}])
+    drive = _FakeDrive(list=lambda **k: {"files": []}, create=lambda **k: {"id": "synthetic-id"})
+    calls = _install_fake_google(monkeypatch, drive, real_media=True)
+    before = pub.MANIFEST_PATH.read_bytes()
+    with pytest.raises(RuntimeError, match="contains an access secret"):
+        pub.publish([first, artifact], "synthetic-folder", dry_run=dry_run)
+    assert not drive.calls and calls == {"build": [], "media": []}
+    assert pub.MANIFEST_PATH.read_bytes() == before
+
+
+@pytest.mark.parametrize("suffix", [".docx", ".xlsx"])
+@pytest.mark.parametrize("layout", ["fields", "headers", "reversed"])
+def test_real_table_associations_allow_synthetic_pii(tmp_path, monkeypatch, suffix, layout):
+    rows = [("name", "Synthetic person"), ("cpf", "529.982.247-25")]
+    if layout == "headers":
+        rows = list(zip(*rows))
+    elif layout == "reversed":
+        rows = [tuple(reversed(row)) for row in rows]
+    pub, _ = _publisher(tmp_path, monkeypatch)
+    artifact = tmp_path / ("pii" + suffix)
+    data = _association_table(suffix, rows)
+    artifact.write_bytes(data)
+    uploaded = []
+    def create(media_body, **kwargs):
+        uploaded.append(media_body.getbytes(0, media_body.size()))
+        return {"id": "synthetic-id"}
+    drive = _FakeDrive(list=lambda **k: {"files": []}, create=create)
+    _install_fake_google(monkeypatch, drive, real_media=True)
+    pub.publish([artifact], "synthetic-folder")
+    assert uploaded == [data]
+    entry = json.loads(pub.MANIFEST_PATH.read_text())["files"][artifact.name]
+    assert entry["sha256"] == pub.hashlib.sha256(data).hexdigest()
+
+
 @pytest.mark.parametrize("case", ["docx-header", "xlsx-comment", "pdf-annotation", "docx-table", "xlsx-cell"])
 @pytest.mark.parametrize("dry_run", [False, True])
 @pytest.mark.parametrize("matching", [False, True])

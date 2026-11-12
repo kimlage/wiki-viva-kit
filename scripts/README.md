@@ -25,7 +25,9 @@ The selected batch is checked locally for access secrets before provider access,
 including dry-run. Text is scanned directly; PDF, DOCX, XLSX and EML use the
 existing local extractors too. Decoded XLSX and DOCX table values and key/value
 associations are checked with the existing structured secret detector; scanning
-only their escaped JSON serialization is insufficient. A nonempty extracted
+only their escaped JSON serialization is insufficient. Adjacent cells and rows
+also retain field/value and header/value associations in either orientation;
+repeated fields do not overwrite earlier candidates. A nonempty extracted
 body does not establish coverage of the container. DOCX headers, footers,
 comments and notes, XLSX comments (including threaded comments), and PDF
 annotations are refused because these parts are not covered by the body

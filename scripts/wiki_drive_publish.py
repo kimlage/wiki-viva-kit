@@ -141,9 +141,26 @@ def validate_artifact(path: Path) -> bytes:
             values: list[object] = [extracted.text]
             # Tables are JSON lines containing escaped cell strings. Check the
             # decoded values and associations as well as the serialized text.
+            previous_rows: dict[tuple, list] = {}
+            associations = []
             for unit in extracted.units:
                 if unit["kind"] in {"sheet_row", "doc_table_row"}:
-                    values.append(json.loads(unit["text"]))
+                    row = json.loads(unit["text"])
+                    values.append(row)
+                    cells = [cell.get("value", cell.get("cached_value"))
+                             if isinstance(cell, dict) else cell for cell in row["cells"]]
+                    table = (unit["kind"], unit.get("sheet", unit.get("table")))
+                    # Preserve adjacent field/value and header/value pairs in
+                    # both orientations. Keep duplicates instead of overwriting
+                    # a credential with a later row. Extractor envelopes alone
+                    # do not represent these associations to the detector.
+                    for pairs in (zip(cells, cells[1:]), zip(previous_rows.get(table, []), cells)):
+                        for left, right in pairs:
+                            for key, value in ((left, right), (right, left)):
+                                if isinstance(key, str) and key.strip():
+                                    associations.append({key.strip(): value})
+                    previous_rows[table] = cells
+            values.append(associations)
         else:
             text = raw.decode("utf-8-sig")
             if "\x00" in text:
