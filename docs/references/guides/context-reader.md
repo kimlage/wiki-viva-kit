@@ -61,6 +61,8 @@ folder can add instructions without defining an owner. A different selected
 index works only within an already recognized context. An access entry can
 specify owner, scopes, denials and exact connections, but a folder, instruction
 or index does not grant access. Missing access configuration grants nothing.
+Documentary copies can be excluded explicitly from ownership discovery as
+[described below](#documentary-trees-and-context-discovery).
 
 For a repository and request you are authorized to use, replace the placeholders:
 
@@ -123,6 +125,128 @@ folder source stages can also include exact Git evidence pinned by the trusted
 host, subject to separate grants; see [protected independent Git](protected-independent-git.md).
 The selection does not authorize access, establish remote identity or prove
 file consumption.
+
+### Documentary trees and context discovery
+
+By default, every tracked folder with instructions (`AGENTS.override.md` or
+`AGENTS.md`) and a stable index (`index.md` or `README.md`) defines a context.
+This includes documentary snapshots outside the memory root. Without a
+`context_access` entry, such a context has owner `unassigned` and empty allow
+lists. Even a root reader with `read: ["."]` cannot import its documents when
+the discovered producer has no read permission.
+
+An approved configuration can exclude an explicitly selected documentary tree
+from automatic ownership discovery:
+
+```yaml
+context_discovery:
+  exclude:
+    - docs/references/ext-workspace/tree
+```
+
+`exclude` is an optional list of unique, literal repository-relative folder
+prefixes. Each prefix suppresses discovered context roots at that path and
+below it. The prefix need not itself define a context. It does not match a
+sibling such as `docs/references/ext-workspace/tree-other`. Omission or an
+empty list preserves default discovery. The root `.` cannot be excluded;
+absolute paths, traversal, globs, malformed lists and unknown discovery keys
+are rejected. Any `context_access` entry at or below an excluded prefix is a
+configuration error, even an entry with no grants. Resolve that conflict in
+the reviewed configuration; exclusions never silently override explicit access.
+
+Files beneath the excluded tree belong to the nearest remaining context. In
+the example, that is `.` unless another real context contains the tree. Its
+read and deny rules still apply, and a different consumer still needs the
+normal bilateral connection. This is an ownership change that requires policy
+review. Exclusion does not skip Git-path safety checks or content auditing.
+Physical instruction files remain in the mandatory chain when a packet enters
+their folders. To inspect a documentary file as evidence, enter the intended
+real context and select that exact evidence path.
+
+Both discovery and exclusions come from `wiki.config.yaml` at the current
+trusted approved revision. Worktree edits and an unapproved branch cannot
+activate an exclusion. Historical evidence is checked against its historical
+ownership and authorization as well; changing current ownership does not
+retroactively authorize an older body. Rebuild affected packets under the
+approved configuration and an authorized content revision.
+
+### Read ceilings through the physical hierarchy
+
+For folder policy, `read` and `write` are literal path-prefix ceilings. `self`
+expands to the declaring context's folder, while `.` covers the repository.
+Every child's allow list must fit inside its parent's corresponding list.
+`memories/org/eng` with `read: ["."]` under `memories/org` with
+`read: [self]` therefore fails with `child widens read`. This restriction is
+intentional: a nested context cannot grant itself authority outside its
+ancestor's ceiling. Denials accumulate through the lineage and take precedence.
+Missing allow lists in folder access configuration are empty, not inherited
+grants.
+
+For an approved broad reader nested under `memories/org`, widen the read
+ceiling of every necessary ancestor and keep sibling policies explicit:
+
+```yaml
+context_access:
+  ".":
+    owner: Operator
+    policy: {read: ["."], write: [self], capabilities: [], deny: {}, publication: []}
+  memories/org:
+    owner: Operator
+    policy: {read: ["."], write: [self], capabilities: [], deny: {}, publication: []}
+  memories/org/eng:
+    owner: Operator
+    policy: {read: ["."], write: [self], capabilities: [], deny: {}, publication: []}
+  memories/org/ops:
+    owner: Operator
+    policy: {read: [self], write: [self], capabilities: [], deny: {}, publication: []}
+```
+
+This synthetic example assumes each named folder is already a discovered
+context. The parent now also has a repository-wide read ceiling; the sibling
+`memories/org/ops` remains limited to its own subtree. Write ceilings,
+capabilities and publication permissions are separate and stay as declared.
+None of these read ceilings supplies a missing cross-context connection.
+Prefer the smallest required path list when repository-wide reading is
+unnecessary. If the parent must retain `read: [self]`, the current hierarchy
+cannot express a wider child. A separately reviewed physical context directly
+under a sufficiently broad ancestor is an alternative; do not silently change
+parentage or permission semantics.
+
+### Exact connections for selected foreign bodies
+
+Repository-wide `read: ["."]` passes the path-ceiling check only. For each
+selected body owned by another context, the producer must permit reading it
+and both sides must declare an identical, unexpired rule. For example, put
+this same rule in `context_access["memories/team"].exports` and
+`context_access["."].imports`:
+
+```yaml
+from_context: memories/team
+to_context: "."
+selector: memories/team/report.md
+use: interpretation
+classification: context
+expires: '2099-01-01'
+```
+
+The selector is one exact file path. `memories/team` does not authorize files
+below it, and globs such as `memories/team/*.md` are invalid. A selected
+`section` or `field` must also match on both sides; omitting those selects the
+whole document. Use, classification and expiry are part of the agreement.
+A missing or one-sided connection stays pending even when both contexts have
+broad read ceilings or share the same owner label. Read denials still win.
+The root context has no special import bypass.
+
+For a protected packet, enumerate the necessary evidence paths, approve the
+matching producer exports and consumer imports, and have the trusted operator
+select each producer through the existing host binding or `--trusted-context`.
+Producer and consumer qualification also need their authorized mandatory
+ancestor instructions and indexes; include the exact connections and path
+ceilings needed for that chain. The host selection qualifies the chosen
+producer; it does not create grants. A packet then returns only the explicitly
+selected bodies and mandatory context inputs within its byte budget. Exact
+connections and owner-only dynamic queries do not provide an implicit global
+read or directory/glob import mechanism.
 
 ## Bounded reads of an owned log
 
