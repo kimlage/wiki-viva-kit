@@ -921,7 +921,7 @@ def test_operational_model_renders_role_responsibility_action_tree(tmp_path: Pat
     assert resp_node.next_steps[0].trigger == "antes de escrever"
 
     assert "## Modelo operacional por contexto" in page
-    assert "### fin" in page
+    assert "### [fin](../fin/index.md)" in page
     assert "[Role - role-steward](../papeis/steward.md)" in page
     assert "renovar sessao Browser" in page
     assert payload["operational_model"][0]["roles"][0]["health"] == "ok"
@@ -1079,7 +1079,7 @@ def test_operational_pass_preserves_body_only_action_resolution(tmp_path: Path):
     page = build_operational_pass_page(
         tmp_path, config, updated_at="2026-06-12"
     )
-    assert "| [Body only](../actions/body-only.md) | fin | `completed` |" in re.sub(r"<!-- wiki-link-role\.v[12] .*? -->", "", page)
+    assert "| [Body only](../actions/body-only.md) | [fin](../fin/index.md) | `completed` |" in re.sub(r"<!-- wiki-link-role\.v[12] .*? -->", "", page)
 
 
 def test_operational_model_marks_preventive_and_roleless(tmp_path: Path):

@@ -199,7 +199,8 @@ def project_memory_at_commit(
 
 
 def build_page_graph_at_commit(base_sha: str) -> PageGraph:
-    return project_memory_at_commit(base_sha, build_page_graph)
+    return project_memory_at_commit(base_sha, lambda temp, cfg:
+        build_page_graph(temp, cfg, history_root=ROOT, history_revision=base_sha))
 
 
 def graph_path(config: WikiConfig) -> Path:

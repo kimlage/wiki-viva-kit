@@ -148,6 +148,8 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
 def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, normative_revision=None) -> dict[str, Any]:
     """Project the existing semantic-inventory model plus real Markdown body links."""
     pages = _authored_pages(root, config)
+    from wiki_core.navigation import NavigationHistory
+    navigation = NavigationHistory(root, git_root=normative_root, revision=normative_revision)
     _unique_by_id, by_path, duplicates = _page_indexes(pages)
     # Current duplicates block as integrity errors. Historical duplicates must
     # still be readable when the proposed change repairs them. Resolve ambiguous
@@ -175,7 +177,7 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
         paths_by_id[page.page_id].append(page.path)
     # Source emission duplicates the source_ref dependency in the same direction;
     # the inventory's optional event expansion is unnecessary for this closure.
-    relations, unresolved = _expected_relations(pages, by_id, by_path, {})
+    relations, unresolved = _expected_relations(pages, by_id, by_path, {}, root=root, navigation=navigation)
     edges = []
     errors = list(duplicates) + list(unresolved)
     for source, target, kind, direction, basis, _pid, path, field in sorted(relations):
@@ -192,13 +194,21 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
         if file.is_symlink():
             errors.append(f"{page.path}: symlink memory cannot establish freshness evidence")
         _values, body = parse_frontmatter(file)
+        text = file.read_bytes().decode('utf-8')
+        def resolve(ref):
+            targets = [ref] if ref in by_path else paths_by_id.get(ref, [])
+            if not targets:
+                canonical = navigation.resolve(page.path, text, ref)
+                if canonical in by_path:
+                    targets = [canonical]
+            return targets
         represented = {e["field"] for e in edges if e["path"] == page.path}
         for field in FRONTMATTER_REF_FIELDS:
             if field in represented:
                 continue
             targets = set()
             for ref in list_values(page.values.get(field)):
-                targets.update([ref] if ref in by_path else paths_by_id.get(ref, []))
+                targets.update(resolve(ref))
             for target in sorted(targets):
                 if field == "related_holons":
                     # The authored template-block contract uses this field for
@@ -220,7 +230,7 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
         try:
             edges.extend(operational_consumption_edges(root, page.path, page.values, body,
                 lambda ref: [ref] if ref in by_path else paths_by_id.get(ref, []),
-                resolve_normative=normative_ref))
+                resolve_normative=normative_ref, resolve_historical=resolve))
             edges.extend(projection_input_edges(page.path,page.values,node_values,default_context=config.default_context))
         except ValueError as exc:
             errors.append(f"{page.path}: {exc}")
@@ -231,6 +241,18 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
             and page.path in {e["source"], e["target"]}
         }
         for occurrence in _body_occurrences(root, page.path, body, navigation_targets):
+            offset = occurrence.get('body_offset')
+            match = MARKDOWN_LINK_RE.match(body, offset) if isinstance(offset, int) else None
+            if match and not navigation.existing_reference_safe(page.path, text, match[1], href=True):
+                errors.append(f'{page.path}: unsafe or ambiguous historical link identity')
+            if occurrence['target'] not in by_path:
+                # Resolve against the untouched literal syntax, preserving the
+                # occurrence's authored role and original digest.
+                if match:
+                    canonical = navigation.resolve(page.path, text, match[1], href=True)
+                    if canonical:
+                        occurrence = {**occurrence, 'target': canonical, 'historical_target': occurrence['target'],
+                                      'relocation_provenance': dict(navigation.last_proof)}
             if occurrence["type"] != "operational_prerequisite":
                 edges.append(occurrence)
     return {"documents": {p.path: (root / p.path).read_bytes().decode("utf-8") for p in pages},
@@ -360,7 +382,7 @@ def dependency_edges(graph: dict, *, origin: str = "current") -> tuple[list[dict
     return dependencies, contextual
 
 
-def information_requirements(values: dict, resolve, *, resolve_normative=None) -> list[dict]:
+def information_requirements(values: dict, resolve, *, resolve_normative=None, resolve_historical=None) -> list[dict]:
     """Normalize authored current/historical consumption into the same edges.
 
     A requirement describes an intended use, not an exception to PR review or
@@ -408,18 +430,23 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None) -
             entry = {**entry, 'query': normalized['query']}
         resolver = resolve_normative if entry.get('source_kind') == 'mandatory' and resolve_normative else resolve
         targets = resolver(entry['target'])
+        if (not targets and resolve_historical and entry['temporal'] == 'historical' and not dynamic):
+            targets = resolve_historical(entry['target'])
+            if targets:
+                entry = {**entry, 'historical_target': entry['target']}
         if len(targets) != 1:
             raise ValueError('information requirement target is missing or ambiguous')
         result.append({**entry, 'target': targets[0]})
     return result
 
 
-def operational_consumption_edges(root: Path, path: str, values: dict, body: str, resolve, *, resolve_normative=None) -> list[dict]:
+def operational_consumption_edges(root: Path, path: str, values: dict, body: str, resolve, *, resolve_normative=None, resolve_historical=None) -> list[dict]:
     """The same operational declarations feed readers, agents and admission."""
     edges = [dict(source=path, target=r['target'], type='operational_prerequisite',
                   direction='directed', basis='frontmatter', path=path,
                   field='information_requirements', requirement=r)
-             for r in information_requirements(values, resolve, resolve_normative=resolve_normative)]
+             for r in information_requirements(values, resolve, resolve_normative=resolve_normative,
+                                                resolve_historical=resolve_historical)]
     edges.extend(edge for edge in _body_occurrences(root, path, body, set())
                  if edge['type'] == 'operational_prerequisite')
     return edges

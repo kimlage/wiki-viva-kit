@@ -823,7 +823,18 @@ def _transition_action_page_locked(
     if page_edit is not None:
         edit = validate_page_edit(page_edit)
         if current in {"done", "cancelled"}:
-            raise ActionTransitionError("terminal_page_read_only")
+            if (set(edit) != {"body"} or target != current or not expected
+                    or supplied or reason_text or dialogue_event is not None):
+                raise ActionTransitionError("terminal_page_read_only")
+            result = _write_navigation_body(root, path, page_ref, before_text, edit['body'])
+            return ActionTransitionReceipt(
+                receipt_id='', page_id=page_id, page_ref=page_ref,
+                previous_state=current, next_state=current, state_source=resolution.source,
+                changed=True, idempotent=False, canonicalized_legacy=False, reason_recorded=False,
+                before_sha256=before_sha256, after_sha256=result['after_sha256'],
+                recorded_at='', warnings=(resolution.warnings if result['directory_fsynced'] else
+                                         (*resolution.warnings, 'directory_fsync_unavailable')),
+            )
         edited_body = edit.pop("body", body)
         updated.update(edit)
         if edit.get("owner_kind") == "unassigned":
@@ -1203,6 +1214,8 @@ def integrate_action_body(
         if fm.get("page_type") != "action" or state.source != "action_state" or not state.valid:
             raise ActionTransitionError("invalid_current_state")
         if state.state not in NON_TERMINAL_ACTION_STATES:
+            if consolidations is None:
+                return _write_navigation_body(root, path, ref, before, body)
             raise ActionTransitionError("terminal_action_body_immutable")
         if not isinstance(body, str) or not body.strip() or body == old_body:
             raise ActionTransitionError("empty_body_contribution")
@@ -1257,6 +1270,50 @@ def integrate_action_body(
         synced = _atomic_write(path, after)
         return {"receipt_id": entry["receipt_id"], "before_sha256": expected_sha256,
                 "after_sha256": _sha256_text(after), "directory_fsynced": synced}
+
+
+def _write_navigation_body(root: Path, path: Path, ref: str, before: str, body: str) -> dict:
+    """Structural reconciliation uses Git review, not a new lifecycle receipt."""
+    from wiki_core.navigation import NavigationHistory, structural_navigation
+    fm, old_body = _parse_document(before)
+    match = FRONTMATTER_RE.match(before)
+    if not match or not isinstance(body, str) or old_body == body:
+        raise ActionTransitionError('terminal_action_body_immutable')
+    # Keep the original YAML bytes, including historical records and dates.
+    after = before[:match.end()] + body
+    navigation = NavigationHistory(root)
+    if (_lifecycle_contract_error(fm, str(fm.get('action_state') or ''))
+            or not structural_navigation(navigation, ref, before, after)):
+        raise ActionTransitionError('terminal_action_body_immutable')
+    _assert_no_secrets(after)
+    if not navigation.confirm():
+        raise ActionTransitionError('stale_navigation_revision')
+    if path.read_text(encoding='utf-8') != before:
+        raise ActionTransitionError('stale_action_revision')
+    synced = _atomic_write(path, after)
+    return {'kind': 'navigation_reconciliation', 'receipt_id': '',
+            'before_sha256': _sha256_text(before), 'after_sha256': _sha256_text(after),
+            'directory_fsynced': synced}
+
+
+def reconcile_action_navigation(root: Path, page: Path | str, body: str, *, expected_sha256: str) -> dict:
+    """CAS-only C3 entry for structural links, in any canonical lifecycle state.
+
+    The caller retains its authorization/route checks and reviews the Git diff.
+    No lifecycle receipt, authority, history, fact or verification date changes.
+    """
+    if os.name == 'nt':
+        raise ActionTransitionError('action_writes_unsupported_on_windows')
+    path, ref = _contained_action_path(root, page)
+    with _TRANSITION_LOCK, _action_file_lock(root, ref):
+        before = path.read_text(encoding='utf-8')
+        if (not isinstance(expected_sha256, str) or not _SHA256_RE.fullmatch(expected_sha256)
+                or _sha256_text(before) != expected_sha256):
+            raise ActionTransitionError('stale_action_revision')
+        fm, _ = _parse_document(before)
+        if fm.get('page_type') != 'action' or fm.get('action_state') not in CANONICAL_ACTION_STATES:
+            raise ActionTransitionError('invalid_current_state')
+        return _write_navigation_body(root, path, ref, before, body)
 
 
 def _document_for_audit(text: str) -> tuple[dict[str, Any], str] | None:
@@ -1662,6 +1719,9 @@ def action_transition_diagnostics(
             ),
         )
     if not additions:
+        if previous_resolution.state in {'done', 'cancelled'} and previous_body != current_body:
+            return (ActionTransitionDiagnostic('terminal_action_body_immutable',
+                    'terminal body changes require Git-proven navigation reconciliation'),)
         return ()
 
     content_events = [e for e in additions if e.get("page_edit") is not None or e.get("kind") in {"body_integration", "body_consolidation"}]
@@ -1817,12 +1877,99 @@ def action_transition_diagnostics(
     return ()
 
 
+def validate_action_transition_diffs(
+    root: Path, page_ref: str, previous_ref: str, previous_text: str,
+    current_text: str, base_ref: str | None,
+) -> tuple[ActionTransitionDiagnostic, ...]:
+    """Validate the original base AND each committed structural preimage.
+
+    A Git blob is not authorization. Only a continuous, ancestor-bound sequence
+    of admitted navigation changes may precede the native writer receipts.
+    Their bytes, hashes, causal chain and ordinary validations stay intact.
+    """
+    from wiki_core.navigation import NavigationHistory, document, structural_navigation
+    from wiki_core.information_relations import semantic_equal
+    ordinary = action_transition_diagnostics(previous_text, current_text)
+    try:
+        old, _ = document(previous_text)
+        new, _ = document(current_text)
+        prior = old.get(_HISTORY_FIELD) or []
+        history = new.get(_HISTORY_FIELD) or []
+        if not isinstance(prior, list) or not isinstance(history, list) or history[:len(prior)] != prior:
+            return ordinary
+        navigation = NavigationHistory(root)
+        if history == prior:
+            if structural_navigation(navigation, previous_ref, previous_text, current_text, destination=page_ref):
+                return action_transition_diagnostics(previous_text, previous_text)
+            return ordinary
+        if not ordinary or not base_ref:
+            return ordinary
+        first = history[len(prior)]
+        if not isinstance(first, dict):
+            return ordinary
+        base = navigation.git('rev-parse', '--verify', base_ref + '^{commit}').decode().strip()
+        if navigation.text(base, previous_ref) != previous_text:
+            return ordinary
+        # Include proposal parents of a CI merge result, without substituting
+        # its first parent, HEAD or a merge-base for the actual audited base.
+        navigation.git('merge-base', '--is-ancestor', base, navigation.head)
+        chain = navigation.git('rev-list', '--parents', '--reverse', '--topo-order',
+                               '--ancestry-path', base + '..' + navigation.head).decode().splitlines()
+        if len(chain) > 4096:
+            return ordinary
+        page_id = old.get('page_id')
+        admitted = {base: (previous_text, previous_ref)}
+        for row in chain:
+            revision, *parents = row.split()
+            locations = navigation.ids(revision).get(page_id, [])
+            if len(locations) != 1:
+                continue
+            ref = locations[0]
+            text = navigation.text(revision, ref)
+            if not any(structural_navigation(navigation, admitted[parent][1], admitted[parent][0], text, destination=ref)
+                       for parent in parents if parent in admitted):
+                continue
+            admitted[revision] = (text, ref)
+            if (_sha256_text(text) != first.get('before_sha256')
+                    or _revision_sha256(text) != first.get('before_revision')):
+                continue
+            candidate, candidate_body = document(text)
+            # No unbound frontmatter may be hidden after the structural stage.
+            writer_fields = {*_SUPPORT_FIELDS, 'action_state', _HISTORY_FIELD, 'updated_at'}
+            if any(entry.get('page_edit') for entry in history[len(prior):]):
+                writer_fields.update({'title', 'owner_kind', 'owner_ref'})
+            if any(not semantic_equal(candidate.get(k), new.get(k)) or (k in candidate) != (k in new)
+                   for k in (set(candidate) | set(new)) - writer_fields):
+                return ordinary
+            exact_body = _sha256_text(candidate_body)
+            for entry in history[len(prior):]:
+                edit = entry.get('page_edit') or {}
+                binding = edit.get('body_bytes')
+                material = entry.get('contribution') if entry.get('kind') in {'body_integration', 'body_consolidation'} else None
+                if binding:
+                    if binding.get('before_sha256') != exact_body:
+                        return ordinary
+                    exact_body = binding.get('after_sha256')
+                elif material:
+                    if material.get('before_body_sha256') != exact_body:
+                        return ordinary
+                    exact_body = material.get('after_body_sha256')
+            if exact_body != _sha256_text(document(current_text)[1]):
+                return ordinary
+            return action_transition_diagnostics(text, current_text)
+    except (ValueError, OSError, UnicodeError, yaml.YAMLError, TypeError, AttributeError):
+        return ordinary
+    return ordinary
+
+
 __all__ = [
     "ACTION_TRANSITION_RECEIPT_VERSION",
     "ActionTransitionDiagnostic",
     "ActionTransitionError",
     "ActionTransitionReceipt",
     "action_transition_diagnostics",
+    "validate_action_transition_diffs",
     "transition_action_page",
     "integrate_action_body",
+    "reconcile_action_navigation",
 ]

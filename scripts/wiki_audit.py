@@ -36,7 +36,7 @@ from wiki_core.action_adoption import (
     ACTION_ADOPTION_RECEIPT_PATH,
     verify_action_adoption_git_contract,
 )
-from wiki_core.action_transition import action_transition_diagnostics
+from wiki_core.action_transition import action_transition_diagnostics, validate_action_transition_diffs
 from wiki_core.detectors import scan_file
 from wiki_core.experience_packs import PackError
 from wiki_core.freshness import is_stale, is_stale_exempt
@@ -812,6 +812,7 @@ def audit_action_state_transitions(errors: list[str]) -> None:
         current_values, _body = canonical_parse_frontmatter(current_text)
         current_is_action = str(current_values.get("page_type") or "") == "action"
         previous_text = base_by_path.get(rel)
+        previous_rel = rel
         if previous_text is None:
             if not current_is_action:
                 continue
@@ -825,7 +826,7 @@ def audit_action_state_transitions(errors: list[str]) -> None:
                 )
                 continue
             if candidates:
-                _previous_rel, previous_text = candidates[0]
+                previous_rel, previous_text = candidates[0]
             else:
                 # New action creation has no prior lifecycle edge. Its
                 # canonical initial state is enforced by the shape gate. It
@@ -837,7 +838,8 @@ def audit_action_state_transitions(errors: list[str]) -> None:
                         "receipts [new_action_history_not_allowed]"
                     )
                 continue
-        for diagnostic in action_transition_diagnostics(previous_text, current_text):
+        for diagnostic in validate_action_transition_diffs(
+                ROOT, rel, previous_rel, previous_text, current_text, adoption_base or _audit_base_ref()):
             errors.append(f"{rel}: {diagnostic.message} [{diagnostic.code}]")
 
 
@@ -1106,6 +1108,14 @@ def local_link_target_path(source_rel: str, href: str) -> Path | None:
 
 
 def local_link_target_exists(source_rel: str, href: str) -> bool:
+    from wiki_core.navigation import link_path
+    from wiki_core.traversal import require_wiki_boundaries
+    relative = link_path(source_rel, href)
+    if relative:
+        try:
+            require_wiki_boundaries(ROOT, files=(ROOT / relative,))
+        except (ValueError, OSError):
+            return False
     target = local_link_target_path(source_rel, href)
     if target is None:
         return True
@@ -1578,6 +1588,8 @@ def audit_stale_coverage(warnings: list[str], config: WikiConfig) -> None:
 
 
 def audit_relations(errors: list[str], config: WikiConfig) -> None:
+    from wiki_core.navigation import NavigationHistory
+    navigation = NavigationHistory(ROOT)
     catalog = page_catalog(errors, config)
     page_ids = set(catalog)
     for rel in markdown_files():
@@ -1595,7 +1607,11 @@ def audit_relations(errors: list[str], config: WikiConfig) -> None:
                 continue  # URL or external/machine absolute path (unversioned)
             if target.startswith(GITIGNORED_LINK_PREFIXES):
                 continue  # unversioned cache (data/raw, data/derived)
-            if not (ROOT / target).exists():
+            if not navigation.existing_reference_safe(rel, _audit_read_text(ROOT / rel, encoding="utf-8"), target):
+                errors.append(f"{rel}: evidence_refs path has unsafe or ambiguous identity: `{target}`")
+                continue
+            if not (ROOT / target).exists() and not navigation.resolve(
+                    rel, _audit_read_text(ROOT / rel, encoding="utf-8"), target):
                 errors.append(f"{rel}: evidence_refs path does not exist: `{target}`")
 
         # Claim conflict/supersede vocabulary (consolidation): optional fields,
@@ -1890,6 +1906,8 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
     # Direct callers also need the selected layout, without reading the
     # worktree configuration as a module-import side effect.
     build_local_path_regexes(config)
+    from wiki_core.navigation import NavigationHistory
+    navigation = NavigationHistory(ROOT)
     files = link_audit_files(config)
     known_paths = set(files)
     for rel in files:
@@ -1899,7 +1917,8 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
         for lineno, line in body_lines_without_frontmatter(text):
             for match in MARKDOWN_LINK_RE.finditer(line):
                 href = match.group(1)
-                if not local_link_target_exists(rel, href):
+                if (not navigation.existing_reference_safe(rel, text, href, href=True)
+                        or (not local_link_target_exists(rel, href) and not navigation.resolve(rel, text, href, href=True))):
                     errors.append(f"{rel}:{lineno}: markdown link target does not exist: `{href}`")
 
             for match in INLINE_CODE_LOCAL_PATH_RE.finditer(line):
@@ -2430,10 +2449,25 @@ def _claims_section_bullets(text: str) -> list[str]:
 
 
 def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConfig) -> None:
+    from wiki_core.navigation import NavigationHistory
+    navigation = NavigationHistory(ROOT)
     paths = wiki_paths(config)
     events_dir = paths.ingest_events_dir
     if not events_dir.is_dir():
         return
+    def identities(refs, page_ref, text):
+        index = navigation.current_ids
+        by_path = {locations[0]: page_id for page_id, locations in index.items() if len(locations) == 1}
+        result = set()
+        for ref in refs:
+            if ref in index:
+                if len(index[ref]) != 1:
+                    errors.append(f'{page_ref}: ambiguous consolidation source identity')
+                result.add(ref)
+            else:
+                canonical = ref if ref in by_path else navigation.resolve(page_ref, text, ref)
+                result.add(by_path.get(canonical, ref))
+        return result
     legacy_unconsolidated = 0
     for event in sorted(_audit_glob(events_dir, "*.md")):
         if event.name == "README.md":
@@ -2457,12 +2491,19 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
         source_ref = str(values.get("source_ref") or "").strip()
         if source_ref:
             source_refs.add(source_ref)
+        source_refs = identities(source_refs, rel, _audit_read_text(event, encoding="utf-8"))
         non_source_targets = 0
         for target in consolidated:
             target_path = ROOT / target
-            if not target_path.exists():
-                errors.append(f"{rel}: consolidated_into path does not exist: `{target}`")
+            if not navigation.existing_reference_safe(rel, _audit_read_text(event, encoding="utf-8"), target):
+                errors.append(f"{rel}: consolidated_into path has unsafe or ambiguous identity: `{target}`")
                 continue
+            if not target_path.exists():
+                canonical = navigation.resolve(rel, _audit_read_text(event, encoding="utf-8"), target)
+                if not canonical:
+                    errors.append(f"{rel}: consolidated_into path does not exist: `{target}`")
+                    continue
+                target_path = ROOT / canonical
             target_values, _ = parse_frontmatter(target_path)
             # A source page is provenance identity, not a derivative of
             # itself or of every peer named by a multi-source event.
@@ -2473,7 +2514,8 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
                 continue
             non_source_targets += 1
             if source_refs:
-                target_refs = set(list_values(target_values, "source_refs"))
+                target_refs = identities(list_values(target_values, "source_refs"), paths.rel(target_path),
+                                         _audit_read_text(target_path, encoding="utf-8"))
                 if not (target_refs & source_refs):
                     errors.append(
                         f"{rel}: consolidated_into `{target}` does not reference the "

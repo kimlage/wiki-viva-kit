@@ -1317,14 +1317,21 @@ def _graph_payload(
                     }
                 )
     known_ids = {str(page.get("id") or "") for page in pages_payload["pages"]}
+    from wiki_core.navigation import NavigationHistory
+    navigation = NavigationHistory(root)
 
-    def resolve_ref(value: Any) -> str | None:
+    def resolve_ref(value: Any, source: dict[str, Any]) -> str | None:
         ref = str(value or "").strip()
         if not ref:
             return None
         if ref in known_ids:
             return ref
-        return id_by_path.get(ref)
+        target = id_by_path.get(ref)
+        if target is None and ref.endswith('.md'):
+            source_ref = str(source['path'])
+            canonical = navigation.resolve(source_ref, (root / source_ref).read_bytes().decode('utf-8'), ref)
+            target = id_by_path.get(canonical)
+        return target
 
     def emit_relation(
         source_id: str | None,
@@ -1385,7 +1392,7 @@ def _graph_payload(
         # reachability metadata instead of masquerading as source evidence.
         emit_relation(
             page_id,
-            resolve_ref(page.get("moc_parent")),
+            resolve_ref(page.get("moc_parent"), page),
             "moc_parent",
             page,
             "moc_parent",
@@ -1393,7 +1400,7 @@ def _graph_payload(
         for source_ref in page.get("source_refs") or []:
             emit_relation(
                 page_id,
-                resolve_ref(source_ref),
+                resolve_ref(source_ref, page),
                 "source_ref",
                 page,
                 "source_refs",
@@ -1401,7 +1408,7 @@ def _graph_payload(
         for related_page in refs.get("related_pages") or []:
             emit_relation(
                 page_id,
-                resolve_ref(related_page),
+                resolve_ref(related_page, page),
                 "related_page",
                 page,
                 "related_pages",
@@ -1426,7 +1433,7 @@ def _graph_payload(
         if event_identity.recognized:
             for source_ref in page.get("source_refs") or []:
                 emit_relation(
-                    resolve_ref(source_ref),
+                    resolve_ref(source_ref, page),
                     page_id,
                     "source_emission",
                     page,
@@ -1435,22 +1442,22 @@ def _graph_payload(
         for proposal_ref in refs.get("proposal_ids") or []:
             emit_relation(
                 page_id,
-                resolve_ref(proposal_ref),
+                resolve_ref(proposal_ref, page),
                 "proposal_transition",
                 page,
                 "proposal_ids",
             )
         for target_ref in refs.get("consolidated_into") or []:
             emit_relation(
-                page_id, resolve_ref(target_ref), "impact", page, "consolidated_into"
+                page_id, resolve_ref(target_ref, page), "impact", page, "consolidated_into"
             )
         work = dict(page.get("work") or {})
         if page.get("page_type") == "action":
             for blocker in work.get("blocked_by") or []:
                 emit_relation(
-                    resolve_ref(blocker), page_id, "dependency", page, "blocked_by"
+                    resolve_ref(blocker, page), page_id, "dependency", page, "blocked_by"
                 )
-            owner_id = resolve_ref(work.get("owner_ref"))
+            owner_id = resolve_ref(work.get("owner_ref"), page)
             if owner_id:
                 emit_relation(owner_id, page_id, "ownership", page, "owner_ref")
             # ``work.evidence_refs`` retains the historical UI fallback from
@@ -1458,7 +1465,7 @@ def _graph_payload(
             # evidence_supports graph edge.
             for evidence in refs.get("evidence_refs") or []:
                 emit_relation(
-                    resolve_ref(evidence),
+                    resolve_ref(evidence, page),
                     page_id,
                     "evidence_supports",
                     page,
@@ -1466,11 +1473,11 @@ def _graph_payload(
                 )
         for participant in refs.get("participants") or []:
             emit_relation(
-                resolve_ref(participant), page_id, "participation", page, "participants"
+                resolve_ref(participant, page), page_id, "participation", page, "participants"
             )
         for previous in refs.get("previous_refs") or []:
             emit_relation(
-                resolve_ref(previous),
+                resolve_ref(previous, page),
                 page_id,
                 "temporal_sequence",
                 page,
@@ -1479,7 +1486,7 @@ def _graph_payload(
         for index, raw_case in enumerate(refs.get("relation_cases") or []):
             case = raw_case if isinstance(raw_case, dict) else {}
             relation_type = str(case.get("type") or "")
-            target_id = resolve_ref(case.get("target"))
+            target_id = resolve_ref(case.get("target"), page)
             direction = str(case.get("direction") or "")
             reasons: list[str] = []
             definition = RELATION_TYPES.get(relation_type)

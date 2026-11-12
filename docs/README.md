@@ -15,6 +15,7 @@ retired release-certification machinery.
 - [Wiki Viva v8 downstream upgrade](references/guides/wiki-viva-v8-downstream-upgrade.md):
   B0 dry-run, C1 sync, C2 regeneration, explicit C3 and `kit.lock`.
 - [Wiki templates](references/templates/wiki/README.md): canonical page types.
+- [Physical navigation migration](references/guides/navigation-migration.md): Git-proven historical references, structural action reconciliation and unchanged receipt chains.
 - [Source registry consumer policy](references/guides/source-registry-consumer-policy.md):
   exact source collections, nested selection and shared demo fixture ownership.
 - [Experience packs](references/guides/experience-pack-authoring.md): complete visual and operational

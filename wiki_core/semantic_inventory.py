@@ -385,9 +385,22 @@ def _expected_relations(
     by_id: Mapping[str, AuthoredPage],
     by_path: Mapping[str, str],
     authored_events: Mapping[str, IngestionEventIdentity],
+    *, root: Path | None = None, navigation=None,
 ) -> tuple[Counter[RelationKey], list[str]]:
     expected: Counter[RelationKey] = Counter()
     unresolved: list[str] = []
+    from wiki_core.navigation import NavigationHistory
+    navigation = navigation or (NavigationHistory(root) if root is not None else None)
+
+    def resolve(page: AuthoredPage, raw: Any) -> str | None:
+        if (navigation and isinstance(raw, str) and raw.endswith('.md') and raw in by_path
+                and not navigation.existing_reference_safe(page.path, (root / page.path).read_bytes().decode('utf-8'), raw)):
+            return None
+        target = _resolve_ref(raw, by_id, by_path)
+        if target is None and navigation and isinstance(raw, str) and raw.endswith('.md'):
+            canonical = navigation.resolve(page.path, (root / page.path).read_bytes().decode('utf-8'), raw)
+            target = by_path.get(canonical)
+        return target
 
     def add(
         page: AuthoredPage,
@@ -402,7 +415,7 @@ def _expected_relations(
         provenance_field: str | None = None,
         direction: str | None = None,
     ) -> None:
-        target = _resolve_ref(raw_ref, by_id, by_path)
+        target = resolve(page, raw_ref)
         if target is None:
             unresolved.append(_opaque("unresolved_relation", page.path, field, raw_ref))
             return
@@ -480,7 +493,7 @@ def _expected_relations(
         collection = values.get("collection")
         if isinstance(collection, Mapping):
             for ref in _unique_values(collection.get("members")):
-                target = _resolve_ref(ref, by_id, by_path)
+                target = resolve(page, ref)
                 if target is None:
                     unresolved.append(
                         _opaque("unresolved_relation", page.path, "collection", ref)
@@ -507,7 +520,7 @@ def _expected_relations(
                     )
                     continue
                 relation_type = str(raw_case.get("type") or "")
-                target = _resolve_ref(raw_case.get("target"), by_id, by_path)
+                target = resolve(page, raw_case.get("target"))
                 direction = str(raw_case.get("direction") or "") or RELATION_DIRECTIONS.get(
                     relation_type, ""
                 )
@@ -605,7 +618,7 @@ def build_semantic_inventory(
         duplicate_page_ids,
     )
     expected_relations, unresolved_relations = _expected_relations(
-        pages, by_id, by_path, authored_events
+        pages, by_id, by_path, authored_events, root=root
     )
     actual_relations = _actual_relations(payloads["graph.json"])
     relation_comparison, relation_diff_errors = _relation_comparison(

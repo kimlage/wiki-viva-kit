@@ -199,7 +199,10 @@ def _aliases(values: dict[str, Any]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(aliases))
 
 
-def build_page_graph(root: Path, config: WikiConfig) -> PageGraph:
+def build_page_graph(root: Path, config: WikiConfig, *, history_root: Path | None = None,
+                     history_revision: str | None = None) -> PageGraph:
+    from wiki_core.navigation import NavigationHistory
+    navigation = NavigationHistory(root, git_root=history_root, revision=history_revision)
     memory_root = _memory_prefix(config)
     files = _markdown_files(root, memory_root)
 
@@ -220,8 +223,15 @@ def build_page_graph(root: Path, config: WikiConfig) -> PageGraph:
     for path in files:
         rel = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8", errors="replace")
-        body_links = _markdown_body_links(root, rel, text)
         fm_refs = _frontmatter_refs(frontmatter_by_rel[rel], page_id_to_rel)
+        body_links = tuple(sorted({
+            (navigation.resolve(rel, text, match[1], href=True) or target)
+            if target not in known_rels else target
+            for match in MARKDOWN_LINK_RE.finditer(text)
+            if (target := _path_from_link(root, rel, match[1]))
+        }))
+        fm_refs = tuple(sorted({ref if ref in known_rels else
+            navigation.resolve(rel, text, ref) or ref for ref in fm_refs}))
         outbound_body[rel] = tuple(link for link in body_links if link in known_rels)
         outbound_refs[rel] = tuple(ref for ref in fm_refs if ref in known_rels)
         for target in set(body_links) | set(fm_refs):
