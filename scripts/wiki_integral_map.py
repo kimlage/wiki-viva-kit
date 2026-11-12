@@ -38,7 +38,7 @@ def render_map(root: Path, anchor_ref: str) -> tuple[Path, str]:
             page = world.by_id.get(page_id)
             if not page:
                 raise ValueError(f'projection references unknown page: {page_id}')
-            target = quote(os.path.relpath(root / page['path'], path.parent), safe='/.-_~')
+            target = quote(os.path.relpath(root / page['path'], path.parent).replace(os.sep, '/'), safe='/.-_~')
             label = page['title'].replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]').replace('\n', ' ')
             lines.append(f'- [{label}]({target})')
         if not lines:
