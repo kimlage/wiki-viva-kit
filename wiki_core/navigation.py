@@ -317,8 +317,12 @@ class NavigationHistory:
             self.last_proof = None
             safe_path(source)
             require_wiki_path(self.root, source)
+            target = link_path(source, ref) if href else safe_path(ref)
+            if (not source.startswith(self.prefix) or not target or not target.endswith('.md')
+                    or (require_wiki_path(self.root, target).exists() and not _occupied)):
+                return None  # a current path is never an alias
             values, body = document(text)
-            if not source.startswith(self.prefix) or not isinstance(values.get('page_id'), str) or not values['page_id']:
+            if not isinstance(values.get('page_id'), str) or not values['page_id']:
                 return None
             if href:
                 occurrences = [m for m in inline_links(body) if m[1] == ref
@@ -332,10 +336,6 @@ class NavigationHistory:
                     and not req.get('query') and req.get('target') == ref
                     for req in values.get('information_requirements', []))):
                 return None
-            target = link_path(source, ref) if href else safe_path(ref)
-            if (not target or not target.endswith('.md')
-                    or (require_wiki_path(self.root, target).exists() and not _occupied)):
-                return None  # a current path is never an alias
             # Compute the repository's native object ID without writing objects.
             raw = text.encode('utf-8')
             oid = hashlib.new(self.object_format, b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
