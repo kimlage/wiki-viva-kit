@@ -78,6 +78,53 @@ def inline_links(body: str):
     return [m for m in MARKDOWN_LINK_RE.finditer(body) if m.span() in spans]
 
 
+def dated_records(body: str):
+    """Exact H2 records, excluding only blank separators between records."""
+    tokens, _ = parse_role_markdown(body)
+    lines = body.splitlines(keepends=True)
+    offsets = [0]
+    for line in lines:
+        offsets.append(offsets[-1] + len(line))
+    starts = [offsets[t.map[0]] for t in tokens if t.type == 'heading_open' and t.tag == 'h2']
+    if not starts:
+        return None
+    records = []
+    for start, stop in zip(starts, [*starts[1:], len(body)]):
+        if not re.match(r'## \[\d{4}-\d{2}-\d{2}[^\r\n]*\][ \t]', body[start:]):
+            return None
+        core = body[start:stop].rstrip('\r\n')
+        suffix = body[start + len(core):stop]
+        newline = '\r\n' if suffix.startswith('\r\n') else '\n' if suffix.startswith('\n') else ''
+        records.append((start, start + len(core) + len(newline), core + newline))
+    return body[:starts[0]], records
+
+
+def preserved_records(before: str, after: str):
+    """An injective, ordered mapping of complete records, never substrings."""
+    old, new = dated_records(before), dated_records(after)
+    if old is None or new is None or old[0] != new[0]:
+        return None
+    mapping, last = [], -1
+    for start, end, record in old[1]:
+        matches = [(i, offset) for i, (offset, _, value) in enumerate(new[1]) if value == record]
+        if len(matches) != 1 or matches[0][0] <= last:
+            return None
+        last, offset = matches[0]
+        mapping.append((start, offset, end))
+    return mapping
+
+
+def record_metadata(history, source, before, destination, after, revision):
+    """Only log update time and independently proved structural grouping."""
+    from wiki_core.information_relations import semantic_equal
+    old, new = document(before)[0], document(after)[0]
+    if not semantic_equal({k: v for k, v in old.items() if k not in {'updated_at', 'moc_parent'}},
+                          {k: v for k, v in new.items() if k not in {'updated_at', 'moc_parent'}}):
+        return False
+    return (semantic_equal(old.get('moc_parent'), new.get('moc_parent')) or
+            _hierarchy_reframing(history, old, new, destination, revision, source))
+
+
 class NavigationHistory:
     """One invocation's local Git readset. No network, writes or global cache."""
     def __init__(self, root: Path, *, git_root: Path | None = None, revision: str | None = None):
@@ -91,6 +138,8 @@ class NavigationHistory:
         self.origins: dict[str, list[str]] = {}
         self.last_proof: dict | None = None
         self.readset: dict[str, tuple[str, int, str]] = {}
+        self.folder_policies: dict[str, object] = {}
+        self.record_maps: dict[tuple[str, str], list | None] = {}
 
     @cached_property
     def prefix(self):
@@ -279,12 +328,11 @@ class NavigationHistory:
         except (ValueError, OSError, UnicodeError, yaml.YAMLError):
             return False
 
-    def _record_origins(self, source: str, values: dict, body: str, ref: str, body_offset: int):
-        """An append preserves a dated record, never an alias for new entries.
+    def _record_origins(self, source: str, text: str, values: dict, body: str, ref: str, body_offset: int):
+        """Map a unique preserved dated record, including newest-first logs.
 
-        The complete old body must remain an exact prefix, and the occurrence
-        must belong to a complete dated H2 record inside it. No substring or
-        similarity matching, changed association, or copied record qualifies.
+        All old records and their order survive exactly. New records cannot
+        lend their occurrences an older origin, even with the same literal URL.
         """
         for revision in self.parents:
             locations = self.ids(revision).get(values['page_id'], [])
@@ -292,22 +340,16 @@ class NavigationHistory:
                 continue
             origin = locations[0]
             old_text = self.text(revision, origin)
-            old, old_body = document(old_text)
-            if (old_body == body or not body.startswith(old_body)
-                    or not (old_body.endswith('\n') or body[len(old_body):].startswith('\n'))
-                    or not re.match(r'## \[\d{4}-\d{2}-\d{2}[^\r\n]*\]\s', body[len(old_body):].lstrip('\r\n'))
-                    or body_offset >= len(old_body)
-                    or {k: v for k, v in old.items() if k != 'updated_at'}
-                    != {k: v for k, v in values.items() if k != 'updated_at'}):
+            _, old_body = document(old_text)
+            mapping = self.record_map(old_body, body)
+            if old_text == text or mapping is None:
                 continue
-            records = [token for token in parse_role_markdown(old_body)[0]
-                       if token.type == 'heading_open' and token.tag == 'h2']
-            lines = old_body.splitlines(keepends=True)
-            starts = [sum(map(len, lines[:token.map[0]])) for token in records]
-            start = next((start for start in reversed(starts) if start <= body_offset), None)
-            if start is None or not re.match(r'## \[\d{4}-\d{2}-\d{2}[^\r\n]*\]\s', old_body[start:]):
+            matched = [(a, b, end) for a, b, end in mapping if b <= body_offset < b + end - a]
+            if len(matched) != 1:
                 continue
-            if not any(m.start() == body_offset and m[1] == ref for m in inline_links(old_body)):
+            start, current_start, end = matched[0]
+            old_offset = start + body_offset - current_start
+            if not any(m.start() == old_offset and m[1] == ref for m in inline_links(old_body)):
                 continue
             relevant = {revision}
             for commit in reversed(self.parents):
@@ -316,16 +358,27 @@ class NavigationHistory:
             preserved = self.head in relevant
             for commit in relevant:
                 paths = self.ids(commit).get(values['page_id'], [])
-                if len(paths) != 1 or not document(self.text(commit, paths[0]))[1].startswith(old_body):
+                if len(paths) != 1:
                     preserved = False
                     break
-            if not preserved:
-                # Yield the origin as incompatible, rather than letting a later
-                # blob-count event or reverted record renew its attribution.
+                at_commit = self.text(commit, paths[0])
+                if (self.record_map(old_body, document(at_commit)[1]) is None
+                        or not record_metadata(self, origin, old_text, paths[0], at_commit, commit)):
+                    preserved = False
+                    break
+            if not preserved or not record_metadata(self, origin, old_text, source,
+                                                     text, self.head):
                 yield revision, origin, old_text, {'invalid_record_lineage': True}
                 continue
-            yield revision, origin, old_text, dict(body_offset=body_offset,
-                record_start=start, record_end=next((s for s in starts if s > start), len(old_body)))
+            yield revision, origin, old_text, dict(body_offset=old_offset,
+                current_body_offset=body_offset, record_start=start, record_end=end,
+                current_record_start=current_start)
+
+    def record_map(self, before: str, after: str):
+        key = before, after
+        if key not in self.record_maps:
+            self.record_maps[key] = preserved_records(before, after)
+        return self.record_maps[key]
 
     def resolve(self, source: str, text: str, ref: str, *, href: bool = False, _occupied: bool = False,
                 body_offset: int | None = None) -> str | None:
@@ -379,7 +432,7 @@ class NavigationHistory:
             # A changed whole-document blob is never claimed as an old preimage.
             # Only an individually located, preserved record may use this path.
             if href and len(occurrences) == 1 and re.search(r'(?m)^## \[\d{4}-\d{2}-\d{2}', body):
-                origins_with_proof.extend(self._record_origins(source, values, body, ref, occurrences[0].start()))
+                origins_with_proof.extend(self._record_origins(source, text, values, body, ref, occurrences[0].start()))
             for revision, origin, origin_text, occurrence_proof in origins_with_proof:
                 if (occurrence_proof.get('invalid_record_lineage')
                         or not self.continuous(revision, origin, values['page_id'], source)):
@@ -414,11 +467,11 @@ _PATH_FIELDS = frozenset({'source_refs', 'source_ref', 'evidence_refs', 'related
     'consolidated_into', 'backlinks_expected', 'moc_parent', 'collection_refs'})
 
 
-def _hub_reframing(history: NavigationHistory, old: dict, new: dict, destination: str,
-                   revision: str) -> bool:
-    """A committed child hub is a distinct hierarchy node, never an alias.
+def _hierarchy_reframing(history: NavigationHistory, old: dict, new: dict, destination: str,
+                   revision: str, source: str) -> bool:
+    """A committed physical index is a distinct hierarchy node, never an alias.
 
-    This predicate is available only to the C3 ancestry audit. It conveys no
+    This predicate qualifies C3 stages and preserved log metadata. It conveys no
     owner/route authority and cannot admit a general frontmatter edit.
     """
     def hub(ref):
@@ -430,23 +483,79 @@ def _hub_reframing(history: NavigationHistory, old: dict, new: dict, destination
         require_wiki_path(history.root, path)
         values, _ = document(history.text(revision, path))
         page_id = values.get('page_id')
-        if (values.get('page_type') != 'context_hub' or not page_id
+        if (not page_id
                 or history.ids(revision).get(page_id) != [path]):
             raise ValueError('invalid hierarchy hub')
         return path, values
-    if old.get('page_type') != 'action' or new.get('page_type') != 'action':
+    if old.get('page_type') != new.get('page_type'):
         return False
     parent_path, parent = hub(old.get('moc_parent'))
     child_path, child = hub(new.get('moc_parent'))
     if parent['page_id'] == child['page_id'] or parent_path == child_path:
         return False
-    if hub(child.get('moc_parent'))[0] != parent_path:
-        return False
-    authority = ('context', 'owner_kind', 'owner_ref', 'visibility', 'gate', 'sensitive_data_policy', 'sources_policy')
+    authority = ('owner_kind', 'owner_ref', 'visibility', 'gate', 'sensitive_data_policy')
     if any(parent.get(k) != child.get(k) for k in authority):
         return False
-    return (old.get('context') == new.get('context') == child.get('context')
-            and destination.startswith(posixpath.dirname(child_path) + '/'))
+    # Preserve the existing narrow explicit-hub contract. Other physical
+    # indexes require the actual folder entry/inheritance contract below.
+    if (old.get('page_type') == 'action' and parent.get('page_type') == child.get('page_type') == 'context_hub'
+            and child.get('moc_parent') and hub(child['moc_parent'])[0] == parent_path
+            and old.get('context') == new.get('context') == parent.get('context') == child.get('context')
+            and parent.get('sources_policy') == child.get('sources_policy')
+            and destination.startswith(posixpath.dirname(child_path) + '/')):
+        return True
+    from wiki_core.context_packet import inspect_folder_context
+    from wiki_core.context_policy import _folder_policy_at, within
+    if revision not in history.folder_policies:
+        history.folder_policies[revision] = _folder_policy_at(history.git_root, revision)
+    policy = history.folder_policies[revision]
+    context = policy.owner_of(destination)
+    # Editorial labels and curation are not ACLs. Nor is a common human owner
+    # a cross-context write grant. This structural route stays within one
+    # effective physical write boundary; normal host preflight still applies.
+    if policy.owner_of(source) != context:
+        return False
+    def inspect(ref):
+        require_wiki_path(history.root, ref)
+        text = history.text(revision, ref)
+        if text is None:
+            raise ValueError('physical hierarchy document unavailable')
+        return text
+    for path in (source, destination, parent_path, child_path):
+        if (policy.owner_of(path) != context or not policy._permits_unqualified(context, 'read', path)
+                or (path in (source, destination) and not policy._permits_unqualified(context, 'write', path))):
+            return False
+        inspect_folder_context(policy, context, posixpath.dirname(path),
+                               policy._context_indexes.get(context), inspect)
+    def hierarchy(path, values):
+        visited = set()
+        while True:
+            if path in visited or len(visited) > 64:
+                return False
+            visited.add(path)
+            if (values.get('page_type') not in {'context_hub', 'root_index'}
+                    and posixpath.basename(path) not in {'index.md', 'README.md'}):
+                return False
+            if not values.get('moc_parent'):
+                return True
+            ancestor, metadata = hub(values['moc_parent'])
+            # An index cannot skip an existing nearer physical index and
+            # declare an unrelated editorial group as its physical parent.
+            indexes = [p for p in history.tree(revision) if p.startswith(history.prefix)
+                       and posixpath.basename(p) in {'index.md', 'README.md'}
+                       and posixpath.dirname(p) != posixpath.dirname(path)
+                       and within(posixpath.dirname(path), posixpath.dirname(p))]
+            nearest = sorted(indexes, key=lambda p: (-len(posixpath.dirname(p)),
+                             posixpath.basename(p) != 'index.md'))
+            if (posixpath.dirname(ancestor) == posixpath.dirname(path)
+                    or not within(posixpath.dirname(path), posixpath.dirname(ancestor))
+                    or policy.owner_of(ancestor) != context
+                    or (nearest and ancestor != nearest[0])):
+                return False
+            inspect(ancestor)
+            path, values = ancestor, metadata
+    return (destination.startswith(posixpath.dirname(child_path) + '/')
+            and hierarchy(parent_path, parent) and hierarchy(child_path, child))
 
 
 def structural_navigation(history: NavigationHistory, source: str, before: str, after: str,
@@ -484,7 +593,7 @@ def structural_navigation(history: NavigationHistory, source: str, before: str, 
                         return False
                     reframe = (field == 'moc_parent' and hierarchy_revision is not None
                                and isinstance(old[field], str)
-                               and _hub_reframing(history, old, new, destination, hierarchy_revision))
+                               and _hierarchy_reframing(history, old, new, destination or source, hierarchy_revision, source))
                     if not reframe and history.resolve(source, before, x) != y:
                         return False
                 if x != y:
@@ -508,8 +617,8 @@ def structural_navigation(history: NavigationHistory, source: str, before: str, 
                 return False
             x, y = a[1], b[1]
             if (x == y and link_path(source, x) != link_path(destination or source, y)
-                    and not history.existing_reference_safe(destination or source, after, y,
-                        href=True, body_offset=b.start())):
+                    and not history.existing_reference_safe(destination or source, before, y,
+                        href=True, body_offset=a.start())):
                 return False
             if x != y:
                 # Historical typed declarations must remain byte-for-byte,

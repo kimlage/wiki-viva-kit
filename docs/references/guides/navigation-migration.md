@@ -14,20 +14,30 @@ merge commits and when a later proposal's base already includes the migration.
 Relation projections retain the literal target, Git origin and authored role;
 historical link-role digests, source pins and document bytes remain untouched.
 Global blob-count events (including adding/removing a source copy) never renew
-a broken lineage. Graph/snapshot readers also refuse a former path's distinct
-occupant instead of displaying a valid edge to the wrong identity.
+a broken lineage. The physical source directory is part of a relative href's
+meaning. A byte-identical source move beside a different existing target cannot
+retarget the old occurrence silently, even when neither target moved. Integrity,
+graph/snapshot and link readers refuse this collision. A newly authored reference
+at the new location can establish its own target; it cannot borrow an earlier
+blob's origin. Equal href literals alone do not prove equal relations.
 
-An append-only log can retain an old occurrence without claiming that its new
-whole-document blob existed before the move. The resolver accepts only an exact
-body prefix from a committed source of the same surviving identity. The old
-occurrence must lie within a dated `## [YYYY-MM-DD] ...` record, and the addition
-must start a new dated record. The old body prefix must survive every relevant
-committed version. Attribution records the original Git commit/path and exact
-body offsets/record boundaries. Changed facts, headings, association or role
-markers, copied records and newly appended uses of the old URL do not qualify.
+An accumulating log can retain an old occurrence without claiming that its new
+whole-document blob existed before the move. Every old dated
+`## [YYYY-MM-DD] ...` record must survive byte for byte, uniquely and in the same
+relative order. New dated records may precede, follow or separate old records.
+The preamble stays exact; blank record separators are outside the record payload
+(which retains its actual final newline and LF/CRLF bytes). This is a mapping of
+complete parsed H2 records, never a substring or prefix heuristic. Each relevant
+committed version must preserve the old records and metadata; a factual detour
+followed by a revert fails. Attribution maps the current occurrence offset back
+to its exact original record, Git commit/path and original body offset.
+Changed facts, headings, association, pins or role/digest markers, copied records
+and new uses of the old URL do not qualify.
 Callers with repeated URLs must supply the individual body offset; an ambiguous
 occurrence cannot borrow another record's proof. This is not general similarity
-matching or permission to rewrite a log, digest or pin.
+matching or permission to rewrite a log, digest or pin. A log's `updated_at` may
+reflect new entries. A `moc_parent` change requires the separately qualified
+physical hierarchy contract below; other metadata stays semantically exact.
 
 Generated output resolves references at its actual source. The ingestion-closure
 compiler projects proven canonical targets with event-origin provenance; the
@@ -42,7 +52,13 @@ relocation. Reoccupying a former path cannot steal an unchanged record's
 historical identity. A newly authored or changed document cannot acquire an old alias.
 Current information requirements must name the canonical target. Historical
 requirements retain their original consumed revision and original target;
-query/policy authority is not transferred through relocation.
+query/policy authority is not transferred through relocation. Both routes check
+identity before accepting an existing path. An original pin cannot describe a
+different occupant, including after the consuming document gains a new blob.
+An obsolete current path requires explicit reconciliation, rather than losing
+its obligation in a future freshness proposal. A historical path which is now
+occupied ambiguously fails closed; an unoccupied proven move keeps the original
+pin and projects the canonical identity.
 
 Resolution is discovery only. Callers must still enforce the destination's
 owner, context, route and access policy. It grants no source reading, execution,
@@ -73,7 +89,11 @@ Use an explicit consumer-owned C3 adapter for the selected navigation scope:
 4. Commit the structural reconciliation before subsequent ordinary writer
    edits. The [action audit](../../../scripts/wiki_audit.py) keeps the original
    approved base and validates the complete relevant ancestry through HEAD:
-   structural versions precede native, content-bound writer versions. A factual
+   structural versions precede native, content-bound writer versions. It selects
+   all commits newly reachable in `base..HEAD`, including a merged branch forked
+   before the base. Every merge parent participates: an excluded parent retains
+   its actual already-approved action version as a boundary, without reauditing
+   all approved history. Clean side branches pass. A factual
    detour after the stage remains refused even when a later commit reverts it.
    Only a committed ancestor whose exact bytes and revision match the first
    receipt's preimage can bridge to the ordinary receipt chain. It also checks
@@ -108,25 +128,53 @@ an arbitrary Git blob or a newly chosen base is not a repair.
 Reversibility and promotion remain the consumer PR. There is no new migration
 certificate, historical recertification or reusable authorization receipt.
 
-### Restricted hierarchy reframing
+### Qualified physical hierarchy reframing
 
-A C3 structural stage may change an action's scalar `moc_parent` from a real
-`context_hub` to its directly declared child hub, including while moving the
-action into the child's physical subtree. Both hubs must have distinct, unique
-IDs in the committed stage, the same explicit context and equal owner/access
-policy fields. The action retains its context, owner, lifecycle, facts, dates,
-history and body bytes. The ancestry gate checks the actual committed stage
-before any ordinary writer edit and retains the original approved base.
+A C3 structural stage may correct an old grouping such as `alpha` to an existing
+qualified `organization-beta/project-gamma/index.md`. The old grouping need not
+be an ancestor of the new project. A conventional `index.md`/`README.md` may be a
+`project`; it need not be relabeled `context_hub`. Editorial `context` labels and
+`sources_policy` curation may differ among grouping indexes. The action retains
+its own context, owner, lifecycle, facts, dates, history and body bytes. The
+ancestry gate checks the real committed stage before native writer edits against
+the original approved base.
 
-This is hierarchy construction, not identity relocation: neither hub becomes an
-alias. Non-hubs, unrelated hubs, unsafe paths, policy changes and mixed factual
-stages fail closed. The body-only terminal writer does not acquire a general
-hierarchy/frontmatter patch API. Operator authorization, owner and route checks
-remain the caller's responsibility; this predicate grants none of them.
+The physical route uses the same entry/index selection and instruction-chain
+inspection as [context_packet](../../../wiki_core/context_packet.py). It needs
+nonempty committed instructions and an entry index, distinct unique page IDs,
+real enclosing index ancestry and a destination inside the selected project's
+subtree. A declared parent cannot skip a nearer physical index. The route stays
+within one effective physical context, with existing read authority on the
+grouping/index chain and write scope on the selected source/destination. Equal
+human owners or read connections do not authorize cross-context writing. The
+previous narrow direct-child `context_hub` transformation remains supported.
+
+Normal host binding and preflight remain required for a protected caller:
+`prepare_packet` qualifies the approved physical entry and exact C3 evidence;
+`prepare_preflight` rechecks the same trusted policy, complete changed-path set
+and actual write authority. Neither the structural audit nor a Git blob grants
+access. Existing nested folder contexts still need their own current binding and
+owner checks; this route does not migrate ACLs or authorize a cross-owner move.
+No access entry, bilateral connection or new approval mechanism is generated.
+
+The public positive fixture has a root physical context with existing explicit
+writes limited to `memories/actions` and
+`memories/organization-beta/project-gamma`, root instructions/entry, and distinct
+editorial organization/project indexes inheriting that boundary. Its bound
+preflight sees exactly the old action deletion and new action creation; its
+result still requires independent review. The old shape-only probes lack these
+physical/binding prerequisites and are not promoted to authorized projects.
+
+Preserved dated logs can also change only `moc_parent` under this qualified
+contract, with exact old records and committed physical moves. Arbitrary projects,
+missing instructions/binding, read-only scope, owner/access changes, false
+hierarchy, record transplant or mixed factual stages remain refused. Neither
+group becomes an identity alias. The body-only terminal writer acquires no
+general hierarchy/frontmatter patch API.
 
 Git parents, object metadata and identity parses are cached only within one
 invocation. Identical memory trees share their identity inventory. The bounded
-ancestry read is reused across resolutions; missing/truncated history fails
+ancestry read and exact record mappings are reused across resolutions; missing/truncated history fails
 closed. Writes still recheck HEAD, selected identity uniqueness, mode and exact
 bytes. This reduces repeated local work without a global cache or latency SLA.
 
@@ -139,6 +187,14 @@ the context renderer. It exercises missing/ambiguous/unsafe identity, deletion,
 resurrection, body/frontmatter tampering, fabricated/off-branch intermediates
 and unchanged historical bytes. It also covers post-stage factual detours and
 reverts, each new CAS, exact CRLF frontmatter, distinct parent/child hubs,
-preserved dated log occurrences and source-derived fresh projections. The
+preserved dated log occurrences and source-derived fresh projections.
+[Identity regressions](../../../tests/test_navigation_integrity.py) cover pinned
+reoccupants, relative-source collisions, explicit current reconciliation and
+clean/detour branches forked before the base. [Qualified capability
+fixtures](../../../tests/test_navigation_capacity.py) cover alpha → organization
+beta/project gamma through normal host preflight, preserved newest-first records,
+mapped offsets, structural log metadata and their authority/identity negatives.
+They qualify missing physical prerequisites explicitly, without changing the
+retained shape probes. The
 original snapshot cache/parity test is unchanged. No consumer artifacts are
 test inputs.

@@ -107,6 +107,49 @@ def guarded_context_read(reader, policy, ref, **selectors):
     return reader.read(ref, **selectors)
 
 
+def folder_entry(policy, context_id, entry_folder, entry_index):
+    """Validate physical entry/index selection; this grants no access."""
+    entry_folder = safe_path(entry_folder, allow_root=True)
+    entry_index = safe_path(entry_index)
+    if context_id not in policy.contexts or (entry_folder == '.' and context_id != '.'):
+        raise PolicyError('entry context unavailable')
+    if entry_folder != '.' and policy.owner_of(entry_folder) != context_id:
+        raise PolicyError('entry context unavailable')
+    if str(PurePosixPath(entry_index).parent) != policy.contexts[context_id]['root']:
+        raise PolicyError('entry index unavailable')
+    return entry_folder, entry_index
+
+
+def inspect_folder_context(policy, context_id, entry_folder, entry_index, inspect):
+    """Inspect the physical instruction/index chain via a caller's guarded read.
+
+    The caller supplies authorization (or a read-only Git audit). No policy
+    qualification or grant is produced by this structural predicate itself.
+    """
+    entry_folder, entry_index = folder_entry(policy, context_id, entry_folder, entry_index)
+    lineage = policy.lineage(context_id)
+    for context in lineage:
+        folder = context['root']
+        prefix = '' if folder == '.' else folder + '/'
+        instructions = [prefix + name for name in ('AGENTS.override.md', 'AGENTS.md')
+                        if prefix + name in policy._folder_names]
+        if not instructions or not any(inspect(ref).strip() for ref in instructions):
+            raise PolicyError('context instruction empty or unavailable')
+        if folder != '.' or context_id == '.':
+            index = entry_index if folder == context_id else policy._context_indexes.get(folder)
+            if not index or not inspect(index).strip():
+                raise PolicyError('context index empty or unavailable')
+    context_folders = {context['root'] for context in lineage}
+    parts = [] if entry_folder == '.' else entry_folder.split('/')
+    for folder in ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]:
+        if folder in context_folders:
+            continue
+        refs = [folder + '/' + name for name in ('AGENTS.override.md', 'AGENTS.md')
+                if folder + '/' + name in policy._folder_names]
+        if refs:
+            any(inspect(ref).strip() for ref in refs)
+
+
 @policy_stage_cache()
 def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes, *, additional_readers=()):
     """Qualify the lineage after exact authorization for every reader.
@@ -124,16 +167,11 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
         if not require_wiki_path(Path(root), entry_folder).is_dir(): raise ValueError('entry folder unavailable')
     except (ValueError, OSError) as exc:
         raise PolicyError('entry folder unavailable') from exc
-    if context_id not in policy.contexts or (entry_folder == '.' and context_id != '.'):
-        raise PolicyError('entry context unavailable')
+    entry_folder, entry_index = folder_entry(policy, context_id, entry_folder, entry_index)
     if (not isinstance(additional_readers, (list, tuple)) or len(additional_readers) > 8
             or any(not isinstance(reader, str) or reader not in policy.contexts for reader in additional_readers)
             or len(set(additional_readers)) != len(additional_readers)):
         raise PolicyError('additional reader selection unavailable')
-    if entry_folder != '.' and policy.owner_of(entry_folder) != context_id: raise PolicyError('entry context unavailable')
-    entry_index = safe_path(entry_index)
-    if str(PurePosixPath(entry_index).parent) != policy.contexts[context_id]['root']:
-        raise PolicyError('entry index unavailable')
     if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
         raise PolicyError('invalid byte budget')
     reader = RepositoryReader(Path(root), policy.policy_revision)
@@ -166,29 +204,7 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
         _reject_secrets(item['text'])
         nonempty[ref] = bool(item['text'].strip())
         return item['text']
-    for context in lineage:
-        folder = context['root']
-        prefix = '' if folder == '.' else folder + '/'
-        instructions = [prefix + name for name in ('AGENTS.override.md', 'AGENTS.md')
-                        if prefix + name in policy._folder_names]
-        if not instructions or not any(inspect_authorized(ref).strip() for ref in instructions):
-            raise PolicyError('context instruction empty or unavailable')
-        if folder != '.' or context_id == '.':
-            index = entry_index if folder == context_id else policy._context_indexes.get(folder)
-            if index not in reader.paths or not inspect_authorized(index).strip():
-                raise PolicyError('context index empty or unavailable')
-    # AGENTS files in auxiliary folders still participate in native physical
-    # discovery even though those folders do not create context ownership.
-    context_folders = {context['root'] for context in lineage}
-    parts = [] if entry_folder == '.' else entry_folder.split('/')
-    for folder in ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]:
-        if folder in context_folders: continue
-        prefix = folder + '/'
-        refs = [prefix + name for name in ('AGENTS.override.md', 'AGENTS.md')
-                if prefix + name in policy._folder_names]
-        # Empty auxiliary instructions contribute nothing; fallback is read
-        # only after the exact grant for that file has been checked.
-        if refs: any(inspect_authorized(ref).strip() for ref in refs)
+    inspect_folder_context(policy, context_id, entry_folder, entry_index, inspect_authorized)
     policy.fresh()
     policy._qualified_contexts.update(context['id'] for context in lineage)
     if not hasattr(policy, '_folder_qualifications'): policy._folder_qualifications = {}
@@ -324,16 +340,10 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
                 raise ValueError('entry folder unavailable')
         except (ValueError, OSError) as exc:
             raise PolicyError('entry folder unavailable') from exc
-        if context_id not in policy.contexts or (entry_folder == '.' and context_id != '.'):
-            raise PolicyError('entry context unavailable')
-        if entry_folder != '.' and policy.owner_of(entry_folder) != context_id:
-            raise PolicyError('entry context unavailable')
         if entry_index is None:
             entry_index = policy._context_indexes.get(context_id)
             if entry_index is None: raise PolicyError('entry index unavailable')
-        entry_index = safe_path(entry_index)
-        if str(PurePosixPath(entry_index).parent) != policy.contexts[context_id]['root']:
-            raise PolicyError('entry index unavailable')
+        entry_folder, entry_index = folder_entry(policy, context_id, entry_folder, entry_index)
         if additional_readers and queries:
             raise PolicyError('additional reader query authorization requires explicit requalification')
     for value in (task_id, goal, output, integrator, context_id):
