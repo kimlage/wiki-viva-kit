@@ -99,6 +99,9 @@ The command replaces only the marker contents with links from that anchor's
 empty quadrant is shown as a `quadrant_absence` mission. Other prose is authored
 normally. The bundle declarations and their inheritance remain in frontmatter;
 the map is a generated navigation view, not a new source of classification.
+Each generated link carries an occurrence-local navigation declaration, so it
+does not make the linked page's factual body a freshness dependency. Regenerate
+existing maps and check them in with these declarations.
 See [the synthetic person/company/project example](../examples/integral-context.md).
 
 ## 4. Packages

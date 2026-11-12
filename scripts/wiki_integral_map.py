@@ -10,6 +10,7 @@ from urllib.parse import quote
 
 from _common import ROOT
 from wiki_core.config import load_config
+from wiki_core.markdown_link_roles import declare_link_role
 from wiki_core.template_blocks import anchor_record, is_anchor_type, load_block_world
 
 
@@ -40,7 +41,7 @@ def render_map(root: Path, anchor_ref: str) -> tuple[Path, str]:
                 raise ValueError(f'projection references unknown page: {page_id}')
             target = quote(os.path.relpath(root / page['path'], path.parent).replace(os.sep, '/'), safe='/.-_~')
             label = page['title'].replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]').replace('\n', ' ')
-            lines.append(f'- [{label}]({target})')
+            lines.append('- ' + declare_link_role(f'[{label}]({target})', 'navigation'))
         if not lines:
             lines.append('_Empty: `quadrant_absence` mission._')
         before, tail = text.split(start, 1)
