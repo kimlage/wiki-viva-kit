@@ -255,8 +255,9 @@ def _folder_policy_at(root, sha):
     The existing wiki configuration may contain sparse ``context_access``
     entries keyed by physical folder. These entries contain access rules only;
     they do not define folders, ancestry or instruction files. Missing entries
-    grant nothing. This is a policy model, not a sandbox or a native-session
-    discovery claim.
+    grant nothing. Explicit ``context_discovery.exclude`` prefixes suppress
+    automatic ownership roots, not physical instruction loading or read guards.
+    This is a policy model, not a sandbox or a native-session discovery claim.
     """
     try:
         config = yaml.load(git_file(root, sha, 'wiki.config.yaml'), Loader=UniqueLoader)
@@ -265,6 +266,12 @@ def _folder_policy_at(root, sha):
     if not isinstance(config, dict): raise PolicyError('invalid wiki configuration')
     access = config.get('context_access', {})
     if not isinstance(access, dict): raise PolicyError('invalid context access')
+    discovery = config.get('context_discovery', {})
+    _keys(discovery, {'exclude'}, set(), 'context discovery')
+    excluded = _list(discovery.get('exclude', []), 'context discovery exclusions')
+    for folder in excluded:
+        if folder == '.': raise PolicyError('root context cannot be excluded')
+        safe_path(folder)
 
     raw = _git(root, 'ls-tree', '-r', '-z', sha)
     names = set()
@@ -297,9 +304,13 @@ def _folder_policy_at(root, sha):
     for path in names:
         if PurePosixPath(path).name not in ('index.md', 'README.md'): continue
         folder = str(PurePosixPath(path).parent)
-        if folder != '.' and selected_instruction(folder): folders.add(folder)
+        if (folder != '.' and selected_instruction(folder)
+                and not any(within(folder, prefix) for prefix in excluded)):
+            folders.add(folder)
     for folder in access:
         safe_path(folder, allow_root=True)
+        if any(within(folder, prefix) for prefix in excluded):
+            raise PolicyError('context discovery exclusion conflicts with explicit access')
         if folder not in folders: raise PolicyError('access entry has no context folder')
 
     contexts = []
