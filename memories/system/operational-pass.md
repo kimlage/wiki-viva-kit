@@ -131,32 +131,32 @@ Read this first: a compact daily state of items that still need review, decision
 
 ### Latest updates
 
-- **system:** [Operations - wiki-viva-kit](../operations.md)<!-- wiki-link-role.v2 projection consumes:body,context,page_id,page_type,title,updated_at produces:body sha256:97bc71cdfdc7a27351cf0235dc1ccaa607463796431c7552715b89bca201c622 --> (2026-10-26)
-- **system:** [Meta-wiki: operating costs and discipline](wiki/operation-costs.md)<!-- wiki-link-role.v2 projection consumes:context,page_id,page_type,title,updated_at produces:body sha256:541646add117756bd8e979db687ac14fed3388d15d4003284c1918d0e8ea61a9 --> (2026-10-26)
-- **system:** [Input stage](input-stage.md)<!-- wiki-link-role.v2 projection consumes:context,page_id,page_type,title,updated_at produces:body sha256:d7dd403f2b2ef424cff23b80b5e749c40b30d2bddb3107dd356619026fa975af --> (2026-10-26)
-- **system:** [Ingestion process](ingestion-process.md)<!-- wiki-link-role.v2 projection consumes:body,context,page_id,page_type,title,updated_at produces:body sha256:8dc054b50ccf49168564b8a12702352eb466705a576fe2560ae0b73fa7b9a190 --> (2026-10-26)
-- **system:** [Governance and PR flow](wiki/pr-governance.md)<!-- wiki-link-role.v2 projection consumes:context,page_id,page_type,title,updated_at produces:body sha256:b2d4479052df807204f438bbf08c12c1cc9d55031c6d4303f3303d504d651c0b --> (2026-10-26)
+- **[system](../index.md)<!-- wiki-link-role.v1 navigation sha256:d5c9e9773d3b248047254f3690062191505cc053eb3e37d39a40ca8868a5e0c0 -->:** [Operations - wiki-viva-kit](../operations.md)<!-- wiki-link-role.v2 projection consumes:body,context,page_id,page_type,title,updated_at produces:body sha256:97bc71cdfdc7a27351cf0235dc1ccaa607463796431c7552715b89bca201c622 --> (2026-11-12)
+- **[system](../index.md)<!-- wiki-link-role.v1 navigation sha256:d5c9e9773d3b248047254f3690062191505cc053eb3e37d39a40ca8868a5e0c0 -->:** [Meta-wiki: operating costs and discipline](wiki/operation-costs.md)<!-- wiki-link-role.v2 projection consumes:context,page_id,page_type,title,updated_at produces:body sha256:541646add117756bd8e979db687ac14fed3388d15d4003284c1918d0e8ea61a9 --> (2026-10-26)
+- **[system](../index.md)<!-- wiki-link-role.v1 navigation sha256:d5c9e9773d3b248047254f3690062191505cc053eb3e37d39a40ca8868a5e0c0 -->:** [Input stage](input-stage.md)<!-- wiki-link-role.v2 projection consumes:context,page_id,page_type,title,updated_at produces:body sha256:d7dd403f2b2ef424cff23b80b5e749c40b30d2bddb3107dd356619026fa975af --> (2026-10-26)
+- **[system](../index.md)<!-- wiki-link-role.v1 navigation sha256:d5c9e9773d3b248047254f3690062191505cc053eb3e37d39a40ca8868a5e0c0 -->:** [Ingestion process](ingestion-process.md)<!-- wiki-link-role.v2 projection consumes:body,context,page_id,page_type,title,updated_at produces:body sha256:8dc054b50ccf49168564b8a12702352eb466705a576fe2560ae0b73fa7b9a190 --> (2026-10-26)
+- **[system](../index.md)<!-- wiki-link-role.v1 navigation sha256:d5c9e9773d3b248047254f3690062191505cc053eb3e37d39a40ca8868a5e0c0 -->:** [Governance and PR flow](wiki/pr-governance.md)<!-- wiki-link-role.v2 projection consumes:context,page_id,page_type,title,updated_at produces:body sha256:b2d4479052df807204f438bbf08c12c1cc9d55031c6d4303f3303d504d651c0b --> (2026-10-26)
 
 
 ## Context summary
 
 | Context | Hub | Vitality | Sources | Sources needing attention | Actions | Actions needing attention | Claims / decisions | Next steps |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| example | [Example context - hub](../example/index.md)<!-- wiki-link-role.v2 projection consumes:context,page_id,page_type,stale_after_days,title,updated_at produces:body sha256:b82f3e67868dbc583ee9582b1eaf1c63ecd4fa84f4ed7fa5834bcd8cb50a0592 --> | stale | 0 | 0 | 0 | 0 | 0 / 0 | - |
-| system | [Memory - root MOC](../index.md)<!-- wiki-link-role.v2 projection consumes:context,page_id,page_type,stale_after_days,title,updated_at produces:body sha256:96b60a7605fb31aa92fba9ea7ed685eb015c2d4b34455acc46dc50ba6c01d226 --> | fresh | 1 | 0 | 0 | 0 | 0 / 0 | - |
+| [example](../example/index.md)<!-- wiki-link-role.v1 navigation sha256:a932390ca8e8db2a2d3c5d3892315f2a5b88e3fffbe4391bf1907ee445f1a61b --> | [Example context - hub](../example/index.md)<!-- wiki-link-role.v2 projection consumes:context,page_id,page_type,stale_after_days,title,updated_at produces:body sha256:b82f3e67868dbc583ee9582b1eaf1c63ecd4fa84f4ed7fa5834bcd8cb50a0592 --> | stale | 0 | 0 | 0 | 0 | 0 / 0 | - |
+| [system](../index.md)<!-- wiki-link-role.v1 navigation sha256:d5c9e9773d3b248047254f3690062191505cc053eb3e37d39a40ca8868a5e0c0 --> | [Memory - root MOC](../index.md)<!-- wiki-link-role.v2 projection consumes:context,page_id,page_type,stale_after_days,title,updated_at produces:body sha256:96b60a7605fb31aa92fba9ea7ed685eb015c2d4b34455acc46dc50ba6c01d226 --> | fresh | 1 | 0 | 0 | 0 | 0 / 0 | - |
 
 ## Consolidation output matrix
 
 | Context | Actions | Problems | Claims | Decisions | Dense contexts | Non-ingested sources | Signal |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| example | 0 | 0 | 0 | 0 | 0 | 0 | ok |
-| system | 0 | 0 | 0 | 0 | 0 | 0 | ok |
+| [example](../example/index.md)<!-- wiki-link-role.v1 navigation sha256:a932390ca8e8db2a2d3c5d3892315f2a5b88e3fffbe4391bf1907ee445f1a61b --> | 0 | 0 | 0 | 0 | 0 | 0 | ok |
+| [system](../index.md)<!-- wiki-link-role.v1 navigation sha256:d5c9e9773d3b248047254f3690062191505cc053eb3e37d39a40ca8868a5e0c0 --> | 0 | 0 | 0 | 0 | 0 | 0 | ok |
 
 ## Sources by state
 
 | Source | Context | Ingestion | Last update | Next refresh | Status | Linked actions |
 | --- | --- | --- | --- | --- | --- | --- |
-| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md)<!-- wiki-link-role.v2 projection consumes:actions,context,ingestion_state,last_ingested_at,next_refresh_at,page_id,page_type,refresh_cadence_days,source_type,stale_after_days,status,structured_ingestion_state,title,updated_at produces:body sha256:b6f6b20c7b26aa778cc2d50e7b076f85f6199eb5ae410f4570168d13cfb2a114 --> | system | `ingested` | 2026-08-26 | 2027-02-22 | ok | - |
+| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md)<!-- wiki-link-role.v2 projection consumes:actions,context,ingestion_state,last_ingested_at,next_refresh_at,page_id,page_type,refresh_cadence_days,source_type,stale_after_days,status,structured_ingestion_state,title,updated_at produces:body sha256:b6f6b20c7b26aa778cc2d50e7b076f85f6199eb5ae410f4570168d13cfb2a114 --> | [system](../index.md)<!-- wiki-link-role.v1 navigation sha256:d5c9e9773d3b248047254f3690062191505cc053eb3e37d39a40ca8868a5e0c0 --> | `ingested` | 2026-08-26 | 2027-02-22 | ok | - |
 
 ## Compiled actions
 

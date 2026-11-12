@@ -83,12 +83,15 @@ class NavigationHistory:
         self.root = root
         self.git_root = git_root or root
         self.revision = revision
-        self.prefix = str(load_config(root).paths['memory_root']).rstrip('/') + '/'
         self.trees: dict[str, dict[str, tuple[str, str]]] = {}
         self.blobs: dict[str, str] = {}
         self.identities: dict[str, dict[str, list[str]]] = {}
         self.last_proof: dict | None = None
         self.readset: dict[str, tuple[str, int, str]] = {}
+
+    @cached_property
+    def prefix(self):
+        return str(load_config(self.root).paths['memory_root']).rstrip('/') + '/'
 
     def git(self, *args: str) -> bytes:
         return local_git_tree(self.git_root, *args)

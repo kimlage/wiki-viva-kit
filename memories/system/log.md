@@ -14,6 +14,21 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-12] Physical navigation migration and operational projection
+
+The [navigation migration proposal](https://github.com/kimlage/wiki-viva-kit/pull/290)
+adds Git-proven historical resolution and bounded structural action reconciliation.
+The [adoption guide](../../docs/references/guides/navigation-migration.md) describes
+the required move order, preserved history and limits. Public synthetic cases
+exercise the generic contract; no downstream adoption or external operation is
+claimed by this entry.
+
+Regenerate the [operational pass](operational-pass.md) with its existing producer
+and recorded date, so context labels link to declared hubs. The previous
+generated-output gate is resolved by this projection update, subject to the
+final checks and independent review of this proposal. Source dates, existing
+historical entries, action states and authorization remain unchanged.
+
 ## [2026-11-12] Restore authorized Drive publication
 
 Restore [Drive publication](../../scripts/wiki_drive_publish.py) under the owner's
