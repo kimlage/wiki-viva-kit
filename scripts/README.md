@@ -31,7 +31,11 @@ repeated fields do not overwrite earlier candidates. A nonempty extracted
 body does not establish coverage of the container. DOCX headers, footers,
 comments and notes, XLSX comments (including threaded comments), and PDF
 annotations are refused because these parts are not covered by the body
-extractors. Office part declarations are checked inside the captured ZIP;
+extractors. Office part declarations are checked inside the captured ZIP.
+XLSX formulas are also refused: cached results can be absent or stale, and the
+publisher has no formula evaluator to validate their field/value associations.
+This applies even when a cached result exists; literal-value tables remain
+supported under the same secret checks.
 `pypdf` parses the captured PDF page dictionaries, including compressed objects.
 Missing parsers, encrypted PDFs and parsing failures also refuse validation.
 A detected secret or unavailable/incomplete content validation stops that batch

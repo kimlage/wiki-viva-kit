@@ -147,6 +147,10 @@ def validate_artifact(path: Path) -> bytes:
                 if unit["kind"] in {"sheet_row", "doc_table_row"}:
                     row = json.loads(unit["text"])
                     values.append(row)
+                    if any(isinstance(cell, dict) and "formula" in cell for cell in row["cells"]):
+                        # Cached values may be absent or stale; they do not
+                        # validate the formula's field/value associations.
+                        raise ValueError("Spreadsheet formula validation unavailable")
                     cells = [cell.get("value", cell.get("cached_value"))
                              if isinstance(cell, dict) else cell for cell in row["cells"]]
                     table = (unit["kind"], unit.get("sheet", unit.get("table")))

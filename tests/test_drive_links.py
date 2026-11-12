@@ -511,6 +511,50 @@ def test_real_table_associations_allow_synthetic_pii(tmp_path, monkeypatch, suff
     assert entry["sha256"] == pub.hashlib.sha256(data).hexdigest()
 
 
+@pytest.mark.parametrize("case", ["fields", "value", "calculation"])
+@pytest.mark.parametrize("cached", [False, True])
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_xlsx_formula_coverage_refused_with_or_without_cached_result(tmp_path, monkeypatch, case, cached, dry_run):
+    import xml.etree.ElementTree as ET
+    from wiki_core.extractors.text import extract_captured
+    rows = {
+        "fields": [('="client_id"', "synthetic-client"), ('="refresh_token"', "synthetic-short")],
+        "value": [("password", '="a1Bc2De3Fg4Hi5Jk6Lm7"')],
+        "calculation": [("total", "=1+1")],
+    }[case]
+    data = _association_table(".xlsx", rows)
+    if cached:
+        target = io.BytesIO()
+        ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+        with zipfile.ZipFile(io.BytesIO(data)) as source, zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as dest:
+            for item in source.infolist():
+                content = source.read(item.filename)
+                if item.filename == "xl/worksheets/sheet1.xml":
+                    root = ET.fromstring(content)
+                    for cell in root.iter(ns + "c"):
+                        if cell.find(ns + "f") is not None:
+                            cell.set("t", "n")
+                            cell.find(ns + "v").text = "2"
+                    content = ET.tostring(root)
+                dest.writestr(item, content)
+        data = target.getvalue()
+    pub, first = _publisher(tmp_path, monkeypatch)
+    artifact = tmp_path / "formula.xlsx"
+    artifact.write_bytes(data)
+    extracted = extract_captured(str(artifact), "spreadsheet", data)
+    assert extracted.text.strip() and not extracted.warnings
+    formulas = [cell for unit in extracted.units for cell in json.loads(unit["text"])["cells"]
+                if isinstance(cell, dict) and "formula" in cell]
+    assert formulas and all(cell["cached_value"] == (2 if cached else None) for cell in formulas)
+    drive = _FakeDrive(list=lambda **k: {"files": []}, create=lambda **k: {"id": "synthetic-id"})
+    calls = _install_fake_google(monkeypatch, drive, real_media=True)
+    before = pub.MANIFEST_PATH.read_bytes()
+    with pytest.raises(RuntimeError, match="validation unavailable"):
+        pub.publish([first, artifact], "synthetic-folder", dry_run=dry_run)
+    assert not drive.calls and calls == {"build": [], "media": []}
+    assert pub.MANIFEST_PATH.read_bytes() == before
+
+
 @pytest.mark.parametrize("case", ["docx-header", "xlsx-comment", "pdf-annotation", "docx-table", "xlsx-cell"])
 @pytest.mark.parametrize("dry_run", [False, True])
 @pytest.mark.parametrize("matching", [False, True])
