@@ -406,6 +406,39 @@ def test_render_input_stage_markdown_is_stable_and_links(tmp_path: Path) -> None
     assert "perspective-identity-intent" in md
 
 
+def test_render_input_stage_default_output_matches_existing_bytes(tmp_path: Path) -> None:
+    cfg = _fixture_repo(tmp_path)
+    catalog = compile_input_stage(tmp_path, cfg, generated_at="2026-06-25")
+    expected = Path(__file__).parent / "fixtures/input-stage-default.md"
+
+    assert render_input_stage_markdown(catalog, cfg).encode("utf-8") == expected.read_bytes()
+
+
+@pytest.mark.parametrize("language", ["en", "pt", "es"])
+@pytest.mark.parametrize("page", ["input-stage.md", "memories/wiki/private-ops/input-stage.md"])
+def test_render_input_stage_links_resolve_from_configured_page(
+    tmp_path: Path, language: str, page: str,
+) -> None:
+    from scripts.wiki_input_stage import _check_input_stage
+
+    cfg = _fixture_repo(tmp_path)
+    cfg = replace(cfg, language=language, root_entity={**cfg.root_entity, "input_stage_page": page})
+    (tmp_path / page).parent.mkdir(parents=True, exist_ok=True)
+    _write(tmp_path / "scripts/wiki_input_stage.py", "# Synthetic generator\n")
+    catalog = compile_input_stage(tmp_path, cfg, generated_at="2026-06-25")
+
+    md = render_input_stage_markdown(catalog, cfg)
+    (tmp_path / page).write_text(md, encoding="utf-8")
+    links = dict(re.findall(r"\[([^\]]+)\]\(([^)]+)\)", md))
+
+    assert (tmp_path / page).parent.joinpath(links["wiki_input_stage.py"]).resolve() == (
+        tmp_path / "scripts/wiki_input_stage.py"
+    )
+    for label in ("Example team", "Team docs", "Team handbook", "source-config-team-handbook"):
+        assert (tmp_path / page).parent.joinpath(links[label]).is_file()
+    assert _check_input_stage(tmp_path, cfg) == {"complete": True, "errors": []}
+
+
 def test_render_input_stage_links_repo_paths_in_generated_warnings(tmp_path: Path) -> None:
     cfg = _fixture_repo(tmp_path)
     (tmp_path / "memories/sources/config/team-handbook.md").unlink()
