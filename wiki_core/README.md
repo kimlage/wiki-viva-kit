@@ -11,6 +11,21 @@ machinery is removed; downstream adoption uses
 ingestion wizard planning and proposal-branch Git workflow contracts for the
 localhost operator API. It intentionally does not embed an LLM client.
 
+[paths.py](paths.py) discovers canonical actions and sources in the configured
+directories anywhere under `paths.memory_root`, including nested contexts, while
+[traversal.py](traversal.py) prunes symlinks and nested Git repositories. The
+legacy global directories remain supported and need not exist in a local-only
+layout. Global projections reference those same pages; a shared source keeps
+one canonical page referenced by its consumers. Discovery grants no access.
+
+For consumers upgrading this behavior, no relocation or duplicate index is
+required. Preserve page IDs, context, owner and existing writer/CAS contracts.
+Preserve the consumer's explicit [nested-source selection](../docs/references/guides/source-registry-consumer-policy.md).
+Without that policy, recursive discovery remains the default. Configuration
+fallback checks the source's own sources directory's `config` subtree before
+the legacy global config; explicit `config_ref` still takes precedence. Regenerate
+affected projections through the consumer's reviewed sync PR and its gates.
+
 [action_state.py](action_state.py) is the shared read/compatibility vocabulary;
 [action_transition.py](action_transition.py) is the fail-closed writer. It
 enforces the transition table, action contract fields, safe chained receipts,

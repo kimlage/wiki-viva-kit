@@ -25,7 +25,7 @@ CODE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CODE_ROOT))
 from scripts._common import ROOT
 
-from wiki_core.traversal import wiki_markdown_files
+from wiki_core.traversal import require_wiki_boundaries
 from wiki_core.config import freshness_for, load_config
 from wiki_core.paths import WikiPaths
 from wiki_core.source_recipe import extract_recipe_mapping
@@ -196,22 +196,17 @@ def _refresh_fields(
 
 
 def collect_sources(paths: WikiPaths, as_of: str | None = None) -> list[dict[str, str]]:
-    """Direct sources plus nested sources allowed by the consumer policy.
+    """Legacy direct sources plus explicitly selected nested/context sources.
 
     With no declared policy the existing recursive convention is preserved.
     A declared policy is authoritative and never widens its nested selection.
     """
-    sources_dir = paths.sources_dir
     as_of_date = _parse_date(as_of) or dt.date.today()
-    strings = _strings(load_config(ROOT).language)
-    policy = _nested_source_allowlist(ROOT)
+    strings = _strings(paths.config.language)
+    policy = _nested_source_allowlist(paths.root)
     seen_nested: set[str] = set()
     rows: list[dict[str, str]] = []
-    if not sources_dir.is_dir():
-        if policy:
-            raise ValueError("source_registry.nested_sources contains missing or non-source paths: " + ", ".join(sorted(policy)))
-        return rows
-    for md in sorted(wiki_markdown_files(sources_dir, wiki_root=paths.root)):
+    for md in paths.source_files():
         if md.name in {"index.md", "README.md"}:
             continue
         fm = read_frontmatter(md)
@@ -219,7 +214,7 @@ def collect_sources(paths: WikiPaths, as_of: str | None = None) -> list[dict[str
         if page_type not in SOURCE_PAGE_TYPES:
             continue
         rel = paths.rel(md)
-        if md.parent != sources_dir and policy is not None:
+        if md.parent != paths.sources_dir and policy is not None:
             if rel not in policy:
                 continue
             seen_nested.add(rel)
@@ -230,8 +225,15 @@ def collect_sources(paths: WikiPaths, as_of: str | None = None) -> list[dict[str
         # Per-source config sidecar (item 9): only link it if it actually exists,
         # so the registry's links always resolve on a clean clone.
         config_ref = str(fm.get("config_ref") or "").strip()
-        config = config_ref if config_ref and (ROOT / config_ref).exists() else ""
-        contract = _recipe_contract(ROOT / config if config else None)
+        config = ""
+        if config_ref:
+            try:
+                require_wiki_boundaries(paths.root, files=(paths.root / config_ref,))
+                if (paths.root / config_ref).is_file():
+                    config = config_ref
+            except ValueError:
+                pass
+        contract = _recipe_contract(paths.root / config if config else None)
         refresh = _refresh_fields(fm, as_of_date, strings, contract.get("schedule") if isinstance(contract.get("schedule"), dict) else None)
         rows.append(
             {
@@ -308,7 +310,7 @@ def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
         *yaml.safe_dump({'projection_inputs':[
             *([{'paths':['wiki.config.yaml'],'fields':['body']}] if (ROOT/'wiki.config.yaml').is_file() else []),
             {'page_types':sorted(SOURCE_PAGE_TYPES),
-            'path_prefix':paths.rel(paths.sources_dir),'fields':['page_type']}]},sort_keys=False).rstrip().splitlines(),
+            **paths.collection_selector('sources_dirname'),'fields':['page_type']}]},sort_keys=False).rstrip().splitlines(),
         "parent_projection:",
         "  quadrant: q2",
         "  sub_lens: evidencias",

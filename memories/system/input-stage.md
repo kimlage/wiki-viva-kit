@@ -19,7 +19,8 @@ projection_inputs:
   - artifact
   - source
   - source_catalog
-  path_prefix: memories/sources
+  path_prefix: memories
+  path_directory: sources
   fields:
   - page_id
   - page_type

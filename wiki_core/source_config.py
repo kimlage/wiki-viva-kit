@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from wiki_core.traversal import wiki_markdown_files
+from wiki_core.traversal import require_wiki_boundaries, wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
@@ -39,7 +39,7 @@ def _repo_path(root: Path, source: str, reads=None) -> Path | None:
             raise RuntimeError('selected path unavailable') from None
         return path
     try:
-        path.resolve().relative_to(root.resolve())
+        require_wiki_boundaries(root, files=(path,))
     except ValueError:
         return None
     return path
@@ -68,8 +68,9 @@ def find_source_config(root: Path, config: WikiConfig, source: str, *, reads=Non
     """Return the source_config page that governs a repo-local source page.
 
     The preferred link is `config_ref` on the source page. The fallback scans
-    `sources/config/*.md` for a matching `source_refs` entry. Raw files and URLs
-    have no source page identity, so they return None.
+    the source's own configured sources directory's `config` subtree for a
+    matching `source_refs` entry, then the legacy global config. It never scans
+    unrelated contexts. Raw files and URLs have no source page identity.
     """
 
     paths = WikiPaths(root, config)
@@ -103,17 +104,19 @@ def find_source_config(root: Path, config: WikiConfig, source: str, *, reads=Non
             # input complete merely because a different fallback exists.
             raise RuntimeError('explicit source configuration unavailable')
 
-    config_dir = paths.sources_dir / "config"
-    if not (config_dir.exists() if reads is None else reads.exists(config_dir)):
-        return None
-    candidates = (sorted(wiki_markdown_files(config_dir, wiki_root=root)) if reads is None
-                  else reads.markdown(config_dir, root))
-    for path in candidates:
-        values = parse_frontmatter(path if reads is None else reads.read_text(path, errors='replace'))
-        if values.get("page_type") != "source_config":
+    local_root = paths.collection_root(source_path, "sources_dirname")
+    config_dirs = list(dict.fromkeys(base / "config" for base in (local_root, paths.sources_dir) if base is not None))
+    for config_dir in config_dirs:
+        if not (config_dir.exists() if reads is None else reads.exists(config_dir)):
             continue
-        if source_keys & set(_list_values(values.get("source_refs"))):
-            return _read_config_page(path, paths, reads)
+        candidates = (wiki_markdown_files(config_dir, wiki_root=root) if reads is None
+                      else reads.markdown(config_dir, root))
+        for path in candidates:
+            values = parse_frontmatter(path if reads is None else reads.read_text(path, errors='replace'))
+            if values.get("page_type") != "source_config":
+                continue
+            if source_keys & set(_list_values(values.get("source_refs"))):
+                return _read_config_page(path, paths, reads)
     return None
 
 

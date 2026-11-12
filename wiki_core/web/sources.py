@@ -19,7 +19,7 @@ from pathlib import Path
 from pathlib import PurePosixPath
 from typing import Any
 
-from wiki_core.traversal import wiki_markdown_files
+from wiki_core.traversal import require_wiki_boundaries, wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.paths import WikiPaths
@@ -107,12 +107,12 @@ def _contained(root: Path, rel: str) -> Path | None:
     candidate = Path(rel)
     if candidate.is_absolute():
         return None
-    resolved = (root / candidate).resolve()
+    selected = root / candidate
     try:
-        resolved.relative_to(root.resolve())
+        require_wiki_boundaries(root, files=(selected,))
     except ValueError:
         return None
-    return resolved
+    return selected
 
 
 def _ingestion_events_index(paths: WikiPaths) -> dict[str, dict[str, Any]]:
@@ -510,16 +510,15 @@ def build_sources_payload(
     (never the raw manifests — those stay in ingestion.json)."""
     today = today or dt.date.today()
     paths = WikiPaths(root, config)
-    sources_dir = paths.sources_dir
     events_index = _ingestion_events_index(paths)
     records: list[dict[str, Any]] = []
-    if sources_dir.exists():
-        for path in sorted(wiki_markdown_files(sources_dir, wiki_root=root)):
-            if "/config/" in paths.rel(path):
-                continue
-            record = _source_record(root, paths, path, today, events_index)
-            if record is not None:
-                records.append(record)
+    for path in paths.source_files():
+        source_root = paths.collection_root(path, "sources_dirname")
+        if "config" in path.relative_to(source_root).parts[:-1]:
+            continue
+        record = _source_record(root, paths, path, today, events_index)
+        if record is not None:
+            records.append(record)
     records.sort(key=lambda r: (-r["pending_streams"], r["source_id"]))
     grouping = build_source_groups_payload(root, config, records)
     return {
