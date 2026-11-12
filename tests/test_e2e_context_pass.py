@@ -90,7 +90,8 @@ def test_context_pass_gate_red_then_green(tmp_path, audit, monkeypatch):
         recorded["context_sha256"] = chunk["context_sha256"]
         recorded["chunk_hash_sha256"] = chunk["chunk_hash_sha256"]
         recorded.update({field: request[field] for field in ("prompt_version", "schema_version", "model_profile")})
-        recorded.update(perspectives={}, perspectives_required=request.get("perspectives_required", []))
+        recorded.update(perspectives={key: {"status": "extracted"} for key in request.get("perspectives_required", [])},
+                        perspectives_required=request.get("perspectives_required", []))
         # write_result revalidates the schema (filled quadrants, sensitivity...).
         out = write_result(cache_dir, recorded)
         assert out.exists()
@@ -164,7 +165,8 @@ def test_context_pass_gate_red_then_green(tmp_path, audit, monkeypatch):
         recorded = dict(template)
         recorded.update({field: chunk[field] for field in ("cache_key", "chunk_id", "context_sha256", "chunk_hash_sha256")})
         recorded.update({field: refreshed_request[field] for field in ("source_id", "prompt_version", "schema_version", "model_profile")})
-        recorded.update(perspectives={}, perspectives_required=refreshed_request.get("perspectives_required", []))
+        recorded.update(perspectives={key: {"status": "extracted"} for key in refreshed_request.get("perspectives_required", [])},
+                        perspectives_required=refreshed_request.get("perspectives_required", []))
         write_result(cache_dir, recorded)
     assert run(str(PILOT_SOURCE), "system", tmp_path, config).pending_llm_calls == 0
     assert event.read_bytes() == before_event and target.read_bytes() == before_target
