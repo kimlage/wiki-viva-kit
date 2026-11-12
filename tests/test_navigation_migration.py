@@ -430,6 +430,34 @@ def test_consolidation_compares_source_identity_after_both_pages_move(repo, monk
     assert event.read_bytes() == original
 
 
+@pytest.mark.parametrize('newline', ['\n', '\r\n'], ids=['lf', 'crlf'])
+def test_frontmatter_audits_preserve_exact_navigation_preimages(repo, monkeypatch, newline):
+    source = page(repo, 'source-synthetic')
+    target = page(repo, 'guide', source_refs=['memories/source-synthetic.md'])
+    record = page(repo, 'record', evidence_refs=['memories/guide.md'])
+    event = repo / 'memories/system/ingestion/events/event.md'
+    event.parent.mkdir(parents=True)
+    event.write_text('---\npage_id: synthetic-event\nsource_id: synthetic\nsource_refs:\n'
+                     '  - memories/source-synthetic.md\nconsolidated_into:\n  - memories/guide.md\n---\n')
+    for path in (source, target, record, event):
+        path.write_bytes(path.read_bytes().replace(b'\n', newline.encode()))
+    originals = {path: path.read_bytes() for path in (record, event)}
+    target_bytes = target.read_bytes()
+    commit(repo)
+    move(repo, source.relative_to(repo).as_posix(), 'memories/navigation/source-synthetic.md')
+    move(repo, target.relative_to(repo).as_posix(), 'memories/navigation/guide.md')
+    commit(repo)
+    monkeypatch.setattr(audit, 'ROOT', repo)
+    monkeypatch.setattr(audit, 'ontology_dir_for', lambda rel, cfg:
+                        'memories/projects' if rel == 'memories/record.md' else None)
+    errors = []
+    audit.audit_relations(errors, load_config(repo))
+    audit.audit_consolidation(errors, [], load_config(repo))
+    assert errors == []
+    assert all(path.read_bytes() == raw for path, raw in originals.items())
+    assert (repo / 'memories/navigation/guide.md').read_bytes() == target_bytes
+
+
 @pytest.mark.parametrize('mutation', ['target_changed', 'duplicate_added', 'head_changed'])
 def test_navigation_writer_rechecks_the_selected_identity_before_writing(repo, monkeypatch, mutation):
     page(repo, 'guide')

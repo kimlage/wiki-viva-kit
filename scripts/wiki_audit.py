@@ -1596,6 +1596,7 @@ def audit_relations(errors: list[str], config: WikiConfig) -> None:
         if not ontology_dir_for(rel, config):
             continue
         values, _ = parse_frontmatter(ROOT / rel)
+        navigation_text = _audit_read_bytes(ROOT / rel).decode('utf-8')
         for key, prefixes in RELATION_PREFIXES.items():
             for target in list_values(values, key):
                 if target not in page_ids:
@@ -1607,11 +1608,11 @@ def audit_relations(errors: list[str], config: WikiConfig) -> None:
                 continue  # URL or external/machine absolute path (unversioned)
             if target.startswith(GITIGNORED_LINK_PREFIXES):
                 continue  # unversioned cache (data/raw, data/derived)
-            if not navigation.existing_reference_safe(rel, _audit_read_text(ROOT / rel, encoding="utf-8"), target):
+            if not navigation.existing_reference_safe(rel, navigation_text, target):
                 errors.append(f"{rel}: evidence_refs path has unsafe or ambiguous identity: `{target}`")
                 continue
             if not (ROOT / target).exists() and not navigation.resolve(
-                    rel, _audit_read_text(ROOT / rel, encoding="utf-8"), target):
+                    rel, navigation_text, target):
                 errors.append(f"{rel}: evidence_refs path does not exist: `{target}`")
 
         # Claim conflict/supersede vocabulary (consolidation): optional fields,
@@ -2500,15 +2501,16 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
         source_ref = str(values.get("source_ref") or "").strip()
         if source_ref:
             source_refs.add(source_ref)
-        source_refs = identities(source_refs, rel, _audit_read_text(event, encoding="utf-8"))
+        event_text = _audit_read_bytes(event).decode('utf-8')
+        source_refs = identities(source_refs, rel, event_text)
         non_source_targets = 0
         for target in consolidated:
             target_path = ROOT / target
-            if not navigation.existing_reference_safe(rel, _audit_read_text(event, encoding="utf-8"), target):
+            if not navigation.existing_reference_safe(rel, event_text, target):
                 errors.append(f"{rel}: consolidated_into path has unsafe or ambiguous identity: `{target}`")
                 continue
             if not target_path.exists():
-                canonical = navigation.resolve(rel, _audit_read_text(event, encoding="utf-8"), target)
+                canonical = navigation.resolve(rel, event_text, target)
                 if not canonical:
                     errors.append(f"{rel}: consolidated_into path does not exist: `{target}`")
                     continue
@@ -2524,7 +2526,7 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
             non_source_targets += 1
             if source_refs:
                 target_refs = identities(list_values(target_values, "source_refs"), paths.rel(target_path),
-                                         _audit_read_text(target_path, encoding="utf-8"))
+                                         _audit_read_bytes(target_path).decode('utf-8'))
                 if not (target_refs & source_refs):
                     errors.append(
                         f"{rel}: consolidated_into `{target}` does not reference the "
