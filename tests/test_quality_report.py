@@ -105,10 +105,14 @@ def test_quality_gate_accepts_short_context_instructions_but_not_short_page(tmp_
     _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", ""))
     _write(tmp_path / "memories/example/index.md", _page("hub", "context_hub", "Hub", ""))
     _write(tmp_path / "memories/example/AGENTS.md", "# Instructions\n\nRead `AGENTS.md`.\n")
+    _write(tmp_path / "memories/example/CLAUDE.md", "@AGENTS.md\n")
     config = WikiConfig(audit={**WikiConfig().audit, "quality_max_low_density": 0, "quality_max_bad_repetition": 0})
     monkeypatch.setattr(cli, "ROOT", tmp_path)
     monkeypatch.setattr(cli, "load_config", lambda root: config)
     assert cli.main(["--check"]) == 0
+    _write(tmp_path / "memories/unindexed/CLAUDE.md", "@AGENTS.md\n")
+    assert cli.main(["--check"]) == 1
+    (tmp_path / "memories/unindexed/CLAUDE.md").unlink()
     _write(tmp_path / "memories/example/short.md", _page("short", "context_note", "Short", ""))
     assert cli.main(["--check"]) == 1
     assert "low_information_density_pages" in capsys.readouterr().err
