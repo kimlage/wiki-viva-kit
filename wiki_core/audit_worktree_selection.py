@@ -77,6 +77,7 @@ def run_worktree_command_reference(root, binding, *, context_id, approved_revisi
               'gate_state': 'blocked_incomplete_coverage', 'bootstrap': 'external_not_verified',
               'host_admission': 'external_not_verified', 'live_observation': 'not_verified',
               'cleanup': 'external_not_verified', 'plan_sha256': plan_sha256,
+              'body_validation': 'filesystem_metadata_and_supported_text_only',
               'coverage': {'worktree': 'reference_and_configuration_only', 'index': 'metadata_only',
                            'history': 'not_scanned', 'ignored_reference_selected': plan['ignored_reference_selected'],
                            'worktree_content_aliases': 'external_not_verified'}}
@@ -178,6 +179,7 @@ def run_worktree_old_paths(root, binding, *, context_id, approved_revision, base
               'gate_state': 'blocked_incomplete_coverage', 'bootstrap': 'external_not_verified',
               'host_admission': 'external_not_verified', 'live_observation': 'not_verified',
               'cleanup': 'external_not_verified', 'plan_sha256': plan_sha256,
+              'body_validation': 'filesystem_metadata_and_supported_text_only',
               'coverage': {'worktree': 'selected_markdown_and_names', 'index': 'metadata_only',
                            'history': 'not_scanned', 'ignored': 'not_selected_by_legacy_check',
                            'worktree_content_aliases': 'external_not_verified'}}
@@ -307,6 +309,7 @@ def scan_worktree_secrets(root, binding, *, context_id, approved_revision, base,
               'gate_state': 'blocked_incomplete_coverage', 'bootstrap': 'external_not_verified',
               'host_admission': 'external_not_verified', 'live_observation': 'not_verified',
               'cleanup': 'external_not_verified', 'plan_sha256': plan_sha256,
+              'body_validation': 'filesystem_metadata_and_supported_text_only',
               'coverage': {'worktree': 'selected_candidates_only',
                            'ignored': 'not_selected_by_legacy_check',
                            'index': 'metadata_only', 'history': 'not_scanned',

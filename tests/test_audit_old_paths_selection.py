@@ -96,4 +96,5 @@ def test_old_paths_nontext_markdown_is_partial(repo):
     assert result['check_progress'] == 'not_started'
     assert result['source_body_attempts_may_have_read_bytes'] == result['source_bodies_validated'] + 1
     assert result['source_bodies_validated'] < len(plan['selection']['inputs'])
+    assert result['body_validation'] == 'filesystem_metadata_and_supported_text_only'
     assert result['global_audit'] == 'not_performed'
