@@ -139,9 +139,22 @@ def _check_xlsx_cell_layout(sheet):
     with sheet._get_source() as source:
         root = ET.parse(source).getroot()
     ns = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
-    rows = root.find(ns + 'sheetData')
+    grids = list(root.iter(ns + 'sheetData'))
+    if root.tag != ns + 'worksheet' or len(grids) != 1 or grids[0] not in root:
+        raise ValueError('spreadsheet cell layout requires explicit review')
+    rows = grids[0]
+    row_nodes = set(rows)
+    # openpyxl consumes row events wherever they occur in the XML. Require
+    # every row/cell to belong to this one direct grid before trusting the
+    # coordinate checks below; duplicated or wrapped grids are ambiguous.
+    for parent in root.iter():
+        for node in parent:
+            if ((node.tag == ns + 'row' and parent is not rows)
+                    or (node.tag == ns + 'c'
+                        and (parent not in row_nodes or parent.tag != ns + 'row'))):
+                raise ValueError('spreadsheet cell layout requires explicit review')
     previous_row = max_column = 0
-    for row in (() if rows is None else rows):
+    for row in rows:
         row_index = int(row.get('r', previous_row + 1))
         if row.tag != ns + 'row' or row_index <= previous_row:
             raise ValueError('spreadsheet cell layout requires explicit review')

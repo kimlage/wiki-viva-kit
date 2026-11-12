@@ -645,6 +645,61 @@ def test_xlsx_layout_cannot_drop_or_overwrite_credential_cells(tmp_path, monkeyp
     assert pub.MANIFEST_PATH.read_bytes() == before
 
 
+@pytest.mark.parametrize("layout", [
+    "duplicate_sheet_data", "nested_sheet_data", "wrapped_sheet_data",
+    "row_outside_grid", "row_inside_cell", "cell_outside_row", "nested_cell",
+])
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_xlsx_ambiguous_grid_refused_before_provider(tmp_path, monkeypatch, layout, dry_run):
+    import xml.etree.ElementTree as ET
+    data = _association_table(".xlsx", [("password", "a1Bc2De3Fg4Hi5Jk6Lm7")])
+    target = io.BytesIO()
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    with zipfile.ZipFile(io.BytesIO(data)) as source, zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as dest:
+        for item in source.infolist():
+            content = source.read(item.filename)
+            if item.filename == "xl/worksheets/sheet1.xml":
+                root = ET.fromstring(content)
+                rows = root.find(ns + "sheetData")
+                credential_row = rows[1]
+                # The reader can omit B2 when it sees A2 last. Every consumed
+                # row must belong to the grid whose coordinates were checked.
+                credential_row[:] = list(reversed(credential_row))
+                if layout in {"duplicate_sheet_data", "nested_sheet_data"}:
+                    rows.remove(credential_row)
+                    parent = root if layout == "duplicate_sheet_data" else ET.SubElement(root, ns + "extLst")
+                    ET.SubElement(parent, ns + "sheetData").append(credential_row)
+                elif layout == "wrapped_sheet_data":
+                    root.remove(rows)
+                    ET.SubElement(root, ns + "extLst").append(rows)
+                elif layout in {"row_outside_grid", "row_inside_cell"}:
+                    rows.remove(credential_row)
+                    parent = root if layout == "row_outside_grid" else rows[0][0]
+                    parent.append(credential_row)
+                else:
+                    # Leave the ordinary row ordered, but move its value to
+                    # an unvalidated place rather than inventing extra data.
+                    credential_row[:] = list(reversed(credential_row))
+                    value_cell = credential_row[1]
+                    credential_row.remove(value_cell)
+                    parent = root if layout == "cell_outside_row" else credential_row[0]
+                    parent.append(value_cell)
+                root.find(ns + "dimension").set("ref", "A1")
+                content = ET.tostring(root)
+            dest.writestr(item, content)
+    pub, first = _publisher(tmp_path, monkeypatch)
+    artifact = tmp_path / "ambiguous-grid.xlsx"
+    artifact.write_bytes(target.getvalue())
+    drive = _FakeDrive(list=lambda **k: {"files": []}, create=lambda **k: {"id": "synthetic-id"})
+    calls = _install_fake_google(monkeypatch, drive, real_media=True)
+    before = pub.MANIFEST_PATH.read_bytes()
+    with pytest.raises(RuntimeError, match="validation unavailable") as error:
+        pub.publish([first, artifact], "synthetic-folder", dry_run=dry_run)
+    assert "a1Bc2De3Fg4Hi5Jk6Lm7" not in "".join(traceback.format_exception(error.type, error.value, error.tb))
+    assert not drive.calls and calls == {"build": [], "media": []}
+    assert pub.MANIFEST_PATH.read_bytes() == before
+
+
 @pytest.mark.parametrize("case", ["docx-table", "xlsx-cell", "pdf", "eml", "txt"])
 @pytest.mark.parametrize("real_media", [False, True])
 def test_real_covered_formats_publish_synthetic_pii(tmp_path, monkeypatch, case, real_media):

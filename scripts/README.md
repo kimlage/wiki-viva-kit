@@ -38,8 +38,10 @@ This applies even when a cached result exists; literal-value tables remain
 supported under the same secret checks.
 The captured spreadsheet reader scans actual cells independently of the
 declared worksheet dimensions and retains its row, column and content limits.
-It rejects inconsistent, repeated or out-of-order coordinates that a streaming
-reader could omit or overwrite; it does not silently accept a partial grid.
+It requires one direct worksheet grid and refuses rows or cells outside that
+validated structure, including duplicate or wrapped grids. It also rejects
+inconsistent, repeated or out-of-order coordinates that a streaming reader
+could omit or overwrite; it does not silently accept a partial grid.
 `pypdf` parses the captured PDF page dictionaries, including compressed objects.
 Missing parsers, encrypted PDFs and parsing failures also refuse validation.
 A detected secret or unavailable/incomplete content validation stops that batch
