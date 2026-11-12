@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.test_protected_ingestion import prepared_repo
+from tests.test_protected_ingestion import AQAL_REFS, prepared_repo
 from tests.test_folder_policy_core import repo, git, write
 from wiki_core.coordination_context import CoordinationBinding
 from wiki_core.ingest.protected import prepare, record
@@ -24,7 +24,7 @@ def configured(prepared_repo, *, version='v5'):
     sha = git(root, 'rev-parse', 'HEAD')
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
     args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
-                source_ref='source.txt', perspective_refs={'lens': 'memories/lens.md'},
+                source_ref='source.txt', perspective_refs={**AQAL_REFS, 'lens': 'memories/lens.md'},
                 context_selection={'root_entity': 'memories/root.md'})
     return root, binding, args
 
@@ -33,7 +33,7 @@ def test_selected_required_perspective_is_bound_and_recorded(prepared_repo):
     root, binding, args = configured(prepared_repo)
     request = prepare(root, binding, **args, source_context='system')
     data = request['request']
-    assert data['perspectives_required'] == ['lens']
+    assert data['perspectives_required'] == ['lens', *AQAL_REFS]
     assert 'wiki_coordination.py --context-id' in data['prompt']
     assert '--source-stage record' in data['prompt']
     assert '--policy-context CONTEXT_ID' not in data['prompt']
@@ -44,7 +44,8 @@ def test_selected_required_perspective_is_bound_and_recorded(prepared_repo):
     row = data['chunks'][0]
     result = {**sample, **{key: data[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': ['lens'], 'perspectives': {'lens': {'status': 'extracted'}}}
+              'perspectives_required': data['perspectives_required'],
+              'perspectives': {name: {'status': 'extracted'} for name in data['perspectives_required']}}
     ids = {'source_id': request['source_id'], 'request_id': request['request_id']}
     with pytest.raises(ValueError):
         record(root, binding, **{**args, 'perspective_refs': None}, **ids, results=[result])
@@ -135,11 +136,11 @@ def test_source_declaring_an_unqualified_configuration_is_blocked(prepared_repo)
     assert not (root / 'data/derived').exists()
 
 
-def test_nested_executor_does_not_implicitly_select_global_lenses(prepared_repo):
+def test_omitted_root_requires_canonical_lenses_without_global_business_lens(prepared_repo):
     root, binding, args = configured(prepared_repo)
-    selected = {**args, 'context_selection': {'omit_root_entity': True}, 'perspective_refs': None}
+    selected = {**args, 'context_selection': {'omit_root_entity': True}, 'perspective_refs': AQAL_REFS}
     result = prepare(root, binding, **selected, source_context='system')
-    assert result['request']['perspectives_required'] == []
+    assert result['request']['perspectives_required'] == list(AQAL_REFS)
     assert 'memories/root.md' not in {row['ref'] for row in result['request']['block_context_package']['inputs']}
 
 

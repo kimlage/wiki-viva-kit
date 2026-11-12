@@ -10,7 +10,7 @@ import sys
 import pytest
 import yaml
 
-from tests.test_protected_ingestion import prepared_repo, _result_for, _nested_integrator_repo
+from tests.test_protected_ingestion import AQAL_REFS, prepared_repo, _result_for, _nested_integrator_repo
 from tests.test_folder_policy_core import repo, git, write
 from wiki_core.coordination_context import CoordinationBinding
 from tests.test_protected_ingestion import prepare, record, consolidate
@@ -40,7 +40,7 @@ def configured(prepared_repo):
                             commit, 'guide.md', '.', '.', 10000)
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml', (grant,))
     args = dict(context_id='.', approved_revision=revision, entry_folder='.', entry_index='index.md',
-                source_ref='source.txt', repository_selection='guide')
+                source_ref='source.txt', repository_selection='guide', perspective_refs=AQAL_REFS)
     return root, external.resolve(), binding, args
 
 

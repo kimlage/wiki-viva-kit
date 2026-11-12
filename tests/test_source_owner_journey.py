@@ -63,7 +63,9 @@ def test_source_hub_owner_review_and_denied_binding(prepared_repo, monkeypatch):
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{k: request[k] for k in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
         **{k: chunk[k] for k in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-        'perspectives_required': [], 'perspectives': {}, 'entities': [], 'claims': []}
+        'perspectives_required': request['perspectives_required'],
+        'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']},
+        'entities': [], 'claims': []}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     assert record(root, binding, **args, **ids, results=[result])['recorded'] == 1
     event = ('memories/system/ingestion/events/2026-11-04-' + hashlib.sha256(ids['source_id'].encode()).hexdigest()

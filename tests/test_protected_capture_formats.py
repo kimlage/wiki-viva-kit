@@ -104,7 +104,7 @@ def test_protected_stage_with_captured_formats(prepared_repo, suffix, kind):
     row = request['chunks'][0]
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+              'perspectives_required': request['perspectives_required'], 'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
     ids = dict(source_id=output['source_id'], request_id=output['request_id'])
     assert record(root, binding, results=[result], **options, **ids)['recorded'] == 1
     event = ('memories/system/ingestion/events/2026-11-04-' +
@@ -175,7 +175,7 @@ def test_captured_csv_rejects_unsupported_delimiter(selection):
 
 
 def test_protected_semicolon_selection_is_bound_and_revalidated(prepared_repo):
-    from tests.test_protected_ingestion import protected_source_stage
+    from tests.test_protected_ingestion import AQAL_REFS, protected_source_stage
     from wiki_core.frontmatter import parse_frontmatter
     from wiki_core.ingest.protected import inspect
     import datetime
@@ -196,7 +196,7 @@ def test_protected_semicolon_selection_is_bound_and_revalidated(prepared_repo):
     chunk = request['chunks'][0]
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: chunk[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+              'perspectives_required': request['perspectives_required'], 'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     for wrong in (None, 'comma', 'tab'):
         bad = dict(options)
@@ -208,11 +208,11 @@ def test_protected_semicolon_selection_is_bound_and_revalidated(prepared_repo):
             record(root, binding, **bad, **ids, results=[result])
     assert record(root, binding, **options, **ids, results=[result])['recorded'] == 1
     viewed = inspect(root, binding, **options, **ids, view='results', chunk_ids=[chunk['chunk_id']],
-                     context_selection={'omit_root_entity': True})
+                     context_selection={'omit_root_entity': True}, perspective_refs=AQAL_REFS)
     assert viewed['view'] == 'results'
     with pytest.raises(ValueError):
         inspect(root, binding, **{**options, 'csv_delimiter': 'comma'}, **ids, view='results',
-                chunk_ids=[chunk['chunk_id']], context_selection={'omit_root_entity': True})
+                chunk_ids=[chunk['chunk_id']], context_selection={'omit_root_entity': True}, perspective_refs=AQAL_REFS)
     event = ('memories/system/ingestion/events/2026-11-04-' +
              hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
     with pytest.raises(ValueError):
@@ -257,7 +257,7 @@ def test_previous_capture_with_less_coverage_is_preserved_and_requalified(prepar
     sample = json.loads((__import__('pathlib').Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: chunk[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+              'perspectives_required': request['perspectives_required'], 'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     derived = root / 'data/derived/wiki/.wiki-viva-protected'
     original = {path.relative_to(derived): path.read_bytes() for path in derived.rglob('*.json')}

@@ -2,7 +2,7 @@
 import pytest
 import yaml
 
-from tests.test_protected_ingestion import prepared_repo
+from tests.test_protected_ingestion import AQAL_REFS, prepared_repo
 from tests.test_folder_policy_core import repo, write, git
 from wiki_core.coordination_context import CoordinationBinding
 from wiki_core.ingest.protected import prepare
@@ -29,7 +29,7 @@ def connected(root):
     git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
     args = dict(context_id='.', approved_revision=git(root, 'rev-parse', 'HEAD'),
-        entry_folder='.', entry_index='index.md', source_ref='source.txt',
+        entry_folder='.', entry_index='index.md', source_ref='source.txt', perspective_refs=AQAL_REFS,
         context_selection={'source_page': 'memories/sources/synthetic.md', 'omit_root_entity': True})
     return binding, args
 
