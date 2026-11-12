@@ -769,7 +769,8 @@ def test_append_only_drive_artifact_links_are_ignored(tmp_path, audit, monkeypat
 
     assert warnings == [
         "1 link(s) to unversioned local artifact in 1 page(s); "
-        "use an authorized stable external link; wiki_drive_publish is suspended. "
+        "use an authorized stable external link or publish with wiki_drive_publish.py "
+        "within the authorized file and destination scope. "
         "Use --list-stale-gaps to list."
     ]
 

@@ -545,6 +545,62 @@ def test_captured_xlsx_limits_total_sheet_cells():
         extract_captured('source.xlsx', 'spreadsheet', output.getvalue())
 
 
+def xlsx_with_declared_dimension(data, dimension):
+    import xml.etree.ElementTree as ET
+    target = io.BytesIO()
+    ns = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
+    with zipfile.ZipFile(io.BytesIO(data)) as source, zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as dest:
+        for item in source.infolist():
+            payload = source.read(item.filename)
+            if item.filename.startswith('xl/worksheets/') and item.filename.endswith('.xml'):
+                root = ET.fromstring(payload)
+                declared = root.find(ns + 'dimension')
+                if dimension is None:
+                    root.remove(declared)
+                else:
+                    declared.set('ref', dimension)
+                payload = ET.tostring(root)
+            dest.writestr(item, payload)
+    return target.getvalue()
+
+
+@pytest.mark.parametrize('dimension', ['A1', 'A1:B1', 'A1:A3', None])
+def test_captured_xlsx_reads_cells_outside_declared_dimensions(dimension):
+    from openpyxl import Workbook
+    workbook = Workbook()
+    for sheet in (workbook.active, workbook.create_sheet('Second')):
+        sheet.append(['Safe first row'])
+        sheet.append(['field', 'literal value'])
+        sheet.append(['other', '="formula value"'])
+    target = io.BytesIO()
+    workbook.save(target)
+    workbook.close()
+    data = xlsx_with_declared_dimension(target.getvalue(), dimension)
+    extracted = extract_captured('source.xlsx', 'spreadsheet', data)
+    assert not extracted.warnings
+    rows = [json.loads(unit['text']) for unit in extracted.units]
+    assert len(rows) == 6
+    for sheet_name in ('Sheet', 'Second'):
+        selected = [row for row in rows if row['sheet'] == sheet_name]
+        assert [row['row'] for row in selected] == [1, 2, 3]
+        assert selected[1]['cells'][1]['value'] == 'literal value'
+        assert selected[2]['cells'][1]['formula'] == '="formula value"'
+
+
+@pytest.mark.parametrize('row,column', [(100_001, 1), (1, 1025), (100_000, 50)])
+def test_captured_xlsx_actual_limits_survive_understated_dimensions(row, column):
+    from openpyxl import Workbook
+    workbook = Workbook()
+    workbook.active['A1'] = 'Safe first row'
+    workbook.active.cell(row=row, column=column, value='Outside limit')
+    target = io.BytesIO()
+    workbook.save(target)
+    workbook.close()
+    data = xlsx_with_declared_dimension(target.getvalue(), 'A1')
+    with pytest.raises(ValueError, match='spreadsheet dimensions'):
+        extract_captured('source.xlsx', 'spreadsheet', data)
+
+
 def test_captured_xlsx_preserves_scalar_types_and_tags_dates():
     import datetime
     from openpyxl import Workbook
