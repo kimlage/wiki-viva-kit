@@ -14,6 +14,22 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-12] Restore authorized Drive publication
+
+Restore [Drive publication](../../scripts/wiki_drive_publish.py) under the owner's
+direction to remove the general suspension introduced by
+[PR #236](https://github.com/kimlage/wiki-viva-kit/pull/236) and propagated by
+[PR #239](https://github.com/kimlage/wiki-viva-kit/pull/239). Keep per-file and
+destination authorization, privacy, secrets and local dry-run. Public synthetic
+tests cover the code only; concurrency and interrupted-effect limits remain in
+[issue #234](https://github.com/kimlage/wiki-viva-kit/issues/234). No Drive account
+was authenticated or used. Historical suspension records and source dates remain.
+
+## [2026-11-09] Record Drive publisher suspension
+
+The [command reference](wiki/command-reference.md) identifies the publisher's
+offline planning mode and temporary suspension. No source date was renewed.
+
 ## [2026-11-05] Align source workflow references with folder authority
 
 The [ingestion flow](wiki/ingestion-flow.md), [gates](wiki/gates-and-audit.md)

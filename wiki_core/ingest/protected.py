@@ -96,10 +96,10 @@ def _format_omissions(source_ref, csv_delimiter=None):
 
 
 def _authority(root, binding, context_id, approved_revision, entry_folder, entry_index, budget,
-               artifact_context=None):
+               artifact_context=None, source_ref=None):
     root = Path(root).resolve(strict=True)
     cache = _STAGE_CACHE.get()
-    key = (str(root), binding, context_id, approved_revision, entry_folder, entry_index, budget, artifact_context)
+    key = (str(root), binding, context_id, approved_revision, entry_folder, entry_index, budget, artifact_context, source_ref)
     if cache is not None and key in cache['authorities']:
         cached = cache['authorities'][key]
         cached[1].fresh()
@@ -127,8 +127,14 @@ def _authority(root, binding, context_id, approved_revision, entry_folder, entry
     from wiki_core.traversal import is_protected_artifact
     if is_protected_artifact(Path(configured)):
         raise ValueError('invalid protected cache configuration')
-    config = replace(config, paths={**config.paths,
-        'derived_root': configured + '/' + PROTECTED_ARTIFACT_COMPONENT})
+    cache_root = configured + '/' + PROTECTED_ARTIFACT_COMPONENT
+    cache_mode = config.llm.get('protected_cache_mode', 'shared')
+    if cache_mode == 'by_source_v1':
+        from wiki_core.ingest.cache_partition import partition_component
+        cache_root += '/' + partition_component(context_id, actor, source_ref)
+    elif cache_mode != 'shared':
+        raise ValueError('invalid protected cache mode')
+    config = replace(config, paths={**config.paths, 'derived_root': cache_root})
     ignored = subprocess.run([local_git_executable(), '-C', str(root), 'check-ignore',
         '--no-index', '-q', '--', config.paths['derived_root'] + '/_probe_'],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=local_git_environment())
@@ -278,14 +284,23 @@ def _request_identity(request):
 def _validate_source_context(extracted, projected):
     if extracted.text.startswith('---\n') or extracted.text.startswith('---\r\n'):
         from wiki_core.context_selection import _metadata
+        from wiki_core.ingest.explicit_context import declared_reference_matches
         source_meta = _metadata({'text': extracted.text})
         for key, selected in (('config_ref', projected.get('source_config')),
                               ('input_channel_ref', projected.get('input_channel'))):
             declared = source_meta.get(key)
-            if declared and (not selected or declared not in (selected.get('path'), selected.get('page_id'))):
+            if declared is not None and declared != '' and not declared_reference_matches(declared, selected):
                 raise ValueError('source configuration requires explicit qualification')
-        if source_meta.get('perspectives_required') and source_meta['perspectives_required'] != projected['perspectives_required']:
-            raise ValueError('source perspectives require explicit qualification')
+        if source_meta.get('perspectives_required'):
+            from wiki_core.quadrants import DEFAULT_QUADRANT_MAP
+            if (not isinstance(source_meta['perspectives_required'], list)
+                    or any(not isinstance(item, str) for item in source_meta['perspectives_required'])):
+                raise ValueError('source perspectives require explicit qualification')
+            aqal = {item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids}
+            declared = [item for item in source_meta['perspectives_required'] if item not in aqal]
+            qualified = [item for item in projected['perspectives_required'] if item not in aqal]
+            if declared != qualified:
+                raise ValueError('source perspectives require explicit qualification')
 
 
 def _request_path(paths, source_id, request_id, repository_context=None):
@@ -363,7 +378,7 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
                      budget, task_id, selection, perspective_refs, source_ref, repository_selection,
                      csv_delimiter=None, *, binding):
     from wiki_core.ingest.explicit_context import (explicit_ingestion_evidence,
-        resolve_explicit_ingestion_context, _selection)
+        resolve_explicit_ingestion_context, connected_ingestion_selection, _selection)
     selection = _selection(selection)
     repo_ids = [] if repository_selection is None else _selection_ids(repository_selection)
     if set(selection['repository_source_pages']) - set(repo_ids):
@@ -387,6 +402,13 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
             additional_readers=() if actor == context_id else (actor,), omissions=omissions,
             trusted_binding=binding)
     preliminary = build(evidence, [])
+    while True:
+        connected = connected_ingestion_selection(preliminary, selection)
+        if connected == selection:
+            break
+        selection = connected
+        evidence = explicit_ingestion_evidence(policy, selection)
+        preliminary = build(evidence, [])
     projected = resolve_explicit_ingestion_context(preliminary, selection, config)
     required, optional, paths, lenses = _perspectives(policy, perspective_refs,
         projected['perspectives_required'], projected['perspectives_optional'])
@@ -403,6 +425,12 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
     projected = resolve_explicit_ingestion_context(packet, selection, config)
     projected['context_omissions'] += optional_gaps + format_gaps
     _check_perspective_packet(packet, paths)
+    # The packet builder requalifies a fresh policy instance. Later artifact
+    # and candidate checks use this stage's policy instance, so requalify the
+    # selected producers on it as well; a packet is not an access grant.
+    from wiki_core.context_packet import _qualify_trusted_producers
+    _qualify_trusted_producers(root, policy, context_id, evidence + lenses, budget,
+        trusted_binding=binding, additional_readers=() if actor == context_id else (actor,))
     refs = {row['ref'] for row in packet['inputs']}
     required_paths = {row['ref'] for row in packet['inputs'] if row['kind'] == 'mandatory'}
     required_paths.add(packet['entry_index'])
@@ -538,6 +566,22 @@ def _json_text(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + '\n'
 
 
+def _check_ignored(root, paths):
+    """Reject tracked or unignored artifact paths, not just a generic probe."""
+    refs = {safe_path(Path(path).relative_to(root).as_posix()) for path in paths}
+    if not refs:
+        return
+    from wiki_core.traversal import is_protected_artifact
+    if any(not is_protected_artifact(Path(ref)) for ref in refs):
+        raise ValueError('protected cache path unavailable')
+    encoded = b''.join(ref.encode('utf-8') + b'\0' for ref in sorted(refs))
+    result = subprocess.run([local_git_executable(), '-C', str(root), 'check-ignore', '-z', '--stdin'],
+        input=encoded, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=local_git_environment())
+    if result.returncode not in (0, 1) or set(result.stdout.split(b'\0')) - {b''} != {
+            ref.encode('utf-8') for ref in refs}:
+        raise ValueError('protected artifacts must be ignored and untracked')
+
+
 def _write_once(root, policy, context_id, path, value, *, compact=False):
     _allowed(root, policy, context_id, path, 'write')
     _allowed(root, policy, context_id, path, 'read')
@@ -546,6 +590,7 @@ def _write_once(root, policy, context_id, path, value, *, compact=False):
     path.parent.mkdir(parents=True, exist_ok=True)
     policy.fresh()
     try:
+        _check_ignored(root, [path])
         policy.fresh()
         with path.open('x', encoding='utf-8') as stream:
             stream.write(payload)
@@ -565,7 +610,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     csv_delimiter = _csv_delimiter(source_ref, csv_delimiter)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes, actor)
+        entry_folder, entry_index, context_max_bytes, actor, source_ref)
     prompt = str(config.llm.get('prompt_versions', {}).get('context_deep_read', FOLDER_PROMPT_VERSION))
     require_approved_prompt_version(prompt, folder=True)
     _, projected, selection, required, optional, selected_perspectives = _selected_packet(
@@ -619,16 +664,17 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         raise ValueError('capture exceeds protected retention limit')
     artifact_paths = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
         paths.chunks / f'{source_id}.json', _request_path(paths, source_id, request_id, repository_context)]
+    cache_paths = [paths.llm_cache / (row['cache_key'] + '.json') for row in request['chunks']]
+    _check_ignored(root, [*artifact_paths, *cache_paths])
     for path in artifact_paths:
         _allowed(root, policy, actor, path, 'read')
         _allowed(root, policy, actor, path, 'write')
-    for row in request['chunks']:
-        path = paths.llm_cache / (row['cache_key'] + '.json')
+    for path in cache_paths:
         _allowed(root, policy, actor, path, 'read')
         _allowed(root, policy, actor, path, 'write')
     # Revalidate the current authority and source before the first side effect.
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes, actor)
+        entry_folder, entry_index, context_max_bytes, actor, source_ref)
     if _hash(_source(root, policy, context_id, source_ref, actor), policy) != source_digest:
         raise ValueError('source changed')
     if _repository(binding, policy, context_id, actor, repository_selection) != repository_context:
@@ -636,7 +682,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     capture = _capture_matches(root, policy, actor, paths, manifest, extracted, chunks)
     def revalidate(path):
         current_root, current_policy, _config, _paths = _authority(root, binding, context_id,
-            approved_revision, entry_folder, entry_index, context_max_bytes, actor)
+            approved_revision, entry_folder, entry_index, context_max_bytes, actor, source_ref)
         if _hash(_source(current_root, current_policy, context_id, source_ref, actor), current_policy) != source_digest:
             raise ValueError('source changed')
         if _repository(binding, current_policy, context_id, actor, repository_selection) != repository_context:
@@ -655,7 +701,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         _write_once(root, policy, actor, _request_path(paths, source_id, request_id, repository_context), request, compact=True)
         revalidate(artifact_paths[3])
         root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-            entry_folder, entry_index, context_max_bytes, actor)
+            entry_folder, entry_index, context_max_bytes, actor, source_ref)
         if not _capture_matches(root, policy, actor, paths, manifest, extracted, chunks):
             raise ValueError('capture unavailable after write')
         if _read_json(root, policy, actor, _request_path(paths, source_id, request_id, repository_context)) != request:
@@ -681,7 +727,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             return (value.st_dev, value.st_ino, value.st_mode, value.st_size,
                     value.st_mtime_ns, value.st_ctime_ns)
         root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-            entry_folder, entry_index, context_max_bytes, actor)
+            entry_folder, entry_index, context_max_bytes, actor, source_ref)
         source_path = _source(root, policy, context_id, source_ref, actor)
         request_path = _request_path(paths, source_id, request_id, repository_context)
         _allowed(root, policy, actor, request_path, 'read')
@@ -695,7 +741,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         def guard_cache(path):
             nonlocal root, policy, config, paths
             root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-                entry_folder, entry_index, context_max_bytes, actor)
+                entry_folder, entry_index, context_max_bytes, actor, source_ref)
             current_source = _source(root, policy, context_id, source_ref, actor)
             current_request = _request_path(paths, source_id, request_id, repository_context)
             _allowed(root, policy, actor, current_request, 'read')
@@ -795,7 +841,7 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
     csv_delimiter = _csv_delimiter(source_ref, csv_delimiter)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes, actor)
+        entry_folder, entry_index, context_max_bytes, actor, source_ref)
     current, projected, selection, required, optional, selected_perspectives = _selected_packet(
         root, policy, config, context_id, actor, approved_revision, entry_folder, entry_index,
         context_max_bytes, source_id, context_selection, perspective_refs, source_ref, repository_selection,
@@ -897,6 +943,7 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
     for row in rows:
         rows_by_key.setdefault(row['cache_key'], []).append(row)
     batch_result_bytes = 0
+    result_paths = []
     for result in results:
         if not isinstance(result, dict) or 'protected_historical_review' in result:
             raise ValueError('result unavailable')
@@ -913,15 +960,17 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
             raise ValueError('result unavailable')
         keys.add(key)
         target = paths.llm_cache / (key + '.json')
+        result_paths.append(target)
         _allowed(root, policy, actor, target, 'read')
         _allowed(root, policy, actor, target, 'write')
+    _check_ignored(root, result_paths)
     from wiki_core.llm.context_pass import validate_result
     if any(validate_result(result) for result in results):
         raise ValueError('result unavailable')
     def guard(target):
         nonlocal root, policy, config, paths
         root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-            entry_folder, entry_index, context_max_bytes, actor)
+            entry_folder, entry_index, context_max_bytes, actor, source_ref)
         current_source = _source(root, policy, context_id, source_ref, actor)
         current_request = _request_path(paths, source_id, request_id, repository_context)
         _allowed(root, policy, actor, current_request, 'read')
@@ -981,7 +1030,7 @@ def compare_repositories(root, binding, *, context_id, approved_revision, entry_
     from wiki_core.repository_reader import RepositoryReader
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes, actor)
+        entry_folder, entry_index, context_max_bytes, actor, source_ref)
     ids = _selection_ids(repository_selection)
     if previous_repository_selection not in ids or not isinstance(current_repository_selection, str):
         raise ValueError('repository comparison unavailable')
@@ -1119,6 +1168,82 @@ def _approved_candidate_documents(root, policy, context_id, actor, revision, ref
     return documents
 
 
+def _connected_candidates(root, policy, context_id, actor, revision, request, explicit):
+    """Discover declared consumers inside selected hub directories, under current authority."""
+    from pathlib import PurePosixPath
+    from wiki_core.context_packet import guard_folder_blob, guarded_context_read
+    from wiki_core.context_selection import _metadata
+    from wiki_core.consolidate import _SOURCE_V2
+    from wiki_core.ingest.explicit_context import connected_ingestion_candidates
+    from wiki_core.information_relations import information_requirements
+    from wiki_core.repository_reader import RepositoryReader
+
+    packet = request['block_context_package']
+    targets = request.get('target_pages', [])
+    linked = connected_ingestion_candidates(packet, targets)
+    scopes = set()
+    for row in packet['inputs']:
+        if row.get('ref') not in targets:
+            continue
+        metadata = _metadata({'text': row['text']})
+        if metadata.get('page_type') in ('context_hub', 'moc', 'root_entity'):
+            parent = str(PurePosixPath(row['ref']).parent)
+            if parent != '.':
+                scopes.add(parent)
+    selected = list(dict.fromkeys([*explicit, *targets]))
+    reader = RepositoryReader(root, revision)
+    source_ref = request.get('source_authorization', {}).get('context_selection', {}).get('source_page')
+    source_id = _selected_source_page_id(request)
+    current_source = _SOURCE_V2.fullmatch(request['source_id'])
+    linked = set(linked) - set(selected)
+    candidates = sorted(set(linked) | {ref for ref in reader.paths if ref.endswith('.md')
+        and any(ref.startswith(scope + '/') for scope in scopes)})
+    missing = False
+    scanned = 0
+    remaining = 2_000_000
+    for ref in candidates:
+        if ref in selected:
+            continue
+        if scanned >= 1000 or len(selected) >= 128:
+            missing = True
+            break
+        try:
+            _allowed(root, policy, context_id, root / ref, 'read')
+            _allowed(root, policy, actor, root / ref, 'read')
+            guard_folder_blob(root, policy, ref)
+            size = reader.blob_size(ref)
+            if size > remaining:
+                missing = True
+                continue
+            doc = guarded_context_read(reader, policy, ref)
+            remaining -= size
+            scanned += 1
+            if contains_access_secrets(doc['text']):
+                missing = True
+                continue
+            values = _metadata(doc)
+            if not isinstance(values.get('page_id'), str) or not values['page_id'].strip():
+                if ref in linked:
+                    missing = True
+                continue
+            source_refs = values.get('source_refs', [])
+            source_refs = source_refs if isinstance(source_refs, list) else []
+            requirements = information_requirements(values, lambda target: [target])
+            related = any(item['temporal'] == 'current' and item['target'] in [source_ref, *targets]
+                          for item in requirements)
+            same_origin = any((previous := _SOURCE_V2.fullmatch(item)) and current_source
+                and previous.group(1, 2) == current_source.group(1, 2)
+                for item in source_refs if isinstance(item, str))
+            if (ref in linked or (source_id is not None and source_id in source_refs)
+                    or (source_ref is not None and source_ref in source_refs)
+                    or request['source_id'] in source_refs or same_origin or related):
+                selected.append(ref)
+        except (ValueError, OSError, KeyError, TypeError):
+            missing = True
+    policy.fresh()
+    return selected, missing or not scopes
+
+
 def _revalidate_candidate_scopes(root, policy, context_id, actor, refs):
     for ref in refs:
         _allowed(root, policy, context_id, root / ref, 'read')
@@ -1141,7 +1266,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     actor = context_id if artifact_context is None else artifact_context
     if repository_selection is not None:
         _, authority, _, _ = _authority(root, binding, context_id, approved_revision,
-            entry_folder, entry_index, context_max_bytes, actor)
+            entry_folder, entry_index, context_max_bytes, actor, source_ref)
         authorize_repository_event(binding, authority, context_id, actor, repository_selection, safe_path(event_target))
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     if (not isinstance(candidates, (list, tuple)) or len(candidates) > 128
@@ -1150,6 +1275,10 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     refs = [safe_path(x) for x in candidates]
     if len(refs) != len(set(refs)) or len(refs) > 128:
         raise ValueError('candidate unavailable')
+    refs, discovery_missing = _connected_candidates(root, policy, context_id, actor,
+        approved_revision, request, refs)
+    if len(refs) > 128:
+        raise ValueError('candidate limit exceeded')
     source_page = safe_path(source_page)
     selected_source = context_selection.get('source_page')
     if selected_source is not None and selected_source != source_page:
@@ -1181,6 +1310,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     packet_path = paths.extraction_events / f'protected-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}-integration-packet.json'
     _allowed(root, policy, actor, packet_path, 'read')
     _allowed(root, policy, actor, packet_path, 'write')
+    _check_ignored(root, [packet_path])
     for row in request['chunks']:
         cache_path = paths.llm_cache / (row['cache_key'] + '.json')
         _allowed(root, policy, actor, cache_path, 'read')
@@ -1203,6 +1333,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     aggregated['folder_request_id'] = request_id
     aggregated['source_hash_sha256'] = digest
     aggregated['_selected_source_page_id'] = _selected_source_page_id(request)
+    aggregated['_selected_source_page_ref'] = request.get('source_authorization', {}).get('context_selection', {}).get('source_page')
     if request.get('repository_context') is not None:
         selected = request['repository_context']
         rows = selected if isinstance(selected, list) else [selected]
@@ -1211,6 +1342,10 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
              'document_sha256', 'content_sha256')} for row in rows]
     candidate_documents = _approved_candidate_documents(root, policy, context_id, actor, approved_revision, refs)
     packet = build_packet(aggregated, root, config, paths, candidates=refs, candidate_documents=candidate_documents)
+    packet['impact']['coverage'] = 'selected_candidates_only'
+    packet['warnings'].append('Discovery is limited to authorized selected hub directories and explicit candidates; other consumers were not assessed.')
+    if discovery_missing:
+        packet['warnings'].append('Some hub discovery coverage is unavailable or exceeded a limit; review remains incomplete.')
     review_output = {'view': 'integration', 'source_id': source_id, 'request_id': request_id,
                      'packet': packet, 'event_status': 'not checked', 'integration': 'not assessed'}
     if len(canonical_request_text(review_output).encode('utf-8')) > 2_000_000:
@@ -1279,7 +1414,8 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
     return {'event': event_target, 'request_id': request_id,
-            'coverage': 'explicit candidates only; linked sources not inspected',
+            'coverage': 'authorized selected hub directories and explicit candidates only; other consumers not assessed' +
+                ('; discovery incomplete' if discovery_missing else ''),
             'integration': 'pending review and incorporation',
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
@@ -1317,6 +1453,11 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     repository_context = request.get('repository_context')
+    if view == 'integration':
+        refs, discovery_missing = _connected_candidates(root, policy, context_id, actor,
+            approved_revision, request, refs)
+        if len(refs) > 128:
+            raise ValueError('candidate limit exceeded')
     def stamp(path):
         value = path.stat()
         return (value.st_dev, value.st_ino, value.st_mode, value.st_size,
@@ -1404,6 +1545,7 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         aggregated['folder_request_id'] = request_id
         aggregated['source_hash_sha256'] = digest
         aggregated['_selected_source_page_id'] = _selected_source_page_id(request)
+        aggregated['_selected_source_page_ref'] = request.get('source_authorization', {}).get('context_selection', {}).get('source_page')
         if request.get('repository_context') is not None:
             selected_repos = request['repository_context']
             repo_rows = selected_repos if isinstance(selected_repos, list) else [selected_repos]
@@ -1413,13 +1555,17 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         guard(paths.extraction_events / f'protected-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}-integration-packet.json')
         documents = _approved_candidate_documents(root, policy, context_id, actor, approved_revision, refs)
         expected = build_packet(aggregated, root, config, paths, candidates=refs, candidate_documents=documents)
+        expected['impact']['coverage'] = 'selected_candidates_only'
+        expected['warnings'].append('Discovery is limited to authorized selected hub directories and explicit candidates; other consumers were not assessed.')
+        if discovery_missing:
+            expected['warnings'].append('Some hub discovery coverage is unavailable or exceeded a limit; review remains incomplete.')
         _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
         packet_path = paths.extraction_events / f'protected-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}-integration-packet.json'
         guard(packet_path, next_is_read=True)
         packet_stamp = stamp(packet_path)
         retained = _read_json(root, policy, actor, packet_path)
         if retained != expected or contains_access_secrets(retained):
-            raise ValueError('integration packet unavailable')
+            raise ValueError('integration packet unavailable: retained proposal cannot be requalified under current discovery; artifact preserved')
         guard(packet_path)
         if stamp(packet_path) != packet_stamp:
             raise ValueError('integration packet changed')

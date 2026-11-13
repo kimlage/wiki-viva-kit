@@ -19,6 +19,20 @@ profiles:
 
 Use real action page IDs. Assign one primary coordinator per action; missing routes remain visible instead of assigning an arbitrary bot. A profile may coordinate actions in multiple canonical contexts; never union those contexts' permissions or create tasks to fill a profile. IDs and profile labels supply routing and historical attribution, not access grants.
 
+Where the owner explicitly authorizes an identified integrator under the
+consumer's policy, that integrator may read across contexts for audit and
+reconciliation within that authority. This does not transfer access to
+executors or authorize content or policy writes; those remain with the owner
+or authorized executor. Promote only proposals authorized by the responsible
+owner and independently reviewed under applicable policy. Classify
+existing denies by purpose under the current owner direction; do not retain an
+inter-context isolation restriction automatically or relax specific secrecy,
+audience, unclassified denies or external-effect limits. The owner's decision
+can authorize the policy change without requiring the replaced configuration
+to already permit it. Existing enforcement applies until the authorized policy
+change is effective and the host binds the resulting authority. A documented
+rule does not itself change the protected route or prove host enforcement.
+
 The board's **Fronts** view derives projects and initiatives from canonical
 pages, including fronts without an active action. Optional `front_refs` on a
 profile selects existing page IDs or paths for differently typed contexts.
@@ -40,6 +54,22 @@ Task bodies come exclusively from the [protected coordination route](context-coo
 
 Packet generation is not evidence of LLM reading, comprehension or execution. Runtime admission separately checks actual capability, authorization, claim/STOP/dedup and permitted operations. Profiles never select a canonical context or bypass a refused admission check. Waiting and terminal states remain canonical; coordinator assignment never changes them. Preserve existing action IDs, executor ownership and conversation history; never import packets as duplicate domain tasks.
 
+The [coordinator role contract](../../../.skills/wiki-viva/reference/coordinator.md)
+sets the behavioral boundary for both opening and resumption: the coordinator
+maintains direction and acceptance; existing integrators perform product code,
+tests, integration and infrastructure. Before any dispatch, the coordinator
+checks current owner direction and pauses; an old queued message does not lift
+a later pause. A protected packet may request `task.role: coordinator` to
+include the complete role contract from the current approved revision, subject
+to ordinary policy and deny checks. A denied or missing contract fails closed.
+Role selection and packet composition are not runtime authentication or a
+pause barrier: the host must bind the actual role and revalidate current owner
+state at execution. The local generic brief composer and editing job runner
+refuse the coordinator role. Legacy jobs without a role still default to executor:
+the host must identify existing coordinators independently and refuse stale
+dispatches when their current pause or role cannot be established. An external
+T3 launcher is not implemented or controlled by this kit.
+
 Runtime results must retain provenance and use the existing guarded action-transition contract, with revision checks and evidence for completion. A queued, claimed or settled runtime job is not a completed wiki action. The [standalone board](native-action-board.md) remains usable while execution is unavailable.
 
 ## Delegation contract
@@ -47,6 +77,11 @@ Runtime results must retain provenance and use the existing guarded action-trans
 Use the existing [subagent brief](../templates/wiki/subagent-brief.md) to bind a
 delegated slice to the canonical action and the composed context. Before work
 that depends on a capability, the executing instance must establish:
+
+Identify the sender and intended recipient of each handoff. A sender's account
+of their own limits does not change the recipient's assignment. A role change
+requires explicit direction from the coordinator responsible for the scope or
+the owner; this behavioral rule does not authenticate the sender.
 
 | Required information | Existing source or evidence |
 | --- | --- |
@@ -64,6 +99,20 @@ checks actual capabilities, current authorization and reservations. Missing
 context or access holds only dependent work; it does not cancel unrelated
 authorized work or require generic confirmation for consent already granted.
 
+For each additional blocker, identify the applicable current instruction or
+the reproducible failure, including the affected operation and limit. Distinguish
+an actual denial, an unverified capability and a restriction imposed by the
+agent itself. An offline execution limit alone does not forbid reading an
+authorized source. Reuse authorization that remains valid after checking the
+executing instance's identity and access and current STOPs; do not bypass denies
+or expand scope. A slice executor need not acquire writer credentials.
+
+Before an external effect, the integrator checks the owner's applicable current
+acceptance for that version and operation, including a merge that publishes to
+production. Reuse acceptance that remains valid; if required acceptance is
+missing, hold only the dependent effect while authorized preparation, tests and
+review continue.
+
 Record the blocker on the existing action. If no retry budget is specified,
 stop the affected attempt after recording it. Do not enter a repair loop for an
 unchanged refusal. Ask a specific question only when a missing decision or new
@@ -73,6 +122,16 @@ other blockers. After a timeout, check retained evidence before retrying an
 operation with external effects; do not create a duplicate action or assume the
 previous attempt had no effect.
 
+When a final gate requires a generated artifact, do not require that gate to
+have approved the merge before allowing the artifact's preparation. Identify
+the responsible owner and isolated workspace, and review the preparation under
+the existing independently authorized process. Before any authorized write,
+verify the reviewed input bytes and HEAD; generate finitely, then run the complete
+applicable gates and independent review on the final SHA. Merge by expected
+head and read back the result. A candidate does not approve its own authority
+and this sequence waives no gate. If authority is missing, only the dependent
+step waits for the specific decision.
+
 Returned results follow the consumer's existing ingestion and consolidation
 process. Record sources, events and destination pages, including
 `consolidated_into` and `source_refs` where that process requires them. Update
@@ -80,13 +139,96 @@ the canonical page through its normal guarded writer or reviewed contribution;
 the board projects that page. A runtime completion receipt alone cannot close
 the wiki action.
 
-Name the existing actor responsible for consolidation/publication in the brief;
-it may be the coordinator or another already authorized executor. Accept a
+Name the existing authorized integrator responsible for consolidation and
+publication in the brief. The coordinator routes and consolidates results; the
+integrator performs product changes, tests, integration and readback. Accept a
 read-only or patch-only slice on its agreed artifacts and evidence without
 requiring that child to acquire writer credentials or perform a merge outside
 its scope. The responsible actor completes integration through the same wiki
 process. Track the slice's delivery separately from the canonical action's
 closure, and keep any pending consolidation visible on that action.
+
+Each delivery uses a short brief in the existing action or thread: expected
+result, verifiable acceptance criteria, current state or blocker, and the next
+responsible actor. Reference common rules instead of copying them into the
+brief. The executor returns evidence and remaining work against those criteria;
+an independent reviewer compares each criterion with the evidence and records
+findings and their resolution. The integrator checks review, applicable
+validations, approved-main readback and wiki reconciliation. The coordinator
+correlates the states and evidence across fronts and reconciles discrepancies;
+a partial merge or sent message alone does not resolve a dependency.
+
+## Thread continuity and closeout
+
+When taking responsibility for a front, receiving a result and before ending a
+turn, the responsible operator checks authorized open threads in their scope and
+reconciles delivery in the canonical action, wiki or PR. A completed turn is not
+a completed delivery; inactivity alone does not prove a blockage or justify
+archiving or settling. Check current state, owner direction, WIP and STOPs before
+resuming an authorized, executable next step in the same thread. Send a short
+handoff naming the completed point, existing artifact, next step and acceptance;
+avoid a second writer or a duplicate effect. Follow the result and decide the next
+operation rather than stopping at an acknowledgement.
+
+Use the host's existing read/send/wait interface when available. Where the host
+documents `thread send --wait` and `thread show`, exit 1 means failure and exit 2
+means waiting for an answer; confirm actual state and do not resend just to wait.
+Reconcile a failure or uncertain effect before retrying; the same denial or
+blocker without new evidence is not a reason to repeat it. Respect the runtime's
+own `next`, delegation and PR-watch instructions. When no progress is possible,
+record the exact blocker, evidence, dependency or missing input and responsible
+provider on the existing action, route it to the coordinator and continue
+independent work. Do not turn a local blocker into a global gate.
+
+Settle a work thread only after its required independent review and gates,
+integration into the approved main branch, result readback and reconciliation
+with the canonical wiki. A sub-delivery, finished runtime job or merged PR does
+not close a front with remaining scope or acceptance. After the turn ends, an
+authorized observer, coordinator or host checks the effective settled state
+through the existing host interface. A read during the turn does not prove a
+later transition. If the state hides pending work, restore visibility and resume
+the same thread only under current direction and STOPs. If no observer is
+available, report verification pending on the existing action without guessing
+its cause. Keep unresolved work and blockers visible on the existing action.
+Report actual completion, resumption or an actionable blocker to the existing
+coordinator; do not send confirmation-only updates. This is an operator
+agreement, not a scheduler, access grant or proof that a runtime integration
+exists.
+
+### Post-merge cleanup
+
+For the wiki and each coordinated project, only `main` is permanent. Every other
+branch has a PR; push and open a draft no later than the end of the turn in which
+it was created. A draft records incomplete or paused work, including STOP, and
+does not authorize resumption. A ready PR is awaiting review, a merged PR is
+integrated, and a closed PR is discarded with its specific reason in a comment.
+
+Compare content against current `main`: integrate useful work or discard it;
+branch name and age do not decide. Commit and push uncommitted worktree changes
+before deciding. For squash or rebase, compare the content and later commits;
+a merged label alone does not prove that the current head is covered. Preserve
+unique work, including untracked or ignored files, without deleting personal or
+historical files outside Git. Compare expected heads immediately before mutation.
+If anything changed, reconcile it before deleting that item.
+
+On merge or close, remove the local and remote branch and worktree in the same
+delivery. Do not create backup branches, bundles or snapshots; GitHub retains PR
+commits in `refs/pull/<n>/head`. Enable automatic deletion of merged branches
+where authorized, and still verify local and remote state. Read back branches,
+worktrees and PRs, and record the result with the existing delivery. Retain valid
+review and test evidence for unchanged work; new changes or concerns receive the
+applicable validation. Keep incomplete work in its PR rather than a new queue.
+
+For a process failure, record its cause and the applicable rule or source on
+the existing action, issue, PR or log. If the rule was adequate, fix its
+implementation or application; if ambiguous or wrong, edit or remove the
+canonical rule, adding one only if that does not resolve it. The coordinator
+identifies recurrence; integrators return evidence and the kit owner integrates
+the common correction. Validate against the failed case, using synthetic fixtures
+where needed, integrate and read back the kit, then qualify consumer adoption and
+readback. Check effectiveness on the next eligible delivery in the same process
+issue or action. That later check does not circularly block closing an already
+accepted lot; if the failure recurs, resume the same occurrence without an agenda.
 
 ## Card conversation and asynchronous work
 

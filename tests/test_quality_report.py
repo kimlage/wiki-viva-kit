@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import pytest
 
 from wiki_core.config import WikiConfig
 from wiki_core.llm.cache import cache_key
@@ -80,8 +81,176 @@ def test_quality_report_measures_links_density_and_repetition(tmp_path: Path) ->
     # page is still reported as repeated, but it does not make the block "bad".
     assert report["summary"]["repeated_blocks"] == 1
     assert report["summary"]["bad_repetition_blocks"] == 1
+    assert "repetition_unknown_metadata" not in report["quality_flags"]
     assert report["summary"]["thin_link_pages"] == 0
     assert "bad_repetition_blocks" in render_markdown(report)
+
+
+def test_context_instructions_do_not_hide_repeated_memory_pages(tmp_path: Path) -> None:
+    repeated = ("A synthetic instruction paragraph repeated across several files "
+                "is deliberately long enough to be measured in the quality report.")
+    for name in ("one", "two"):
+        _write(tmp_path / f"memories/{name}/index.md", _page(name, "context_hub", name, ""))
+        _write(tmp_path / f"memories/{name}/AGENTS.md", _page(f"agent-{name}", "context_note", name, repeated))
+        _write(tmp_path / f"memories/{name}/note.md", _page(f"note-{name}", "context_note", name, repeated))
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+    blocks = report["quality_flags"]["bad_repetition_blocks"]
+    assert len(blocks) == 1
+    assert blocks[0]["pages"] == ["memories/one/note.md", "memories/two/note.md"]
+
+
+def test_quality_gate_accepts_short_context_instructions_but_not_short_page(tmp_path: Path, monkeypatch, capsys) -> None:
+    import scripts.wiki_quality_report as cli
+
+    _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", ""))
+    _write(tmp_path / "memories/example/index.md", _page("hub", "context_hub", "Hub", ""))
+    _write(tmp_path / "memories/example/AGENTS.md", "# Instructions\n\nRead `AGENTS.md`.\n")
+    _write(tmp_path / "memories/example/CLAUDE.md", "@AGENTS.md\n")
+    config = WikiConfig(audit={**WikiConfig().audit, "quality_max_low_density": 0, "quality_max_bad_repetition": 0})
+    monkeypatch.setattr(cli, "ROOT", tmp_path)
+    monkeypatch.setattr(cli, "load_config", lambda root: config)
+    assert cli.main(["--check"]) == 0
+    _write(tmp_path / "memories/unindexed/CLAUDE.md", "@AGENTS.md\n")
+    assert cli.main(["--check"]) == 1
+    (tmp_path / "memories/unindexed/CLAUDE.md").unlink()
+    _write(tmp_path / "memories/example/short.md", _page("short", "context_note", "Short", ""))
+    assert cli.main(["--check"]) == 1
+    assert "low_information_density_pages" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("first_context", "first_type", "second_context", "second_type", "bad_count"),
+    [
+        ("", "", "", "", 0),
+        ("", "context_note", "", "context_note", 0),
+        ("example", "", "example", "", 0),
+        ("example", "context_note", "", "context_note", 0),
+        ("example", "context_note", "project", "context_note", 0),
+        ("example", "context_note", "example", "context_note", 1),
+    ],
+)
+def test_bad_repetition_requires_known_matching_metadata(
+    tmp_path: Path,
+    first_context: str,
+    first_type: str,
+    second_context: str,
+    second_type: str,
+    bad_count: int,
+) -> None:
+    repeated = (
+        "A deliberately repeated synthetic paragraph provides enough text to "
+        "exercise the quality report without relying on consumer-specific data "
+        "or treating missing metadata as a shared context."
+    )
+    for name, context, page_type in (
+        ("one", first_context, first_type),
+        ("two", second_context, second_type),
+    ):
+        _write(
+            tmp_path / f"memories/{name}/SKILL.md",
+            _page(name, page_type, name, repeated, context=context),
+        )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example", "project")))
+
+    assert report["summary"]["repeated_blocks"] == 1
+    assert report["summary"]["bad_repetition_blocks"] == bad_count
+    from wiki_core.web.snapshot_projection import _quality_reasons_by_path
+
+    reasons = _quality_reasons_by_path(report, report["pages"])
+    for page_reasons in reasons.values():
+        assert "quality:repeated_blocks" not in page_reasons
+        assert ("quality:bad_repetition_blocks" in page_reasons) is bool(bad_count)
+
+
+def test_skill_files_without_wiki_metadata_remain_visible_as_repetition(tmp_path: Path) -> None:
+    repeated = (
+        "A synthetic shared instruction is repeated across independent skills. "
+        "The absent wiki metadata does not establish a common context or page type. "
+        "The report should still expose the repeated text for inspection."
+    )
+    for name in ("one", "two"):
+        _write(
+            tmp_path / f"memories/{name}/skills/{name}/SKILL.md",
+            f"---\nname: {name}\ndescription: Synthetic skill\n---\n\n# {name}\n\n{repeated}\n",
+        )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+
+    assert report["summary"]["repeated_blocks"] == 1
+    assert report["summary"]["bad_repetition_blocks"] == 0
+    flags = report["quality_flags"]["repetition_unknown_metadata"]
+    assert len(flags) == 1
+    assert flags[0]["unknown_metadata_pages"] == [
+        "memories/one/skills/one/SKILL.md",
+        "memories/two/skills/two/SKILL.md",
+    ]
+    rendered = render_markdown(report)
+    assert "### Repeated blocks with unknown context or page type" in rendered
+    assert "a synthetic shared instruction" in rendered
+    assert "memories/one/skills/one/SKILL.md" in rendered
+    assert "memories/two/skills/two/SKILL.md" in rendered
+
+
+def test_unknown_metadata_diagnostic_is_not_a_snapshot_defect() -> None:
+    from wiki_core.web.snapshot_projection import _quality_reasons_by_path
+
+    payload = {"quality_flags": {"repetition_unknown_metadata": [{"pages": ["a.md", "b.md"]}]}}
+    assert _quality_reasons_by_path(payload, [{"path": "a.md"}, {"path": "b.md"}]) == {
+        "a.md": [],
+        "b.md": [],
+    }
+
+
+def test_mixed_repetition_keeps_known_pair_as_bad_and_reports_unknown(tmp_path: Path) -> None:
+    repeated = (
+        "A deliberately repeated synthetic paragraph provides enough text to "
+        "exercise both known and unknown metadata in the same repeated block, "
+        "without relying on consumer-specific content or actual user data."
+    )
+    for name, context in (("one", "example"), ("two", "example"), ("three", "")):
+        _write(
+            tmp_path / f"memories/{name}.md",
+            _page(name, "context_note", name, repeated, context=context),
+        )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+
+    assert report["summary"]["bad_repetition_blocks"] == 1
+    assert report["quality_flags"]["bad_repetition_blocks"][0]["pages"] == [
+        "memories/one.md", "memories/two.md"
+    ]
+    unknown = report["quality_flags"]["repetition_unknown_metadata"][0]
+    assert unknown["pages"] == ["memories/one.md", "memories/three.md", "memories/two.md"]
+    assert unknown["unknown_metadata_pages"] == ["memories/three.md"]
+    from wiki_core.web.snapshot_projection import _quality_reasons_by_path
+
+    reasons = _quality_reasons_by_path(report, report["pages"])
+    assert "quality:bad_repetition_blocks" in reasons["memories/one.md"]
+    assert "quality:bad_repetition_blocks" in reasons["memories/two.md"]
+    assert not any("repetition" in reason or "repeated" in reason for reason in reasons["memories/three.md"])
+    rendered = render_markdown(report)
+    assert "### Bad repetition blocks" in rendered
+    assert "### Repeated blocks with unknown context or page type" in rendered
+    assert "memories/three.md" in rendered
+
+
+def test_markdown_reports_truncated_unknown_repetition_list(tmp_path: Path) -> None:
+    blocks = [
+        f"Synthetic block {i:02d} is repeated across independent pages without known "
+        "context metadata. This sufficiently long example checks that the "
+        "operator can discover omitted results in the complete JSON output."
+        for i in range(22)
+    ]
+    for name in ("one", "two"):
+        _write(tmp_path / f"memories/{name}/SKILL.md", "\n\n".join(blocks))
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+    rendered = render_markdown(report)
+
+    assert len(report["quality_flags"]["repetition_unknown_metadata"]) == 22
+    assert "2 additional blocks omitted; use `--format json` for the complete list." in rendered
+    assert "synthetic block 21" not in rendered
 
 
 def test_quality_report_tracks_cost_telemetry_without_budget_gate(tmp_path: Path) -> None:
@@ -120,6 +289,88 @@ def test_quality_report_tracks_cost_telemetry_without_budget_gate(tmp_path: Path
     assert report["summary"]["cached_calls"] == 0
     assert report["summary"]["pending_calls"] == 1
     assert report["cost_telemetry"]["note"].endswith("does not enforce a hard budget.")
+
+
+def test_quality_ignores_nested_git_and_protected_symlinks(tmp_path: Path, monkeypatch) -> None:
+    cfg = WikiConfig(contexts=('example',))
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    derived = tmp_path / 'data/derived/wiki'
+    chunks = derived / 'chunks'
+    payload = lambda source: json.dumps({'source_id': source, 'chunks': [{'chunk_id': 'one', 'text': 'content'}]})
+    _write(chunks / 'safe.json', payload('safe'))
+    _write(chunks / 'nested/hidden.json', payload('nested'))
+    (chunks / 'nested/.git').mkdir()
+    protected = derived / '.wiki-viva-protected/hidden.json'
+    _write(protected, payload('protected'))
+    chunk_link = chunks / 'alias.json'; chunk_link.symlink_to(protected)
+    request_link = derived / 'extraction-events/alias-llm-context-request.json'
+    request_link.parent.mkdir(parents=True)
+    request_link.symlink_to(protected)
+    original = Path.read_text
+    def guarded(path, *args, **kwargs):
+        assert path not in (chunks / 'nested/hidden.json', chunk_link, request_link), 'foreign artifact opened'
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', guarded)
+    report = build_quality_report(tmp_path, cfg)
+    assert [item['source_id'] for item in report['cost_telemetry']['source_costs']] == ['safe']
+
+
+def test_quality_rejects_legacy_cache_symlink_before_read(tmp_path: Path, monkeypatch) -> None:
+    cfg = WikiConfig(contexts=('example',))
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    derived = tmp_path / 'data/derived/wiki'
+    key, chunk_hash = 'a' * 64, 'b' * 64
+    _write(derived / 'chunks/safe.json', json.dumps({'source_id': 'safe', 'chunks': [
+        {'chunk_id': 'one', 'hash_sha256': chunk_hash, 'text': 'content'}]}))
+    request = {'source_id': 'safe', 'prompt_version': cfg.llm['prompt_versions']['context_deep_read'],
+        'schema_version': CONTEXT_PASS_SCHEMA_VERSION, 'model_profile': cfg.llm['default_model_profile'],
+        'chunks': [{'chunk_id': 'one', 'cache_key': key, 'chunk_hash_sha256': chunk_hash}]}
+    _write(derived / 'extraction-events/safe-llm-context-request.json', json.dumps(request))
+    protected = derived / '.wiki-viva-protected/hidden.json'
+    _write(protected, '{}')
+    link = derived / 'llm-cache' / (key + '.json')
+    link.parent.mkdir(parents=True); link.symlink_to(protected)
+    original = Path.read_text
+    def guarded(path, *args, **kwargs):
+        assert path != link, 'protected cache link opened'
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', guarded)
+    with pytest.raises(ValueError):
+        build_quality_report(tmp_path, cfg)
+
+
+@pytest.mark.parametrize('directory', ['chunks', 'extraction-events'])
+def test_quality_rejects_a_selected_nested_repository(tmp_path: Path, directory: str) -> None:
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    (tmp_path / 'data/derived/wiki' / directory / '.git').mkdir(parents=True)
+    with pytest.raises(ValueError, match='derived_path_crosses_repository_boundary'):
+        build_quality_report(tmp_path, WikiConfig(contexts=('example',)))
+
+
+def test_quality_validates_folder_request_identity(tmp_path: Path) -> None:
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    name = f"folder-{'a' * 64}-{'b' * 64}-llm-context-request.json"
+    _write(tmp_path / 'data/derived/wiki/extraction-events' / name, '{"chunks": []}')
+    with pytest.raises(ValueError, match='local request identity'):
+        build_quality_report(tmp_path, WikiConfig(contexts=('example',)))
+
+
+@pytest.mark.parametrize('relative', [
+    'chunks/source.json',
+    'extraction-events/source-llm-context-request.json',
+])
+def test_quality_reports_unreadable_telemetry(tmp_path: Path, monkeypatch, relative: str) -> None:
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    unavailable = tmp_path / 'data/derived/wiki' / relative
+    _write(unavailable, '{}')
+    original = Path.read_text
+    def guarded(path, *args, **kwargs):
+        if path == unavailable:
+            raise PermissionError('telemetry unavailable')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', guarded)
+    with pytest.raises(PermissionError, match='telemetry unavailable'):
+        build_quality_report(tmp_path, WikiConfig(contexts=('example',)))
 
 
 def test_quality_report_surfaces_unclosed_synthetic_event(tmp_path: Path) -> None:

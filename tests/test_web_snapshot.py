@@ -745,6 +745,31 @@ moc_parent: memories/index.md
     }
 
 
+def test_root_snapshot_source_identity_uses_merge_commit(tmp_path: Path) -> None:
+    config = _sample_repo(tmp_path)
+    subprocess.run(
+        ["git", "checkout", "-b", "wiki/topic"], cwd=tmp_path, check=True, capture_output=True
+    )
+    page = tmp_path / "memories/example/index.md"
+    page.write_text(page.read_text(encoding="utf-8") + "\nTopic edit.\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "topic"], cwd=tmp_path, check=True, capture_output=True)
+    topic = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+    subprocess.run(["git", "checkout", "main"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "merge", "--no-ff", "wiki/topic", "-m", "merge topic"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+
+    manifest = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")["manifest.json"]
+    assert head != topic
+    assert manifest["source_sha"] == head
+    assert manifest["source_commit"] == head
+
+
 def test_dirty_snapshot_source_identity_is_honest_deterministic_and_content_bound(
     tmp_path: Path,
 ) -> None:
@@ -960,6 +985,23 @@ def test_graph_overlay_metrics_are_data_backed_and_keep_cancelled_distinct() -> 
     )
     assert metrics["person-one"]["attention"]["state"] == "urgent"
     assert metrics["person-one"]["attention"]["refs"] == ["gate:wiki_audit"]
+
+
+def test_quality_overlay_exposes_unavailable_measurement_and_known_risks() -> None:
+    from wiki_core.web.snapshot_projection import _graph_overlay_metrics
+
+    pages = {"pages": [
+        {"id": "safe", "path": "memories/safe.md", "page_type": "claim", "risk_flags": []},
+        {"id": "risk", "path": "memories/risk.md", "page_type": "claim", "risk_flags": ["observed"]},
+    ]}
+    metrics = _graph_overlay_metrics(
+        pages, {"memories/safe.md": "safe", "memories/risk.md": "risk"},
+        {"error": "quality unavailable"},
+    )
+    assert metrics["safe"]["quality"]["state"] == "unknown"
+    assert metrics["safe"]["quality"]["reasons"] == ["metric_unavailable"]
+    assert metrics["risk"]["quality"]["state"] == "warning"
+    assert metrics["risk"]["quality"]["reasons"] == ["risk:observed", "metric_unavailable"]
 
 
 def test_snapshot_contract_detects_duplicate_ids_dangling_relations_and_corruption(

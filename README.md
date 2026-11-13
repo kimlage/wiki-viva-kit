@@ -12,12 +12,12 @@ The wiki is one navigable world rather than a set of dashboard islands. Pages
 remain canonical Markdown; registered views project the same world as spatial
 quadrants, timelines, graph relations, source provenance and operational work.
 
-Release and migration notes: [Wiki Viva v9.1.0](docs/references/releases/wiki-viva-v9.1.0.md);
-major-version migration history: [v9.0.0](docs/references/releases/wiki-viva-v9.0.0.md).
-The preserved v9.0.0 tag predates the reader/catalog secret-output correction.
-For new adoption, use the approved corrected commit
-[`7769aee73a166ac7fd7b4ab7f35be64576e451ca`](https://github.com/kimlage/wiki-viva-kit/commit/7769aee73a166ac7fd7b4ab7f35be64576e451ca),
-or the reviewed v9.1.0 tag after publication. See the release notes for scope and limits.
+Release and migration notes: [Wiki Viva v9.2.4](docs/references/releases/wiki-viva-v9.2.4.md);
+previous releases: [v9.2.3](docs/references/releases/wiki-viva-v9.2.3.md),
+[v9.2.2](docs/references/releases/wiki-viva-v9.2.2.md) and
+[v9.2.1](docs/references/releases/wiki-viva-v9.2.1.md). For new adoption, use the
+reviewed v9.2.4 tag after publication and follow its migration notes. The
+preserved v9.0.0 tag predates the reader/catalog secret-output correction.
 
 ```mermaid
 flowchart LR
@@ -161,6 +161,14 @@ A kit release consists of:
 3. an **Upgrading** section with required consumer migrations;
 4. green normal CI: audit, pytest, Vitest, TypeScript and production build;
 5. a PR independently reviewed under [AGENTS.md](AGENTS.md).
+
+During release preparation, set `wiki_core.__version__` to the release version
+and update the primary release-notes link above in the same reviewed change.
+Between releases it identifies the latest declared release, not the exact
+source revision or a promise that the checkout is identical to that tag. Use
+the full Git SHA for adoption and verification. Published tags are historical;
+this policy does not rewrite their contents. Pack versions and consumer locks
+have their own contracts and are not changed merely by a kit release.
 
 No capsule, receipt or exact-matrix rite is required.
 

@@ -614,8 +614,8 @@ def build_event_markdown(
         manifest_ref = manifest.relative_to(root).as_posix()
         href = os.path.relpath(manifest, event_dir).replace(os.sep, '/')
         source_rows.append(f'- [Source capture manifest]({href}) (consult only with host authorization).')
-    if impact.get('coverage') == 'explicit_candidates_only':
-        source_rows.append('- Impact coverage: only explicitly selected candidates; global catalog and FTS were not searched.')
+    if impact.get('coverage') in ('explicit_candidates_only', 'selected_candidates_only'):
+        source_rows.append('- Impact coverage: only selected candidates; global catalog and FTS were not searched.')
 
     def scalar(value):
         return json.dumps(str(value), ensure_ascii=False) if yaml_safe else str(value)
@@ -667,8 +667,8 @@ def build_event_markdown(
             fm.append('manifest_ref: ' + json.dumps(manifest_ref, ensure_ascii=False))
         if aggregated.get('independent_git_sources'):
             fm.append('independent_git_sources: ' + json.dumps(aggregated['independent_git_sources'], ensure_ascii=False, sort_keys=True))
-    if impact.get('coverage') == 'explicit_candidates_only':
-        fm.append('impact_coverage: explicit_candidates_only')
+    if impact.get('coverage') in ('explicit_candidates_only', 'selected_candidates_only'):
+        fm.append('impact_coverage: ' + impact['coverage'])
     fm.extend(
         [
             f"source_type: {source_type}",
@@ -825,6 +825,7 @@ def _page_catalog(root: Path, config: WikiConfig, candidates: list[str] | None =
             "aliases": [str(a) for a in aliases],
             "page_type": str(fm.get("page_type") or ""),
             "source_refs": [str(x) for x in fm.get("source_refs") or []] if isinstance(fm.get("source_refs"), list) else [],
+            "information_requirements": fm.get("information_requirements", []),
         }
     return catalog
 
@@ -841,7 +842,7 @@ def build_packet(
     catalog = _page_catalog(root, config, candidates, candidate_documents=candidate_documents)
     db_path = paths.indexes / "wiki.sqlite"
     packet_warnings: list[str] = ([] if candidates is None else
-        ['Only explicit candidates were inspected; global catalog and FTS were not searched.'])
+        ['Only selected candidates were inspected; global catalog and FTS were not searched.'])
     initial_signature: str | None = None
     signature_error: Exception | None = None
 
@@ -947,24 +948,40 @@ def build_packet(
     # consumption, authorization, or factual change.
     current = _SOURCE_V2.fullmatch(str(aggregated.get("source_id") or ""))
     source_page_id = aggregated.get('_selected_source_page_id')
+    source_page_ref = aggregated.get('_selected_source_page_ref')
+    selected_targets = {str(ref) for ref in aggregated.get('target_pages') or [] if str(ref).strip()}
     if candidates is not None:
         for page_id, meta in catalog.items():
             for ref in meta.get("source_refs") or []:
                 previous = _SOURCE_V2.fullmatch(ref)
                 same_origin = (current and previous and previous.group(1, 2) == current.group(1, 2)
                                and previous.group(3) != current.group(3))
-                same_page = isinstance(source_page_id, str) and ref == source_page_id and page_id != source_page_id
+                same_page = ((isinstance(source_page_id, str) and ref == source_page_id and page_id != source_page_id)
+                             or (isinstance(source_page_ref, str) and ref == source_page_ref
+                                 and meta['rel'] != source_page_ref))
                 if same_origin or same_page:
                     should_review.append(str(meta["rel"]))
                     note = 'Source-page association is operator-selected and unverified; references are declared.'
                     if same_page and note not in packet_warnings:
                         packet_warnings.append(note)
+            if source_page_ref:
+                from wiki_core.information_relations import information_requirements
+                try:
+                    requirements = information_requirements(meta, lambda target: [target])
+                    if meta['rel'] != source_page_ref and any(item['temporal'] == 'current' and item['target'] in (source_page_ref, source_page_id)
+                           for item in requirements):
+                        should_review.append(str(meta['rel']))
+                    for requirement in requirements:
+                        if (requirement['temporal'] == 'current' and requirement['target'] in selected_targets
+                                and meta['rel'] != requirement['target']):
+                            packet_warnings.append('Candidate ' + str(meta['rel']) + ' declares a current requirement on '
+                                + requirement['target'] + '; reassess after its approved change, if any.')
+                except (ValueError, TypeError):
+                    note = 'A selected candidate has invalid information requirements; dependency coverage is incomplete.'
+                    if note not in packet_warnings:
+                        packet_warnings.append(note)
         should_review = sorted(set(should_review))
-    target_pages = {
-        str(page)
-        for page in (aggregated.get("target_pages") or [])
-        if str(page).strip()
-    }
+    target_pages = selected_targets
     must_update = sorted(
         {
             str(meta["rel"])

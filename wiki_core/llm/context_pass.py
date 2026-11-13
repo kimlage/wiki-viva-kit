@@ -75,7 +75,7 @@ def local_request_path(paths, request: dict) -> Path:
     return paths.extraction_events / f'folder-{source}-{identity}-llm-context-request.json'
 
 
-def load_local_request(paths, path: Path, *, max_bytes: int = MAX_LOCAL_REQUEST_BYTES) -> dict:
+def load_local_request(paths, path: Path, *, max_bytes: int = MAX_LOCAL_REQUEST_BYTES, read_bytes=None) -> dict:
     """Read one explicitly selected request; its identity does not grant access."""
     import os
     from wiki_core.context_selection import strict_json_loads
@@ -94,8 +94,11 @@ def load_local_request(paths, path: Path, *, max_bytes: int = MAX_LOCAL_REQUEST_
     require_wiki_path(paths.root, candidate.relative_to(paths.root).as_posix())
     if not candidate.is_file() or candidate.stat().st_size > max_bytes:
         raise ValueError('local request unavailable')
-    with candidate.open('rb') as stream:
-        content = stream.read(max_bytes + 1)
+    if read_bytes is None:
+        with candidate.open('rb') as stream:
+            content = stream.read(max_bytes + 1)
+    else:
+        content = read_bytes(candidate)
     if len(content) > max_bytes:
         raise ValueError('local request unavailable')
     request = strict_json_loads(content.decode('utf-8'))
@@ -268,14 +271,14 @@ def result_path(cache_dir: Path, key: str) -> Path:
     return cache_dir / f"{key}.json"
 
 
-def read_result(cache_dir: Path, key: str) -> dict[str, object] | None:
+def read_result(cache_dir: Path, key: str, *, read_text=None) -> dict[str, object] | None:
     if not CACHE_KEY_RE.fullmatch(key):
         return None
     path = result_path(cache_dir, key)
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8") if read_text is None else read_text(path))
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
 
@@ -455,7 +458,7 @@ def result_cache_for_request(cache_dir: Path, request: object) -> Path:
     return Path(cache_dir) / 'local-folder' if is_local_folder_request(request) else Path(cache_dir)
 
 
-def read_matching_result(cache_dir: Path, request: dict, row: dict, *, root: Path | None = None) -> dict | None:
+def read_matching_result(cache_dir: Path, request: dict, row: dict, *, root: Path | None = None, read_text=None) -> dict | None:
     if is_local_folder_request(request) and root is None:
         raise ValueError('local_result_root_unavailable')
     cache_dir = result_cache_for_request(cache_dir, request)
@@ -463,7 +466,7 @@ def read_matching_result(cache_dir: Path, request: dict, row: dict, *, root: Pat
     if root is not None and isinstance(key, str) and CACHE_KEY_RE.fullmatch(key):
         from wiki_core.traversal import require_wiki_boundaries
         require_wiki_boundaries(root, files=(result_path(cache_dir, key),))
-    result = read_result(cache_dir, key) if isinstance(key, str) else None
+    result = read_result(cache_dir, key, read_text=read_text) if isinstance(key, str) else None
     return result if result_matches_request(result, request, row) else None
 
 

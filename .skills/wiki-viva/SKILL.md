@@ -23,6 +23,10 @@ context index, within the task's authorized scope. A folder or link is not an
 access grant. See [bounded ingestion](../../docs/references/guides/bounded-ingestion.md)
 for selection, independent repositories and the local route's limits.
 
+When serving as coordinator, follow the [coordinator role](reference/coordinator.md)
+at opening and every resumption. Product integration remains with the assigned
+integrator; the host must independently enforce current pauses and authority.
+
 ## Lifecycle
 
 ```mermaid

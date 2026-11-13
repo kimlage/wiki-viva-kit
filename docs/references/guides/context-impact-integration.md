@@ -4,7 +4,13 @@ An approved task packet exposes the selected context's purpose, owner, root and 
 
 The [impact module](../../../wiki_core/context_impact.py) consumes the existing relation inventory through its `dependency_edges` normalization; it does not persist a second graph or queue. The caller must be authorized to read the inventory and provide a trustworthy, complete-enough view: the output cannot certify inventory completeness or prove that an agent read a receipt. Navigation and association edges do not trigger review. A legacy dependency without a fixed `consumed_revision` is returned as `blocked_unpinned_dependency` instead of being silently called fresh. A supplied 40- or 64-character Git commit identifies the actual input revision; the selector is resolved at that commit, independently of the transaction's before revision. A digest proves selected bytes/contract, not current observation of an external fact.
 
-An approved consumer page may declare its dependencies in the existing `information_requirements` frontmatter: the four legacy fields `target`, `fields`, `temporal` and `max_age_days`, plus optional fixed `consumed_revision`, `use` and `classification`. Missing revisions remain unpinned. The `impact --consumer PATH` form reads the consumer from the approved Git revision and derives these edges through the existing parser, without returning the raw graph. It resolves explicit repository paths only; page-ID lookup is not performed. The `requirements` command checks a completed packet/result, the reported reads and selected digests, current grants, and that the exact proposal commit is incorporated with the same output bytes in the approved revision. It proposes `information_requirements` for the page but writes nothing; a reported read is not proof of comprehension. When a proposal adds or changes such declarations, preflight checks each new selector and fixed revision against evidence the task reported reading; an unpinned new declaration is not eligible for ordinary preflight. Existing legacy declarations remain unpinned until explicitly updated.
+An approved consumer page may declare its dependencies in the existing `information_requirements` frontmatter: the four legacy fields `target`, `fields`, `temporal` and `max_age_days`, plus optional fixed `consumed_revision`, `use` and `classification`. Missing revisions remain unpinned. The `impact --consumer PATH` form reads the consumer from the approved Git revision and derives these edges through the existing parser, without returning the raw graph. It resolves explicit repository paths only; page-ID lookup is not performed. Folder impact requires `after` to be the current approved revision. Before opening older content, it checks approved ancestry and the historical and current authority; a missing authorization remains a coverage limit. Review also rechecks historical authority and the selected input digest before a reported disposition may seed further impact. The `requirements` command checks a completed packet/result, the reported reads and selected digests, current grants, and that the exact proposal commit is incorporated with the same output bytes in the approved revision. It proposes `information_requirements` for the page but writes nothing; a reported read is not proof of comprehension. When a proposal adds or changes such declarations, preflight checks each new selector and fixed revision against evidence the task reported reading; an unpinned new declaration is not eligible for ordinary preflight. Existing legacy declarations remain unpinned until explicitly updated.
+
+For dynamic queries, the data revision and the policy revision under which it
+was read can differ. Review uses the policy recorded by the approved consumer;
+historical and current read restrictions still apply before opening members.
+Older folder candidates whose impact policy differs from their `after` revision
+must be requalified; retaining their history does not make them current reviews.
 
 Existing inventory edges supply `source`, `target`, `type`, and optionally `consumed_fields`, `consumed_revision`, `owner_context`, `producer_context`, `use` and `classification`. A consumed selector is `section:<stable-id>`, `field:<name>`, `body`, `*`, or a legacy bare frontmatter field. For `source_ref` edges the existing inventory treats `target` as the prerequisite and `source` as the consumer. Preserve the actual source relationship in the canonical page or its existing task receipt; do not make a separate persistent edge file solely for this command. A consumer must retain the revision it actually consumed, not claim the latest revision. If a selector was removed, the result reports a missing digest; malformed or duplicate section markers fail closed. Section content compares its stable ID and version and body, excluding the heading label; use a field or whole document when the title itself is consumed.
 
@@ -21,6 +27,82 @@ Each result is an immediate candidate for **independent interpretation** by the 
 `policy.permits` is only an upper bound for path permissions. Adapters must not use it as a complete authorization decision: every cross-context evidence read, including a parent reading a child's artifact, also needs the current exact producer export and consumer import; writes also require the target's canonical owner to equal the acting context. The parent having `read: [self]` or `write: [self]` does not bypass those rules.
 
 The [preflight module](../../../wiki_core/context_integration.py) revalidates the current trusted approval reference, exact short branch head and ancestor base; reconstructs the packet with current policy; compares each selected input at the approved base; and checks reported changes against the actual Git diff and the context's current write scope. It refuses policy edits, changes to any active instruction, skill or template (which require the separate policy-review path), unsafe or unsupported files and detected secrets. The result explicitly says independent review, gates and merge were not performed. It does not execute proposed code or certify semantic compatibility, freshness of facts, actor identity, review, or external effects.
+
+### Joint proposals with multiple owners
+
+The in-process `preflight_composite` accepts one exact `base`, `head` and
+`branch`, a host-provided `CoordinationBinding`, and a list of participant
+objects. Each contains `context_id`, its original `packet` and `result`, and
+optionally the exact `additional_readers` retained by that packet. Every
+participant result reports only that owner's changes. The function derives
+ownership from the current approved policy and partitions the actual Git diff;
+missing, duplicate or extra participants and incomplete or overlapping change
+reports fail closed. It reuses the per-context packet, query, read and write
+checks against the **complete** proposal tree, and returns a bounded summary and
+digest of the complete path/action list. It does not combine previously issued
+preflight results. Existing single-context `preflight` still covers the whole
+diff. The operation permits at most 64 participants and 4,096 changed paths.
+Before copying its JSON-like inputs, it applies a conservative 8 MB aggregate
+serialization estimate, a 100,000-node limit and a maximum depth of 64; the
+estimate may reject some smaller payloads. Errors are opaque and do not report
+the path or owner that caused a subcheck to fail.
+The returned summary follows the [composite preflight schema](../schemas/wiki-context-integration-composite-v1.schema.json).
+
+The local operator can call the API or use the CLI. The operator-selected
+`participants.json` is a JSON array of objects; each object has the keys
+`context_id`, `packet` and `result`, with an optional `additional_readers`
+array. The packet and result are the complete original JSON objects, not paths,
+digests alone or previously returned preflights. Protect this input according to
+the data it contains. With an independently established folder coordination
+binding in the host environment, a local invocation is:
+
+```sh
+python3 scripts/wiki_context_flow.py --repo /path/to/wiki \
+  --approved-revision "$WIKI_COMPOSITE_APPROVED_SHA" preflight-composite \
+  --base "$WIKI_COMPOSITE_APPROVED_SHA" --head "$WIKI_COMPOSITE_HEAD_SHA" \
+  --branch wiki/example-proposal --participants /path/to/participants.json
+```
+
+There is no new HTTP route. The caller must independently authorize the
+integrator to receive metadata for every context; the binding is only a
+configuration ceiling and grants no cross-context access. The output does not
+prove actor identity, a signed result, semantic consistency, consumer log rules,
+or that any participant performed the work. It is not an approval: independent
+review, gates and merge remain outstanding. A split into multiple proposals is
+appropriate only when each intermediate state and the consumer's log rules are
+independently valid.
+
+### Policy and normative changes
+
+The separate policy-review path can use the consumer's existing, authorized
+Git/PR process; the kit has no dedicated command that approves a policy change.
+For an intended scope or normative change:
+
+1. Identify the current trusted policy revision, affected owners and scopes,
+   and the authority already permitted to propose, review and integrate the
+   change. Keep the proposed diff minimal and reviewable.
+2. Review the exact diff, authority and impact with the reviewers and
+   independence required by the consumer's authorized policy; run its
+   applicable gates and follow its PR and promotion process. For protected
+   coordination, the host must maintain its trusted ref through an independent
+   approval process as described in the [host guide](context-coordination-protected.md).
+   The proposed policy must not authorize its own review or merge.
+3. After an authorized integrator merges the change, read back the integrated
+   revision and the host's trusted ref. A PR, Git ref or SHA alone is not proof
+   that the required approval or host authorization occurred.
+4. Reconstruct affected packets under the approved resulting policy and
+   revalidate current scopes and any required connections. Separately establish
+   the host binding and actual caller identity, capabilities and effect
+   admission; the binding is a ceiling, not a grant. Preserve any applicable
+   claim, STOP and consumer review requirements.
+
+Neither the ordinary nor composite preflight approves the candidate policy,
+and the impact `review` command reports a disposition rather than approving a
+policy. If the authorized external process, current trusted ref or required
+authority cannot be established, keep that operation pending. This guidance
+does not create a new CLI, attestation, grant or provider-enforced review.
+
+### Integrating a preflight proposal
 
 After preflight, an authorized integrator must independently review the exact proposal HEAD and semantic relationships, run applicable gates tied to that HEAD and configuration, revalidate the approved base, and follow the repository's existing PR/merge policy. If the base or branch advances, rebuild the packet against the current approved base, reconcile every actual read (including an existing output read while editing), rerun preflight and review the new HEAD. Plan work in progress so one context does not repeatedly rebase while other changes land; an undeclared read makes that attempt ineligible rather than being silently omitted. Use one integrator per target until a provider-enforced current-base queue is qualified; worktrees alone are not a merge lock. The external integrator performs any authorized merge and readback; these commands never do so. A self-reported completed result or this preflight alone is not approval.
 

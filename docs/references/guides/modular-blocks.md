@@ -70,6 +70,40 @@ carries the full v2 type contract: `can_anchor_blocks`, `blocks`, `identity`
 (landmark/motif/ambient/horizon_label), `subpages` ({rel, page_type, slug?,
 required|generated}), `skills`, `home_quadrant` and `creatable`.
 
+### Integral maps and scoped perspective bundles
+
+An anchor may add `perspective_bundle_optional` or promote a thematic lens with
+`perspective_bundle_required`. Perspective IDs name existing `perspective` pages;
+unknown IDs fail input-stage compilation. The four AQAL lenses remain required
+from the root. Additions accumulate along each destination's `moc_parent` chain;
+when a source has several destinations their requirements are combined. A
+source with no more specific destination uses the root bundle. Guarded input-stage
+selection must explicitly include the template registry files when local bundles
+are declared, so anchor types can be verified without unapproved reads. Explicit
+folder ingestion uses only its separately selected packet and does not discover
+ancestors or add unselected perspectives; operators must select them explicitly.
+Channel and
+source-config perspectives still apply. A source cannot skip the root's AQAL
+lenses. This does not grant additional reading or writing access.
+
+For an anchor with an active quadrant block and the four marker pairs from the
+context or project template, run:
+
+```sh
+python3 scripts/wiki_integral_map.py --anchor memories/example/index.md
+python3 scripts/wiki_integral_map.py --anchor memories/example/index.md --check
+```
+
+The command replaces only the marker contents with links from that anchor's
+`quadrant_projections`. It does not classify pages or infer missing content; an
+empty quadrant is shown as a `quadrant_absence` mission. Other prose is authored
+normally. The bundle declarations and their inheritance remain in frontmatter;
+the map is a generated navigation view, not a new source of classification.
+Each generated link carries an occurrence-local navigation declaration, so it
+does not make the linked page's factual body a freshness dependency. Regenerate
+existing maps and check them in with these declarations.
+See [the synthetic person/company/project example](../examples/integral-context.md).
+
 ## 4. Packages
 
 A **package** is a named group of blocks — attachment sugar for setup flows and

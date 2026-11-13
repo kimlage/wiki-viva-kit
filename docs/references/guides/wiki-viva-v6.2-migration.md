@@ -29,7 +29,7 @@ memory without a human-reviewed PR.
 | 3. Add minimum frontmatter | Bring pages under the v6.2 contract | Every memory page has `page_id`, `page_type`, `context`, `visibility`, `updated_at`, `stale_after_days` and gate metadata. |
 | 4. Register page types | Avoid undeclared shapes | [wiki.page-types.yaml](../../../wiki.page-types.yaml) declares every used `page_type`. |
 | 5. Connect the graph | Make memory navigable | [wiki_page_graph.py](../../../scripts/wiki_page_graph.py) reports zero errors, and outbound-link warnings are triaged with body links or frontmatter refs such as `moc_parent` and `related_pages`. |
-| 6. Close local artifacts | Keep clones and GitHub readable | Non-versioned artifacts are published with [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) or replaced with stable external links. |
+| 6. Close local artifacts | Keep clones and GitHub readable | Publish non-versioned artifacts via [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) within the authorized file and destination scope, preserving privacy and secrets, or use authorized stable external links. Dry-run is local and does not verify Drive; existing links remain subject to their own access and retention. See the [publisher's limits](../../../scripts/README.md#task-entry-points). |
 | 7. Close ingestion impact | Make ingestion mean integration | Events with `affected_pages.must_update` also close `impact_closure`. |
 | 8. Validate and PR | Let the owner review the migration | `wiki_audit.py --check`, `wiki_page_graph.py --check --impact --base <reviewed-base-sha>`, `wiki_pr_summary.py` and `git diff --check` pass. |
 

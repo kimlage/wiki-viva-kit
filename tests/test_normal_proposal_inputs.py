@@ -173,3 +173,68 @@ def test_consolidation_runs_native_writer_and_pins_canonical_source(prepared):
     assert after['updated_at'] == fm['updated_at']
     assert PARAGRAPH not in updated_body and '(canonical.md)' in updated_body
     assert after['action_state_history'][-1]['kind'] == 'body_consolidation'
+
+
+@pytest.mark.parametrize('folder', ['team/research', 'team/research/nested'])
+def test_local_action_proposal_uses_same_writer_and_cas_without_global_actions(prepared, folder):
+    from wiki_core.frontmatter import parse_frontmatter
+    srv, root, params, unlock, _clock = prepared
+    material = json.loads((root / params['material_path']).read_text())
+    old = root / material['action']['page_ref']
+    target = root / f'memories/{folder}/actions/{old.name}'
+    target.parent.mkdir(parents=True)
+    old.rename(target)
+    old.parent.rmdir()
+    ref = target.relative_to(root).as_posix()
+    before, _ = parse_frontmatter(target)
+    _material(root, params, lambda value: value['action'].update(page_ref=ref))
+    _commit_inputs(root, params)
+    token = unlock()
+    status, plan = _plan(srv, token, 'wiki.proposal.prepare', params=params)
+    assert status == 200, plan
+    status, result = _execute(srv, token, plan, confirmation=plan['plan']['confirmation']['text'])
+    assert status == 200 and result['output']['prepared'], result
+    assert not result['output']['published'] and not old.exists()
+    after, _ = parse_frontmatter(target)
+    for key in ('page_id', 'context', 'owner_kind', 'owner_ref'):
+        assert after.get(key) == before.get(key)
+    assert after['action_state_history'][-1]['kind'] == 'body_integration'
+    assert 'Reviewed synthetic result.' in target.read_text()
+    stable = target.read_bytes()
+    # A fresh material bound to the current HEAD but the old action digest is stale.
+    _material(root, params, lambda value: value.update(base_head=_git(root, 'rev-parse', 'HEAD')))
+    with pytest.raises(normal_proposal.ProposalError, match='proposal_action_revision_mismatch'):
+        normal_proposal.preview_proposal(root, srv.server.config, params)
+    assert target.read_bytes() == stable
+
+
+@pytest.mark.parametrize('boundary', ['outside-collection', 'escape', 'symlink', 'nested-git'])
+def test_proposal_action_selection_refuses_invalid_local_route(prepared, monkeypatch, boundary):
+    srv, root, params, _unlock, _clock = prepared
+    material = json.loads((root / params['material_path']).read_text())
+    original = root / material['action']['page_ref']
+    target = root / ('memories/team/nested/actions/task.md' if boundary != 'outside-collection'
+                     else 'memories/team/nested/task.md')
+    target.parent.mkdir(parents=True)
+    original.rename(target)
+    _commit_inputs(root, params)
+    ref = target.relative_to(root).as_posix()
+    if boundary == 'escape':
+        ref = 'memories/../' + ref
+    elif boundary == 'symlink':
+        target.rename(target.with_name('saved.md'))
+        target.symlink_to(target.with_name('saved.md'))
+    elif boundary == 'nested-git':
+        (target.parent.parent / '.git').mkdir()
+    _material(root, params, lambda value: value['action'].update(page_ref=ref))
+    before = _state(root)
+    monkeypatch.setattr(normal_proposal, '_write_action', lambda *a, **k: pytest.fail('native writer reached'))
+    original_entry = normal_proposal._worktree_entry
+    def guarded_entry(where, mode, selected):
+        if boundary in {'symlink', 'nested-git'} and selected == target.relative_to(root).as_posix():
+            pytest.fail('body read across a rejected boundary')
+        return original_entry(where, mode, selected)
+    monkeypatch.setattr(normal_proposal, '_worktree_entry', guarded_entry)
+    with pytest.raises((normal_proposal.ProposalError, ValueError)):
+        normal_proposal.preview_proposal(root, srv.server.config, params)
+    assert _state(root) == before

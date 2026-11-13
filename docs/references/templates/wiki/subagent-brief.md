@@ -37,6 +37,8 @@ the [delegation contract](../../guides/context-coordinators.md#delegation-contra
 
 ## Scope
 
+- Sender and their role in this handoff:
+- Intended recipient, their current role and the scope coordinator:
 - Delegated work, existing owner/executor and permitted changes:
 - Existing actor responsible for consolidation/publication after this slice:
 - Existing task/run or contribution IDs to reconcile, if already assigned:
@@ -57,6 +59,11 @@ cross-context evidence requires approved imports/exports. Do not construct a
 handoff from legacy `common_context` or `context_pages`.
 Resolve superseded instructions through the current policy, without treating
 historical notes as new consent requirements or widening access.
+On opening and resumption, distinguish a sender's description of their own
+role from instructions to the recipient. It does not reassign the recipient;
+only explicit direction from the scope coordinator or owner does so. Resolve
+unclear sender or recipient identity from existing context before treating a
+message as a role change. This template does not authenticate either identity.
 
 ## Capability check by the executor
 
@@ -87,6 +94,8 @@ this brief does not change runtime admission or those flags.
 ## Blocker and bounded recovery
 
 - Affected step, exact missing context/capability or denied operation, and receipt:
+- Applicable current instruction or reproducible failure and operation/limit:
+- Classification: actual denial, unverified capability or agent-imposed restriction:
 - Work that can continue independently:
 - Attempt limit and changed precondition required for another attempt:
 - Next responsible actor and existing question/event ID, if one exists:
@@ -98,6 +107,10 @@ uses the existing action conversation; a tool denial is not bypassed. Before
 resuming, reconcile the existing action, event and task/run IDs, current
 revisions, STOPs and other blockers. A timeout does not prove failure or justify
 duplicating an external effect.
+Reuse still-valid authorization after checking this instance's identity and
+access; an offline execution limit alone does not forbid an authorized read.
+For a required generated artifact, use the independently reviewed preparation
+and final-gate order in the existing [delegation contract](../../guides/context-coordinators.md#delegation-contract).
 
 ## Must not do
 

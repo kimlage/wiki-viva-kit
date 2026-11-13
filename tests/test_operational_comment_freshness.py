@@ -1,11 +1,12 @@
 """Communication capture is not documentary incorporation or factual renewal."""
 import copy
 import datetime as dt
+import hashlib
 
 import pytest
 
 from wiki_core.action_transition import (
-    _parse_document, _render_document, _receipt_id, action_transition_diagnostics,
+    ActionTransitionError, _parse_document, _render_document, _receipt_id, action_transition_diagnostics,
     operational_comment_receipt, transition_action_page,
 )
 from wiki_core.config import load_config
@@ -55,6 +56,105 @@ def test_native_comment_records_real_time_without_renewing_facts(repo):
     assert result['changed_paths'] == [ref]
     assert result['operational_comments'][0]['path'] == ref
     assert {ref, 'memories/policy.md', 'memories/consumer.md'} <= paths(result['unrelated_debt'])
+
+
+@pytest.mark.parametrize('empty_fields', [
+    {}, {'blocked_by': []}, {'blocked_by': None}, {'blocker_reason': ''},
+    {'completed_at': None}, {'completion_receipt': ''}, {'cancellation_receipt': ''},
+    {'blocked_by': [], 'blocker_reason': '', 'completed_at': None,
+     'completion_receipt': '', 'cancellation_receipt': ''},
+])
+def test_cas_comment_preserves_explicit_empty_lifecycle_fields(repo, empty_fields):
+    action = setup(repo)
+    fm, body = _parse_document(action.read_text())
+    fm.update(empty_fields)
+    fm['action_state_history'] = []
+    action.write_text(_render_document(fm, body))
+    before = action.read_text()
+    before_sha = hashlib.sha256(before.encode()).hexdigest()
+    result = comment(repo, action, expected_sha256=before_sha)
+    after = action.read_text()
+    actual, _ = _parse_document(after)
+    assert result.changed
+    assert actual['updated_at'] == fm['updated_at']
+    assert all(actual.get(k, object()) == v for k, v in empty_fields.items())
+    if 'blocked_by' not in empty_fields:
+        assert 'blocked_by' not in actual
+    receipt = actual['action_state_history'][-1]
+    assert receipt['kind'] == 'comment'
+    assert receipt['support_fields'] == ['action_dialogue']
+    assert receipt['before_sha256'] == before_sha
+    assert action_transition_diagnostics(before, after) == ()
+    assert operational_comment_receipt(before, after)['receipt_id'] == receipt['receipt_id']
+    with pytest.raises(ActionTransitionError, match='stale_action_revision'):
+        comment(repo, action, expected_sha256=before_sha, eid='received-run-0002',
+                at='2026-10-27T01:01:00Z')
+    assert action.read_text() == after
+
+
+def test_real_transition_still_cleans_blockers(repo):
+    action = setup(repo)
+    transition_action_page(repo, action, 'blocked', blocker_reason='Synthetic dependency',
+        blocked_by=['source-synthetic-dependency'], recorded_at='2026-10-26T01:00:00Z')
+    before = action.read_text()
+    transition_action_page(repo, action, 'open',
+        expected_sha256=hashlib.sha256(before.encode()).hexdigest(), recorded_at=AT)
+    after = action.read_text()
+    actual, _ = _parse_document(after)
+    assert 'blocked_by' not in actual and 'blocker_reason' not in actual
+    assert actual['updated_at'] != '2026-07-10'
+    assert action_transition_diagnostics(before, after) == ()
+
+
+def test_comment_does_not_preserve_contradictory_blocker(repo):
+    action = setup(repo)
+    fm, body = _parse_document(action.read_text())
+    fm['blocked_by'] = ['source-synthetic-dependency']
+    action.write_text(_render_document(fm, body))
+    before = action.read_text()
+    comment(repo, action, expected_sha256=hashlib.sha256(before.encode()).hexdigest())
+    after = action.read_text()
+    actual, _ = _parse_document(after)
+    assert 'blocked_by' not in actual
+    assert actual['action_state_history'][-1]['kind'] == 'contract_update'
+    assert actual['updated_at'] != fm['updated_at']
+    assert operational_comment_receipt(before, after) is None
+
+
+def test_comment_with_factual_edit_keeps_normal_cleanup(repo):
+    action = setup(repo)
+    fm, body = _parse_document(action.read_text())
+    fm['blocked_by'] = []
+    action.write_text(_render_document(fm, body))
+    before = action.read_text()
+    comment(repo, action, expected_sha256=hashlib.sha256(before.encode()).hexdigest(),
+            next_action='Review the updated synthetic evidence.')
+    after = action.read_text()
+    actual, _ = _parse_document(after)
+    assert 'blocked_by' not in actual
+    assert actual['next_action'] == 'Review the updated synthetic evidence.'
+    assert actual['updated_at'] != fm['updated_at']
+    assert actual['action_state_history'][-1]['kind'] == 'contract_update'
+    assert operational_comment_receipt(before, after) is None
+
+
+def test_real_state_transition_cleans_even_empty_blockers(repo):
+    action = setup(repo)
+    fm, body = _parse_document(action.read_text())
+    fm['blocked_by'] = []
+    action.write_text(_render_document(fm, body))
+    before = action.read_text()
+    transition_action_page(repo, action, 'in_progress',
+        expected_sha256=hashlib.sha256(before.encode()).hexdigest(), recorded_at=AT,
+        dialogue_event=dict(event_id='synthetic-transition-1', kind='comment',
+                            coordinator='research', text='Starting work.'))
+    after = action.read_text()
+    actual, _ = _parse_document(after)
+    assert 'blocked_by' not in actual
+    assert actual['action_state'] == 'in_progress'
+    assert actual['updated_at'] != fm['updated_at']
+    assert action_transition_diagnostics(before, after) == ()
+    assert operational_comment_receipt(before, after) is None
 
 
 @pytest.mark.parametrize('new_base', [False, True])

@@ -114,6 +114,43 @@ afterEach(() => {
 });
 
 describe("SourceDock operational workspace", () => {
+  it("groups streams for navigation and retains selection by exact stream id", () => {
+    const source = sourceFixture();
+    source.streams = [
+      { ...source.streams[0], id: "planning", label: "Planning", filters: { issue_types: ["Epic"] } },
+      { ...source.streams[1], id: "tickets", label: "Tickets", filters: { issue_types: ["Task"] } },
+      { ...source.streams[0], id: "meeting", label: "Weekly ritual" },
+      { ...source.streams[1], id: "constructor", label: "constructor" }
+    ];
+    const original = structuredClone(source.streams);
+    render(<SourceDock bundle={bundleWith(source)} sourceId={source.source_id} onNotice={noop} onClose={noop} />);
+    const rows = screen.getAllByRole("row");
+    const names = rows.map(row => row.textContent || "");
+    for (const category of ["Epics", "Cards", "Rituals", "Other"]) expect(names).toContain(category);
+    for (const stream of source.streams) expect(screen.getAllByRole("row", { name: new RegExp(`Stream ${stream.id}:`) })).toHaveLength(1);
+    expect(names.findIndex(name => name === "Epics")).toBeLessThan(names.findIndex(name => name === "Cards"));
+    expect(names.findIndex(name => name === "Cards")).toBeLessThan(names.findIndex(name => name === "Rituals"));
+    expect(names.findIndex(name => name === "Rituals")).toBeLessThan(names.findIndex(name => name === "Other"));
+    const tickets = screen.getByRole("row", { name: /Stream tickets:/ });
+    expect(within(tickets.closest("tbody")!).getByRole("rowheader", { name: "Cards" }).getAttribute("scope")).toBe("rowgroup");
+    fireEvent.keyDown(tickets, { key: "Enter" });
+    expect(tickets.getAttribute("aria-selected")).toBe("true");
+    expect(source.streams).toEqual(original);
+  });
+  it.each([
+    ["en", "authentication required"],
+    ["pt-BR", "autenticação necessária"],
+    ["es", "se requiere autenticación"]
+  ])("shows recorded needs_auth as a warning in %s", (language, label) => {
+    configureLanguage(language);
+    const fixture = sourceFixture();
+    const source = sourceFixture({ sync: { ...fixture.sync, last_status: "needs_auth" } });
+    const { rerender } = render(<SourceDock bundle={bundleWith(source)} sourceId="" onNotice={noop} onClose={noop} />);
+    expect(screen.getByText(label).classList.contains("pill-warn")).toBe(true);
+    rerender(<SourceDock bundle={bundleWith(source)} sourceId={source.source_id} onNotice={noop} onClose={noop} />);
+    const recorded = screen.getByText(new RegExp(label));
+    expect(recorded.classList.contains("pill-warn")).toBe(true);
+  });
   it("keeps information review visible for historical streams and links its consumer", async () => {
     const source=sourceFixture({schedule:{mode:"one_shot",cadence_days:0,cron_hint:""}});
     source.streams=[{...source.streams[0],freshness_basis:"processing_state",information_review_pending:true,

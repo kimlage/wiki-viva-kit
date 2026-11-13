@@ -1,6 +1,7 @@
 """Owner-authorized dynamic sets through real packet/result/canonical callers."""
 from copy import deepcopy
 import datetime as dt
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -145,6 +146,37 @@ def test_folder_read_set_keeps_distinct_revisions_of_query_anchor(audit_collecti
     assert {item['revision'] for item in refs} == {old, current}
     assert validate_result(folder_result(selected), selected)
 
+
+def test_historical_query_rechecks_policy_recorded_by_consumer(audit_collection):
+    from wiki_core.context_impact import report_review
+    root = audit_collection
+    content_revision = git(root, 'rev-parse', 'HEAD')
+    (root/'AGENTS.md').write_text('# Updated root instructions\n')
+    policy_revision = commit(root)
+    selected = folder_packet(root, revision=content_revision)
+    assert selected['query_selections'][0]['policy_revision'] == policy_revision
+    declare(root, folder_requirement(selected)); before = commit(root)
+    page(root, 'new.md'); after = commit(root)
+    result = assess_approved_impact(root, folder_policy(root), consumers=['finance/costs/result.md'],
+        before=before, after=after, destination_context=AUDIT_CONTEXT)
+    assert len(result['candidates']) == 1
+    report = report_review(root, folder_policy(root), result['candidates'][0], disposition='still_valid',
+        reason='Synthetic review', evidence_revision=after)
+    assert report['verification'] == 'reported_not_verified'
+
+
+def test_historical_query_does_not_open_previously_denied_member(audit_collection, monkeypatch):
+    root = audit_collection
+    set_folder_deny(root, SCOPE+'/first.md'); denied = commit(root)
+    set_folder_deny(root, None); commit(root)
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision == denied and ref == SCOPE+'/first.md'), 'denied historical member opened'
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    with pytest.raises(PolicyError, match='historical query read requires authorized requalification'):
+        folder_packet(root, revision=denied)
+
 def declare(root, req):
     (root/'finance/costs/result.md').write_text('---\n'+yaml.safe_dump({'page_id':'cost-result','page_type':'claim','information_requirements':[req]})+'---\nInterpretation.\n')
 
@@ -165,23 +197,6 @@ def test_nonempty_empty_digest_provenance_and_exact_budget(collection):
     tight=build_packet(collection,policy(collection),'costs',before,[],p['bytes_used'],queries=[query()],**TASK)
     with pytest.raises(PolicyError,match='complete packet exceeds'):
         build_packet(collection,policy(collection),'costs',before,[],tight['bytes_used']-1,queries=[query()],**TASK)
-
-@pytest.mark.parametrize('change',['addition','removal','entry','exit','selected','identity','irrelevant_metadata'])
-def test_semantic_members_and_values_across_commits(collection,change):
-    prior=packet(collection)['query_selections'][0]
-    if change=='addition': page(collection,'new.md')
-    elif change=='removal': (collection/SCOPE/'first.md').unlink()
-    elif change=='entry': page(collection,'inactive.md',status='active')
-    elif change=='exit': page(collection,'first.md',status='inactive')
-    elif change=='selected': page(collection,'first.md',amount=11)
-    elif change=='identity': page(collection,'first.md',page_id='renamed-stable-identity')
-    else: (collection/SCOPE/'first.md').write_text((collection/SCOPE/'first.md').read_text().replace('Body not selected.','Irrelevant body and title.'))
-    commit(collection); now=packet(collection)['query_selections'][0]
-    if change=='irrelevant_metadata': assert same_selection(prior,now)
-    else:
-        assert not same_selection(prior,now)
-        assert (prior['members_digest']==now['members_digest']) == (change=='selected')
-    assert prior['query_id']!=packet(collection,[query(filters={'status':'inactive'})])['query_selections'][0]['query_id']
 
 @pytest.mark.parametrize('limit, value', [('max_enumerated',1),('max_matches',1),('max_scan_bytes',1)])
 def test_no_silent_limits(collection,limit,value):
@@ -227,7 +242,7 @@ def test_untrusted_data_and_ambiguity_fail_closed(collection,bad):
     assert secret not in str(error.value)
 
 
-def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impact(audit_collection):
+def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impact(audit_collection, monkeypatch):
     root=audit_collection;base=git(root,'rev-parse','HEAD');p=folder_packet(root);r=folder_requirement(p)
     git(root,'checkout','-qb','wiki/query-task');declare(root,r);git(root,'add','.');git(root,'commit','-qm','query interpretation');head=git(root,'rev-parse','HEAD')
     done=folder_result(p,[{'path':'finance/costs/result.md','action':'modified'}])
@@ -247,6 +262,11 @@ def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impac
     current_check=revalidate_approved_queries(root,folder_policy(root),consumer='finance/costs/result.md',context_id=AUDIT_CONTEXT)
     validate(current_check,json.loads((BASE/'docs/references/schemas/wiki-context-query-revalidation-v1.schema.json').read_text()))
     assert current_check['equivalent']
+    config=yaml.safe_load((root/'wiki.config.yaml').read_text())
+    config['context_access'][AUDIT_CONTEXT]['policy']['deny']={'read':[SCOPE+'/first.md']}
+    (root/'wiki.config.yaml').write_text(yaml.safe_dump(config)); denied=commit(root)
+    config['context_access'][AUDIT_CONTEXT]['policy'].pop('deny')
+    (root/'wiki.config.yaml').write_text(yaml.safe_dump(config))
     page(root,'new.md');after=commit(root)
     impact=assess_approved_impact(root,folder_policy(root),consumers=['finance/costs/result.md'],before=head,after=after,destination_context=AUDIT_CONTEXT)
     assert len(impact['candidates'])==1 and impact['candidates'][0]['source']==ANCHOR
@@ -256,10 +276,33 @@ def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impac
     from wiki_core.context_impact import report_review
     report=report_review(root,folder_policy(root),impact['candidates'][0],disposition='still_valid',reason='Synthetic reported review',evidence_revision=after)
     assert report['verification']=='reported_not_verified' and not report['next_impact_allowed']
+    forged=deepcopy(impact['candidates'][0]); forged['before_revision']=denied
+    key=tuple(forged[name] for name in ('target','before_revision','after_revision','rule','source','selector','use','classification','target_digest','authority_format','entry_folder','entry_index'))
+    forged['event_id']=hashlib.sha256(json.dumps(key,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+    original=RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision==denied and ref.startswith(SCOPE+'/')), 'historical query body opened despite deny'
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader,'read',guarded)
+    with pytest.raises(ValueError):
+        report_review(root,folder_policy(root),forged,disposition='still_valid',reason='Synthetic reported review',evidence_revision=after)
+    with (root/'finance/costs/result.md').open('a') as stream:
+        stream.write('\nReviewed interpretation.\n')
+    reviewed=commit(root)
+    updated=report_review(root,folder_policy(root),impact['candidates'][0],disposition='updated',
+        reason='Synthetic reported review',evidence_revision=reviewed)
+    assert updated['next_impact_allowed'] and updated['verification']=='reported_not_verified'
+    forged_policy=deepcopy(impact['candidates'][0]); forged_policy['query_policy_revision']=reviewed
+    current_policy=folder_policy(root)
+    with monkeypatch.context() as guard:
+        guard.setattr(RepositoryReader,'read',lambda *_args,**_kwargs: pytest.fail('invalid candidate opened a body'))
+        with pytest.raises(ValueError,match='query candidate policy revision differs'):
+            report_review(root,current_policy,forged_policy,disposition='updated',
+                reason='Synthetic reported review',evidence_revision=reviewed)
 
 @pytest.mark.parametrize('change',['addition','removal','entry','exit','selected','identity','outside','irrelevant_body'])
 def test_canonical_query_impact_does_not_depend_on_hub_edits(collection,change):
-    p=packet(collection);declare(collection,requirement(p));before=commit(collection)
+    p=packet(collection);prior=p['query_selections'][0];declare(collection,requirement(p));before=commit(collection)
     anchor_bytes=(collection/ANCHOR).read_bytes()
     if change=='addition': page(collection,'second.md')
     elif change=='removal': (collection/SCOPE/'first.md').unlink()
@@ -270,6 +313,13 @@ def test_canonical_query_impact_does_not_depend_on_hub_edits(collection,change):
     elif change=='outside': (collection/'finance/tax/outside.md').write_bytes(b'\xff')
     else: (collection/SCOPE/'first.md').write_text((collection/SCOPE/'first.md').read_text().replace('Body not selected.','Unselected content changed.'))
     after=commit(collection)
+    now=packet(collection)['query_selections'][0]
+    if change in ('outside','irrelevant_body'): assert same_selection(prior,now)
+    else:
+        assert not same_selection(prior,now)
+        assert (prior['members_digest']==now['members_digest']) == (change=='selected')
+    if change == 'addition':
+        assert prior['query_id']!=packet(collection,[query(filters={'status':'inactive'})])['query_selections'][0]['query_id']
     out=assess_approved_impact(collection,policy(collection),consumers=['finance/costs/result.md'],before=before,after=after,destination_context='costs')
     assert (collection/ANCHOR).read_bytes()==anchor_bytes
     if change in ('outside','irrelevant_body'): assert out['candidates']==[]
@@ -370,9 +420,17 @@ def test_protected_limits_secrets_and_denied_scope_are_opaque(collection,bound_s
 @pytest.mark.parametrize('anchor_type',['ontology_index','context_hub','source_catalog','root_entity'])
 def test_registered_anchor_roles_and_physical_owner_override_historical_context_tag(collection,anchor_type):
     path=collection/ANCHOR
-    path.write_text('---\n'+yaml.safe_dump({'page_id':'stable-cost-hub','page_type':anchor_type,'context':'historical-label'})+'---\nCollection contract.\n')
+    path.write_text('---\n'+yaml.safe_dump({'page_id':'stable-cost-hub','page_type':anchor_type,'context':'historical-label',
+                                           'status':'active','amount':999})+'---\nHub body.\n')
     commit(collection)
     assert packet(collection)['query_selections'][0]['members'][0]['ref']==SCOPE+'/first.md'
+    if anchor_type in {'context_hub','source_catalog'}:
+        q=query(scope='finance/costs');p=packet(collection,[q]);row=p['query_selections'][0]
+        assert row['excluded_anchor']==ANCHOR and ANCHOR not in {m['ref'] for m in row['members']}
+        assert sum(x['ref']==ANCHOR for x in p['inputs'])==1 and 'Hub body.' in next(x['text'] for x in p['inputs'] if x['ref']==ANCHOR)
+        assert row['enumerated']==4
+        from wiki_core.context_selection import query_identity,normalize_query
+        assert row['query_id']==query_identity(normalize_query(q))
 
 
 def test_scan_size_admitted_before_candidate_blob_and_no_selector_fallback(collection,monkeypatch):
@@ -478,18 +536,6 @@ def test_proposal_head_cannot_change_its_consumed_collection(collection,change):
     done=result(p,[{'path':'finance/costs/result.md','action':'modified'},{'path':changed,'action':action}])
     with pytest.raises(IntegrationError,match='query selection changed in proposal'):
         preflight(collection,policy(collection),context_id='costs',base=base,head=git(collection,'rev-parse','HEAD'),branch='wiki/query-mutates-itself',packet=p,result=done)
-
-
-@pytest.mark.parametrize('anchor_type',['context_hub','source_catalog'])
-def test_sibling_pages_exclude_anchor_structurally_and_bind_one_anchor_input(collection,anchor_type):
-    hub=collection/ANCHOR;hub.write_text('---\n'+yaml.safe_dump({'page_id':'cost-hub','page_type':anchor_type,'status':'active','amount':999})+'---\nHub body.\n')
-    commit(collection)
-    q=query(scope='finance/costs');p=packet(collection,[q]);row=p['query_selections'][0]
-    assert row['excluded_anchor']==ANCHOR and ANCHOR not in {m['ref'] for m in row['members']}
-    assert sum(x['ref']==ANCHOR for x in p['inputs'])==1 and 'Hub body.' in next(x['text'] for x in p['inputs'] if x['ref']==ANCHOR)
-    assert row['enumerated']==4  # Two item pages + two non-page sibling Markdown files; anchor excluded.
-    from wiki_core.context_selection import query_identity,normalize_query
-    assert row['query_id']==query_identity(normalize_query(q))
 
 
 def test_preflight_rejects_consumer_that_is_its_own_selected_member(collection):

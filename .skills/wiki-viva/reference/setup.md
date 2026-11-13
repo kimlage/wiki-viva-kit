@@ -125,6 +125,15 @@ command. The resulting `kit.lock` records only portable kit-owned inventory;
 it must never contain local paths, routes, private evidence or consumer data.
 The consumer PR is the reversible review and promotion boundary.
 
+The consumer's effective [AGENTS.md](../../../AGENTS.md) and any applicable
+scoped instructions remain consumer-owned: C1 does not select the root agent
+instructions. Carry the coordinator and integrator opening, resumption and
+closeout obligations into the effective instructions through the consumer's
+authorized normative process, referencing the existing [continuity and closeout contract](../../../docs/references/guides/context-coordinators.md#thread-continuity-and-closeout).
+Check the actual instruction chain, including applicable overrides, and verify
+what the agent receives on opening and resumption. Updating the kit contract
+alone does not establish consumer adoption or runtime delivery.
+
 ## 6. Verify the gates are green
 
 ```sh

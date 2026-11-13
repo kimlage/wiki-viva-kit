@@ -148,9 +148,23 @@ def probe_codex(
     return record
 
 
-def probe_codex_for(config: WikiConfig) -> dict[str, Any]:
-    """Config-aware probe used by the operator server."""
+def resolve_codex_binary(config: WikiConfig) -> str:
+    """Select and anchor the binary before callers change working directory."""
     codex_cfg = getattr(config, "codex", {}) or {}
-    binary = str(codex_cfg.get("binary") or os.environ.get("WIKI_CODEX_BINARY") or "codex")
+    binary = str(os.environ.get("WIKI_CODEX_BINARY") or codex_cfg.get("binary") or "codex")
+    if os.path.dirname(binary):
+        return os.path.abspath(binary)
+    resolved = shutil.which(binary)
+    if resolved:
+        return os.path.abspath(resolved)
+    # Preserve a stable not-found candidate even if a relative PATH entry
+    # would point somewhere else when the job changes its working directory.
+    first_dir = os.environ.get("PATH", os.defpath).split(os.pathsep)[0] or "."
+    return os.path.abspath(os.path.join(first_dir, binary))
+
+
+def probe_codex_for(config: WikiConfig, *, binary: str | None = None) -> dict[str, Any]:
+    """Config-aware probe used by the operator server."""
+    binary = binary if binary is not None else resolve_codex_binary(config)
     enabled = bool(config.codex_enabled) if hasattr(config, "codex_enabled") else True
     return probe_codex(binary=binary, enabled=enabled)

@@ -533,40 +533,26 @@ def test_operational_pass_relative_root_normalizes_default_and_custom_targets(
         )
 
 
-def test_operational_pass_does_not_surface_factual_claims_as_attention(
+def test_operational_pass_does_not_surface_closed_or_insight_claims_as_attention(
     tmp_path: Path,
 ):
     mem = tmp_path / "memories"
     _write(mem / "example" / "index.md", _hub("example"))
     _write(mem / "claims" / "rating-closed.md", _factual_claim_with_historical_attention_words())
+    _write(mem / "claims" / "secret-alert-resolved.md", _factual_claim_with_negated_open_qualifier())
+    _write(mem / "claims" / "pr-gate-risk.md", _insight_claim_with_risk_words())
 
     config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
     report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
     page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
 
-    assert report.context_rows[0].claims == 1
+    assert report.context_rows[0].claims == 3
     assert report.attention == ()
     assert report.consolidation_outputs[0].problems == 0
     assert report.consolidation_outputs[0].signal == "ok"
     assert "Claim - Rating formerly pending" not in page
-
-
-def test_operational_pass_ignores_negated_open_claim_qualifiers(
-    tmp_path: Path,
-):
-    mem = tmp_path / "memories"
-    _write(mem / "example" / "index.md", _hub("example"))
-    _write(mem / "claims" / "secret-alert-resolved.md", _factual_claim_with_negated_open_qualifier())
-
-    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
-    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
-    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
-
-    assert report.context_rows[0].claims == 1
-    assert report.attention == ()
-    assert report.consolidation_outputs[0].problems == 0
-    assert report.consolidation_outputs[0].signal == "ok"
     assert "Claim - Secret alert resolved" not in page
+    assert "Attention keyword detected" not in page
 
 
 def test_operational_pass_surfaces_factual_claims_with_open_lacunas(
@@ -604,24 +590,6 @@ def test_operational_pass_surfaces_factual_claims_with_open_risk_bullets(
     )
     assert report.consolidation_outputs[0].problems == 1
     assert report.consolidation_outputs[0].signal == "needs_review"
-
-
-def test_operational_pass_does_not_surface_insight_claims_as_attention(
-    tmp_path: Path,
-):
-    mem = tmp_path / "memories"
-    _write(mem / "example" / "index.md", _hub("example"))
-    _write(mem / "claims" / "pr-gate-risk.md", _insight_claim_with_risk_words())
-
-    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
-    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
-    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
-
-    assert report.context_rows[0].claims == 1
-    assert report.attention == ()
-    assert report.consolidation_outputs[0].problems == 0
-    assert report.consolidation_outputs[0].signal == "ok"
-    assert "Attention keyword detected" not in page
 
 
 def test_short_memory_balances_attention_and_actions_across_contexts(tmp_path: Path):
@@ -681,29 +649,6 @@ def test_short_memory_balances_attention_and_actions_across_contexts(tmp_path: P
     assert "Docs 5" not in actions_block
 
 
-def test_operational_pass_surfaces_pending_decisions(tmp_path: Path):
-    mem = tmp_path / "memories"
-    _write(mem / "example" / "index.md", _hub("example"))
-    _write(mem / "actions" / "contact-owner.md", _action())
-    _write(
-        mem / "decisions" / "authorize-source.md",
-        "---\npage_id: decision-authorize-source\npage_type: decision\ncontext: example\n"
-        "status: pending\nvisibility: private_self\nupdated_at: 2026-06-11\n"
-        "stale_after_days: 30\nsources_policy: x\ngate: github_pr\n"
-        "sensitive_data_policy: private_sensitive_allowed\nactions:\n"
-        "  - action-contact-owner\n---\n\n# Decision - Authorize live source\n",
-    )
-
-    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
-    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
-    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
-
-    assert [d.page_id for d in report.pending_decisions] == ["decision-authorize-source"]
-    assert "## Pending decisions" in page
-    assert "[Authorize live source](../decisions/authorize-source.md)" in page
-    assert "`action-contact-owner`" in page
-
-
 def test_operational_pass_treats_closed_decision_as_not_pending(tmp_path: Path):
     mem = tmp_path / "memories"
     _write(mem / "example" / "index.md", _hub("example"))
@@ -747,6 +692,9 @@ def test_operational_pass_compiles_outputs_and_decision_blockers(tmp_path: Path)
     page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
     payload = report_to_dict(report)
 
+    assert [d.page_id for d in report.pending_decisions] == ["decision-authorize-source"]
+    assert "## Pending decisions" in page
+    assert "`action-contact-owner`" in page
     assert report.consolidation_outputs[0].context_notes == 1
     assert report.consolidation_outputs[0].non_ingested_sources == 1
     assert report.consolidation_outputs[0].signal == "blocked_by_decision"

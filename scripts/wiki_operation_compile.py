@@ -7,8 +7,8 @@ personal content:
 
 - repo_id / owner_label come from `wiki.config.yaml` (via `load_config`);
 - decisions come from `<memory_root>/<decisions_dirname>/*.md` (one per file);
-- actions come from `<memory_root>/<actions_dirname>/*.md` plus the pending
-  queue file (`<actions_dirname>/<pending_actions_filename>`);
+- actions come from configured action directories under memory (legacy root
+  and nested contexts), plus the legacy pending queue file;
 - context vitality is derived from `updated_at` + `stale_after_days` of the
   context hubs (`<memory_root>/**/index.md`, including the root hub);
 - Git state is intentionally not persisted in the versioned cockpit because it
@@ -485,9 +485,6 @@ def collect_decisions(paths: WikiPaths) -> list[Decision]:
 
 
 def collect_actions(paths: WikiPaths) -> list[Action]:
-    actions_dir = paths.actions_dir
-    if not actions_dir.is_dir():
-        return []
     page_dir = paths.operation_page.parent
     # The pending-queue file is configurable; skip the known default names too
     # (pt + en superset) for compatibility with localized repos.
@@ -497,7 +494,7 @@ def collect_actions(paths: WikiPaths) -> list[Action]:
         "pending.md",
     }
     actions: list[Action] = []
-    for path in sorted(actions_dir.glob("*.md")):
+    for path in paths.action_files():
         if path.name in skip:
             continue
         text = path.read_text(encoding="utf-8")
@@ -698,17 +695,17 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
              'exclude_names':sorted(NON_ITEM_BASENAMES),'fields':['body','context'],
              'status_excludes':sorted(set(NON_PENDING_DECISION_STATUS_SLUGS)|{''}),
              'status_exclude_prefixes':list(NON_PENDING_DECISION_STATUS_PREFIXES)},
-            {'page_types':['action'],'path_prefix':paths.rel(paths.actions_dir),'path_depth':1,
+            {'page_types':['action'],**paths.collection_selector('actions_dirname'),
              'exclude_names':sorted(NON_ITEM_BASENAMES|{paths.pending_actions_file.name,'pendentes.md','pending.md'}),
              'fields':['page_type','action_state']},
-            {'page_types':['action'],'path_prefix':paths.rel(paths.actions_dir),'path_depth':1,
+            {'page_types':['action'],**paths.collection_selector('actions_dirname'),
              'exclude_names':sorted(NON_ITEM_BASENAMES|{paths.pending_actions_file.name,'pendentes.md','pending.md'}),
              'fields':['body','context','page_id'],'action_state_excludes':['done','cancelled']},
-            {'page_types':['action'],'path_prefix':paths.rel(paths.actions_dir),'path_depth':1,
+            {'page_types':['action'],**paths.collection_selector('actions_dirname'),
              'exclude_names':sorted(NON_ITEM_BASENAMES|{paths.pending_actions_file.name,'pendentes.md','pending.md'}),
              'fields':['status'],'missing_fields':['action_state']},
             *([{'paths':[paths.rel(paths.pending_actions_file)],'fields':['body']}] if paths.pending_actions_file.is_file() else []),
-            {'page_types':['source'],'path_prefix':paths.rel(paths.sources_dir),
+            {'page_types':['source'],**paths.collection_selector('sources_dirname'),
              'fields':['page_id','ingestion_state']},
             {'page_types':[],'path_prefix':paths.rel(paths.ingest_events_dir),
              'exclude_names':['index.md','README.md','readme.md'],

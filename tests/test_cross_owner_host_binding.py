@@ -42,6 +42,108 @@ def selection(repo, evidence, binding):
                         entry_folder='alpha', trusted_binding=binding)
 
 
+def test_packet_does_not_open_historically_denied_evidence(repo, monkeypatch):
+    evidence = setup_shared(repo)
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    config['context_access']['alpha']['policy']['deny'] = {'read': ['beta/source.md']}
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'deny historical source')
+    denied = git(repo, 'rev-parse', 'HEAD')
+    config['context_access']['alpha']['policy'].pop('deny')
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'restore source access')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision == denied and ref == 'beta/source.md'), 'denied historical evidence opened'
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    binding = CoordinationBinding(('alpha', 'beta'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    with pytest.raises(PolicyError, match='historical evidence read not authorized'):
+        build_packet(repo, folder_policy(repo), 'alpha', denied, evidence, 100000,
+            task_id='cross', goal='review', output='alpha/output.md', integrator='operator',
+            entry_folder='alpha', trusted_binding=binding)
+
+
+def test_packet_rejects_unapproved_content_before_opening_evidence(repo, monkeypatch):
+    evidence = setup_shared(repo)
+    branch = git(repo, 'branch', '--show-current')
+    git(repo, 'checkout', '-qb', 'wiki/unapproved-content')
+    write(repo, 'beta/source.md', '# Unapproved source\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'unapproved content')
+    unapproved = git(repo, 'rev-parse', 'HEAD')
+    git(repo, 'checkout', '-q', branch)
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert reader.revision != unapproved, 'unapproved body opened'
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    binding = CoordinationBinding(('alpha', 'beta'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    with pytest.raises(PolicyError, match='content revision is not approved'):
+        build_packet(repo, folder_policy(repo), 'alpha', unapproved, evidence, 100000,
+            task_id='cross', goal='review', output='alpha/output.md', integrator='operator',
+            entry_folder='alpha', trusted_binding=binding)
+
+
+def test_packet_rejects_history_from_changed_producer_owner(repo, monkeypatch):
+    evidence = setup_shared(repo)
+    old = git(repo, 'rev-parse', 'HEAD')
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    config['context_access']['beta']['owner'] = 'new beta owner'
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'change producer owner')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision == old and ref == 'beta/source.md'), 'previous owner evidence opened'
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    binding = CoordinationBinding(('alpha', 'beta'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    with pytest.raises(PolicyError, match='historical evidence read not authorized'):
+        build_packet(repo, folder_policy(repo), 'alpha', old, evidence, 100000,
+            task_id='cross', goal='review', output='alpha/output.md', integrator='operator',
+            entry_folder='alpha', trusted_binding=binding)
+
+
+@pytest.mark.parametrize('denied_before', [True, False])
+def test_impact_rechecks_historical_cross_owner_authority(repo, monkeypatch, denied_before):
+    from wiki_core.context_requirements import assess_approved_impact
+    setup_shared(repo)
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    if denied_before:
+        config['context_access']['alpha']['policy']['deny'] = {'read': ['beta/source.md']}
+        write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+        git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'deny historical evidence')
+    before = git(repo, 'rev-parse', 'HEAD')
+    config['context_access']['alpha']['policy'].pop('deny', None)
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    write(repo, 'beta/source.md', '# Changed source\n')
+    requirement = {'target': 'beta/source.md', 'fields': ['*'], 'temporal': 'current',
+                   'max_age_days': 30, 'consumed_revision': before,
+                   'use': 'interpretation', 'classification': 'context'}
+    write(repo, 'alpha/result.md', '---\n' + yaml.safe_dump({'page_id': 'result',
+        'information_requirements': [requirement]}) + '---\nInterpretation\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'change and reference source')
+    after = git(repo, 'rev-parse', 'HEAD')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', after)
+    opened = []
+    original = RepositoryReader.read
+    def spy(reader, ref, **kwargs):
+        if ref == 'beta/source.md' and reader.revision == before:
+            opened.append(ref)
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', spy)
+    binding = CoordinationBinding(('.', 'alpha', 'beta'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    result = assess_approved_impact(repo, folder_policy(repo), consumers=['alpha/result.md'],
+        before=before, after=after, destination_context='alpha', trusted_binding=binding)
+    if denied_before:
+        assert not opened and not result['candidates']
+        assert 'some connections unavailable' in result['coverage']
+    else:
+        assert opened
+        assert [item['state'] for item in result['candidates']] == ['review_pending']
+
+
 def test_bound_producer_is_qualified_without_disclosing_its_rules(repo):
     evidence = setup_shared(repo)
     binding = CoordinationBinding(('alpha', 'beta'), 'refs/remotes/origin/main', 'wiki.config.yaml')

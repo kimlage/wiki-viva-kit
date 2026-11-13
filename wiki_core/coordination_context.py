@@ -127,19 +127,38 @@ def prepare_packet(root, binding, payload):
     # Approved-mode history is confined to ancestors of the trusted tip.
     if subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),'merge-base','--is-ancestor',content,policy.policy_revision],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=local_git_environment()).returncode: raise ProtectedCoordinationError('coordination_content_not_approved')
     required={'task_id','goal','output','integrator','max_bytes','evidence'}
-    if not isinstance(task,dict) or not required<=set(task) or set(task)-(required|{'omissions','queries'}): raise ProtectedCoordinationError('coordination_invalid_request')
+    if not isinstance(task,dict) or not required<=set(task) or set(task)-(required|{'omissions','queries','range_mode','role'}): raise ProtectedCoordinationError('coordination_invalid_request')
+    role = task.get('role', 'executor')
+    if role not in ('executor', 'coordinator'): raise ProtectedCoordinationError('coordination_invalid_request')
+    if role == 'coordinator' and content != payload['approved_revision']:
+        raise ProtectedCoordinationError('coordination_content_not_approved')
+    range_mode = task.get('range_mode')
+    if range_mode not in (None, 'owned-evidence/v1'): raise ProtectedCoordinationError('coordination_invalid_request')
     if type(task['max_bytes']) is not int or not 0<=task['max_bytes']<=1_000_000 or not isinstance(task['evidence'],list) or len(task['evidence'])>128: raise ProtectedCoordinationError('coordination_invalid_request')
     evidence=[]; expectations=[]
     for e in task['evidence']:
         if not isinstance(e,dict): raise ProtectedCoordinationError('coordination_invalid_request')
         entry=dict(e); expected=entry.pop('expected_document_sha256',None)
+        if 'range' in entry and (range_mode != 'owned-evidence/v1' or expected is None):
+            raise ProtectedCoordinationError('coordination_invalid_request')
         if 'producer' not in entry:
             try: entry['producer']=policy.owner_of(safe_path(entry.get('ref')))
             except (ValueError,KeyError,TypeError) as exc: raise ProtectedCoordinationError() from exc
         if expected is not None and (not isinstance(expected,str) or not re.fullmatch(r'[0-9a-f]{64}',expected)): raise ProtectedCoordinationError('coordination_invalid_request')
         evidence.append(entry); expectations.append(expected)
+    if role == 'coordinator':
+        role_ref = '.skills/wiki-viva/reference/coordinator.md'
+        if len(evidence) >= 128 or any(entry.get('ref') == role_ref for entry in evidence):
+            raise ProtectedCoordinationError('coordination_invalid_request')
+        try:
+            producer = policy.owner_of(role_ref)
+        except (ValueError, KeyError, TypeError) as exc:
+            raise ProtectedCoordinationError() from exc
+        evidence.append({'ref': role_ref, 'producer': producer, 'reason': 'current coordinator role',
+                         'use': 'interpretation', 'classification': 'context'})
+        expectations.append(None)
     try:
-        packet=build_packet(root,policy,payload['context_id'],content,evidence,task['max_bytes'],task_id=task['task_id'],goal=task['goal'],output=task['output'],integrator=task['integrator'],omissions=task.get('omissions',[]),queries=task.get('queries',[]),trusted_binding=binding,**folder_options)
+        packet=build_packet(root,policy,payload['context_id'],content,evidence,task['max_bytes'],task_id=task['task_id'],goal=task['goal'],output=task['output'],integrator=task['integrator'],omissions=task.get('omissions',[]),queries=task.get('queries',[]),trusted_binding=binding,allow_owned_ranges=range_mode == 'owned-evidence/v1',**folder_options)
         selected=[x for x in packet['inputs'] if x['kind']=='evidence' and 'query_id' not in x]
         # Folder qualification may add authorized evidence before the explicit
         # selection. The builder appends explicit evidence in input order.
@@ -171,10 +190,13 @@ def prepare_preflight(root,binding,payload):
     packet=payload['packet']
     if not isinstance(packet,dict) or packet.get('capability_evidence') is not None or packet.get('required_capabilities') != []:
         raise ProtectedCoordinationError('coordination_preflight_unavailable')
+    if packet.get('schema_version') == 'wiki.task-context/v3' and (
+            type(packet.get('max_bytes')) is not int or not 0 <= packet['max_bytes'] <= 1_000_000):
+        raise ProtectedCoordinationError('coordination_preflight_unavailable')
     expected_format = 'folder' if binding.manifest == 'wiki.config.yaml' else None
     if packet.get('authority_format') != expected_format:
         raise ProtectedCoordinationError('coordination_preflight_unavailable')
-    try: out=preflight(root,policy,context_id=payload['context_id'],base=payload['base'],head=payload['head'],branch=payload['branch'],packet=payload['packet'],result=payload['result'],trusted_additional_readers=tuple(readers),trusted_binding=binding)
+    try: out=preflight(root,policy,context_id=payload['context_id'],base=payload['base'],head=payload['head'],branch=payload['branch'],packet=payload['packet'],result=payload['result'],trusted_additional_readers=tuple(readers),trusted_binding=binding,allow_owned_ranges=packet.get('schema_version') == 'wiki.task-context/v3')
     except (ValueError,KeyError,TypeError,OSError) as exc: raise ProtectedCoordinationError('coordination_preflight_unavailable') from exc
     return {'ok':True,'mode':'approved','preflight':out}
 

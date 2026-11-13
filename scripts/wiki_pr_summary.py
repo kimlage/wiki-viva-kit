@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
-"""Summarize the current wiki PR diff."""
+"""Summarize a wiki proposal against a selected local Git base.
+
+By default, prefer the local ``origin/main`` tracking ref, then local ``main``
+with a warning. ``--base`` selects an explicit commit or ref. No fetch is
+performed: an operator must verify that the selected base is current and is
+the intended PR base. This report is neither an approval nor authorization.
+"""
 
 from __future__ import annotations
 
+import argparse
+import os
 import subprocess
 import sys
 from collections import defaultdict
@@ -13,6 +21,7 @@ except ModuleNotFoundError:
     from _common import ROOT  # direct run: scripts/ on sys.path
 
 from wiki_core.config import load_config
+from wiki_core.git_env import local_git_environment, local_git_executable
 
 CONFIG = load_config(ROOT)
 _MEMORY_ROOT = CONFIG.paths["memory_root"]
@@ -145,33 +154,125 @@ def _label(key: str) -> str:
     return table[key]
 
 
-def git(args: list[str]) -> str:
+class SummaryError(ValueError):
+    """The summary cannot be derived without a reliable local Git view."""
+
+
+def _git(args: list[str], *, missing_ref_ok: bool = False) -> bytes | None:
     try:
-        return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
-    except subprocess.CalledProcessError:
-        return ""
+        result = subprocess.run(
+            [local_git_executable(), "--no-lazy-fetch", *args], cwd=ROOT,
+            env=local_git_environment(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        )
+    except (OSError, ValueError) as exc:
+        raise SummaryError("Git is unavailable") from exc
+    if result.returncode:
+        if missing_ref_ok and result.returncode == 1:
+            return None
+        raise SummaryError("Git comparison or revision verification failed")
+    return result.stdout
 
 
-def diff_name_status() -> list[tuple[str, str]]:
-    rows: dict[str, str] = {}
+def git(args: list[str]) -> str:
+    """Run a local Git command; failures cannot masquerade as an empty diff."""
+    result = _git(args)
+    assert result is not None
+    return os.fsdecode(result).strip()
+
+
+def _optional_ref(ref: str) -> str | None:
+    exists = _git(["show-ref", "--verify", "--quiet", ref], missing_ref_ok=True)
+    return None if exists is None else _resolve_commit(ref)
+
+
+def _resolve_commit(ref: str) -> str:
+    if not isinstance(ref, str) or not ref or ref.startswith("-") or any(ord(c) < 32 for c in ref):
+        raise SummaryError("invalid base or revision")
+    result = git(["rev-parse", "--verify", "--end-of-options", ref + "^{commit}"])
+    if len(result) not in (40, 64) or any(c not in "0123456789abcdef" for c in result):
+        raise SummaryError("invalid Git commit")
+    return result
+
+
+def _select_base(base: str | None) -> tuple[str, str, str, str, str | None, str | None]:
+    """Resolve the selected and reference commits without fetching or guessing trust."""
+    origin = _optional_ref("refs/remotes/origin/main")
+    local = _optional_ref("refs/heads/main")
+    if base is not None:
+        label = base
+        selected = _resolve_commit(base)
+    elif origin is not None:
+        label, selected = "refs/remotes/origin/main", origin
+    elif local is not None:
+        label, selected = "refs/heads/main", local
+    else:
+        raise SummaryError("no base found; pass --base with an existing commit or ref")
+    head = _resolve_commit("HEAD")
+    merge_bases = git(["merge-base", "--all", selected, head]).splitlines()
+    if len(merge_bases) != 1:
+        raise SummaryError("a unique merge base is unavailable")
+    return label, selected, head, merge_bases[0], origin, local
+
+
+def _name_status(args: list[str]) -> list[tuple[str, str]]:
+    # Report a move as deletion plus addition so both privacy contexts are
+    # visible, including when Git's rename detection would select only one.
+    raw = _git(["diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-status", "-z", *args])
+    assert raw is not None
+    parts = raw.split(b"\0")
+    if parts[-1] != b"":
+        raise SummaryError("Git returned an incomplete diff")
+    parts.pop()
+    result: list[tuple[str, str]] = []
+    index = 0
+    while index < len(parts):
+        status = os.fsdecode(parts[index])
+        index += 1
+        if not status or index >= len(parts):
+            raise SummaryError("Git returned an invalid diff")
+        path = os.fsdecode(parts[index])
+        index += 1
+        if status.startswith(("R", "C")):
+            raise SummaryError("Git returned an unexpected rename or copy status")
+        result.append((status, path))
+    return result
+
+
+def diff_name_status(base: str | None = None) -> list[tuple[str, str]]:
+    """Return the committed, unstaged, staged and untracked path union."""
+    label, selected, head, _, origin, local = _select_base(base)
+    return _diff_name_status(label, selected, head, origin, local)
+
+
+def _diff_name_status(label: str, selected: str, head: str,
+                      origin: str | None, local: str | None) -> list[tuple[str, str]]:
+    rows: dict[str, list[str]] = {}
+
+    def record(path: str, status: str) -> None:
+        statuses = rows.setdefault(path, [])
+        if status not in statuses:
+            statuses.append(status)
+
     for args in (
-        ["diff", "--name-status", "main...HEAD"],
-        ["diff", "--name-status"],
-        ["diff", "--cached", "--name-status"],
+        [f"{selected}...{head}"],
+        [],
+        ["--cached"],
     ):
-        output = git(args)
-        for line in output.splitlines():
-            if not line:
-                continue
-            parts = line.split("\t")
-            status = parts[0]
-            path = parts[-1] if status.startswith(("R", "C")) else parts[1]
-            rows[path] = status
-    untracked = git(["ls-files", "--others", "--exclude-standard"])
-    for path in untracked.splitlines():
+        for status, path in _name_status(args):
+            record(path, status)
+    untracked = _git(["ls-files", "--others", "--exclude-standard", "-z"])
+    assert untracked is not None
+    if untracked and not untracked.endswith(b"\0"):
+        raise SummaryError("Git returned an incomplete untracked list")
+    for raw_path in untracked.split(b"\0"):
+        path = os.fsdecode(raw_path)
         if path and not path.startswith(IGNORED_UNTRACKED_PREFIXES):
-            rows.setdefault(path, "A")
-    return sorted((status, path) for path, status in rows.items())
+            record(path, "A")
+    if (_resolve_commit("HEAD") != head or _resolve_commit(label) != selected
+            or _optional_ref("refs/remotes/origin/main") != origin
+            or _optional_ref("refs/heads/main") != local):
+        raise SummaryError("Git base or head changed during summary; retry")
+    return sorted(("/".join(statuses), path) for path, statuses in rows.items())
 
 
 def _memory_segment(path: str) -> str | None:
@@ -215,8 +316,16 @@ def entity_for(path: str) -> str:
     return "other"
 
 
-def main() -> int:
-    rows = diff_name_status()
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--base", help="explicit local base ref or commit; no fetch is performed")
+    args = parser.parse_args(argv)
+    try:
+        label, selected, head, merge_base, origin, local = _select_base(args.base)
+        rows = _diff_name_status(label, selected, head, origin, local)
+    except SummaryError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     grouped: dict[str, list[str]] = defaultdict(list)
     by_entity: dict[str, list[str]] = defaultdict(list)
     for status, path in rows:
@@ -225,8 +334,21 @@ def main() -> int:
 
     print("# Wiki PR Summary")
     print()
+    print(f"Base: `{label}` at `{selected}`; merge-base: `{merge_base}`; head: `{head}`.")
+    print("No fetch was performed; verify that this is the intended current PR base.")
+    if args.base is None and label == "refs/heads/main":
+        print("WARNING: origin/main is unavailable; using local main.")
+    elif origin is None:
+        print("WARNING: origin/main is unavailable; the selected base cannot be compared to it.")
+    if origin is not None and local is not None and origin != local:
+        print(f"WARNING: local main `{local}` differs from origin/main `{origin}`.")
+    if origin is not None and selected != origin:
+        print(f"WARNING: selected base differs from origin/main `{origin}`.")
+    if merge_base != selected:
+        print("WARNING: selected base is not an ancestor of HEAD; committed changes use the merge-base.")
+    print()
     if not rows:
-        print("No diff detected against main or working tree.")
+        print("No diff detected against the merge-base or working tree.")
         return 0
     print("## Changed files by context")
     print()

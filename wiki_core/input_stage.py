@@ -79,12 +79,24 @@ def _rel(root: Path, path: Path) -> str:
         return path.as_posix()
 
 
-def _repo_path(root: Path, value: str) -> Path | None:
+def _repo_path(root: Path, value: str, reads=None) -> Path | None:
     if not value:
         return None
     path = Path(value)
     if not path.is_absolute():
         path = root / value
+    if reads is not None:
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
+            raise RuntimeError('selected path unavailable') from None
+        from wiki_core.context_policy import safe_path
+        try:
+            if safe_path(relative.as_posix()) != relative.as_posix():
+                raise ValueError('noncanonical')
+        except ValueError:
+            raise RuntimeError('selected path unavailable') from None
+        return path
     try:
         path.resolve().relative_to(root.resolve())
     except ValueError:
@@ -92,7 +104,9 @@ def _repo_path(root: Path, value: str) -> Path | None:
     return path
 
 
-def _md_pages(paths: WikiPaths) -> list[Path]:
+def _md_pages(paths: WikiPaths, reads=None) -> list[Path]:
+    if reads is not None:
+        return reads.markdown(paths.memory_root, paths.root) if reads.is_dir(paths.memory_root) else []
     if not paths.memory_root.exists():
         return []
     return sorted(path for path in wiki_markdown_files(paths.memory_root, wiki_root=paths.root)
@@ -101,8 +115,8 @@ def _md_pages(paths: WikiPaths) -> list[Path]:
                               if parent != paths.root and paths.root in parent.parents))
 
 
-def _read_page(root: Path, path: Path) -> dict[str, Any]:
-    values, body = parse_frontmatter(path)
+def _read_page(root: Path, path: Path, reads=None) -> dict[str, Any]:
+    values, body = parse_frontmatter(path if reads is None else reads.read_text(path, errors='replace'))
     title = str(values.get("title") or "").strip()
     if not title:
         for line in body.splitlines():
@@ -119,41 +133,39 @@ def _read_page(root: Path, path: Path) -> dict[str, Any]:
     }
 
 
-def _pages_by_type(root: Path, paths: WikiPaths, page_type: str) -> list[dict[str, Any]]:
+def _pages_by_type(root: Path, paths: WikiPaths, page_type: str, reads=None) -> list[dict[str, Any]]:
     pages = []
-    for path in _md_pages(paths):
-        page = _read_page(root, path)
+    for path in _md_pages(paths, reads):
+        page = _read_page(root, path, reads)
         if page["page_type"] == page_type:
             pages.append(page)
     return pages
 
 
-def _source_pages(root: Path, paths: WikiPaths) -> list[dict[str, Any]]:
-    if not paths.sources_dir.exists():
-        return []
+def _source_pages(root: Path, paths: WikiPaths, reads=None) -> list[dict[str, Any]]:
     pages = []
-    for path in sorted(wiki_markdown_files(paths.sources_dir, wiki_root=paths.root)):
+    for path in paths.source_files(reads=reads):
         if path.name in {"index.md", "README.md"}:
             continue
-        page = _read_page(root, path)
+        page = _read_page(root, path, reads)
         if page["page_type"] in SOURCE_PAGE_TYPES:
             pages.append(page)
     return pages
 
 
-def _configured_root_page(root: Path, config: WikiConfig) -> Path | None:
+def _configured_root_page(root: Path, config: WikiConfig, reads=None) -> Path | None:
     page = str((config.root_entity or {}).get("page") or "").strip()
-    return _repo_path(root, page) if page else None
+    return _repo_path(root, page, reads) if page else None
 
 
-def find_root_entity(root: Path, config: WikiConfig, paths: WikiPaths) -> dict[str, Any] | None:
-    configured = _configured_root_page(root, config)
-    if configured and configured.exists():
-        page = _read_page(root, configured)
+def find_root_entity(root: Path, config: WikiConfig, paths: WikiPaths, reads=None) -> dict[str, Any] | None:
+    configured = _configured_root_page(root, config, reads)
+    if configured and (configured.exists() if reads is None else reads.exists(configured)):
+        page = _read_page(root, configured, reads)
         if page["page_type"] == "root_entity":
             return _root_payload(page, config)
 
-    candidates = _pages_by_type(root, paths, "root_entity")
+    candidates = _pages_by_type(root, paths, "root_entity", reads)
     if candidates:
         return _root_payload(candidates[0], config)
     return None
@@ -169,7 +181,8 @@ def _bundle_from_config(config: WikiConfig) -> tuple[list[str], list[str]]:
 def _root_payload(page: dict[str, Any], config: WikiConfig) -> dict[str, Any]:
     values = dict(page["values"])
     cfg_required, cfg_optional = _bundle_from_config(config)
-    required = _dedupe(cfg_required + list_values(values.get("perspective_bundle_required")))
+    required = _dedupe(cfg_required + list_values(values.get("perspective_bundle_required"))
+                       + [item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids])
     optional = _dedupe(
         [
             item
@@ -204,14 +217,15 @@ def _config_page_for_source(
     root: Path,
     config: WikiConfig,
     source_page: dict[str, Any],
+    reads=None,
 ) -> dict[str, Any] | None:
-    found = find_source_config(root, config, str(source_page["path"]))
+    found = find_source_config(root, config, str(source_page["path"]), reads=reads)
     if found is None:
         return None
-    config_path = _repo_path(root, str(found.get("path") or ""))
-    if config_path is None or not config_path.exists():
+    config_path = _repo_path(root, str(found.get("path") or ""), reads)
+    if config_path is None or not (config_path.exists() if reads is None else reads.exists(config_path)):
         return found
-    page = _read_page(root, config_path)
+    page = _read_page(root, config_path, reads)
     values = dict(page["values"])
     return {
         **found,
@@ -284,6 +298,8 @@ def _resolved_perspectives(
     config_required = list((source_config or {}).get("perspectives_required") or [])
     config_optional = list((source_config or {}).get("perspectives_optional") or [])
     skipped = set((source_config or {}).get("perspectives_skip_with_reason") or [])
+    aqal = {item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids}
+    skipped -= aqal & set(root_required)
     required = _dedupe(
         [item for item in root_required + channel_required + config_required if item not in skipped]
     )
@@ -296,6 +312,45 @@ def _resolved_perspectives(
         ]
     )
     return {"required": required, "optional": optional, "skipped": sorted(skipped)}
+
+
+def _target_bundle(root_entity, targets, pages, anchor_types):
+    """Merge anchor additions along each declared destination's parent chain."""
+    root_bundle = (root_entity or {}).get("perspective_bundle") or {}
+    required = list(root_bundle.get("required") or [])
+    optional = list(root_bundle.get("optional") or [])
+    by_key = {key: page for page in pages for key in _page_keys(page)}
+    known = {page["page_id"] for page in pages if page["page_type"] == "perspective"}
+    for page in pages:
+        values = page["values"]
+        for field in ("perspective_bundle_required", "perspective_bundle_optional"):
+            raw = values.get(field)
+            if raw is not None and (not isinstance(raw, list) or any(not isinstance(item, str) or not item.strip() for item in raw)):
+                raise ValueError(f"{page['path']}: {field} must be a list of perspective IDs")
+        declared = list_values(values.get("perspective_bundle_required")) + list_values(values.get("perspective_bundle_optional"))
+        if not declared:
+            continue
+        if page["page_type"] not in anchor_types:
+            raise ValueError(f"{page['path']}: perspective bundle requires a block anchor")
+        unknown = sorted(set(declared) - known)
+        if unknown:
+            raise ValueError(f"{page['path']}: unknown perspective id(s): {', '.join(unknown)}")
+    for target in targets:
+        current = by_key.get(target)
+        chain = []
+        seen = set()
+        while current and current["path"] not in seen:
+            seen.add(current["path"])
+            chain.append(current)
+            current = by_key.get(str(current["values"].get("moc_parent") or ""))
+        for page in reversed(chain):
+            if page["page_type"] not in anchor_types or page["path"] == (root_entity or {}).get("path"):
+                continue
+            required.extend(list_values(page["values"].get("perspective_bundle_required")))
+            optional.extend(list_values(page["values"].get("perspective_bundle_optional")))
+    required = _dedupe(required)
+    return {"perspective_bundle": {"required": required,
+            "optional": _dedupe([item for item in optional if item not in required])}}
 
 
 def _source_input_status(source_page: dict[str, Any], source_config: dict[str, Any] | None) -> str:
@@ -314,6 +369,7 @@ def compile_input_stage(
     config: WikiConfig,
     *,
     generated_at: dt.date | str | None = None,
+    reads=None,
 ) -> dict[str, Any]:
     """Compile root/channel/source configuration into a deterministic catalog."""
     if generated_at is None:
@@ -327,13 +383,13 @@ def compile_input_stage(
     if context_memory_root(root, config) is None:
         raise ValueError("unsafe context memory root")
     paths = WikiPaths(root, config)
-    root_entity = find_root_entity(root, config, paths)
-    channels = [_channel_payload(page) for page in _pages_by_type(root, paths, "input_channel")]
-    source_pages = _source_pages(root, paths)
+    root_entity = find_root_entity(root, config, paths, reads)
+    channels = [_channel_payload(page) for page in _pages_by_type(root, paths, "input_channel", reads)]
+    source_pages = _source_pages(root, paths, reads)
     from wiki_core.context_hubs import discover_context_hubs, is_editorial_context_hub
     contexts = _dedupe([str(p["values"].get("context") or p.get("context") or config.default_context)
                         for p in source_pages])
-    hubs, hub_errors = discover_context_hubs(root, config, contexts=contexts)
+    hubs, hub_errors = discover_context_hubs(root, config, contexts=contexts, reads=reads)
     warnings: list[str] = list(hub_errors)
     resolved_hubs: dict[str, str | None] = {}
     for context in contexts:
@@ -346,12 +402,12 @@ def compile_input_stage(
         invalid = any(error.startswith(f"context {context}:") for error in hub_errors)
         resolved_hubs[context] = None
         if not invalid and not unexpected and len(candidates) == 1:
-            candidate = _repo_path(root, candidates[0])
-            if candidate and candidate.is_file():
-                page = _read_page(root, candidate)
+            candidate = _repo_path(root, candidates[0], reads)
+            if candidate and (candidate.is_file() if reads is None else reads.is_file(candidate)):
+                page = _read_page(root, candidate, reads)
                 # Fallback paths are diagnostic, not qualified hub identities.
                 # Check original typed metadata, not _read_page's display strings.
-                configured_root = _configured_root_page(root, config)
+                configured_root = _configured_root_page(root, config, reads)
                 flat_root = (page["page_type"] == "root_entity"
                              and configured_root == candidate
                              and (root_entity or {}).get("path") == page["path"])
@@ -359,10 +415,39 @@ def compile_input_stage(
                     resolved_hubs[context] = page["path"]
         if resolved_hubs[context] is None and (registered or invalid):
             warnings.append(f"context {context}: context hub unavailable; root/channel/config targets do not substitute for it")
+    # Use the same guarded reader as the rest of the input-stage compiler.
+    pages = [_read_page(root, path, reads) for path in _md_pages(paths, reads)]
+    has_local_bundles = any(p["page_type"] != "root_entity" and
+        (p["values"].get("perspective_bundle_required") or p["values"].get("perspective_bundle_optional")) for p in pages)
+    anchor_types = {"root_entity", "context_hub", "project", "holon", "source", "template_block", "ontology_index", "source_registry"}
+    if has_local_bundles:
+        if reads is not None:
+            # Registry bytes must be in the admitted selection, never bypass the reader.
+            from wiki_core.templates_registry import TemplateRegistry, _merge_named_section
+            data = {}
+            for name in ("wiki.templates.yaml", "wiki.templates.local.yaml"):
+                path = root / name
+                if reads.exists(path):
+                    part = yaml.safe_load(reads.read_text(path)) or {}
+                    for section in ("bases", "types"):
+                        data[section] = _merge_named_section(data.get(section), part.get(section))
+            registry = TemplateRegistry(None, "", data.get("types", {}), data.get("bases", {}))
+        else:
+            from wiki_core.templates_registry import load_template_registry
+            registry = load_template_registry(root, config)
+        if registry.raw_types:
+            anchor_types = {name for name in registry.raw_types if registry.resolve(name).can_anchor_blocks}
+    # Validate configured root declarations as well as every page declaration.
+    known_perspectives = {p["page_id"] for p in pages if p["page_type"] == "perspective"}
+    cfg_required, cfg_optional = _bundle_from_config(config)
+    unknown = sorted(set(cfg_required + cfg_optional) - known_perspectives)
+    if unknown:
+        raise ValueError(f"root entity: unknown perspective id(s): {', '.join(unknown)}")
+    _target_bundle(root_entity, [], pages, anchor_types)  # validate even without sources
     source_rows: list[dict[str, Any]] = []
 
     for source_page in source_pages:
-        source_config = _config_page_for_source(root, config, source_page)
+        source_config = _config_page_for_source(root, config, source_page, reads)
         channel = _match_channel(source_page, source_config, channels)
         values = dict(source_page["values"])
         context = str(values.get("context") or source_page.get("context") or config.default_context)
@@ -399,7 +484,8 @@ def compile_input_stage(
                 "source_config": source_config,
                 "input_channel": channel,
                 "quadrants": quadrants,
-                "resolved_perspectives": _resolved_perspectives(root_entity, channel, source_config),
+                "resolved_perspectives": _resolved_perspectives(
+                    _target_bundle(root_entity, target_pages, pages, anchor_types), channel, source_config),
                 "target_pages": target_pages,
                 "privacy_boundary": str(values.get("visibility") or config.default_visibility),
                 "refresh_policy": str(values.get("refresh_policy") or ""),
@@ -435,7 +521,7 @@ def compile_input_stage(
     ]
     return {
         "schema_version": INPUT_STAGE_SCHEMA_VERSION,
-        "config_ref": "wiki.config.yaml" if (root/"wiki.config.yaml").is_file() else "",
+        "config_ref": "wiki.config.yaml" if ((root/"wiki.config.yaml").is_file() if reads is None else reads.is_file(root/"wiki.config.yaml")) else "",
         "generated_at": date_text,
         "root_entity": root_entity,
         "quadrant_map": DEFAULT_QUADRANT_MAP,
@@ -511,11 +597,12 @@ def _input_stage_dir(config: WikiConfig) -> str:
 
 
 def _labels(config: WikiConfig) -> dict[str, str]:
+    generator_link = _link("wiki_input_stage.py", "scripts/wiki_input_stage.py", config)
     if _is_portuguese(config):
         return {
             "title": "Estagio de entrada",
             "updated_on": "Atualizado em",
-            "generated_note": "Esta pagina e gerada por [wiki_input_stage.py](../../scripts/wiki_input_stage.py). Nao edite manualmente.",
+            "generated_note": f"Esta pagina e gerada por {generator_link}. Nao edite manualmente.",
             "root_entity": "Entidade raiz",
             "field": "Campo",
             "value": "Valor",
@@ -550,7 +637,7 @@ def _labels(config: WikiConfig) -> dict[str, str]:
         return {
             "title": "Etapa de entrada",
             "updated_on": "Actualizado el",
-            "generated_note": "Esta página se genera mediante [wiki_input_stage.py](../../scripts/wiki_input_stage.py). No la edite manualmente.",
+            "generated_note": f"Esta página se genera mediante {generator_link}. No la edite manualmente.",
             "root_entity": "Entidad raíz",
             "field": "Campo",
             "value": "Valor",
@@ -584,7 +671,7 @@ def _labels(config: WikiConfig) -> dict[str, str]:
     return {
         "title": "Input stage",
         "updated_on": "Updated on",
-        "generated_note": "This page is generated by [wiki_input_stage.py](../../scripts/wiki_input_stage.py). Do not hand-edit.",
+        "generated_note": f"This page is generated by {generator_link}. Do not hand-edit.",
         "root_entity": "Root entity",
         "field": "Field",
         "value": "Value",
@@ -726,7 +813,7 @@ def render_input_stage_markdown(
         f"moc_parent: {config.paths['memory_root']}/index.md",
         *(yaml.safe_dump({'projection_inputs':[
             *([{'paths':['wiki.config.yaml'],'fields':['body']}] if catalog.get('config_ref') else []),
-            {'page_types':sorted(SOURCE_PAGE_TYPES),'path_prefix':WikiPaths(Path('.'),config).sources_dir.as_posix(),
+            {'page_types':sorted(SOURCE_PAGE_TYPES),**WikiPaths(Path('.'),config).collection_selector('sources_dirname'),
              'fields':_source_fields(),'title_fallback':'blank'},
             {'page_types':['input_channel'],'fields':_channel_fields(),'title_fallback':'blank'},
             {'page_types':['context_hub'],'path_prefix':config.paths['memory_root'],
@@ -933,17 +1020,17 @@ def write_input_stage(
     return catalog
 
 
-def existing_generated_at(paths: WikiPaths) -> str | None:
-    if paths.input_stage_page.exists():
-        values, _body = parse_frontmatter(paths.input_stage_page)
+def existing_generated_at(paths: WikiPaths, reads=None) -> str | None:
+    if paths.input_stage_page.exists() if reads is None else reads.exists(paths.input_stage_page):
+        values, _body = parse_frontmatter(paths.input_stage_page if reads is None else reads.read_text(paths.input_stage_page, errors='replace'))
         date_text = str(values.get("updated_at") or "")
         try:
             return date_text if dt.date.fromisoformat(date_text).isoformat() == date_text else None
         except ValueError:
             return None
-    if paths.input_stage_catalog.exists():
+    if paths.input_stage_catalog.exists() if reads is None else reads.exists(paths.input_stage_catalog):
         try:
-            data = json.loads(paths.input_stage_catalog.read_text(encoding="utf-8"))
+            data = json.loads(paths.input_stage_catalog.read_text(encoding="utf-8") if reads is None else reads.read_text(paths.input_stage_catalog))
         except json.JSONDecodeError:
             return None
         if isinstance(data, dict):

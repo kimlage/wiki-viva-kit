@@ -1,10 +1,11 @@
 """Drive-aware links for NON-VERSIONED artifacts (project-wide rule).
 
-A useful file that is not versioned (data/raw/**, data/derived/**) lives in a
-personal Drive folder (id in .env, published by scripts/wiki_drive_publish.py)
-and the wiki points to the DRIVE LINK — a local link to a gitignored file breaks
-on GitHub. The versioned manifest data/drive_artifacts_manifest.json records
-filename -> view_url; this helper resolves the link during page generation.
+A local link to a gitignored file may break on GitHub. The manifest
+data/drive_artifacts_manifest.json can record existing filename -> view_url
+entries, which this helper resolves during page generation. Availability and
+authorization of an existing link must be verified independently. Publication
+through scripts/wiki_drive_publish.py requires authorization for the files and
+destination, with privacy and secret safeguards. Dry-run does not verify Drive.
 """
 
 from __future__ import annotations

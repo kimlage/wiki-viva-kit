@@ -6,6 +6,8 @@ import threading
 import time
 from pathlib import Path
 
+import pytest
+
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.web.briefs import BriefStore, compose_brief
 from wiki_core.web.codex_jobs import JobRunner, build_codex_argv
@@ -104,10 +106,68 @@ def test_build_argv_is_sandboxed_and_never_yolo() -> None:
     assert argv[:3] == ["codex", "exec", "-"]
     assert "--sandbox" in argv and "workspace-write" in argv
     assert "--json" in argv
+    assert argv[-2:] == ["--output-last-message", "/repo/final.md"]
+    assert "-o" not in argv
     assert not any("yolo" in a or "dangerous" in a for a in argv)
     # codex exec is non-interactive: it has no approvals flag, and passing -a
     # makes the CLI exit 2 before doing anything (regression: codex-cli 0.142).
     assert "-a" not in argv
+
+
+def test_job_reasoning_override_is_opt_in_and_reaches_codex(tmp_path, monkeypatch) -> None:
+    config = _repo(tmp_path)
+    default = build_codex_argv("codex", tmp_path, tmp_path / "final.md")
+    assert not any("model_reasoning_effort" in arg for arg in default)
+    config.codex["job_reasoning_effort"] = "none"
+    brief = _saved_brief(tmp_path, config)
+    runner = _runner(tmp_path, config)
+    calls = []
+    original = runner._run_codex
+
+    def capture(job_id, argv, stdin_text, log_path):
+        calls.append(argv)
+        return original(job_id, argv, stdin_text, log_path)
+
+    monkeypatch.setattr(runner, "_run_codex", capture)
+    submitted = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)
+    assert runner.run_job(submitted["job_id"])["status"] == "delivered"
+    option = calls[0].index("-c")
+    assert calls[0][option + 1] == "model_reasoning_effort=none"
+
+
+@pytest.mark.parametrize("value", ["", "none -c unsafe=true", "ultra", True, []])
+def test_invalid_job_reasoning_fails_before_runner_start(tmp_path, value) -> None:
+    config = _repo(tmp_path)
+    config.codex["job_reasoning_effort"] = value
+    with pytest.raises(ValueError, match="invalid codex.job_reasoning_effort"):
+        _runner(tmp_path, config)
+
+
+def test_coordinator_brief_never_enters_executor_runner_even_if_queued(tmp_path, monkeypatch) -> None:
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    record_path = BriefStore(tmp_path, config)._record_path(brief['brief_id'])
+    record = json.loads(record_path.read_text(encoding='utf-8'))
+    record['spec']['role'] = 'coordinator'
+    record_path.write_text(json.dumps(record), encoding='utf-8')
+    runner = _runner(tmp_path, config)
+    monkeypatch.setattr(runner, '_run_codex', lambda *_: pytest.fail('coordinator launched as executor'))
+    monkeypatch.setattr('wiki_core.web.codex_jobs.run_git_workflow',
+                        lambda *_a, **_k: pytest.fail('coordinator triggered a git workflow'))
+    denied = runner.submit(brief_id=brief['brief_id'], brief_sha=brief['brief_sha'],
+                           dry_run=True, force=True)
+    assert denied == {'ok': False, 'error': 'coordinator_requires_host_dispatch'}
+    runner._write({'job_id': 'synthetic-queued', 'brief_id': brief['brief_id'],
+                   'brief_sha': brief['brief_sha'], 'status': 'queued', 'role': 'coordinator'})
+    result = runner.run_job('synthetic-queued')
+    assert result['status'] == 'failed'
+    assert result['reason'] == 'coordinator_requires_host_dispatch'
+    generic = _saved_brief(tmp_path, config)
+    runner._write({'job_id': 'synthetic-stale-role', 'brief_id': generic['brief_id'],
+                   'brief_sha': generic['brief_sha'], 'status': 'queued', 'role': 'coordinator'})
+    result = runner.run_job('synthetic-stale-role')
+    assert result['status'] == 'failed'
+    assert result['reason'] == 'coordinator_requires_host_dispatch'
 
 
 def test_pipeline_dry_run_reaches_delivered(tmp_path, monkeypatch) -> None:
@@ -300,21 +360,72 @@ def test_return_continues_the_same_branch(tmp_path) -> None:
 def test_cancel_interrupts_a_running_job(tmp_path, monkeypatch) -> None:
     config = _repo(tmp_path)
     brief = _saved_brief(tmp_path, config)
-    monkeypatch.setenv("CODEX_SHIM_SLEEP", "3")
+    monkeypatch.setenv("CODEX_SHIM_SLEEP", "30")
     runner = _runner(tmp_path, config, autostart=True)  # real worker drains the queue
     result = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)
     job_id = result["job_id"]
-    # Wait until it is actually running the shim, then cancel.
-    for _ in range(50):
-        if runner.get(job_id)["status"] == "running":
+    # The record is marked running before branch preparation. Wait for the
+    # actual process registration so this test exercises process termination.
+    deadline = time.monotonic() + 20
+    proc = None
+    while time.monotonic() < deadline:
+        with runner._lock:
+            proc = runner._procs.get(job_id)
+        if proc is not None:
             break
-        time.sleep(0.1)
-    runner.cancel(job_id)
-    for _ in range(50):
+        time.sleep(0.05)
+    assert proc is not None
+    assert runner.cancel(job_id)["ok"]
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
         if runner.get(job_id)["status"] == "cancelled":
             break
-        time.sleep(0.1)
+        time.sleep(0.05)
     assert runner.get(job_id)["status"] == "cancelled"
+    assert proc.poll() is not None
+
+
+def test_cancel_during_branch_preparation_does_not_spawn_agent(tmp_path, monkeypatch) -> None:
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    from wiki_core.web import codex_jobs
+
+    original_workflow = codex_jobs.run_git_workflow
+    original_popen = subprocess.Popen
+    preparing = threading.Event()
+    resume = threading.Event()
+    spawned = []
+
+    def blocked_workflow(root, config, operation, *args, **kwargs):
+        if operation == "start_proposal":
+            preparing.set()
+            assert resume.wait(20)
+        return original_workflow(root, config, operation, *args, **kwargs)
+
+    def tracking_popen(*args, **kwargs):
+        argv = args[0] if args else kwargs.get("args")
+        proc = original_popen(*args, **kwargs)
+        if isinstance(argv, list) and len(argv) > 1 and argv[1] == SHIM:
+            spawned.append(proc)
+        return proc
+
+    monkeypatch.setattr(codex_jobs, "run_git_workflow", blocked_workflow)
+    monkeypatch.setattr(codex_jobs.subprocess, "Popen", tracking_popen)
+    runner = _runner(tmp_path, config, autostart=True)
+    job_id = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)["job_id"]
+    try:
+        assert preparing.wait(20)
+        result = runner.cancel(job_id)
+        assert result["ok"] and result["status"] == "running"
+    finally:
+        resume.set()
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        if runner.get(job_id)["status"] == "cancelled":
+            break
+        time.sleep(0.05)
+    assert runner.get(job_id)["status"] == "cancelled"
+    assert spawned == []
 
 
 def test_job_record_write_replaces_complete_json_atomically(tmp_path, monkeypatch) -> None:

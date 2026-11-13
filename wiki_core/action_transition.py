@@ -875,6 +875,24 @@ def _transition_action_page_locked(
             updated.pop("blocker_reason", None)
             updated.pop("blocked_by", None)
 
+    # A same-state comment must not silently normalize otherwise valid empty
+    # lifecycle fields: their removal is a factual delta, not communication.
+    # Restore the original representation only if it yields a valid contract
+    # and every non-dialogue field is unchanged. Actual transitions, edits and
+    # cleanup of contradictory nonempty fields retain the normal behavior.
+    if (current == target and resolution.source == "action_state"
+            and edit_binding is None and dialogue_event is not None
+            and dialogue_event.get("kind") == "comment"):
+        candidate = dict(updated)
+        for field in ("next_action", "blocker_reason", "blocked_by", "completed_at",
+                      "completion_receipt", "cancellation_receipt"):
+            if field in frontmatter and field not in candidate:
+                candidate[field] = frontmatter[field]
+        if (not _lifecycle_contract_error(candidate, target)
+                and {k: v for k, v in candidate.items() if k != "action_dialogue"}
+                == {k: v for k, v in frontmatter.items() if k != "action_dialogue"}):
+            updated = candidate
+
     contract_error = _lifecycle_contract_error(updated, target)
     if contract_error:
         raise ActionTransitionError(

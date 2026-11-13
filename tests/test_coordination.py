@@ -1,4 +1,5 @@
 import hashlib
+import os
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,7 @@ import yaml
 
 from wiki_core.config import load_config
 from wiki_core.coordination import CoordinationError, context_packet, coordination_index, digest
+from wiki_core.context_policy import PolicyError
 
 
 
@@ -134,6 +136,50 @@ def cli_module(monkeypatch):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.mark.parametrize('approved_revision', ['refs/remotes/origin/main', 'abc1234'])
+def test_source_stage_rejects_non_full_revision_before_policy_read(tmp_path, monkeypatch, capsys, approved_revision):
+    import io
+    import json
+    import sys
+    import wiki_core.context_policy as context_policy
+    module = cli_module(monkeypatch)
+    for key in list(os.environ):
+        if key.startswith('WIKI_COORDINATION_'):
+            monkeypatch.delenv(key)
+    monkeypatch.setattr(context_policy, 'load_policy', lambda *a, **kw: pytest.fail('policy read'))
+    monkeypatch.setattr(module, 'protected_source_stage', lambda *a, **kw: pytest.fail('source stage'))
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('{}'))
+    monkeypatch.setattr(sys, 'argv', ['wiki_coordination.py', '--root', str(tmp_path), '--context-id', 'system',
+                                     '--folder', '.', '--approved-revision', approved_revision, '--source-stage', 'prepare'])
+    with pytest.raises(SystemExit) as error:
+        module.main()
+    assert error.value.code == 1
+    assert json.loads(capsys.readouterr().out)['error_code'] == 'coordination_invalid_request'
+
+
+@pytest.mark.parametrize('failure', [ValueError, OSError, PolicyError])
+def test_source_stage_maps_policy_load_failures_before_stage(tmp_path, monkeypatch, capsys, failure):
+    import io
+    import json
+    import sys
+    import wiki_core.context_policy as context_policy
+    module = cli_module(monkeypatch)
+    for key in list(os.environ):
+        if key.startswith('WIKI_COORDINATION_'):
+            monkeypatch.delenv(key)
+    def fail_policy(*args, **kwargs):
+        raise failure('synthetic policy failure')
+    monkeypatch.setattr(context_policy, 'load_policy', fail_policy)
+    monkeypatch.setattr(module, 'protected_source_stage', lambda *a, **kw: pytest.fail('source stage'))
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('{}'))
+    monkeypatch.setattr(sys, 'argv', ['wiki_coordination.py', '--root', str(tmp_path), '--context-id', 'system',
+                                     '--folder', '.', '--approved-revision', 'a' * 40, '--source-stage', 'prepare'])
+    with pytest.raises(SystemExit) as error:
+        module.main()
+    assert error.value.code == 1
+    assert json.loads(capsys.readouterr().out)['error_code'] == 'coordination_policy_unavailable'
 
 
 def test_profile_cli_does_not_load_config_or_snapshot(tmp_path, monkeypatch, capsys):

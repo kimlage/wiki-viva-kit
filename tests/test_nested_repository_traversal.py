@@ -1,4 +1,5 @@
 from pathlib import Path
+from contextlib import closing
 import subprocess
 import sqlite3
 import json
@@ -182,7 +183,7 @@ def test_legacy_and_orphan_page_rows_require_rebuild(tmp_path):
     page(paths.memory_root / 'index.md', 'node', 'nodeword')
     db = paths.indexes / 'wiki.sqlite'
     index_pages(db, collect_page_chunks(tmp_path, paths, cfg))
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute('DROP TABLE wiki_page_index_state')
         conn.execute("DELETE FROM chunks WHERE source_id='page:node'")
     assert find(tmp_path, cfg, 'nodeword')['status'] == 'index_error'
@@ -201,7 +202,7 @@ def test_page_rows_and_fts_must_match_the_current_wiki(tmp_path, corruption):
     page(paths.memory_root / 'two.md', 'two', 'tokentwo')
     db = paths.indexes / 'wiki.sqlite'
     index_pages(db, collect_page_chunks(tmp_path, paths, cfg))
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         if corruption == 'delete_all':
             conn.execute("DELETE FROM chunks WHERE source_id LIKE 'page:%'")
             conn.execute("DELETE FROM chunk_fts WHERE source_id LIKE 'page:%'")

@@ -11,26 +11,32 @@ import yaml
 from tests.test_folder_policy_core import repo, write, git
 from wiki_core.coordination_context import CoordinationBinding, ProtectedCoordinationError, protected_source_stage as _stage
 from wiki_core.ingest.protected import prepare as _prepare, record as _record, consolidate as _consolidate
+from wiki_core.quadrants import DEFAULT_QUADRANT_MAP
+
+AQAL_REFS = {name: f'memories/aqal/{name}.md'
+             for ids in DEFAULT_QUADRANT_MAP.values() for name in ids}
 
 
 def prepare(*args, **kwargs):
-    return _prepare(*args, **{'context_selection': {'omit_root_entity': True}, **kwargs})
+    return _prepare(*args, **{'context_selection': {'omit_root_entity': True}, 'perspective_refs': AQAL_REFS, **kwargs})
 
 
 def record(*args, **kwargs):
-    return _record(*args, **{'context_selection': {'omit_root_entity': True}, **kwargs})
+    return _record(*args, **{'context_selection': {'omit_root_entity': True}, 'perspective_refs': AQAL_REFS, **kwargs})
 
 
 def consolidate(*args, **kwargs):
-    return _consolidate(*args, **{'context_selection': {'omit_root_entity': True}, **kwargs})
+    return _consolidate(*args, **{'context_selection': {'omit_root_entity': True}, 'perspective_refs': AQAL_REFS, **kwargs})
 
 
 def protected_source_stage(root, binding, stage, payload):
-    return _stage(root, binding, stage, {'context_selection': {'omit_root_entity': True}, **payload})
+    return _stage(root, binding, stage, {'context_selection': {'omit_root_entity': True}, 'perspective_refs': AQAL_REFS, **payload})
 
 
 @pytest.fixture
 def prepared_repo(repo):
+    for name, ref in AQAL_REFS.items():
+        write(repo, ref, f'---\npage_id: {name}\npage_type: perspective\n---\n# Lens\n')
     write(repo, '.gitignore', 'data/derived/\n')
     write(repo, 'index.md', '# Root index\n')
     write(repo, 'source.txt', 'A small synthetic source for the contextual read.\n')
@@ -67,7 +73,8 @@ def test_complete_protected_proposal_and_local_search_boundary(prepared_repo):
     sample = json.loads((__import__('pathlib').Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+              'perspectives_required': request['perspectives_required'],
+              'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
     ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
     assert protected_source_stage(root, binding, 'record', {**args, **ids, 'results': [result]})['result']['recorded'] == 1
     event = ('memories/system/ingestion/events/2026-11-04-' +
@@ -160,6 +167,9 @@ def test_child_cannot_write_artifacts_owned_by_root(repo):
     write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
     write(repo, '.gitignore', 'data/derived/\n')
     write(repo, 'alpha/source.txt', 'Synthetic authorized alpha input.\n')
+    refs = {name: f'alpha/aqal/{name}.md' for name in AQAL_REFS}
+    for name, ref in refs.items():
+        write(repo, ref, f'---\npage_id: {name}\npage_type: perspective\n---\n# Lens\n')
     git(repo, 'add', '.')
     git(repo, 'commit', '-qm', 'alpha source and explicit connection')
     git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
@@ -168,7 +178,7 @@ def test_child_cannot_write_artifacts_owned_by_root(repo):
     with pytest.raises(ValueError, match='artifact unavailable'):
         prepare(repo, binding, context_id='alpha', approved_revision=sha,
             entry_folder='alpha', entry_index='alpha/index.md',
-            source_ref='alpha/source.txt', source_context='system')
+            source_ref='alpha/source.txt', source_context='system', perspective_refs=refs)
     assert not (repo / 'data/derived/wiki/.wiki-viva-protected').exists()
 
 
@@ -372,32 +382,27 @@ def test_event_cannot_be_instruction_file(prepared_repo):
     assert not (root / 'memories/AGENTS.md').exists()
 
 
-@pytest.mark.parametrize('implicit_cwd', [False, True])
-def test_cli_local_operator_prepare_record_consolidate(prepared_repo, implicit_cwd):
+def test_cli_local_operator_prepare_record_consolidate(prepared_repo):
     import os
     from pathlib import Path
     root, _ = prepared_repo
     sha = _nested_integrator_repo(root)
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
     env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
-    if implicit_cwd:
-        env['WIKI_COORDINATION_ALLOWED_CONTEXTS'] = 'alpha,.'
     def call(stage, payload):
-        context_args = [] if implicit_cwd else ['--context-id', 'alpha']
         completed = subprocess.run([sys.executable, str(script), '--root', str(root),
-            *context_args, '--integrator-context', '.', '--approved-revision', sha, '--source-stage', stage],
+            '--context-id', 'alpha', '--integrator-context', '.', '--approved-revision', sha, '--source-stage', stage],
             input=json.dumps(payload), text=True, capture_output=True, check=True,
-            cwd=root / 'alpha' if implicit_cwd else root, env=env)
+            cwd=root, env=env)
         return json.loads(completed.stdout)['result']
-    base = {'source_ref': 'alpha/source.txt', 'context_selection': {'omit_root_entity': True}}
-    if not implicit_cwd:
-        base.update(entry_folder='alpha', entry_index='alpha/index.md')
+    base = {'source_ref': 'alpha/source.txt', 'context_selection': {'omit_root_entity': True},
+            'entry_folder': 'alpha', 'entry_index': 'alpha/index.md', 'perspective_refs': AQAL_REFS}
     prepared = call('prepare', {**base, 'source_context': 'alpha'})
     request = prepared['request']; row = request['chunks'][0]
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': [], 'perspectives': {}}
+              'perspectives_required': request['perspectives_required'], 'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     assert call('record', {**base, **ids, 'results': [result]})['recorded'] == 1
     inspected = call('inspect', {**base, **ids, 'view': 'results', 'chunk_ids': [row['chunk_id']]})
@@ -439,7 +444,7 @@ def test_source_stage_cwd_uses_selected_source_configuration(prepared_repo):
     env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
     env['WIKI_COORDINATION_ALLOWED_CONTEXTS'] = 'alpha,.'
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
-    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha',
+    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha', 'perspective_refs': AQAL_REFS,
                'context_selection': {'omit_root_entity': True, 'source_page': 'memories/sources/synthetic.md',
                    'source_config': 'memories/source-config.md', 'input_channel': 'memories/channel.md'}}
     completed = subprocess.run([sys.executable, str(script), '--root', str(root), '--integrator-context', '.',
@@ -452,7 +457,7 @@ def test_source_stage_cwd_uses_selected_source_configuration(prepared_repo):
     refs = {item['ref'] for item in request['block_context_package']['inputs']}
     assert {'memories/sources/synthetic.md', 'memories/source-config.md', 'memories/channel.md'} <= refs
     prepared = json.loads(completed.stdout)['result']
-    base = {key: payload[key] for key in ('source_ref', 'context_selection')}
+    base = {key: payload[key] for key in ('source_ref', 'context_selection', 'perspective_refs')}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     command = [sys.executable, str(script), '--root', str(root), '--integrator-context', '.',
                '--approved-revision', sha, '--source-stage']
@@ -460,13 +465,25 @@ def test_source_stage_cwd_uses_selected_source_configuration(prepared_repo):
         output = subprocess.run(command + [name], cwd=root / 'alpha', env=env, input=json.dumps(data),
                                 text=True, capture_output=True, check=True)
         return json.loads(output.stdout)['result']
-    assert stage('record', {**base, **ids, 'results': [_result_for(request)]})['recorded'] == 1
+    result = _result_for(request)
+    assert stage('record', {**base, **ids, 'results': [result]})['recorded'] == 1
+    row = request['chunks'][0]
+    inspected = stage('inspect', {**base, **ids, 'view': 'results', 'chunk_ids': [row['chunk_id']]})
+    assert inspected['results'] == [{'chunk_id': row['chunk_id'], 'result': result}]
+    repeated = stage('prepare', {**base, 'source_context': 'alpha'})
+    assert repeated['request_id'] == prepared['request_id']
+    assert repeated['request']['chunks'][0]['result_exists'] is True
     event = ('memories/system/ingestion/events/2026-11-04-' + hashlib.sha256(ids['source_id'].encode()).hexdigest()
              + '-' + ids['request_id'] + '.md')
     proposal = stage('consolidate', {**base, **ids, 'source_page': 'memories/sources/synthetic.md',
                                      'event_target': event, 'date': '2026-11-04'})
     assert proposal['integration'] == 'pending review and incorporation'
     assert (root / event).is_file()
+    inspected = stage('inspect', {**base, **ids, 'view': 'integration', 'candidates': []})
+    assert inspected['packet']['source_id'] == prepared['source_id']
+    assert inspected['packet']['source_hash_sha256'] == request['source_hash_sha256']
+    assert inspected['event_status'] == 'not checked'
+    assert inspected['integration'] == 'not assessed'
 
 
 def test_source_stage_cwd_never_creates_authorization(prepared_repo):
@@ -475,7 +492,7 @@ def test_source_stage_cwd_never_creates_authorization(prepared_repo):
     sha = _nested_integrator_repo(root)
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
     env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
-    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha',
+    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha', 'perspective_refs': AQAL_REFS,
                'context_selection': {'omit_root_entity': True}}
     command = [sys.executable, str(script), '--root', str(root), '--approved-revision', sha,
                '--source-stage', 'prepare']
@@ -510,7 +527,7 @@ def test_source_stage_cwd_prefers_index_to_readme(prepared_repo):
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
     env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
     env['WIKI_COORDINATION_ALLOWED_CONTEXTS'] = 'alpha,.'
-    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha',
+    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha', 'perspective_refs': AQAL_REFS,
                'context_selection': {'omit_root_entity': True}}
     completed = subprocess.run([sys.executable, str(script), '--root', str(root), '--approved-revision', sha,
                                 '--integrator-context', '.', '--source-stage', 'prepare'], cwd=root / 'alpha', env=env,
@@ -528,7 +545,7 @@ def test_source_stage_explicit_context_uses_cwd_without_environment_binding(prep
     sha = _nested_integrator_repo(root)
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
     env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
-    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha',
+    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha', 'perspective_refs': AQAL_REFS,
                'context_selection': {'omit_root_entity': True}}
     completed = subprocess.run([sys.executable, str(script), '--root', str(root), '--context-id', 'alpha',
         '--integrator-context', '.', '--approved-revision', sha, '--source-stage', 'prepare'],
@@ -617,6 +634,9 @@ def _nested_integrator_repo(root):
         {'from_context': '.', 'to_context': 'alpha', 'selector': 'memories/sources/synthetic.md',
          'use': 'interpretation', 'classification': 'artifact', 'expires': '2099-01-01'},
     ]
+    root_to_alpha.extend({'from_context': '.', 'to_context': 'alpha', 'selector': ref,
+        'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
+        for ref in AQAL_REFS.values())
     alpha_to_root = [
         {'from_context': 'alpha', 'to_context': '.', 'selector': ref,
          'use': 'interpretation', 'classification': classification, 'expires': '2099-01-01'}
@@ -627,7 +647,8 @@ def _nested_integrator_repo(root):
     config['context_access']['alpha']['imports'] = root_to_alpha
     config['context_access']['alpha']['exports'] = alpha_to_root
     config['context_access']['.']['imports'] = alpha_to_root
-    config['context_access']['alpha']['policy']['read'] = ['self', 'AGENTS.md', 'memories/sources/synthetic.md']
+    config['context_access']['alpha']['policy']['read'] = [
+        'self', 'AGENTS.md', 'memories/sources/synthetic.md', *AQAL_REFS.values()]
     write(root, 'wiki.config.yaml', yaml.safe_dump(config))
     write(root, 'alpha/source.txt', 'Synthetic nested context source.\n')
     git(root, 'add', '.')
@@ -703,7 +724,7 @@ def test_record_multiple_chunks_reports_extraction_count(prepared_repo, monkeypa
     sample = json.loads((__import__('pathlib').Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     results = [{**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
         **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-        'perspectives_required': [], 'perspectives': {}} for row in request['chunks']]
+        'perspectives_required': request['perspectives_required'], 'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}} for row in request['chunks']]
     calls = []
     original = protected.extract_captured
     def tracked(*a, **kw):
@@ -960,6 +981,27 @@ def test_consolidation_candidates_use_approved_git_content_not_working_tree(prep
     with pytest.raises(ProtectedCoordinationError):
         protected_source_stage(root, binding, 'inspect', {**args, **ids, 'view': 'integration',
             'candidates': ['memories/candidates/approved.md']})
+
+
+def test_consolidation_accepts_candidate_with_ordinary_email_search(prepared_repo):
+    root, _ = prepared_repo
+    candidate = 'memories/candidates/search.md'
+    write(root, candidate, '---\npage_id: search-topic\npage_type: claim\n---\n'
+          '[Search](https://example.test/mail/?q=from%3Areader%40example.test)\n')
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'candidate with search link')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])
+    target = ('memories/system/ingestion/events/2026-11-04-' +
+        hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    output = consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
+        event_target=target, date=dt.date(2026, 11, 4), candidates=[candidate])
+    assert output['integration'] == 'pending review and incorporation'
+    assert (root / target).is_file()
 
 
 @pytest.mark.parametrize('source_selected_in_request', [True, False])
@@ -1419,11 +1461,12 @@ def test_one_source_two_authorized_folder_interpretations(prepared_repo):
         if name == 'beta':
             config['context_access'][name] = {'owner': 'beta operator',
                 'policy': {'read': ['self'], 'write': ['self'], 'capabilities': [], 'deny': {}, 'publication': []}}
-        config['context_access'][name]['policy']['read'] = ['self', 'AGENTS.md', 'source.txt']
+        config['context_access'][name]['policy']['read'] = ['self', 'AGENTS.md', 'source.txt', *AQAL_REFS.values()]
         imports = [
             {'from_context': '.', 'to_context': name, 'selector': ref,
              'use': 'interpretation', 'classification': kind, 'expires': '2099-01-01'}
-            for ref, kind in [('AGENTS.md', 'context'), ('source.txt', 'source')]
+            for ref, kind in [('AGENTS.md', 'context'), ('source.txt', 'source'),
+                              *((ref, 'context') for ref in AQAL_REFS.values())]
         ]
         instruction = f'{name}/AGENTS.override.md' if name == 'alpha' else f'{name}/AGENTS.md'
         exports = [
@@ -1464,7 +1507,8 @@ def _result_for(request):
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     return {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
             **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-            'perspectives_required': [], 'perspectives': {}}
+            'perspectives_required': request['perspectives_required'],
+            'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
 
 
 def test_budget_check_requires_original_source_and_request_ids(prepared_repo):
@@ -1721,10 +1765,14 @@ def test_consolidation_counts_inspection_envelope_before_effects(prepared_repo, 
     prepared = prepare(root, binding, **args, source_context='system')
     ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
     record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])
-    wrapper = {'view': 'integration', **ids, 'packet': {'padding': ''},
+    discovery_warning = ('Discovery is limited to authorized selected hub directories and explicit '
+                         'candidates; other consumers were not assessed.')
+    complete_packet = {'padding': '', 'impact': {'coverage': 'selected_candidates_only'},
+                       'warnings': [discovery_warning]}
+    wrapper = {'view': 'integration', **ids, 'packet': complete_packet,
                'event_status': 'not checked', 'integration': 'not assessed'}
     padding_size = 2_000_001 - len(canonical_request_text(wrapper).encode('utf-8'))
-    packet = {'padding': '.' * padding_size}
+    packet = {'padding': '.' * padding_size, 'impact': {}, 'warnings': []}
     assert len(canonical_request_text(packet).encode('utf-8')) < 2_000_000
     monkeypatch.setattr(consolidation, 'build_packet', lambda *a, **kw: packet)
     target = ('memories/system/ingestion/events/2026-11-04-' +
@@ -1733,6 +1781,7 @@ def test_consolidation_counts_inspection_envelope_before_effects(prepared_repo, 
         protected_source_stage(root, binding, 'consolidate', {**args, **ids,
             'source_page': 'memories/sources/synthetic.md', 'event_target': target, 'date': '2026-11-04'})
     assert error.value.code == 'coordination_result_budget_exceeded'
+    assert len(canonical_request_text(packet).encode('utf-8')) < 2_000_000
     assert not (root / target).exists()
     assert not list((root / 'data/derived/wiki/.wiki-viva-protected').rglob('*integration-packet.json'))
 

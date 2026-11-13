@@ -128,6 +128,55 @@ def test_probe_for_config_respects_binary_and_enabled(tmp_path: Path) -> None:
         os.environ.pop("CODEX_HOME", None)
 
 
+@pytest.mark.parametrize("env_value,configured,expected", [
+    ("env-binary", "config-binary", "env-binary"),
+    ("", "config-binary", "config-binary"),
+    (None, "config-binary", "config-binary"),
+    (None, "", "codex"),
+])
+def test_probe_and_runner_share_binary_precedence(tmp_path, monkeypatch, env_value, configured, expected):
+    from wiki_core.web.codex_jobs import JobRunner
+    import wiki_core.web.codex_probe as module
+
+    if env_value is None:
+        monkeypatch.delenv("WIKI_CODEX_BINARY", raising=False)
+    else:
+        monkeypatch.setenv("WIKI_CODEX_BINARY", env_value)
+    monkeypatch.setattr(module, "probe_codex", lambda **kwargs: kwargs)
+    config = WikiConfig(repo_id="synthetic", codex={"enabled": True, "binary": configured})
+    runner = JobRunner(tmp_path, config, autostart=False, reconcile_retained=False)
+    assert Path(runner.codex_cmd[0]).name == expected
+    assert probe_codex_for(config)["binary"] == runner.codex_cmd[0]
+    # Explicit test/host injection retains its established priority.
+    injected = JobRunner(tmp_path, config, codex_cmd=["explicit-shim"], autostart=False, reconcile_retained=False)
+    assert injected.codex_cmd == ["explicit-shim"]
+
+
+@pytest.mark.parametrize("via_path", [False, True])
+def test_relative_binary_is_identical_for_probe_and_real_job(tmp_path, monkeypatch, via_path):
+    from wiki_core.web.codex_jobs import JobRunner
+    import wiki_core.web.codex_probe as module
+
+    operator = tmp_path / "operator"
+    wiki = tmp_path / "wiki"
+    operator.mkdir()
+    wiki.mkdir()
+    for directory, marker in ((operator, "operator"), (wiki, "wrong-wiki")):
+        _make_shim(directory / "codex", body=f'#!/bin/sh\necho "{marker}"\n')
+    monkeypatch.chdir(operator)
+    monkeypatch.setenv("WIKI_CODEX_BINARY", "codex" if via_path else "./codex")
+    if via_path:
+        monkeypatch.setenv("PATH", ".")
+    monkeypatch.setattr(module, "_probe_auth", lambda _: (True, "synthetic"))
+    config = WikiConfig(repo_id="synthetic", codex={"enabled": True, "binary": "ignored"})
+    assert probe_codex_for(config)["version"] == "operator"
+    runner = JobRunner(wiki, config, autostart=False, reconcile_retained=False)
+    log = tmp_path / "log.jsonl"
+    status, cancelled = runner._run_codex("synthetic", runner.codex_cmd, "", log)
+    assert status == 0 and not cancelled
+    assert log.read_text().strip() == "operator"
+
+
 def test_config_loads_codex_block(tmp_path: Path) -> None:
     (tmp_path / "wiki.config.yaml").write_text(
         "repo_id: t\ncodex:\n  enabled: false\n", encoding="utf-8"

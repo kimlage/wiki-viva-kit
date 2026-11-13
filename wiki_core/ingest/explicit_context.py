@@ -22,9 +22,40 @@ class ExplicitContextError(ValueError):
     """An explicit interpretation selection is missing or inconsistent."""
 
 
+def _is_path_reference(ref):
+    return isinstance(ref, str) and ('/' in ref or '\\' in ref or ref.strip().lower().endswith('.md'))
+
+
+def _canonical_selected_path(ref):
+    path = canonical_path(ref)
+    if path != ref or ref != ref.strip():
+        raise ExplicitContextError('noncanonical context path')
+    return path
+
+
+def _declared_targets(value):
+    if value is None:
+        return []
+    values = value if isinstance(value, (list, tuple)) else [value]
+    if any(not isinstance(item, str) or item != item.strip() for item in values):
+        raise ExplicitContextError('noncanonical target declaration')
+    for item in values:
+        if _is_path_reference(item):
+            _canonical_selected_path(item)
+    return [item for item in values if item]
+
+
+def declared_reference_matches(ref, page):
+    """Treat path-shaped references as paths, even when another page uses one as ID."""
+    if not isinstance(ref, str) or not isinstance(page, dict):
+        return False
+    return ref == page.get('path' if _is_path_reference(ref) else 'page_id')
+
+
 def _selection(selection):
     keys = {'source_page', 'source_config', 'input_channel', 'root_entity',
-            'omit_root_entity', 'templates', 'target_pages', 'repository_source_pages'}
+            'omit_root_entity', 'templates', 'target_pages', 'target_selection',
+            'repository_source_pages'}
     if not isinstance(selection, dict) or set(selection) - keys:
         raise ExplicitContextError('invalid explicit context selection')
     omitted = selection.get('omit_root_entity', False)
@@ -34,11 +65,18 @@ def _selection(selection):
     if bool(root) == omitted:
         raise ExplicitContextError('select or explicitly omit the business root')
     clean = {'omit_root_entity': omitted}
+    if 'target_selection' in selection:
+        mode = selection['target_selection']
+        if mode not in ('declared', 'explicit'):
+            raise ExplicitContextError('invalid target selection')
+        if mode == 'explicit' and 'target_pages' not in selection:
+            raise ExplicitContextError('explicit target selection requires target_pages')
+        clean['target_selection'] = mode
     for name in ('source_page', 'source_config', 'input_channel', 'root_entity'):
         value = selection.get(name)
         if value is not None:
             try:
-                clean[name] = canonical_path(value)
+                clean[name] = _canonical_selected_path(value)
             except (ValueError, TypeError) as exc:
                 raise ExplicitContextError('invalid context path') from exc
     for name in ('templates', 'target_pages'):
@@ -46,7 +84,7 @@ def _selection(selection):
         if not isinstance(values, list) or len(values) > 32:
             raise ExplicitContextError('invalid context paths')
         try:
-            clean[name] = [canonical_path(value) for value in values]
+            clean[name] = [_canonical_selected_path(value) for value in values]
         except (ValueError, TypeError) as exc:
             raise ExplicitContextError('invalid context path') from exc
     repository_pages = selection.get('repository_source_pages', {})
@@ -55,7 +93,7 @@ def _selection(selection):
                    for key in repository_pages)):
         raise ExplicitContextError('invalid repository source selection')
     try:
-        clean['repository_source_pages'] = {key: canonical_path(repository_pages[key]) for key in sorted(repository_pages)}
+        clean['repository_source_pages'] = {key: _canonical_selected_path(repository_pages[key]) for key in sorted(repository_pages)}
     except (ValueError, TypeError) as exc:
         raise ExplicitContextError('invalid repository source selection') from exc
     refs = [clean[name] for name in ('source_page', 'source_config', 'input_channel', 'root_entity') if name in clean]
@@ -79,6 +117,72 @@ def explicit_ingestion_evidence(policy, selection):
             'reason': 'Explicit ingestion ' + role, 'use': 'interpretation',
             'classification': 'source' if role == 'source_page' or role.startswith('repository_source_page:') else 'context'})
     return rows
+
+
+def connected_ingestion_selection(packet, selection):
+    """Extend a selection from declared links in already authorized bodies.
+
+    Return selectors only. The caller must authorize and read them through the
+    same packet builder before interpreting them. Hub links select candidates,
+    never establish consumption or permission to update a subject.
+    """
+    selected = _selection(selection)
+    pages = {}
+    for row in packet['inputs']:
+        if row.get('kind') == 'evidence' or row.get('ref') == packet.get('entry_index'):
+            values, body = parse_frontmatter(row['text'])
+            pages[row['ref']] = (values, body)
+    by_id = {}
+    for ref, (values, _) in pages.items():
+        if values.get('page_id'):
+            by_id.setdefault(values['page_id'], []).append(ref)
+
+    def path(value):
+        if not isinstance(value, str) or not value:
+            return None
+        if _is_path_reference(value):
+            return _canonical_selected_path(value)
+        if len(by_id.get(value, [])) == 1:
+            return by_id[value][0]
+        return None  # An unresolved page ID is not permission to scan the wiki.
+
+    def values(role):
+        return pages.get(selected.get(role), ({}, ''))[0]
+
+    for role, refs in (
+        ('source_config', [values('source_page').get('config_ref')]),
+        ('input_channel', [values('source_page').get('input_channel_ref'),
+                           values('source_config').get('input_channel_ref')]),
+    ):
+        if role not in selected:
+            choices = {ref for value in refs if (ref := path(value))}
+            if len(choices) > 1:
+                raise ExplicitContextError('conflicting declared ingestion references')
+            if choices:
+                selected[role] = choices.pop()
+
+    targets = list(selected['target_pages'])
+    if selected.get('target_selection') != 'explicit':
+        for role in ('source_page', 'source_config', 'input_channel'):
+            targets.extend(ref for value in _declared_targets(values(role).get('target_pages')) if (ref := path(value)))
+    roles = {selected[name] for name in ('source_page', 'source_config', 'input_channel', 'root_entity') if name in selected}
+    selected['target_pages'] = list(dict.fromkeys(ref for ref in targets if ref not in roles and ref not in selected['templates']))
+    return _selection(selected)
+
+
+def connected_ingestion_candidates(packet, targets):
+    """Select subjects linked by connected hubs; reads still require authority."""
+    from wiki_core.graph.page_graph import MARKDOWN_LINK_RE
+    from wiki_core.information_relations import _path_from_link
+    refs = list(targets)
+    for row in packet['inputs']:
+        if row.get('ref') not in targets:
+            continue
+        metadata, body = parse_frontmatter(row['text'])
+        if metadata.get('page_type') in ('context_hub', 'moc', 'root_entity'):
+            refs.extend(target for match in MARKDOWN_LINK_RE.finditer(body)
+                if (target := _path_from_link(None, row['ref'], match.group(1))) and target.endswith('.md'))
+    return list(dict.fromkeys(refs))
 
 
 def resolve_explicit_ingestion_context(packet, selection, config):
@@ -150,14 +254,21 @@ def resolve_explicit_ingestion_context(packet, selection, config):
             body(ref, role)
 
     def verify_link(expected_ref, page_):
-        if expected_ref and (page_ is None or expected_ref not in (page_['path'], page_['page_id'])):
+        if expected_ref and not declared_reference_matches(expected_ref, page_):
             raise ExplicitContextError('declared context reference requires explicit matching selection')
 
+    def declared_ref(value):
+        if value is None or value == '':
+            return ''
+        if not isinstance(value, str):
+            raise ExplicitContextError('invalid declared context reference')
+        return value
+
     values = (source or {}).get('values', {})
-    config_ref = str(values.get('config_ref') or '')
+    config_ref = declared_ref(values.get('config_ref'))
     verify_link(config_ref, config_page)
-    channel_refs = [str(values.get('input_channel_ref') or ''),
-                    str((config_page or {}).get('values', {}).get('input_channel_ref') or '')]
+    channel_refs = [declared_ref(values.get('input_channel_ref')),
+                    declared_ref((config_page or {}).get('values', {}).get('input_channel_ref'))]
     for ref in channel_refs:
         verify_link(ref, channel_page)
 
@@ -167,9 +278,12 @@ def resolve_explicit_ingestion_context(packet, selection, config):
         source_config = {'path': config_page['path'], 'page_id': config_page['page_id'],
             **{key: list_values(values.get(key)) for key in ('perspectives_required',
                 'perspectives_optional', 'perspectives_skip_with_reason', 'process_refs',
-                'target_pages', 'quadrants')},
+                'quadrants')},
+            'target_pages': _declared_targets(values.get('target_pages')),
             'input_channel_ref': str(values.get('input_channel_ref') or '')}
     channel = _channel_payload(channel_page) if channel_page else None
+    if channel is not None:
+        channel['target_pages'] = _declared_targets(channel_page['values'].get('target_pages'))
     root = None
     if root_page:
         # A locally selected root does not inherit the global business bundle
@@ -180,7 +294,11 @@ def resolve_explicit_ingestion_context(packet, selection, config):
                 'entity_type': str(root_page['values'].get('root_entity_type') or root_page['page_type']),
                 'perspective_bundle': {'required': [], 'optional': []}, 'input_stage_page': ''})
         root = _root_payload(root_page, root_config)
-    perspectives = _resolved_perspectives(root, channel, source_config)
+    # The canonical lenses are required even when the business root was
+    # explicitly omitted. Their IDs grant no access to perspective pages.
+    resolution_root = root or {'perspective_bundle': {'required': [
+        item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids]}}
+    perspectives = _resolved_perspectives(resolution_root, channel, source_config)
     gaps = []
     if selected['omit_root_entity']:
         gaps.append('Business root intentionally omitted; if required, block substantive interpretation until selected.')
@@ -194,9 +312,17 @@ def resolve_explicit_ingestion_context(packet, selection, config):
         gaps.append('Perspective ' + perspective + ' skipped; its justification requires review.')
     for ref in (source_config or {}).get('process_refs', []):
         gaps.append('Source process reference ' + ref + ' not inspected.')
-    for ref in (source_config or {}).get('target_pages', []):
-        if ref not in selected['target_pages']:
-            gaps.append('Source target ' + ref + ' not selected.')
+    target_ids = {parse_frontmatter(body(ref, 'target_page'))[0].get('page_id')
+                  for ref in selected['target_pages']}
+    for origin, fields in (('Source', (source or {}).get('values', {})),
+                           ('Source configuration', (config_page or {}).get('values', {})),
+                           ('Input channel', (channel_page or {}).get('values', {}))):
+        for ref in _declared_targets(fields.get('target_pages')):
+            # A path-like declaration denotes that path, even if a different
+            # selected page happens to use the same string as its page_id.
+            covered = ref in selected['target_pages'] if _is_path_reference(ref) else ref in target_ids
+            if not covered:
+                gaps.append(origin + ' target ' + str(ref) + ' not selected.')
     if selected['target_pages']:
         gaps.append('Selected target pages are candidates; selection does not grant write access.')
     gaps.append('Other linked sources and unselected targets not inspected.')

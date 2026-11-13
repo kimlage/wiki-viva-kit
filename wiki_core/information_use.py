@@ -32,7 +32,7 @@ def factual_unit_role(values: dict) -> str:
     return 'observation'
 
 
-def _evidence_issues(graph: dict, claim: str) -> set[str]:
+def _evidence_issues(graph: dict, claim: str, *, current: bool = False) -> set[str]:
     """A closed claim cycle is not an independent observation.
 
     Only inspect the caller's already authorized graph. Missing provenance is
@@ -47,6 +47,8 @@ def _evidence_issues(graph: dict, claim: str) -> set[str]:
         if path not in graph['documents']:
             issues.add('information_evidence_missing');continue
         values=graph['nodes'].get(path,{})
+        if current and path != claim and values.get('status') in {'superseded', 'archived'}:
+            issues.add('information_superseded_evidence')
         role = factual_unit_role(values)
         if role == 'observation':
             has_observation=True;continue
@@ -90,6 +92,9 @@ def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> d
         elif not requirement:
             reasons.append('information_use_scope_unspecified')
         else:
+            if (requirement['temporal'] == 'current' and values.get('status') in {'superseded', 'archived'}
+                    and not set(requirement['fields']) <= {'status', 'field:status'}):
+                reasons.append('information_superseded')
             if requirement['temporal'] == 'current' and graph.get('verification_coverage', {}).get(coverage_key(path, requirement['fields']),
                     graph.get('verification_coverage', {}).get(path)) is not True:
                 reasons.append('information_changed_since_verification')
@@ -112,7 +117,7 @@ def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> d
                 reasons.append('information_evidence_missing')
                 evidence = []
             else:
-                reasons.extend(_evidence_issues(graph,path))
+                reasons.extend(_evidence_issues(graph,path,current=requirement['temporal'] == 'current'))
             try:
                 verified = parse_temporal_value(str(values.get('verified_at') or ''))
                 # Keep precision: month/year cannot establish day-scale freshness.

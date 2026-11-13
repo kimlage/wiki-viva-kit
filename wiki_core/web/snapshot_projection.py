@@ -347,8 +347,13 @@ def _source_identity(root: Path, fallback_hash: str) -> tuple[str, str | None]:
     git_scope = _git_source_scope(root)
     if git_scope is not None:
         repo_root, scope = git_scope
-        head_raw = _git_bytes(
-            repo_root, "log", "-1", "--format=%H", "--", scope
+        # Path-limited log simplifies away merge commits. At the repository
+        # root the snapshot represents the whole checkout, so bind it to the
+        # actual HEAD; nested sources retain their path-scoped identity.
+        head_raw = (
+            _git_bytes(repo_root, "rev-parse", "--verify", "HEAD")
+            if scope == "."
+            else _git_bytes(repo_root, "log", "-1", "--format=%H", "--", scope)
         )
         head = (
             head_raw.decode("ascii", errors="replace").strip()
@@ -833,9 +838,9 @@ def _quality_reasons_by_path(
     if not isinstance(flags, dict):
         return {path: [] for path in output}
 
-    # An exemption is explanatory metadata, not a quality defect. A missing
-    # exemption reason remains a real flag and is intentionally not excluded.
-    non_issue_flags = {"quality_exempt_pages"}
+    # Exemptions and generic repetition diagnostics are not confirmed defects.
+    # A missing exemption reason remains a real flag and is not excluded.
+    non_issue_flags = {"quality_exempt_pages", "repeated_blocks", "repetition_unknown_metadata"}
 
     def add(flag_id: str, candidate: Any) -> None:
         path = str(candidate or "")
@@ -898,6 +903,7 @@ def _graph_overlay_metrics(
         str(page.get("id") or "") for page in pages if str(page.get("id") or "")
     }
     quality_by_path = _quality_reasons_by_path(quality_payload, pages)
+    quality_unavailable = not isinstance(quality_payload.get("quality_flags"), dict)
     source_freshness = {
         str(source.get("source_id") or ""): str(
             source.get("freshness_state") or "unknown"
@@ -1151,6 +1157,8 @@ def _graph_overlay_metrics(
             if len(quality_reasons) > 1
             else "warning"
             if quality_reasons
+            else "unknown"
+            if quality_unavailable
             else "clear"
         )
 
@@ -1210,10 +1218,12 @@ def _graph_overlay_metrics(
             },
             "quality": {
                 "state": quality_state,
-                "value": len(quality_reasons),
+                "value": None if quality_state == "unknown" else len(quality_reasons),
                 "count": len(quality_reasons),
                 "reasons": (
-                    quality_reasons if quality_reasons else ["deterministic_flags:none"]
+                    [*quality_reasons, "metric_unavailable"]
+                    if quality_unavailable
+                    else quality_reasons if quality_reasons else ["deterministic_flags:none"]
                 ),
                 "refs": [],
             },

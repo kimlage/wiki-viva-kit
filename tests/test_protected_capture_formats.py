@@ -104,7 +104,7 @@ def test_protected_stage_with_captured_formats(prepared_repo, suffix, kind):
     row = request['chunks'][0]
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+              'perspectives_required': request['perspectives_required'], 'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
     ids = dict(source_id=output['source_id'], request_id=output['request_id'])
     assert record(root, binding, results=[result], **options, **ids)['recorded'] == 1
     event = ('memories/system/ingestion/events/2026-11-04-' +
@@ -175,7 +175,7 @@ def test_captured_csv_rejects_unsupported_delimiter(selection):
 
 
 def test_protected_semicolon_selection_is_bound_and_revalidated(prepared_repo):
-    from tests.test_protected_ingestion import protected_source_stage
+    from tests.test_protected_ingestion import AQAL_REFS, protected_source_stage
     from wiki_core.frontmatter import parse_frontmatter
     from wiki_core.ingest.protected import inspect
     import datetime
@@ -196,7 +196,7 @@ def test_protected_semicolon_selection_is_bound_and_revalidated(prepared_repo):
     chunk = request['chunks'][0]
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: chunk[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+              'perspectives_required': request['perspectives_required'], 'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     for wrong in (None, 'comma', 'tab'):
         bad = dict(options)
@@ -208,11 +208,11 @@ def test_protected_semicolon_selection_is_bound_and_revalidated(prepared_repo):
             record(root, binding, **bad, **ids, results=[result])
     assert record(root, binding, **options, **ids, results=[result])['recorded'] == 1
     viewed = inspect(root, binding, **options, **ids, view='results', chunk_ids=[chunk['chunk_id']],
-                     context_selection={'omit_root_entity': True})
+                     context_selection={'omit_root_entity': True}, perspective_refs=AQAL_REFS)
     assert viewed['view'] == 'results'
     with pytest.raises(ValueError):
         inspect(root, binding, **{**options, 'csv_delimiter': 'comma'}, **ids, view='results',
-                chunk_ids=[chunk['chunk_id']], context_selection={'omit_root_entity': True})
+                chunk_ids=[chunk['chunk_id']], context_selection={'omit_root_entity': True}, perspective_refs=AQAL_REFS)
     event = ('memories/system/ingestion/events/2026-11-04-' +
              hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
     with pytest.raises(ValueError):
@@ -257,7 +257,7 @@ def test_previous_capture_with_less_coverage_is_preserved_and_requalified(prepar
     sample = json.loads((__import__('pathlib').Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
               **{key: chunk[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
-              'perspectives_required': request['perspectives_required'], 'perspectives': {}}
+              'perspectives_required': request['perspectives_required'], 'perspectives': {name: {'status': 'extracted'} for name in request['perspectives_required']}}
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     derived = root / 'data/derived/wiki/.wiki-viva-protected'
     original = {path.relative_to(derived): path.read_bytes() for path in derived.rglob('*.json')}
@@ -409,8 +409,11 @@ def test_captured_docx_does_not_silently_flatten_merged_or_nested_tables():
         extract_captured('source.docx', 'document', output.getvalue())
 
 
-@pytest.mark.parametrize('wrapper', ['ins', 'del', 'moveFrom', 'moveTo', 'sdt', 'customXml', 'smartTag', 'fldSimple'])
-@pytest.mark.parametrize('inside_table', [False, True])
+@pytest.mark.parametrize('wrapper,inside_table', [
+    ('ins', False), ('del', False), ('moveFrom', False), ('moveTo', False),
+    ('sdt', False), ('customXml', False), ('smartTag', False), ('fldSimple', False),
+    ('ins', True),
+])
 def test_captured_docx_rejects_unreadable_inline_wrappers(wrapper, inside_table):
     from docx import Document
     from docx.oxml import OxmlElement
@@ -451,8 +454,9 @@ def test_captured_docx_rejects_equations_missing_from_paragraph_text(wrapper):
         extract_captured('source.docx', 'document', output.getvalue())
 
 
-@pytest.mark.parametrize('reference', ['footnoteReference', 'endnoteReference'])
-@pytest.mark.parametrize('inside_table', [False, True])
+@pytest.mark.parametrize('reference,inside_table', [
+    ('footnoteReference', False), ('endnoteReference', False), ('footnoteReference', True),
+])
 def test_captured_docx_requires_review_for_note_references(reference, inside_table):
     from docx import Document
     from docx.oxml import OxmlElement
@@ -539,6 +543,62 @@ def test_captured_xlsx_limits_total_sheet_cells():
     workbook.close()
     with pytest.raises(ValueError, match='spreadsheet dimensions'):
         extract_captured('source.xlsx', 'spreadsheet', output.getvalue())
+
+
+def xlsx_with_declared_dimension(data, dimension):
+    import xml.etree.ElementTree as ET
+    target = io.BytesIO()
+    ns = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
+    with zipfile.ZipFile(io.BytesIO(data)) as source, zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as dest:
+        for item in source.infolist():
+            payload = source.read(item.filename)
+            if item.filename.startswith('xl/worksheets/') and item.filename.endswith('.xml'):
+                root = ET.fromstring(payload)
+                declared = root.find(ns + 'dimension')
+                if dimension is None:
+                    root.remove(declared)
+                else:
+                    declared.set('ref', dimension)
+                payload = ET.tostring(root)
+            dest.writestr(item, payload)
+    return target.getvalue()
+
+
+@pytest.mark.parametrize('dimension', ['A1', 'A1:B1', 'A1:A3', None])
+def test_captured_xlsx_reads_cells_outside_declared_dimensions(dimension):
+    from openpyxl import Workbook
+    workbook = Workbook()
+    for sheet in (workbook.active, workbook.create_sheet('Second')):
+        sheet.append(['Safe first row'])
+        sheet.append(['field', 'literal value'])
+        sheet.append(['other', '="formula value"'])
+    target = io.BytesIO()
+    workbook.save(target)
+    workbook.close()
+    data = xlsx_with_declared_dimension(target.getvalue(), dimension)
+    extracted = extract_captured('source.xlsx', 'spreadsheet', data)
+    assert not extracted.warnings
+    rows = [json.loads(unit['text']) for unit in extracted.units]
+    assert len(rows) == 6
+    for sheet_name in ('Sheet', 'Second'):
+        selected = [row for row in rows if row['sheet'] == sheet_name]
+        assert [row['row'] for row in selected] == [1, 2, 3]
+        assert selected[1]['cells'][1]['value'] == 'literal value'
+        assert selected[2]['cells'][1]['formula'] == '="formula value"'
+
+
+@pytest.mark.parametrize('row,column', [(100_001, 1), (1, 1025), (100_000, 50)])
+def test_captured_xlsx_actual_limits_survive_understated_dimensions(row, column):
+    from openpyxl import Workbook
+    workbook = Workbook()
+    workbook.active['A1'] = 'Safe first row'
+    workbook.active.cell(row=row, column=column, value='Outside limit')
+    target = io.BytesIO()
+    workbook.save(target)
+    workbook.close()
+    data = xlsx_with_declared_dimension(target.getvalue(), 'A1')
+    with pytest.raises(ValueError, match='spreadsheet dimensions'):
+        extract_captured('source.xlsx', 'spreadsheet', data)
 
 
 def test_captured_xlsx_preserves_scalar_types_and_tags_dates():

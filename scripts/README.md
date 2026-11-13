@@ -13,6 +13,59 @@ Choose the existing entry point by the intended task. The labels below are
 not new commands or services. Read the checkout instructions and configured
 memory index first; retain any stronger consumer context requirement.
 
+**Drive artifacts:** [wiki_drive_publish.py](wiki_drive_publish.py) uploads the
+authorized files to the configured destination and saves their manifest links.
+Account access and configuration do not grant authorization for a file, action
+or destination; retain privacy and secret checks for that scope. `--dry-run`
+reads only local files and the manifest, without authentication, network or
+writes, and cannot verify remote state. Uploads use the existing local Google
+Workspace helper; see [.env.example](../.env.example) for configuration.
+
+The selected batch is checked locally for access secrets before provider access,
+including dry-run. Text is scanned directly; PDF, DOCX, XLSX and EML use the
+existing local extractors too. Decoded XLSX and DOCX table values and key/value
+associations are checked with the existing structured secret detector; scanning
+only their escaped JSON serialization is insufficient. Adjacent cells and rows
+also retain field/value and header/value associations in either orientation;
+repeated fields do not overwrite earlier candidates. A nonempty extracted
+body does not establish coverage of the container. DOCX headers, footers,
+comments and notes, XLSX comments (including threaded comments), and PDF
+annotations are refused because these parts are not covered by the body
+extractors. Office part declarations are checked inside the captured ZIP.
+XLSX formulas are also refused: cached results can be absent or stale, and the
+publisher has no formula evaluator to validate their field/value associations.
+This applies even when a cached result exists; literal-value tables remain
+supported under the same secret checks.
+The captured spreadsheet reader scans actual cells independently of the
+declared worksheet dimensions and retains its row, column and content limits.
+It requires one direct worksheet grid and refuses rows or cells outside that
+validated structure, including duplicate or wrapped grids. It also rejects
+inconsistent, repeated or out-of-order coordinates that a streaming reader
+could omit or overwrite; it does not silently accept a partial grid.
+`pypdf` parses the captured PDF page dictionaries, including compressed objects.
+Missing parsers, encrypted PDFs and parsing failures also refuse validation.
+A detected secret or unavailable/incomplete content validation stops that batch
+without uploading it. Private information is not itself a secret and remains
+governed by the authorized destination.
+Unsupported binary formats require a supported validation path; an empty or
+failed extraction is not evidence that their contents are safe to publish.
+The uploader sends the captured, checked bytes, so changing the original file
+after validation cannot replace the uploaded content. The existing captured
+extractors retain their format and size limits; no parser failure grants a pass.
+This is a bounded content check, not OCR or a general inspection of every
+possible embedded object or format feature.
+
+Updates use the manifest's exact ID after checking its name, folder and trash
+state. An unmapped name collision, missing ID or destination mismatch requires
+reconciliation; the publisher does not overwrite the first name match or create
+a replacement after an update error. Successful uploads are saved individually
+with complete local manifest replacement. Coordinate writers for the same
+objects and manifest, and reconcile an uncertain effect before repeating it.
+These checks do not provide remote CAS, name uniqueness, cross-host coordination
+or durable upload intent. Those limits remain open in
+[issue #234](https://github.com/kimlage/wiki-viva-kit/issues/234). C1 sync restores
+this route without migrating existing objects or reconciling their manifests.
+
 | Task | Existing entry | Scope and next step |
 | --- | --- | --- |
 | Find | [wiki_find.py](wiki_find.py) | Search the existing lexical index, or use `--path` for explicit local selections. Read origin and coverage gaps before treating results as evidence. No index or model is started. |

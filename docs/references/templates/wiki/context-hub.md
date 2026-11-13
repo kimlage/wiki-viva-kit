@@ -24,7 +24,9 @@ updated_at: {{updated_at}}
 stale_after_days: {{stale_after_days}}
 moc_parent: memories/index.md
 # identity: { landmark: beacon, motif: rings, horizon_label: context }  # optional override
-# blocks: []  # optional per-area blocks
+blocks: [wiki.block.quadrants.v1]  # activate projections for this center
+# perspective_bundle_required: []
+# perspective_bundle_optional: []
 ---
 ```
 
@@ -34,9 +36,50 @@ moc_parent: memories/index.md
 
 What this area is and what belongs in it.
 
-## Map
+## Integral map
 
-- The pages, sources and people that live under this area.
+All quadrants are relative to this center; use declared evidence, never invent
+interior experience for an organization or project.
+
+### Q1 — Intent and identity
+
+Test: does this describe the center's declared identity, meaning or intent?
+
+<!-- integral-map:q1:start -->
+_Empty: `quadrant_absence` mission._
+<!-- integral-map:q1:end -->
+
+### Q2 — Outputs and evidence
+
+Test: is this an observable output, behavior or evidence of this center?
+
+<!-- integral-map:q2:start -->
+_Empty: `quadrant_absence` mission._
+<!-- integral-map:q2:end -->
+
+### Q3 — Culture and relationships
+
+Test: does this express shared meaning, lived expectations or relationships?
+
+<!-- integral-map:q3:start -->
+_Empty: `quadrant_absence` mission._
+<!-- integral-map:q3:end -->
+
+### Q4 — Systems and governance
+
+Test: does this coordinate the collective through systems, rules or processes?
+
+<!-- integral-map:q4:start -->
+_Empty: `quadrant_absence` mission._
+<!-- integral-map:q4:end -->
+
+## Perspective bundle
+
+Inherited from the root: `perspective-identity-intent`,
+`perspective-artifacts-evidence`, `perspective-roles-relationships` and
+`perspective-systems-processes` (all required). Additional thematic perspectives
+and local promotions are declared in `perspective_bundle_optional` and
+`perspective_bundle_required` in this anchor's frontmatter.
 
 ## Related
 

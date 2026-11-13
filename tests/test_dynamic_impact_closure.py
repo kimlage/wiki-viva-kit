@@ -76,19 +76,20 @@ def test_changed_dynamic_member_reaches_downstream_ordinary_and_query(collection
     if change=='addition': page(collection,'added.md')
     else: (collection/SCOPE/'first.md').unlink()
     git(collection,'add','.');git(collection,'commit','-qm','change input');head=git(collection,'rev-parse','HEAD')
-    report=repository_report(collection,load_config(collection),base,query_context=CONTEXT,query_policy_revision=base,query_head=head)
+    if change=='addition':
+        out=tmp_path/'cli-report.json'
+        script="import sys; from pathlib import Path; import scripts.wiki_audit as a; a.ROOT=Path(sys.argv.pop(1)); sys.argv[0]='wiki_audit.py'; raise SystemExit(a.main())"
+        proc=subprocess.run([sys.executable,'-c',script,str(collection),'--check','--only','freshness_budget','--freshness-base',base,'--query-context',CONTEXT,'--query-policy-revision',base,'--query-head',head,'--freshness-report',str(out)],cwd=KIT,text=True,capture_output=True)
+        assert proc.returncode==0,proc.stdout+proc.stderr
+        report=json.loads(out.read_text())
+    else:
+        report=repository_report(collection,load_config(collection),base,query_context=CONTEXT,query_policy_revision=base,query_head=head)
     reasons={r['path']:r['reason'] for r in report['pending_reviews']}
     assert TASK['output'] in reasons
     assert reasons['finance/costs/downstream.md']=='upstream_interpretation_pending'
     assert reasons['finance/costs/query-downstream.md']=='dynamic_query_upstream_pending'
     assert reasons['finance/costs/after-query.md']=='upstream_interpretation_pending'
     assert all(r.get('verification_performed') is False for r in report['pending_reviews'] if r['path'] in (TASK['output'],'finance/costs/downstream.md','finance/costs/query-downstream.md'))
-    if change=='removal': return
-    out=tmp_path/'cli-report.json'
-    script="import sys; from pathlib import Path; import scripts.wiki_audit as a; a.ROOT=Path(sys.argv.pop(1)); sys.argv[0]='wiki_audit.py'; raise SystemExit(a.main())"
-    proc=subprocess.run([sys.executable,'-c',script,str(collection),'--check','--only','freshness_budget','--freshness-base',base,'--query-context',CONTEXT,'--query-policy-revision',base,'--query-head',head,'--freshness-report',str(out)],cwd=KIT,text=True,capture_output=True)
-    assert proc.returncode==0,proc.stdout+proc.stderr
-    cli=json.loads(out.read_text()); assert 'finance/costs/downstream.md' in {r['path'] for r in cli['pending_reviews']}
 
 
 def test_typed_cycle_field_scope_and_limit_are_bounded(collection):

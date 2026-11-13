@@ -263,7 +263,8 @@ def projection_input_edges(consumer: str, values: dict, nodes: dict, *, default_
     edges=[]
     for declaration in declarations:
         known={'page_types','paths','fields','contexts','path_prefix','title_fallback','path_depth','file_names',
-            'exclude_names','exclude_paths','status_excludes','status_exclude_prefixes','action_state_excludes','missing_fields'}
+            'exclude_names','exclude_paths','status_excludes','status_exclude_prefixes','action_state_excludes','missing_fields',
+            'path_directory'}
         if (not isinstance(declaration,dict) or 'fields' not in declaration or
             ('page_types' in declaration)==('paths' in declaration) or set(declaration)-known):
             raise ValueError('invalid projection input selector')
@@ -301,6 +302,11 @@ def projection_input_edges(consumer: str, values: dict, nodes: dict, *, default_
             or any(ord(c)<32 for c in prefix) or posixpath.normpath(prefix)!=prefix.rstrip('/'))):
             raise ValueError('invalid projection path prefix')
         if depth is not None and not prefix:raise ValueError('projection path depth requires a prefix')
+        directory=declaration.get('path_directory')
+        if 'path_directory' in declaration and (not prefix or not isinstance(directory,str) or not directory
+            or directory in {'.','..'} or '/' in directory or '\\' in directory
+            or any(ord(c)<32 or ord(c)==127 for c in directory)):
+            raise ValueError('invalid projection path directory')
         for name in declaration.get('file_names',[])+declaration.get('exclude_names',[]):
             if not name or '/' in name or '\\' in name or name in {'.','..'}:raise ValueError('invalid projection file name')
         if any(not p for p in declaration.get('status_exclude_prefixes',[])):
@@ -309,6 +315,7 @@ def projection_input_edges(consumer: str, values: dict, nodes: dict, *, default_
             if (path==consumer or (declaration['page_types'] and node.get('page_type') not in declaration['page_types'])
                 or (declaration.get('contexts') and (node.get('context') or default_context) not in declaration['contexts'])
                 or (prefix and not path.startswith(prefix.rstrip('/')+'/'))
+                or (directory is not None and directory not in path[len(prefix.rstrip('/'))+1:].split('/')[:-1])
                 or (depth is not None and len(path[len(prefix.rstrip('/'))+1:].split('/'))!=depth)
                 or (declaration.get('file_names') and posixpath.basename(path) not in declaration['file_names'])
                 or path in declaration.get('exclude_paths',[]) or posixpath.basename(path) in declaration.get('exclude_names',[])

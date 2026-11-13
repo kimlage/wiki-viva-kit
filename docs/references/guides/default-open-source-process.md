@@ -645,6 +645,14 @@ Generate a mechanical summary with:
 python3 scripts/wiki_pr_summary.py
 ```
 
+The summary uses the local `origin/main` tracking ref when present, or falls
+back to local `main` with a warning. It does not fetch. Supply `--base REF` to
+select the intended PR base explicitly, and verify the reported base SHA and
+merge base against the hosting provider before relying on the checklist. Staged,
+unstaged and untracked files are included, but their combined read is not an
+atomic snapshot; keep the worktree stable while generating it. The summary is
+not an approval.
+
 The independent reviewer approves or requests changes under repository policy.
 Record the reviewed head SHA and renew review after a head change. Only the merge to `main`
 promotes the proposal to approved wiki memory.

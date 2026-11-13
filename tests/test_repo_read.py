@@ -80,6 +80,7 @@ def test_remote_credentials_or_unsafe_parts_never_printed(repo, remote):
     'https://example.test/resource?access_token=fake-secret',
     'https://user:password@example.test/private',
     'https%3A%2F%2Fuser%3Apassword%40example.test%2Fprivate',
+    'https%3A%2F%2Fuser%253Ftag%3Asynthetic%40example.test%2Fprivate',
     'https://storage.example.test/object?X-Goog-Credential=fake&amp;X-Goog-Signature=fake',
     'https://storage.example.test/object?x%252DgOoG%252DsIgNaTuRe%253Dfake',
     'https://storage.example.test/object?X-Amz-Signature=fake',
@@ -115,6 +116,17 @@ def test_ordinary_link_with_noncredential_query_is_readable(repo):
     result = cli(repo, path='ordinary.md')
     assert result.returncode == 0
     assert json.loads(result.stdout)['text'].endswith('?page=2')
+
+
+@pytest.mark.parametrize('query', ['from:reader@example.test', 'from%3Areader%40example.test'])
+def test_email_in_ordinary_search_query_is_readable(repo, query):
+    text = 'https://example.test/mail/?q=' + query
+    (repo / 'ordinary.md').write_text(text, encoding='utf-8')
+    git(repo, 'add', 'ordinary.md')
+    git(repo, 'commit', '-qm', 'ordinary search link')
+    result = cli(repo, path='ordinary.md')
+    assert result.returncode == 0
+    assert json.loads(result.stdout)['text'] == text
 
 
 def test_remote_ssh_identity_and_ambiguous_remote(repo):

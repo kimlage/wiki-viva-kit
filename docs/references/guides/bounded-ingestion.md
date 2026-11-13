@@ -66,12 +66,92 @@ Source pages and candidates also require the relevant read connections. Each
 stage revalidates the source, selected context and revision. A failed write may
 leave partial effects and explicitly reports that inspection is needed before
 retry.
+Before retaining protected JSON, the stage checks the actual artifact paths
+against Git's ignore rules and refuses tracked or unignored paths. It repeats
+that check at each write. A later ignore change or a forced Git add can still
+expose files; the application boundary does not replace filesystem controls.
+
+An installation can opt into source-scoped artifact locations with
+`llm.protected_cache_mode: by_source_v1` in its approved configuration. For
+the exact executor, integrator and local source selector, an operator can obtain
+the relative component before approving the corresponding policy scopes:
+
+```sh
+python3 -c "from wiki_core.ingest.cache_partition import partition_component; print(partition_component('.', '.', 'data/raw/example.pdf'))"
+```
+
+The component is below the configured derived root and
+`.wiki-viva-protected`. Grant the artifact owner only the required read and
+write scopes there, and independently authorize the source and any selected
+context. The hash is a stable routing name, not a secret, a grant or an OS ACL;
+each operation still checks current policy and the physical boundaries. The
+default `shared` mode retains the previous layout. Changing modes does not
+migrate or erase existing artifacts. Requests remain pinned to their approved
+policy revision: restoring the old layout in a later revision does not make an
+old request current. Reprepare and review against the current policy, or use a
+separately reviewed migration if the installation provides one.
+
+For a source in an external provider, an authorized operator or existing
+provider adapter first captures the original bytes in an explicitly authorized,
+Git-ignored local source path. Retain the provider identity, file identifier,
+version or modification time, observation time, byte size and provider checksum
+when available in the private source record, and compare the provider checksum
+with the downloaded bytes. Record a SHA-256 of those bytes as well. Recheck the
+provider metadata after download if the provider can change the file in place.
+If the provider does not supply a comparable checksum or stable revision,
+record that limit instead of claiming verified provenance. The protected stage
+checks the local bytes and their digest on every stage; it does not itself
+authenticate the provider or verify an operator's external-source assertion.
+Never store credentials or authenticated links in the record. The external
+original remains canonical; a local capture or source-page association is not
+proof of a complete reading or incorporation.
+
+### Provider messages with prohibited links
+
+If a provider message contains an individualized tracking or access-bearing
+link which policy forbids retaining, keep the protected ingestion **pending**.
+The current stage has no qualified representation contract for a sanitized
+projection of a message. It cannot bind the omitted or transformed material to
+the request, reconstruction, event and reviewer readback. Do not submit a
+projection as though it were an intact original, or omit its representation
+from the request to make the current stage accept it. A `.txt` file created
+from a message is treated as the selected local source; its digest verifies only
+that file, not the provider message or the transformation.
+
+Do not persist the prohibited link in source bytes, extracted text, request,
+logs, temporary files, metadata or an event. Scanning for common secrets does
+not establish that every individualized URL has been removed. Until a reviewed
+projection and provenance contract is implemented, report the omission and the
+unavailable source-bound verification without creating a protected event or
+claiming completed ingestion. An intact provider original may remain available
+at its own provider, subject to the provider's access and retention policy.
 
 Each stage must receive the same `context_selection`, with either an explicit
 `root_entity` path or `omit_root_entity: true`. It may also select exact
 `source_page`, `source_config`, `input_channel`, `templates` and `target_pages`
 paths. The packet authorizes each selected body for both actors before source
 capture, checks declared config and channel links, and retains omission coverage.
+Declared path links from the source to its configuration/channel and their
+`target_pages` are resolved through that same authorized packet builder; they
+do not have to be copied into the stage payload. Unresolved page IDs still need
+an exact selected path; they never trigger an unrestricted catalog scan.
+To restrict the selected targets, pass `"target_selection":"explicit"` with
+an explicit `target_pages` list on every stage. Declared but unselected targets
+remain visible as omissions and are not selected merely by that declaration.
+Independent, authorized hub discovery may still identify them as candidates;
+the mode grants no access. Without it, declared targets continue to be selected
+and checked. Here, declared targets are those in the selected source page,
+configuration and channel. `target_pages` in the captured source's own
+frontmatter is not automatically included in this coverage; assess it
+separately when relevant.
+References containing `/` or ending in `.md` (case-insensitively) are treated
+as literal paths, not page IDs, even if another page uses that string as its ID.
+Other references are treated as page IDs, including names without an extension.
+Noncanonical paths, including backslashes, repeated separators or whitespace at
+their ends, are rejected. Target declarations with whitespace at their ends are
+also rejected rather than silently trimmed, and declarations must be text.
+The frontmatter parser does not detect duplicate YAML keys; review malformed
+source metadata separately before relying on its coverage.
 The source-page association is operator-selected and is not proved by the link.
 A nested executor does not automatically receive a global business root or
 its bundle. Required perspectives from the selected context require an exact
@@ -80,11 +160,40 @@ the matching ID and type and pass current policy; the paths grant no access.
 Skipped perspectives, unselected optional perspectives, linked sources and
 other gaps remain visible in packet coverage. Source frontmatter declaring a
 configuration or channel must match the selected context.
-Explicit candidates for protected consolidation are read from the approved
+Protected consolidation includes declared targets, subjects linked by connected
+hubs and declared consumers found inside selected hub directories, alongside
+explicit candidates. The bounded discovery checks current authority for both
+actors before each body read; missing access or a scan limit is reported as
+incomplete coverage. Consumers outside those directories are not assessed. All selected candidates are read from the approved
 commit, with each path, commit, Git blob and SHA-256 recorded in the integration
 packet. Unapproved working-tree edits do not influence candidate matching.
 Selected candidate boundaries and current authority are rechecked before
 effects and after readback; a late failure can leave partial artifacts.
+Retained packets created under an earlier candidate selection can fail current
+requalification; their bytes remain in place and are not silently accepted.
+Hub navigation discovers candidates, not factual dependencies. A sibling
+subject without a matching source reference or semantic relevance is not made
+an update obligation merely because it appears in the same hub.
+Current `information_requirements` targeting the selected source are review
+suggestions. A proposed event is not an approved change: after incorporation,
+use the existing context impact and review operations with approved before/after
+revisions to evaluate downstream requirements, owner by owner. Discovery alone
+does not establish a completed review or authorize propagation.
+For `wiki_context_flow.py impact`, omitting `--consumer` discovers current
+requirements in the working directory for the selected `--context`. Run it
+inside an authorized folder below the wiki root; `--before` must be an approved
+ancestor and `--after` the current approved revision. The result remains a
+one-hop review proposal with incomplete coverage outside that folder and owner.
+To record one returned `event_id` on an existing action, pass `--event-id`,
+`--action-id`, `--action-path`, `--profile` and the action's current
+`--expected-sha256` to the same impact command. The current binding, owner,
+write policy and approved coordinator route are checked again; missing access
+or a stale action is refused. New events require either approved action bytes
+or an exact, receipt-validated chain of review comments for current candidates;
+other working-tree changes are preserved and block the write. An identical retained event is reconciled without
+duplication. This comment requests review; it does not dispatch an executor,
+alter existing blockers or prove incorporation. Continue through the normal
+review, integration and readback gates.
 Among those candidates, a declared `source_refs` ID in the `source-v2` format
 with the same origin and a different content-hash prefix is suggested in
 `should_review`. If the source page was selected in the request, a candidate's

@@ -91,7 +91,10 @@ def remote_identity(remote: str) -> tuple[str, str]:
     return identity, transport
 
 
-_CREDENTIAL_URL = re.compile(r'(?i)\b(?:https?|ssh)://[^\s<>"\']*[^/\s<>"\']@')
+# Userinfo ends at the authority boundary; an email in a path or search query
+# is not URL userinfo. Scan each decoding layer so escaped delimiters inside
+# actual userinfo do not hide it when the whole URL is itself encoded.
+_CREDENTIAL_URL = re.compile(r'(?i)\b(?:https?|ssh)://[^/\s<>"\'?#]+@')
 _CREDENTIAL_QUERY = re.compile(
     r'(?i)[?&](?:[a-z0-9_-]*(?:signature|credential|token|secret|password|passwd|authorization|api[_-]?key)'
     r'|x-goog-[a-z0-9_-]+|x-amz-[a-z0-9_-]+|sig|code|auth|key)='
@@ -99,13 +102,14 @@ _CREDENTIAL_QUERY = re.compile(
 _MAX_BLOB_BYTES = 2_000_000
 
 
-def _decoded_for_secret_check(text: str) -> str:
+def _secret_check_decodings(text: str):
     # Providers commonly encode signed query keys more than once or use HTML
     # entities in Markdown. If decoding never stabilizes, fail closed.
     for _ in range(8):
+        yield text
         decoded = html.unescape(unquote(text))
         if decoded == text:
-            return decoded
+            return
         text = decoded
     raise RepoReadError('selected_content_contains_access_secrets')
 
@@ -119,9 +123,9 @@ def contains_access_secrets(value: object) -> bool:
     while pending:
         item = pending.pop()
         if isinstance(item, str):
-            decoded = _decoded_for_secret_check(item)
-            if contains_secret_structure(decoded) or _CREDENTIAL_URL.search(decoded) or _CREDENTIAL_QUERY.search(decoded):
-                return True
+            for decoded in _secret_check_decodings(item):
+                if contains_secret_structure(decoded) or _CREDENTIAL_URL.search(decoded) or _CREDENTIAL_QUERY.search(decoded):
+                    return True
         elif isinstance(item, dict):
             if id(item) in seen:
                 continue

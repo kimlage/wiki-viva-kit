@@ -35,11 +35,13 @@ from wiki_core.paths import WikiPaths
 from wiki_core.web.briefs import BriefStore, hash_targets, require_safe_id
 from wiki_core.web.agent_adapters import AGENT_IDS, build_claude_argv
 from wiki_core.web.commands import SECRET_VALUE_RE
+from wiki_core.web.codex_probe import resolve_codex_binary
 from wiki_core.web.git_workflows import run_git_workflow
 
 CODEX_JOB_SCHEMA_VERSION = "wiki_web_codex_job.v1"
 
 _DEFAULT_JOB_TIMEOUT = 600  # seconds; a per-job wall clock on the Codex subprocess
+_REASONING_EFFORTS = frozenset({"none", "minimal", "low", "medium", "high", "xhigh"})
 
 _STEP_TEMPLATE = [
     ("ground", "Ground the brief"),
@@ -58,12 +60,14 @@ def _redact(text: str) -> str:
     return SECRET_VALUE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}[REDACTED]", text)
 
 
-def build_codex_argv(binary: str, root: Path, final_path: Path) -> list[str]:
+def build_codex_argv(binary: str, root: Path, final_path: Path, *, reasoning_effort: str | None = None) -> list[str]:
     """The headless, sandboxed, streamed Codex invocation. Never ``--yolo`` /
     ``--dangerously-bypass-*``; network stays off under ``workspace-write``.
     NOTE: ``codex exec`` is non-interactive — it has NO approvals flag (``-a``
     was rejected with exit 2 by codex-cli 0.142.x); the sandbox policy is the
     entire containment contract here."""
+    if reasoning_effort is not None and (not isinstance(reasoning_effort, str) or reasoning_effort not in _REASONING_EFFORTS):
+        raise ValueError("invalid codex.job_reasoning_effort")
     return [
         binary,
         "exec",
@@ -73,7 +77,8 @@ def build_codex_argv(binary: str, root: Path, final_path: Path) -> list[str]:
         "--sandbox",
         "workspace-write",
         "--json",
-        "-o",
+        *(["-c", f"model_reasoning_effort={reasoning_effort}"] if reasoning_effort is not None else []),
+        "--output-last-message",
         str(final_path),
     ]
 
@@ -98,8 +103,11 @@ class JobRunner:
             raise ValueError("installed_job_runner_unavailable")
         self.root = root
         self.config = config
-        codex_cfg = getattr(config, "codex", {}) or {}
-        binary = str(codex_cfg.get("binary") or "codex")
+        reasoning_effort = (getattr(config, "codex", {}) or {}).get("job_reasoning_effort")
+        if reasoning_effort is not None and (not isinstance(reasoning_effort, str) or reasoning_effort not in _REASONING_EFFORTS):
+            raise ValueError("invalid codex.job_reasoning_effort")
+        self.reasoning_effort = reasoning_effort
+        binary = resolve_codex_binary(config)
         # codex_cmd lets tests point at a shim; production uses [binary].
         self.codex_cmd = list(codex_cmd) if codex_cmd else [binary]
         claude_cfg = getattr(config, "claude", {}) or {}
@@ -288,6 +296,8 @@ class JobRunner:
         brief = self.briefs.get(brief_id)
         if brief is None:
             return {"ok": False, "error": "unknown brief", "brief_id": brief_id}
+        if (brief.get("spec") or {}).get("role", "executor") != "executor":
+            return {"ok": False, "error": "coordinator_requires_host_dispatch"}
         if brief.get("brief_sha") != brief_sha:
             return {
                 "ok": False,
@@ -328,6 +338,7 @@ class JobRunner:
             "reason": "",
             "dry_run": bool(dry_run),
             "mission_kind": brief.get("spec", {}).get("mission_kind"),
+            "role": "executor",
             "intent": brief.get("spec", {}).get("intent", ""),
             "theme": brief.get("spec", {}).get("theme", "update"),
             "agent": agent,
@@ -380,6 +391,9 @@ class JobRunner:
         brief = self.briefs.get(record["brief_id"])
         if brief is None:
             return self._set_status(record, "failed", reason="brief disappeared")
+        if (record.get("role", "executor") != "executor"
+                or (brief.get("spec") or {}).get("role", "executor") != "executor"):
+            return self._set_status(record, "failed", reason="coordinator_requires_host_dispatch")
         # Integrity re-check (TOCTOU): the sha was verified at submit, but the
         # brief file could have changed on disk since. Execute ONLY text that
         # still matches the job's recorded sha.
@@ -472,7 +486,7 @@ class JobRunner:
         if agent == "claude":
             argv = [*self.claude_cmd, *build_claude_argv(self.claude_cmd[0], self.root)[1:]]
         else:
-            argv = [*self.codex_cmd, *build_codex_argv(self.codex_cmd[0], self.root, final_path)[1:]]
+            argv = [*self.codex_cmd, *build_codex_argv(self.codex_cmd[0], self.root, final_path, reasoning_effort=self.reasoning_effort)[1:]]
         rc, cancelled = self._run_codex(job_id, argv, stdin_text, job_dir / "log.jsonl")
         if cancelled:
             unwind()
@@ -579,19 +593,23 @@ class JobRunner:
 
     # -- codex subprocess --------------------------------------------------- #
     def _run_codex(self, job_id: str, argv: list[str], brief_text: str, log_path: Path) -> tuple[int, bool]:
-        try:
-            proc = subprocess.Popen(  # noqa: S603 - fixed argv, no shell
-                argv,
-                cwd=self.root,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-        except (OSError, ValueError) as exc:
-            log_path.write_text(json.dumps({"type": "error", "message": _redact(str(exc))}) + "\n", encoding="utf-8")
-            return 127, False
+        # Cancellation and process registration must be atomic: a claimed job
+        # can be cancelled while its proposal branch is being prepared.
         with self._lock:
+            if job_id in self._cancelled:
+                return 0, True
+            try:
+                proc = subprocess.Popen(  # noqa: S603 - fixed argv, no shell
+                    argv,
+                    cwd=self.root,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+            except (OSError, ValueError) as exc:
+                log_path.write_text(json.dumps({"type": "error", "message": _redact(str(exc))}) + "\n", encoding="utf-8")
+                return 127, False
             self._procs[job_id] = proc
 
         # Feed the whole brief on a SEPARATE thread: a large brief can exceed the

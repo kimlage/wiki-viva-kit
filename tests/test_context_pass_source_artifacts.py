@@ -118,6 +118,23 @@ def test_explicit_source_without_extraction_fails(source_check, capsys, required
     assert not list(paths.extraction_events.glob("*-llm-context-request.json"))
 
 
+def test_existing_request_cannot_mask_deleted_chunks(source_check, capsys):
+    source, config, paths, check = source_check
+    result = run(str(source), "system", paths.root, config)
+    assert result.request_path is not None
+    assert (paths.root / result.request_path).is_file()
+    assert check("--check") == 1
+    pending = json.loads(capsys.readouterr().out)
+    assert pending["chunks"] == 1 and pending["ok"] is False
+
+    _artifact(paths, source).unlink()
+    assert check("--check") == 2
+    missing = json.loads(capsys.readouterr().out)
+    assert missing["ok"] is False
+    assert "source_artifact_missing" in missing["error"]
+    assert (paths.root / result.request_path).is_file()
+
+
 @pytest.mark.parametrize("fault, expected", [
     ("json", "source_artifact_invalid_json"),
     ("utf8", "source_artifact_unreadable"),

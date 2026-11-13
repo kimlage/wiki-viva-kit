@@ -36,6 +36,7 @@ from wiki_core.action_adoption import (
     ACTION_ADOPTION_RECEIPT_PATH,
     verify_action_adoption_git_contract,
 )
+from wiki_core.action_state import resolve_action_state
 from wiki_core.action_transition import action_transition_diagnostics
 from wiki_core.detectors import scan_file
 from wiki_core.experience_packs import PackError
@@ -44,6 +45,7 @@ from wiki_core.frontmatter import parse_frontmatter as canonical_parse_frontmatt
 from wiki_core.frontmatter import parse_frontmatter_flat_with_errors
 from wiki_core.gate import STATES as GATE_STATES
 from wiki_core.graph import build_page_graph, compute_impact, min_outbound_violations, orphan_pages, unreachable_pages
+from wiki_core.graph.page_graph import is_context_instruction
 from wiki_core.page_types import (
     PAGE_TYPES_SCHEMA_VERSION,
     load_page_type_registry,
@@ -241,10 +243,14 @@ def build_local_path_regexes(config: WikiConfig) -> None:
     )
 
 
-# Bind the regexes to this repo's layout at import; main() rebinds explicitly.
-build_local_path_regexes(load_config(ROOT))
+# Keep import free of worktree configuration reads. The unguarded main path
+# binds the actual layout after its boundary check; direct callers using a
+# non-default layout must call build_local_path_regexes with their config.
+build_local_path_regexes(WikiConfig())
 
-MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+MARKDOWN_LINK_RE = re.compile(
+    r"\[[^\]]+\]\((<[^<>\n]*>|[^)\n]+?)(?:\s+(?:\"[^\"\n]*\"|'[^'\n]*'|\([^()\n]*\)))?\)"
+)
 MARKDOWN_LINK_LABEL_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 # Fixed: stops at the first space/boundary (the old version swallowed the
@@ -380,6 +386,115 @@ def _text_at_audit_base(rel: str) -> str | None:
         return None
 
 
+def _history_git_tree(*args: str) -> bytes:
+    """Run bounded local Git for historical inventory and blob reads."""
+    from wiki_core.git_env import local_git_tree
+    try:
+        return local_git_tree(ROOT, '-c', 'core.fsmonitor=false',
+                              '-c', 'core.untrackedCache=false',
+                              '-c', 'core.hooksPath=/dev/null',
+                              '-c', 'core.useReplaceRefs=false', *args)
+    except (OSError, ValueError) as exc:
+        raise AuditPathBoundaryError('historical audit selection unavailable') from exc
+
+
+def _history_base_sha(base: str) -> str:
+    try:
+        sha = _history_git_tree('rev-parse', '--verify', f'{base}^{{commit}}').decode('ascii').strip()
+    except UnicodeError as exc:
+        raise AuditPathBoundaryError('historical audit revision unavailable') from exc
+    if not re.fullmatch(r'(?:[a-f0-9]{40}|[a-f0-9]{64})', sha):
+        raise AuditPathBoundaryError('historical audit revision unavailable')
+    return sha
+
+
+def _historical_markdown_paths(base_sha: str, canonical_prefix: str) -> list[str]:
+    """Select Markdown paths from tree metadata, before searching any blob.
+
+    This bounds the legacy audit's search; it does not authorize any path or
+    establish a context-policy boundary. The caller must qualify the complete
+    selection independently before invoking this legacy check.
+    """
+    raw = _history_git_tree('ls-tree', '-r', '-z', '--name-only', base_sha)
+    if raw and not raw.endswith(b'\0'):
+        raise AuditPathBoundaryError('historical audit selection unavailable')
+    try:
+        paths = [item.decode('utf-8') for item in raw.split(b'\0') if item]
+    except UnicodeError as exc:
+        raise AuditPathBoundaryError('historical audit selection unavailable') from exc
+    if len(paths) != len(set(paths)):
+        raise AuditPathBoundaryError('historical audit selection unavailable')
+    selected = sorted(rel for rel in paths if rel.endswith('.md') and rel.startswith(canonical_prefix))
+    # A literal backslash can be reinterpreted as a separator on Windows.
+    if any('\\' in rel for rel in selected):
+        raise AuditPathBoundaryError('historical audit selection unavailable')
+    return selected
+
+
+def _grep_selected_history(base_sha: str, pattern: str, paths: list[str]) -> set[str]:
+    """Search only exact selected Git paths; never use an empty pathspec."""
+    from wiki_core.git_env import local_git_environment, local_git_executable
+    if not paths:
+        return set()
+    if len(paths) != len(set(paths)) or any('\\' in rel for rel in paths):
+        raise AuditPathBoundaryError('historical audit selection unavailable')
+    matches: set[str] = set()
+    batch: list[str] = []
+    size = 0
+
+    def flush() -> None:
+        nonlocal size
+        if not batch:
+            return
+        argv = [local_git_executable(), '--no-lazy-fetch', '-C', str(ROOT),
+                '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false',
+                '-c', 'core.hooksPath=/dev/null', '-c', 'core.useReplaceRefs=false',
+                'grep', '--no-textconv', '--no-recurse-submodules', '-l', '-z', '-E', pattern, base_sha, '--',
+                *(':(literal)' + item for item in batch)]
+        try:
+            result = subprocess.run(argv, capture_output=True, env=local_git_environment(), timeout=30)
+        except (OSError, subprocess.TimeoutExpired, ValueError) as exc:
+            raise AuditPathBoundaryError('historical audit search unavailable') from exc
+        if (result.returncode not in (0, 1) or (result.returncode == 1 and result.stdout)
+                or (result.returncode == 0 and not result.stdout)
+                or (result.stdout and not result.stdout.endswith(b'\0')) or len(result.stdout) > 1_000_000):
+            raise AuditPathBoundaryError('historical audit search unavailable')
+        prefix = (base_sha + ':').encode('ascii')
+        allowed = set(batch)
+        for entry in result.stdout.split(b'\0'):
+            if not entry:
+                continue
+            if not entry.startswith(prefix):
+                raise AuditPathBoundaryError('historical audit search unavailable')
+            try:
+                rel = entry[len(prefix):].decode('utf-8')
+            except UnicodeError as exc:
+                raise AuditPathBoundaryError('historical audit search unavailable') from exc
+            if rel not in allowed or rel in matches:
+                raise AuditPathBoundaryError('historical audit search unavailable')
+            matches.add(rel)
+        batch.clear()
+        size = 0
+
+    for rel in paths:
+        encoded_size = len(rel.encode('utf-8')) + len(':(literal)')
+        if encoded_size > 6000:
+            raise AuditPathBoundaryError('historical audit selection unavailable')
+        if len(batch) >= 32 or size + encoded_size > 6000:
+            flush()
+        batch.append(rel)
+        size += encoded_size
+    flush()
+    return matches
+
+
+def _history_text(base_sha: str, rel: str) -> str:
+    try:
+        return _history_git_tree('show', f'{base_sha}:{rel}').decode('utf-8')
+    except UnicodeError as exc:
+        raise AuditPathBoundaryError('historical audit body unavailable') from exc
+
+
 def _action_candidate_texts_by_path_at_ref(base: str) -> dict[str, str]:
     """Read every base action candidate without trusting one textual spelling.
 
@@ -391,19 +506,9 @@ def _action_candidate_texts_by_path_at_ref(base: str) -> dict[str, str]:
     if not base:
         return {}
     canonical_prefix = memory_prefix(load_config(ROOT))
-    tree_paths = {
-        rel
-        for rel in run_git(["ls-tree", "-r", "--name-only", base]).splitlines()
-        if rel.endswith(".md") and rel.startswith(canonical_prefix)
-    }
-    matched_paths: set[str] = set()
-    prefix = f"{base}:"
-    for matched in run_git(
-        ["grep", "-l", "-E", r"page_type[[:space:]]*:", base]
-    ).splitlines():
-        rel = matched[len(prefix) :] if matched.startswith(prefix) else matched
-        if rel.endswith(".md") and rel.startswith(canonical_prefix):
-            matched_paths.add(rel)
+    base_sha = _history_base_sha(base)
+    tree_paths = set(_historical_markdown_paths(base_sha, canonical_prefix))
+    matched_paths = _grep_selected_history(base_sha, r"page_type[[:space:]]*:", sorted(tree_paths))
     action_directory_paths = {
         rel
         for rel in tree_paths
@@ -414,7 +519,7 @@ def _action_candidate_texts_by_path_at_ref(base: str) -> dict[str, str]:
     for rel in sorted(matched_paths | action_directory_paths):
         if not rel.endswith(".md"):
             continue
-        text = run_git(["show", f"{base}:{rel}"])
+        text = _history_text(base_sha, rel)
         values, _body = canonical_parse_frontmatter(text)
         flat_values, _errors = parse_frontmatter_flat_with_errors(text)
         action_directory = rel in action_directory_paths
@@ -424,6 +529,8 @@ def _action_candidate_texts_by_path_at_ref(base: str) -> dict[str, str]:
             or action_directory
         ):
             candidates[rel] = text
+    if _history_base_sha(base) != base_sha:
+        raise AuditPathBoundaryError('historical audit revision changed')
     return dict(sorted(candidates.items()))
 
 
@@ -497,31 +604,19 @@ def _base_source_texts_by_page_id() -> dict[str, tuple[tuple[str, str], ...]]:
         return {}
     canonical_prefix = memory_prefix(load_config(ROOT))
     grouped: dict[str, list[tuple[str, str]]] = {}
-    matches = run_git(
-        [
-            "grep",
-            "-l",
-            "-E",
-            r"^page_type:[[:space:]]*['\"]?source['\"]?[[:space:]]*$",
-            base,
-            "--",
-            "*.md",
-        ]
-    )
-    prefix = f"{base}:"
-    for matched in matches.splitlines():
-        rel = matched[len(prefix) :] if matched.startswith(prefix) else matched
-        if not rel.endswith(".md") or not rel.startswith(canonical_prefix):
-            continue
-        text = _text_at_audit_base(rel)
-        if text is None:
-            continue
+    base_sha = _history_base_sha(base)
+    paths = _historical_markdown_paths(base_sha, canonical_prefix)
+    matches = _grep_selected_history(base_sha, r"^page_type:[[:space:]]*['\"]?source['\"]?[[:space:]]*$", paths)
+    for rel in sorted(matches):
+        text = _history_text(base_sha, rel)
         values, _body = canonical_parse_frontmatter(text)
         if str(values.get("page_type") or "") != "source":
             continue
         page_id = str(values.get("page_id") or "").strip()
         if page_id:
             grouped.setdefault(page_id, []).append((rel, text))
+    if _history_base_sha(base) != base_sha:
+        raise AuditPathBoundaryError('historical audit revision changed')
     return {
         page_id: tuple(sorted(candidates))
         for page_id, candidates in grouped.items()
@@ -644,7 +739,8 @@ def audit_action_state_transitions(errors: list[str]) -> None:
     about writes: when an action already exists at the PR base, a changed
     semantic ``action_state`` must carry the append-only receipt chain emitted
     by the central writer. Equivalent legacy-to-canonical adoption remains a
-    migration no-op and is not blocked.
+    migration no-op and is not blocked. Structural retirement is permitted
+    only for a valid canonical terminal action already present at that base.
     """
 
     config = load_config(ROOT)
@@ -708,9 +804,31 @@ def audit_action_state_transitions(errors: list[str]) -> None:
         if not current_path.is_file():
             base_page_id = base_page_id_by_path.get(rel)
             if base_page_id and base_page_id not in current_action_locations:
+                if len(base_by_page_id[base_page_id]) != 1:
+                    errors.append(
+                        f"{rel}: action page_id matches multiple base actions; "
+                        "retirement lifecycle origin is ambiguous "
+                        "[ambiguous_base_action_identity]"
+                    )
+                    continue
+                previous_text = base_by_path[rel]
+                previous_values, _body = canonical_parse_frontmatter(previous_text)
+                resolution = resolve_action_state(previous_values)
+                if resolution.source == "action_state" and resolution.terminal:
+                    # Retirement removes only a live projection. The approved
+                    # Git base retains the terminal facts and receipt history.
+                    # Read the base, never an intermediate working-tree cancel.
+                    for diagnostic in action_transition_diagnostics(
+                        previous_text, previous_text
+                    ):
+                        errors.append(
+                            f"{rel}: {diagnostic.message} [{diagnostic.code}]"
+                        )
+                    continue
                 errors.append(
-                    f"{rel}: deleting an existing action discards its lifecycle history; "
-                    "transition it to `cancelled` with a receipt and retain the page "
+                    f"{rel}: only an action already canonically terminal at the "
+                    "audit base can be retired; transition it with a receipt "
+                    "and approve that change before deleting the page "
                     "[action_page_deleted]"
                 )
             continue
@@ -981,6 +1099,11 @@ def is_external_link(href: str) -> bool:
 
 
 def local_link_target_path(source_rel: str, href: str) -> Path | None:
+    # Markdown angle destinations delimit the destination; they are not part
+    # of the URL or local filename. Only unwrap a complete pair so malformed
+    # input cannot acquire an external scheme merely by dropping a delimiter.
+    if href.startswith("<") and href.endswith(">") and "<" not in href[1:-1] and ">" not in href[1:-1]:
+        href = href[1:-1]
     href = href.split("#", 1)[0]
     if not href:
         return None
@@ -1186,6 +1309,9 @@ def audit_freshness_budget(
         for row in report["blockers"]:
             errors.append(f"{row['path']}: {row['state']} in freshness impact ({row['reason']}; seed={row['seed']})")
         errors.extend(f"freshness relation integrity: {error}" for error in report["relation_errors"])
+        for row in report.get("pending_reviews", []):
+            if row.get("reason") == "legacy_query_retired":
+                warnings.append(f"{row['path']}: obsolete historical query retired; no revalidation performed")
         for row in report.get("reviewed_findings", []):
             message = (f"{row['path']}: stale; reviewed {row['disposition']} for this proposal "
                        f"(evidence={row['evidence']}; date unchanged)")
@@ -1259,10 +1385,10 @@ def audit_drive_artifact_links(warnings: list[str], config: WikiConfig) -> None:
     """General rule: the wiki must not link to an unversioned local FILE.
 
     A link to a file under data/raw/** or data/derived/** (gitignored) breaks on
-    GitHub. The content should live in the personal Drive folder (id in .env) via
-    `scripts/wiki_drive_publish.py`, and the page should point to the view_url of
-    the versioned manifest data/drive_artifacts_manifest.json. Links to VERSIONED
-    files inside data/ (e.g. manifest, versioned rules) are ok.
+    GitHub. Use an authorized stable external link for such content, including
+    manifest links published through `scripts/wiki_drive_publish.py` within the
+    authorized file and destination scope. Links to
+    VERSIONED files inside data/ (e.g. manifest, versioned rules) are ok.
     Aggregated warning (extensive historical legacy); the list comes out with --list-stale-gaps.
     """
     tracked = set(tracked_files())
@@ -1293,13 +1419,15 @@ def audit_drive_artifact_links(warnings: list[str], config: WikiConfig) -> None:
         for rel, count in sorted(offenders.items()):
             warnings.append(
                 f"{rel}: {count} local link(s) to unversioned artifact; "
-                "publish on Drive (wiki_drive_publish) and point to the view_url"
+                "use an authorized stable external link or publish with wiki_drive_publish.py "
+                "within the authorized file and destination scope"
             )
     else:
         warnings.append(
             f"{total} link(s) to unversioned local artifact in {len(offenders)} page(s); "
-            "general rule: content on Drive (wiki_drive_publish) and the wiki points to the "
-            "manifest view_url. Use --list-stale-gaps to list."
+            "use an authorized stable external link or publish with wiki_drive_publish.py "
+            "within the authorized file and destination scope. "
+            "Use --list-stale-gaps to list."
         )
 
 
@@ -1565,6 +1693,197 @@ def audit_secrets(errors: list[str], config: WikiConfig) -> None:
                 errors.append(f"{rel}:{finding.line}: possible {finding.kind} secret ({finding.excerpt})")
 
 
+def _context_bound_audit_inventory() -> list[str]:
+    """Get a complete bounded inventory using the authority Git environment."""
+    from wiki_core.git_env import local_git_tree
+
+    def git(*args: str) -> bytes:
+        # `ls-files` can otherwise execute a repository-configured fsmonitor.
+        return local_git_tree(ROOT, '-c', 'core.fsmonitor=false',
+                              '-c', 'core.untrackedCache=false',
+                              '-c', 'core.hooksPath=/dev/null',
+                              '-c', 'core.useReplaceRefs=false', *args)
+
+    top = git('rev-parse', '--show-toplevel').rstrip(b'\r\n')
+    if not top or Path(os.fsdecode(top)).resolve(strict=True) != ROOT.resolve(strict=True):
+        raise AuditPathBoundaryError('qualified audit requires the Git root')
+    names = set()
+    for args in (('ls-files', '-z'), ('ls-files', '--others', '--exclude-standard', '-z')):
+        data = git(*args)
+        if data and not data.endswith(b'\0'):
+            raise AuditPathBoundaryError('qualified audit inventory unavailable')
+        names.update(os.fsdecode(raw) for raw in data.split(b'\0') if raw)
+    return sorted(names)
+
+
+def audit_context_bound_secrets(context_id: str, approved_revision: str, approved_selection: str) -> int:
+    """Run only the secrets selection after explicit host/policy qualification.
+
+    This is not an operating-system access boundary or a global wiki audit.
+    The independently configured host must authorize the policy bootstrap and
+    Git path inventory. Any unavailable or denied candidate stops the gate.
+    """
+    from wiki_core.context_packet import _check_trusted_binding, qualify_folder_context
+    from wiki_core.coordination_context import CoordinationBinding, _policy
+    from wiki_core.context_policy import revision
+
+    def unavailable() -> int:
+        print('ERROR: context-bound secrets selection denied or unavailable')
+        print('wiki_audit: secrets coverage unavailable; check not completed')
+        return 1
+
+    try:
+        binding = CoordinationBinding.from_environment()
+        if binding is None or binding.manifest != 'wiki.config.yaml':
+            return unavailable()
+        policy = _policy(ROOT, binding, context_id, approved_revision)
+        _check_trusted_binding(ROOT, policy, context_id, binding)
+
+        # The Git inventory may itself consult ignore files. Refuse before
+        # inventory unless the approved policy has a single root context,
+        # root-wide reads, and no contextual read denies anywhere. This is
+        # deliberately stricter than a per-target authorization.
+        if (context_id != '.' or set(policy.contexts) != {'.'}
+                or '.' not in policy.effective['.']['read']
+                or any(item['deny']['read'] for item in policy.effective.values())):
+            return unavailable()
+
+        # Inventory consists of path metadata; never open a selected target
+        # before the entire candidate selection passes this authorization.
+        inventory = _context_bound_audit_inventory()
+        candidates = [rel for rel in inventory if not rel.startswith(SECRET_SCAN_SKIP_PREFIXES)
+                      and Path(rel).suffix.lower() in TEXT_SCAN_SUFFIXES]
+        # The host must independently approve this exact path list. A digest
+        # binds the selection; it does not itself authenticate that approval.
+        selection_contract = {'schema_version': 'wiki.audit-secrets-selection/v1',
+                              'context_id': context_id, 'policy_revision': approved_revision,
+                              'trusted_ref': binding.trusted_ref, 'check': 'secrets', 'paths': candidates}
+        selection_bytes = json.dumps(selection_contract, sort_keys=True, ensure_ascii=True,
+                                     separators=(',', ':')).encode('utf-8')
+        selection_sha256 = hashlib.sha256(selection_bytes).hexdigest()
+        if selection_sha256 != approved_selection:
+            return unavailable()
+        for rel in candidates:
+            if (policy.owner_of(rel) != context_id or
+                    policy._connection(context_id, context_id, rel, 'interpretation', 'context', qualified=False) != 'approved'):
+                return unavailable()
+        # The existing context qualifier reads the approved instruction/index
+        # only after checking their own policy; they are bootstrap inputs.
+        entry_index = policy._context_indexes.get(context_id)
+        if not entry_index:
+            return unavailable()
+        qualify_folder_context(ROOT, policy, context_id, context_id, entry_index, 1_000_000)
+
+        # Refuse boundaries rather than silently dropping an inventoried path.
+        for rel in inventory:
+            path = ROOT / rel
+            # Git may report an untracked nested repository as a directory
+            # entry ending in `/`, rather than enumerating its inner files.
+            if is_in_nested_git(path, wiki_root=ROOT):
+                return unavailable()
+            try:
+                mode = path.lstat().st_mode
+            except FileNotFoundError:
+                continue  # Eligible missing targets are refused below.
+            if stat.S_ISDIR(mode) and is_in_nested_git(path / '_audit_selection_', wiki_root=ROOT):
+                return unavailable()
+        selected = []
+        states = {}
+        for rel in candidates:
+            path = _guard_audit_path(ROOT / rel)
+            state = path.stat()
+            if not stat.S_ISREG(state.st_mode):
+                return unavailable()
+            states[rel] = (state.st_dev, state.st_ino, state.st_mode, state.st_size, state.st_mtime_ns, state.st_ctime_ns)
+            selected.append(rel)
+
+        def still_current() -> bool:
+            if revision(ROOT, binding.trusted_ref) != approved_revision:
+                return False
+            return _context_bound_audit_inventory() == inventory
+
+        if not still_current():
+            return unavailable()
+        errors = []
+        for rel in selected:
+            # Recheck the pinned authority and boundary immediately before
+            # each read. The host must prevent concurrent filesystem swaps.
+            if revision(ROOT, binding.trusted_ref) != approved_revision:
+                return unavailable()
+            if (policy.owner_of(rel) != context_id or
+                    policy.connection(context_id, context_id, rel, 'interpretation', 'context') != 'approved'):
+                return unavailable()
+            path = _guard_audit_path(ROOT / rel)
+            current = path.stat()
+            if (current.st_dev, current.st_ino, current.st_mode, current.st_size, current.st_mtime_ns, current.st_ctime_ns) != states[rel]:
+                return unavailable()
+            for finding in scan_file(path):
+                if finding.category == 'secret':
+                    errors.append(f"{rel}:{finding.line}: possible {finding.kind} secret ({finding.excerpt})")
+        if not still_current():
+            return unavailable()
+        for rel in candidates:
+            path = _guard_audit_path(ROOT / rel)
+            current = path.stat()
+            if (current.st_dev, current.st_ino, current.st_mode, current.st_size, current.st_mtime_ns, current.st_ctime_ns) != states[rel]:
+                return unavailable()
+        for error in errors:
+            print(f'ERROR: {error}')
+        print(f'wiki_audit: context-bound secrets check: {len(errors)} error(s); '
+              f'{len(candidates)} selected; selection_sha256={selection_sha256}; not a global audit')
+        return 1 if errors else 0
+    except (OSError, ValueError, KeyError, TypeError):
+        return unavailable()
+
+
+def audit_context_bound_history(*, context_id, approved_revision, base, head, branch,
+                                normative_paths, check, inventory_sha256=None,
+                                plan_sha256=None, plan_only=False):
+    """Run only the admitted base-history search, never a full audit check.
+
+    The host must independently qualify bootstrap, actor, history, output and
+    concurrency. Matching digests bind a selection but do not authenticate it.
+    """
+    from wiki_core.audit_history_selection import (plan_base_markdown, precheck_history_refs,
+                                                    search_base_markdown)
+    from wiki_core.audit_r1_inventory import inventory
+    from wiki_core.config import config_from_mapping
+    from wiki_core.context_policy import git_file, safe_path
+    from wiki_core.coordination_context import CoordinationBinding
+
+    binding = CoordinationBinding.from_environment()
+    precheck_history_refs(ROOT, binding, approved_revision=approved_revision,
+                          base=base, head=head, branch=branch)
+    snapshot = inventory(ROOT, binding, context_id=context_id, approved_revision=approved_revision,
+                         base=base, head=head, branch=branch, normative_paths=normative_paths)
+    # The approved configuration is a separately host-admitted bootstrap read;
+    # the candidate worktree never chooses the selection root.
+    approved_config = git_file(ROOT, approved_revision, 'wiki.config.yaml')
+    config = config_from_mapping(yaml.safe_load(approved_config.decode('utf-8')))
+    configured_root = config.paths['memory_root']
+    if not isinstance(configured_root, str) or not configured_root:
+        raise ValueError('history memory root unavailable')
+    memory_root = safe_path(configured_root.rstrip('/'))
+    plan = plan_base_markdown(snapshot, check=check, memory_root=memory_root)
+    if plan_only:
+        return {'state': 'selection_only', 'scope': 'base_markdown_history_search_only',
+                'inventory_sha256': snapshot['inventory_sha256'], 'plan': plan,
+                'gate_state': 'blocked_incomplete_coverage', 'global_audit': 'not_performed',
+                'bootstrap': 'external_not_verified', 'host_admission': 'external_not_verified'}
+    report = search_base_markdown(ROOT, binding, context_id=context_id,
+        approved_revision=approved_revision, base=base, head=head, branch=branch,
+        normative_paths=normative_paths, inventory_sha256=inventory_sha256,
+        plan_sha256=plan_sha256, check=check, memory_root=memory_root,
+        admit=lambda candidate: candidate['plan_sha256'] == plan_sha256)
+    # The complete transition check is not run; a match list would reveal
+    # content-derived paths without adding gate coverage to this CLI report.
+    report.pop('matching_paths', None)
+    report['scope'] = 'base_markdown_history_search_only'
+    report['gate_state'] = 'blocked_incomplete_coverage'
+    report['bootstrap'] = 'external_not_verified'
+    return report
+
+
 def audit_pii(errors: list[str], warnings: list[str], config: WikiConfig, public_export: bool = False) -> None:
     """Personal data (PII) is WELCOME in private pages of this personal repo:
     it produces neither error nor warning -- storing CPF/CNPJ, amounts, counterparties
@@ -1592,7 +1911,13 @@ def audit_pii(errors: list[str], warnings: list[str], config: WikiConfig, public
 
 
 def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
-    for rel in link_audit_files(config):
+    # Direct callers also need the selected layout, without reading the
+    # worktree configuration as a module-import side effect.
+    build_local_path_regexes(config)
+    files = link_audit_files(config)
+    known_paths = set(files)
+    for rel in files:
+        instruction = is_context_instruction(rel, memory_prefix(config), known_paths)
         path = ROOT / rel
         text = _audit_read_text(path, encoding="utf-8", errors="replace")
         for lineno, line in body_lines_without_frontmatter(text):
@@ -1603,6 +1928,8 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
 
             for match in INLINE_CODE_LOCAL_PATH_RE.finditer(line):
                 value = match.group(1)
+                if instruction and value in {"AGENTS.md", "AGENTS.override.md"}:
+                    continue
                 if LOCAL_PATH_PREFIX_RE.match(value):
                     errors.append(
                         f"{rel}:{lineno}: local path must be a markdown link, not inline code: `{value}`"
@@ -1610,6 +1937,8 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
 
             for match in INLINE_CODE_RE.finditer(line):
                 code = match.group(0).strip("`")
+                if instruction and code in {"AGENTS.md", "AGENTS.override.md"}:
+                    continue
                 for value in local_paths_in_text(code):
                     if not line_has_link_for_path(line, value):
                         errors.append(
@@ -1620,6 +1949,8 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
             without_links_or_code = INLINE_CODE_RE.sub("", without_links)
             for match in BARE_LOCAL_PATH_RE.finditer(without_links_or_code):
                 value = match.group(1)
+                if instruction and Path(rel).name == "CLAUDE.md" and line.strip() == "@AGENTS.md":
+                    continue
                 if bare_local_path_exists(value):
                     errors.append(
                         f"{rel}:{lineno}: local path must be a markdown link: `{value}`"
@@ -1902,10 +2233,14 @@ def audit_operational_concept_links(errors: list[str], config: WikiConfig) -> No
 
 def audit_page_graph(errors: list[str], warnings: list[str], config: WikiConfig) -> None:
     graph = build_page_graph(ROOT, config)
+    known_paths = set(graph.nodes)
+    instruction_paths = {rel for rel in graph.nodes if is_context_instruction(rel, graph.memory_root, known_paths)}
     audit_config = config.audit
     if audit_config.get("orphan_check", False):
         extra_exempt = set(audit_config.get("orphan_exempt_types") or [])
         for rel in orphan_pages(graph, extra_exempt):
+            if rel in instruction_paths:
+                continue
             errors.append(f"{rel}: orphan memory page (no inbound body/frontmatter link)")
     if audit_config.get("reachability_check", False):
         root_page = str(
@@ -1913,6 +2248,8 @@ def audit_page_graph(errors: list[str], warnings: list[str], config: WikiConfig)
             or f"{memory_prefix(config).rstrip('/')}/index.md"
         )
         for rel in unreachable_pages(graph, root_page):
+            if rel in instruction_paths:
+                continue
             errors.append(f"{rel}: unreachable from {root_page}")
     try:
         minimum = int(str(audit_config.get("min_outbound_links", 0) or 0))
@@ -1922,6 +2259,8 @@ def audit_page_graph(errors: list[str], warnings: list[str], config: WikiConfig)
     if minimum > 0:
         extra_exempt = set(audit_config.get("orphan_exempt_types") or [])
         for rel in min_outbound_violations(graph, minimum=minimum, exempt_types=extra_exempt):
+            if rel in instruction_paths:
+                continue
             warnings.append(f"{rel}: fewer than {minimum} outbound graph links")
 
 
@@ -2098,8 +2437,8 @@ def audit_page_type_registry(errors: list[str], config: WikiConfig) -> None:
 # identified by a `source_id:` in the frontmatter) must declare the pages they
 # were consolidated into, and each of those pages must reference the source
 # back (referential proof of integration — content judgment stays human).
-CLAIMS_HEADERS = ("## Claims candidatos", "## Candidate claims")
-EMPTY_BULLETS = ("- (nenhum)", "- (none)")
+CLAIMS_HEADERS = ("## Claims candidatos", "## Candidate claims", "## Afirmaciones candidatas")
+EMPTY_BULLETS = ("- (nenhum)", "- (none)", "- (ninguno)")
 
 
 def _claims_section_bullets(text: str) -> list[str]:
@@ -2188,6 +2527,8 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
 
 
 def audit_log_changed(errors: list[str], config: WikiConfig) -> None:
+    if config.approval.get("require_log_update", True) is False:
+        return
     paths = wiki_paths(config)
     prefix = memory_prefix(config)
     log_rel = paths.rel(paths.log_page)
@@ -2582,9 +2923,10 @@ def audit_source_config_perspectives(errors: list[str], config: WikiConfig) -> N
         "source_config": ("perspectives_required", "perspectives_optional"),
     }
     for _page_id, (rel, values) in sorted(catalog.items()):
-        fields = fields_by_type.get(str(values.get("page_type") or ""))
-        if not fields:
-            continue
+        fields = list(fields_by_type.get(str(values.get("page_type") or ""), ()))
+        for field in ("perspective_bundle_required", "perspective_bundle_optional"):
+            if field in values and field not in fields:
+                fields.append(field)
         for field in fields:
             for perspective_id in list_values(values, field):
                 if perspective_id not in perspective_ids:
@@ -2843,7 +3185,68 @@ def main() -> int:
     parser.add_argument("--query-context", help="trusted global integration operator only; context limits query recomputation, not the global audit or its private output")
     parser.add_argument("--query-policy-revision", help="exact current trusted policy SHA")
     parser.add_argument("--query-head", help="exact clean proposal HEAD SHA")
+    parser.add_argument("--context-guard", help="host-bound context for a bounded audit route")
+    parser.add_argument("--context-policy-revision", help="exact current approved policy SHA for the bounded route")
+    parser.add_argument("--context-selection-sha256", help="externally approved SHA-256 of the versioned selection contract")
+    parser.add_argument('--context-base', help='approved base full Git revision for bounded history search')
+    parser.add_argument('--context-head', help='candidate head full Git revision for bounded history search')
+    parser.add_argument('--context-branch', help='candidate wiki branch for bounded history search')
+    parser.add_argument('--context-normative', action='append', default=[], help='host-declared normative path; include wiki.config.yaml')
+    parser.add_argument('--context-inventory-sha256', help='externally admitted R1 inventory digest')
+    parser.add_argument('--context-plan', action='store_true', help='prepare history selection only; not an audit check')
     args = parser.parse_args()
+
+    # A guarded request must never fall back to the unqualified global audit.
+    # Dispatch before loading the worktree configuration or running checks.
+    # An explicitly supplied empty value is still a request for a guarded
+    # route, and must not fall through to the unrestricted audit.
+    history_options = (args.context_base, args.context_head, args.context_branch,
+                       args.context_inventory_sha256)
+    history_options_present = (any(value is not None for value in history_options)
+                               or bool(args.context_normative) or args.context_plan)
+    incompatible_modes = (args.public_export or args.strict_local or args.list_stale_gaps or args.list_checks
+                          or args.documentary_only or args.freshness_reviewed
+                          or any(value is not None for value in
+                                 (args.freshness_base, args.freshness_report, args.query_context,
+                                  args.query_policy_revision, args.query_head)))
+    if (args.context_guard is not None or args.context_policy_revision is not None
+            or args.context_selection_sha256 is not None or history_options_present):
+        history_checks = ('action_state_transitions', 'source_lifecycle_transitions')
+        if args.only in history_checks:
+            common_ok = (args.check and args.context_guard and args.context_policy_revision
+                and args.context_base and args.context_head and args.context_branch and args.context_normative
+                and all(path.strip() for path in args.context_normative)
+                and not incompatible_modes)
+            digests_ok = ((args.context_plan and args.context_inventory_sha256 is None and args.context_selection_sha256 is None)
+                or (not args.context_plan and all(isinstance(value, str) and re.fullmatch(r'[0-9a-f]{64}', value)
+                    for value in (args.context_inventory_sha256, args.context_selection_sha256))))
+            if not common_ok or not digests_ok:
+                print('ERROR: bounded history search requires one check, context, revisions, branch and normative scope')
+                print('wiki_audit: transition check coverage unavailable; check not completed')
+                return 1
+            try:
+                output = audit_context_bound_history(context_id=args.context_guard,
+                    approved_revision=args.context_policy_revision, base=args.context_base,
+                    head=args.context_head, branch=args.context_branch, normative_paths=args.context_normative,
+                    check=args.only, inventory_sha256=args.context_inventory_sha256,
+                    plan_sha256=args.context_selection_sha256, plan_only=args.context_plan)
+            except (ValueError, OSError, RuntimeError, TypeError, KeyError):
+                output = {'state': 'refused', 'scope': 'base_markdown_history_search_only',
+                          'gate_state': 'blocked_incomplete_coverage', 'global_audit': 'not_performed',
+                          'bootstrap': 'external_not_verified', 'host_admission': 'external_not_verified'}
+            print(json.dumps(output, ensure_ascii=False, sort_keys=True))
+            # Neither a plan nor this candidate search executes the transition
+            # check or proves host admission, so neither can pass its gate.
+            return 1
+        if (not args.context_guard or not args.context_policy_revision
+                or not isinstance(args.context_selection_sha256, str)
+                or not re.fullmatch(r'[0-9a-f]{64}', args.context_selection_sha256) or args.only != 'secrets'
+                or history_options_present
+                or incompatible_modes):
+            print('ERROR: context-bound mode requires only the secrets check and an approved context, policy and selection digest')
+            print('wiki_audit: secrets coverage unavailable; check not completed')
+            return 1
+        return audit_context_bound_secrets(args.context_guard, args.context_policy_revision, args.context_selection_sha256)
 
     if args.list_checks:
         for name in CHECK_NAMES:
@@ -2930,7 +3333,7 @@ def main() -> int:
         try:
             run(ctx)
         except AuditPathBoundaryError:
-            ctx.errors.append('audit selection crosses a repository or symlink boundary')
+            ctx.errors.append('audit selection unavailable or crosses a repository/symlink boundary')
             boundary_failed = True
             break
     errors = ctx.errors

@@ -57,8 +57,8 @@ def main() -> int:
     parser.add_argument("--context-max-bytes", type=int, default=DEFAULT_CONTEXT_MAX_BYTES)
     parser.add_argument("--request-max-bytes", type=int, default=DEFAULT_REQUEST_MAX_BYTES)
     business_root = parser.add_mutually_exclusive_group()
-    business_root.add_argument("--root-entity-ref", help="Explicit authorized business-root page; this does not grant access.")
-    business_root.add_argument("--omit-root-entity", action="store_true", help="Explicitly omit the business root with missing coverage; mandatory lineage rules still apply.")
+    business_root.add_argument("--root-entity-ref", help="Retired here; use context_selection in the approved folder source-stage.")
+    business_root.add_argument("--omit-root-entity", action="store_true", help="Retired here; use context_selection in the approved folder source-stage.")
     parser.add_argument("--stream", help="source recipe stream id (advances its cursor post-commit)")
     args = parser.parse_args()
 

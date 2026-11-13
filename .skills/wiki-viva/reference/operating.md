@@ -1,7 +1,10 @@
 # Operating — the daily loop
 
 The loop is: **select inputs → ingest → deep read → consolidate + integrate →
-gates → PR**. The commands have their own effect and retry boundaries; the
+PR/review/gates → main → result readback → wiki reconciliation → post-merge
+cleanup → settle the accepted scope**. Follow the existing [closeout contract](../../../docs/references/guides/context-coordinators.md#thread-continuity-and-closeout).
+Follow the [branch and PR lifecycle](../../../docs/references/guides/context-coordinators.md#post-merge-cleanup): commit and push WIP, keep paused work in draft PRs, and remove branches and worktrees when their PRs merge or close. Reuse still-valid review and test evidence for unchanged deliveries.
+The commands have their own effect and retry boundaries; the
 model steps — the deep read and the integration it feeds — are yours. The full per-CLI catalog is the
 command-reference page in the meta-wiki (linked from [AGENTS.md](../../../AGENTS.md)).
 
@@ -14,7 +17,12 @@ flowchart LR
     CI --> D["Gate transition"]
     D --> E["Recompile cockpit"]
     E --> F["Run gates"]
-    F --> G["Open PR (review gate)"]
+    F --> G["PR + review + gates"]
+    G --> H["Integrate main"]
+    H --> I["Read back result"]
+    I --> J["Reconcile wiki"]
+    J --> K["Clean integrated workspace"]
+    K --> L["Settle accepted scope"]
 ```
 
 ## 1. Compile the input stage
@@ -116,6 +124,13 @@ python3 scripts/wiki_operational_pass.py --check     # CI: fails if stale
 
 ## 7. Run the gates and open the PR
 
+The commands below are a menu, not a requirement to run every compiler for
+every change. Apply the repository's mandatory gates and select additional
+checks for the affected behavior and generated outputs. Before running a
+command, qualify its complete read scope under the applicable authority. A
+required gate whose reads cannot be authorized remains blocked; omitting it is
+not a pass and a candidate policy cannot authorize its own review.
+
 ```sh
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_consolidate.py --check                  # shared-cache coverage only
@@ -124,14 +139,18 @@ python3 scripts/wiki_check_methodology_coverage.py --check   # when methodology 
 python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_operational_pass.py --check
-python3 -m pytest tests/ -q
 python3 scripts/wiki_pr_summary.py                           # paste into the PR
 ```
 
 Canonical memory changes go on a `wiki/<theme>` branch; the PR review follows
-[AGENTS.md](../../../AGENTS.md). Consumers retain their own review policy.
+[AGENTS.md](../../../AGENTS.md). Select additional local tests for the actual
+change as specified there; normal public CI runs the full suites. Consumers
+retain their own review policy.
 Generic checks do not inspect protected source caches; inspect the bound
 request, results and event through the applicable protected stages as well.
+The PR summary is a helper, not an approval: its current implementation reads
+configuration and examines the local Git/worktree diff, so its own read scope
+also needs qualification.
 Gate semantics and privacy: [gates-and-privacy.md](gates-and-privacy.md).
 
 ## Optional layers
@@ -143,9 +162,14 @@ Gate semantics and privacy: [gates-and-privacy.md](gates-and-privacy.md).
   ```
 - **Information → Insight cycle**: gather signals about a theme and emit an
   insight proposal with [wiki_insight_job.py](../../../scripts/wiki_insight_job.py).
-- **Raw via Drive**: keep raw sources (statements, invoices) in one Drive folder,
-  never versioned — [wiki-raw-drive](../../wiki-raw-drive/SKILL.md) and
-  [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py).
+- **Raw via Drive**: keep raw sources (statements, invoices) outside Git and
+  retrieve authorized existing sources with [wiki-raw-drive](../../wiki-raw-drive/SKILL.md).
+  Publish authorized artifacts through [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py)
+  within the authorized file and destination scope, preserving privacy and secret
+  safeguards. Its dry-run is local and does not verify Drive. Reconcile name or
+  destination conflicts and uncertain upload results before repeating an effect;
+  see the [publisher's concurrency and recovery limits](../../../scripts/README.md#task-entry-points).
+  Existing links remain available subject to their own access and retention.
 - **Atualização do kit**: revise primeiro o B0 e então sincronize C1/C2/C3 com
   [wiki_sync_from_kit.py](../../../scripts/wiki_sync_from_kit.py); a PR do
   consumidor é a fronteira reversível de revisão e promoção.

@@ -5,10 +5,11 @@ No graph/receipt is persisted here: the page remains the canonical declaration.
 from __future__ import annotations
 import json
 import hashlib
+import os
 import re
 import subprocess
 from pathlib import Path
-from wiki_core.context_policy import PolicyError, safe_path, within
+from wiki_core.context_policy import PolicyError, safe_path, within, policy_stage_cache
 from wiki_core.context_packet import validate_result, _context_view, guarded_context_read, declared_reads_from_inputs
 from wiki_core.context_impact import assess_impact, ImpactError
 from wiki_core.detectors import scan_text
@@ -24,14 +25,108 @@ def _fresh(root,policy):
     if not getattr(policy,'_binding',None) or Path(policy._binding[0])!=Path(root).resolve(): raise RequirementError('unbound policy')
     return policy.fresh()
 
-def assess_approved_impact(root,policy,*,consumers,before,after,destination_context,**kwargs):
+@policy_stage_cache()
+def assess_approved_impact(root,policy,*,consumers,before,after,destination_context,scope=None,trusted_binding=None,**kwargs):
     """Derive edges from approved consumer pages and expose only authorized impact."""
     policy=_fresh(root,policy)
+    if consumers is None and trusted_binding is None:
+        raise RequirementError('coordination host binding required')
+    if trusted_binding is not None:
+        from wiki_core.context_packet import _check_trusted_binding
+        _check_trusted_binding(root, policy, destination_context, trusted_binding)
     from wiki_core.context_impact import _folder_context, _folder_ref
     try: _folder_context(root, policy, destination_context)
     except ImpactError as exc: raise RequirementError('folder context requires authorized requalification') from exc
-    if not isinstance(consumers,list) or not consumers or len(consumers)>1000: raise RequirementError('bounded consumer paths required')
     reader=RepositoryReader(root,policy.policy_revision); edges=[]
+    automatic = consumers is None
+    referenced_sources = set()
+    if automatic:
+        from wiki_core.traversal import require_wiki_path
+        from wiki_core.context_packet import guard_folder_blob
+        try:
+            scope = safe_path(scope, allow_root=True)
+            directory = require_wiki_path(Path(root), scope)
+            sentinel = '_wiki_scope_.md' if scope == '.' else scope + '/_wiki_scope_.md'
+            if not directory.is_dir() or policy.owner_of(sentinel) != destination_context:
+                raise ValueError('scope owner differs')
+        except (PolicyError, ValueError, OSError, TypeError) as exc:
+            raise RequirementError('authorized discovery folder required') from exc
+        if (not isinstance(before, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', before)
+                or after != policy.policy_revision or subprocess.run(
+                    [local_git_executable(), '--no-lazy-fetch', '-C', str(root), 'merge-base', '--is-ancestor', before, after],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=local_git_environment()).returncode):
+            raise RequirementError('approved before and after revisions required')
+        refs = [ref for ref in reader.paths if ref.endswith('.md') and within(ref, scope)
+                and policy.owner_of(ref) == destination_context and policy.permits(destination_context, 'read', ref)]
+        if len(refs) > 1000: raise RequirementError('discovery limit exceeded; narrow the folder')
+        consumers = []
+        remaining = 2_000_000
+        for ref in refs:
+            try:
+                _folder_ref(root, policy, ref)
+                guard_folder_blob(root, policy, ref)
+                size = reader.blob_size(ref)
+                if size > remaining: raise RequirementError('discovery limit exceeded; narrow the folder')
+                page = guarded_context_read(reader, policy, ref)
+            except RequirementError:
+                raise
+            except (ValueError, OSError) as exc:
+                raise RequirementError('authorized discovery incomplete') from exc
+            remaining -= size
+            if any(f.category == 'secret' for f in scan_text(page['text'])):
+                raise RequirementError('authorized discovery incomplete')
+            if page['frontmatter'].get('information_requirements') or page['frontmatter'].get('source_refs'):
+                consumers.append(ref)
+            raw_refs = page['frontmatter'].get('source_refs', [])
+            if isinstance(raw_refs, list):
+                referenced_sources.update(item for item in raw_refs if isinstance(item, str))
+        policy.fresh()
+    elif not isinstance(consumers,list) or not consumers or len(consumers)>1000:
+        raise RequirementError('bounded consumer paths required')
+    source_ids = {}
+    source_coverage_missing = False
+    if automatic and referenced_sources:
+        from wiki_core.context_packet import _qualify_trusted_producers, guard_folder_blob
+        changed = subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(root), 'diff',
+            '--no-ext-diff', '--no-textconv', '--no-renames', '--name-only', '-z', before, after, '--'],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=local_git_environment())
+        if changed.returncode or len(changed.stdout) > 1_000_000:
+            raise RequirementError('approved changes unavailable')
+        changed_refs = changed.stdout.split(b'\0')
+        if len(changed_refs) > 1001: raise RequirementError('discovery limit exceeded; narrow the change')
+        for encoded in changed_refs:
+            if not encoded: continue
+            try:
+                ref = safe_path(encoded.decode('utf-8'))
+                if not ref.endswith('.md'):
+                    continue
+                if ref not in reader.paths:
+                    # A removed page may have been a referenced source. Its
+                    # former identity cannot be inferred from the new tree,
+                    # and reading its past requires separate authorization.
+                    source_coverage_missing = True
+                    continue
+                producer = policy.owner_of(ref)
+                if producer != destination_context:
+                    if policy._connection(producer, destination_context, ref, 'interpret', 'internal', qualified=False) != 'approved':
+                        source_coverage_missing = True; continue
+                    _qualify_trusted_producers(root, policy, destination_context, [{'ref': ref,
+                        'producer': producer, 'reason': 'Declared source reference', 'use': 'interpret',
+                        'classification': 'internal'}], 2_000_000, trusted_binding=trusted_binding)
+                elif not policy.permits(destination_context, 'read', ref):
+                    source_coverage_missing = True; continue
+                guard_folder_blob(root, policy, ref)
+                if reader.blob_size(ref) > 1_000_000: raise ValueError('source too large')
+                page = guarded_context_read(reader, policy, ref)
+                if any(f.category == 'secret' for f in scan_text(page['text'])): raise ValueError('source unavailable')
+                meta = page['frontmatter']
+                if meta.get('page_type') != 'source': continue
+                for identity in (meta.get('page_id'), meta.get('source_id'), ref):
+                    if isinstance(identity, str) and identity:
+                        matches = source_ids.setdefault(identity, [])
+                        if ref not in matches: matches.append(ref)
+            except (ValueError, OSError, UnicodeError):
+                source_coverage_missing = True
     for path in dict.fromkeys(consumers):
         try: path=safe_path(path)
         except PolicyError as exc: raise RequirementError('invalid consumer') from exc
@@ -49,11 +144,162 @@ def assess_approved_impact(root,policy,*,consumers,before,after,destination_cont
         try:
             derived=operational_consumption_edges(Path(root),path,page['frontmatter'],page['body'],resolve)
         except (ValueError,TypeError) as exc: raise RequirementError('invalid approved information requirement') from exc
-        edges.extend(e for e in derived if e.get('field')=='information_requirements')
+        edges.extend(e for e in derived if e.get('field')=='information_requirements'
+                     and (not automatic or e.get('requirement', {}).get('temporal') == 'current'))
+        if automatic:
+            refs = page['frontmatter'].get('source_refs', [])
+            if isinstance(refs, list):
+                for item in refs:
+                    matches = source_ids.get(item, []) if isinstance(item, str) else []
+                    if not matches and isinstance(item, str):
+                        from wiki_core.consolidate import _SOURCE_V2
+                        prior = _SOURCE_V2.fullmatch(item)
+                        if prior:
+                            matches = sorted({ref for identity, paths in source_ids.items()
+                                if (current := _SOURCE_V2.fullmatch(identity))
+                                and current.group(1, 2) == prior.group(1, 2) for ref in paths})
+                    if len(matches) == 1 and matches[0] != path:
+                        edges.append({'source': path, 'target': matches[0], 'type': 'source_ref',
+                            'direction': 'directed', 'basis': 'frontmatter', 'field': 'source_refs',
+                            'consumed_fields': ['*'], 'use': 'interpret', 'classification': 'internal'})
+                    elif len(matches) > 1:
+                        source_coverage_missing = True
     # Raw edges can contain protected source metadata and remain internal.
-    result=assess_impact(root,policy,{'edges':edges},before=before,after=after,destination_context=destination_context,**kwargs)
+    result=assess_impact(root,policy,{'edges':edges},before=before,after=after,destination_context=destination_context,trusted_binding=trusted_binding,**kwargs)
+    if source_coverage_missing:
+        result['coverage'] += '; some source associations unavailable'
     policy.fresh()
     return result
+
+
+@policy_stage_cache()
+def route_impact_to_action(root, binding, *, destination_context, before, after, scope,
+                           event_id, action_path, action_id, profile, expected_sha256, trace=()):
+    """Record one requalified impact on an existing authorized routed action."""
+    if os.name == 'nt':
+        raise RequirementError('review route unavailable')
+    from wiki_core.action_dialogue import validate_history
+    from wiki_core.action_transition import (_TRANSITION_LOCK, _action_file_lock,
+        _contained_action_path, _parse_document, _sha256_text, _transition_action_page_locked,
+        operational_comment_receipt, _comment_suffix_preserves_content, _render_document)
+    from wiki_core.coordination import POLICY_FILE, dialogue_action
+    from wiki_core.coordination_context import _policy
+    from wiki_core.context_packet import guard_folder_blob
+    from wiki_core.context_impact import _folder_context, _folder_ref
+
+    root = Path(root).resolve(strict=True)
+    policy = _policy(root, binding, destination_context, after)
+    _folder_context(root, policy, destination_context)
+    action_path = safe_path(action_path)
+    if (policy.owner_of(action_path) != destination_context
+            or not policy.permits(destination_context, 'read', action_path)
+            or not policy.permits(destination_context, 'write', action_path)):
+        raise RequirementError('review route unavailable')
+    route_owner = policy.owner_of(POLICY_FILE)
+    if policy.connection(route_owner, destination_context, POLICY_FILE, 'interpretation', 'artifact') != 'approved':
+        raise RequirementError('review route unavailable')
+    if not isinstance(expected_sha256, str) or not re.fullmatch(r'[0-9a-f]{64}', expected_sha256):
+        raise RequirementError('review route unavailable')
+    impact = assess_approved_impact(root, policy, consumers=None, scope=scope, before=before,
+        after=after, destination_context=destination_context, max_fanout=1000,
+        trusted_binding=binding, trace=trace)
+    matches = [row for row in impact['candidates'] if row.get('event_id') == event_id
+               and row.get('state') in ('review_pending', 'blocked_unpinned_dependency')]
+    if len(matches) != 1 or impact.get('authorized_remaining'):
+        raise RequirementError('review route unavailable')
+    def event_for(candidate):
+        unqualified = candidate['state'] == 'blocked_unpinned_dependency'
+        return {'event_id': candidate['event_id'], 'kind': 'comment', 'coordinator': profile,
+                'text': (('Review suggested for ' if unqualified else 'Review requested for ')
+                         + candidate['target'] + ': ' + candidate['source']
+                         + ' (' + candidate['selector'] + ') changed in approved revision ' + after
+                         + ('. Declared relation only; consumption is unverified and qualification is required.' if unqualified
+                            else '. Independent interpretation and integration remain pending.'))}
+    event = event_for(matches[0])
+    _folder_ref(root, policy, action_path)
+    _folder_ref(root, policy, POLICY_FILE)
+    guard_folder_blob(root, policy, POLICY_FILE)
+    route_reader = RepositoryReader(root, after, exact_path=POLICY_FILE)
+    if route_reader.blob_size(POLICY_FILE) > 2_000_000:
+        raise RequirementError('review route unavailable')
+    route = guarded_context_read(route_reader, policy, POLICY_FILE)
+    guard_folder_blob(root, policy, action_path)
+    action_reader = RepositoryReader(root, after, exact_path=action_path)
+    if action_reader.blob_size(action_path) > 2_000_000:
+        raise RequirementError('review route unavailable')
+    approved_action = guarded_context_read(action_reader, policy, action_path)
+    with _TRANSITION_LOCK, _action_file_lock(root, action_path):
+        policy.fresh()
+        _folder_ref(root, policy, action_path)
+        _folder_ref(root, policy, POLICY_FILE)
+        if (root / POLICY_FILE).stat().st_size > 2_000_000:
+            raise RequirementError('review route unavailable')
+        route_bytes = (root / POLICY_FILE).read_bytes()
+        if hashlib.sha256(route_bytes).hexdigest() != route['content_sha256']:
+            raise RequirementError('review route unavailable')
+        path, ref = _contained_action_path(root, action_path)
+        raw = path.read_text(encoding='utf-8')
+        current_sha = _sha256_text(raw)
+        if current_sha != expected_sha256:
+            raise RequirementError('review action revision changed')
+        try:
+            action = dialogue_action(root, ref, action_id, event)
+        except (ValueError, OSError) as exc:
+            raise RequirementError('review route unavailable') from exc
+        frontmatter, body = _parse_document(raw)
+        history = frontmatter.get('action_dialogue') or []
+        validate_history(history)
+        if current_sha != approved_action['content_sha256']:
+            baseline, baseline_body = _parse_document(approved_action['text'])
+            old_events = baseline.get('action_dialogue') or []
+            old_receipts = baseline.get('action_state_history') or []
+            new_events = history[len(old_events):]
+            new_receipts = (frontmatter.get('action_state_history') or [])[len(old_receipts):]
+            candidates = {item['event_id']: item for item in impact['candidates']
+                          if item.get('state') in ('review_pending', 'blocked_unpinned_dependency')}
+            if (not _comment_suffix_preserves_content(baseline, frontmatter, baseline_body, body)
+                    or not 1 <= len(new_events) <= 128 or len(new_events) != len(new_receipts)):
+                raise RequirementError('review action has unapproved changes; preserved')
+            prior = approved_action['text']
+            for index, item in enumerate(new_events):
+                expected = event_for(candidates[item['event_id']]) if item['event_id'] in candidates else None
+                if (expected is None or any(item.get(key) != value for key, value in expected.items())
+                        or item.get('actor') != 'operator'):
+                    raise RequirementError('review action has unapproved changes; preserved')
+                intermediate = dict(baseline)
+                intermediate['action_dialogue'] = [*old_events, *new_events[:index + 1]]
+                intermediate['action_state_history'] = [*old_receipts, *new_receipts[:index + 1]]
+                rendered = _render_document(intermediate, baseline_body)
+                proof = operational_comment_receipt(prior, rendered)
+                if not proof or proof.get('event_id') != item['event_id']:
+                    raise RequirementError('review action has unapproved changes; preserved')
+                prior = rendered
+            if prior != raw:
+                raise RequirementError('review action has unapproved changes; preserved')
+        previous = [row for row in history if row['event_id'] == event_id]
+        if previous:
+            row = previous[0]
+            if any(row.get(key) != value for key, value in event.items()) or row['actor'] != 'operator':
+                raise RequirementError('review route unavailable')
+            policy.fresh()
+            return {'status': 'already_recorded', 'event_id': event_id,
+                    'action_id': action_id, 'after_sha256': current_sha,
+                    'execution': 'not_dispatched'}
+        policy.fresh()
+        receipt = _transition_action_page_locked(root, ref, action['state'], expected_sha256=current_sha,
+            dialogue_event=event, dialogue_actor='operator')
+        try:
+            policy.fresh()
+            _folder_ref(root, policy, POLICY_FILE)
+            if hashlib.sha256((root / POLICY_FILE).read_bytes()).hexdigest() != route['content_sha256']:
+                raise ValueError('route changed')
+            _folder_ref(root, policy, action_path)
+            if hashlib.sha256(path.read_bytes()).hexdigest() != receipt.after_sha256:
+                raise ValueError('action changed')
+        except (ValueError, OSError) as exc:
+            raise RequirementError('review action may have been recorded; inspect before retry') from exc
+        return {'status': 'recorded', 'event_id': event_id, 'action_id': action_id,
+                'after_sha256': receipt.after_sha256, 'execution': 'not_dispatched'}
 
 def requirements_from_result(root,policy,*,packet,result,output_path,proposal_head,temporal,max_age_days,trusted_additional_readers=(),trusted_binding=None):
     """Propose page requirements from reported reads; never write a page.
@@ -61,6 +307,8 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     Git bytes are verified at input, current base and proposal output. The task
     result reports its reads; this is not proof of semantic comprehension.
     """
+    if isinstance(packet, dict) and packet.get('schema_version') in ('wiki.task-context/v2', 'wiki.task-context/v3'):
+        raise RequirementError('bounded range requirements are not supported')
     if getattr(policy, 'format_version', None) != 'folder':
         raise RequirementError('new requirements require folder authority; v1 is historical only')
     from wiki_core.context_packet import _check_trusted_binding

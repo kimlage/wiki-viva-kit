@@ -60,6 +60,24 @@ def test_revision_stays_coherent_across_worktree_mutations_and_commits(repositor
     assert RepositoryReader(repository, before['revision']).read('policy') == before
 
 
+def test_blob_size_reuse_keeps_read_guards(repository, monkeypatch):
+    reader = RepositoryReader(repository)
+    original_git = reader._git
+    size_calls = []
+    guards = []
+    def tracked(*args):
+        if args[:2] == ('cat-file', '-s'):
+            size_calls.append(args[-1])
+        return original_git(*args)
+    monkeypatch.setattr(reader, '_git', tracked)
+    assert reader.blob_size('memories/policy.md') > 0
+    reader.read('memories/policy.md', before_blob=guards.append)
+    before_second = len(guards)
+    reader.read('memories/policy.md', before_blob=guards.append)
+    assert len(size_calls) == 1
+    assert len(guards) > before_second > 0
+
+
 @pytest.mark.parametrize('ref', ['../outside.md', '/etc/passwd', 'memories/../AGENTS.md', '.git/config', '.env', 'secrets/token.md', 'memories\\policy.md'])
 def test_unsafe_or_secret_paths_rejected(repository, ref):
     with pytest.raises(RepositoryReadError):

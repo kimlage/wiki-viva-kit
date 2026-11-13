@@ -18,6 +18,48 @@ agent operating the repository.
   The agent writes the delegated LLM result through
   [.skills/wiki-llm-context-agent](.skills/wiki-llm-context-agent/SKILL.md).
 
+## Coordinator role
+
+When acting as a cross-front coordinator, follow the
+[coordinator role contract](.skills/wiki-viva/reference/coordinator.md) at
+opening and every resumption. Maintain direction, dependencies and acceptance;
+check integrator deliveries while product integrators perform implementation,
+tests, integration and infrastructure work. Recheck the owner's current
+direction and pauses before dispatch: an old queued message does not release a
+pause. This is an operator instruction; the host must bind the role and enforce
+current authority.
+
+## Integrator role
+
+At opening or resumption, on receiving results and before ending a turn, check
+authorized threads and their actions, artifacts and PRs; a completed turn is not
+a completed delivery. Check for an active run before resuming an authorized,
+executable next step in the same thread with its acceptance; preserve artifacts
+and WIP, follow the result and conduct review and integration. Do not stop at
+an acknowledgement. Reconcile uncertain effects
+before retrying. Do not repeat a denial without new evidence, resume an explicit
+pause or interrupt an active run solely for lack of visible progress. Record a
+real blocker's evidence, missing input or dependency, responsible recipient and
+resume condition on the existing action; continue independent work. Close the
+accepted scope only after review and applicable gates, approved-main readback,
+wiki reconciliation and settlement. A sub-delivery or merged PR does not close a
+front with remaining scope or acceptance. After the turn ends, an authorized
+observer, coordinator or host checks the effective settled state. If it hides
+pending work, restore visibility and resume the same thread only under current
+direction and STOPs; if no observer is available, report verification pending
+without guessing its cause. See the [continuity and closeout contract](docs/references/guides/context-coordinators.md#thread-continuity-and-closeout).
+
+Only `main` is permanent. Every other branch has a PR: push and open a draft
+by the end of the turn that creates it. A draft represents incomplete or paused
+work, including STOP; it does not authorize resumption. Integrate useful content
+or close the PR with the specific reason for discarding it. Commit and push
+worktree changes before deciding. On merge or close, remove the local and remote
+branch and its worktree in the same delivery, without creating backup branches,
+bundles or snapshots. Preserve unique work and compare expected heads before
+deletion. Reuse valid review and test evidence for an unchanged delivery. Apply
+this lifecycle to the wiki and coordinated projects; see
+[branch and PR lifecycle](docs/references/guides/context-coordinators.md#post-merge-cleanup).
+
 ## PR review policy
 
 - Before merging this kit, a reviewer independent of the change's author must
@@ -82,20 +124,29 @@ consumer migrations. No capsule or certification ceremony is required.
 
 ## Gates before a PR
 
+Run the privacy and repository-integrity audits and check the diff locally:
+
 ```sh
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_audit.py --public-export --check
-python3 scripts/wiki_check_methodology_coverage.py --check
-python3 scripts/wiki_operation_compile.py --check
-python3 scripts/wiki_input_stage.py --check
-python3 scripts/wiki_semantic_inventory.py --check
-python3 scripts/wiki_web_snapshot.py --check-contract
-python3 scripts/wiki_pack.py validate --all
-python3 -m pytest tests/
-npm --prefix apps/wiki-cockpit test
-npm --prefix apps/wiki-cockpit exec -- tsc -p apps/wiki-cockpit/tsconfig.json --noEmit
-npm --prefix apps/wiki-cockpit run build
+git diff --check origin/main
 ```
+
+Select additional local checks for the actual change and record their scope in
+the PR: focused Python tests for affected behavior and security boundaries;
+the relevant deterministic compiler, snapshot or pack checks for generated
+contracts; and frontend tests, typecheck and build when UI code or a consumed
+interface changes. When impact is uncertain or cross-cutting, widen the local
+selection. A documentation-only change does not require an unrelated local
+unit or browser suite.
+
+The normal public CI runs the full Python and frontend suites, configured
+browser journeys and Windows checks on the PR merge result associated with the
+reviewed head and current base. Do not duplicate those entire suites locally for
+every PR; a failed or missing CI check is not replaced by a local result. Run
+additional tests when a change, failure or unresolved risk warrants them.
+Coordinate the independent review after the proposal is stable; if the head
+changes, the reviewer verifies the new head and the affected delta.
 
 Configure each consumer through `wiki.config.yaml`; no context, owner or memory
 root may be hardcoded in shared core.

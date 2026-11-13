@@ -28,6 +28,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_action_adopt.py](../../../scripts/wiki_action_adopt.py) | Adopt a downstream action baseline |
 | [wiki_archive.py](../../../scripts/wiki_archive.py) | Archive resolved proposals/events |
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audit contracts, links, secrets and public PII |
+| [wiki_audit_proposal.py](../../../scripts/wiki_audit_proposal.py) | Check authorized changed Git text for secrets without claiming global audit |
 | [wiki_build_demo.py](../../../scripts/wiki_build_demo.py) | Regenerate the public synthetic demo |
 | [wiki_build_index.py](../../../scripts/wiki_build_index.py) | Build the local source/chunk index |
 | [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py) | Inspect derived cache |
@@ -36,7 +37,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_context.py](../../../scripts/wiki_context.py) | Resolve the approved folder context or build an explicit or anchored-query task packet |
 | [wiki_context_flow.py](../../../scripts/wiki_context_flow.py) | Assess selective context impact, revalidate dynamic sets, derive canonical requirements and preflight proposals without approving or merging |
 | [wiki_context_schedule.py](../../../scripts/wiki_context_schedule.py) | Read-only schedule advice; folder requests currently block before opening pending host binding and requalification |
-| [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) | Publish ignored artifacts to configured Drive |
+| [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) | Publish authorized artifacts to the authorized Drive destination with privacy and secret safeguards; dry-run stays local. See [publisher limits](../../../scripts/README.md#task-entry-points). |
 | [wiki_export_batch.py](../../../scripts/wiki_export_batch.py) | Export context requests in batch format |
 | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | Build a deterministic source manifest |
 | [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) | Extract and chunk a source |
@@ -64,6 +65,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_performance.py](../../../scripts/wiki_performance.py) | Plan, run and verify fail-closed performance evidence |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarize a PR |
 | [wiki_quadrant_contract.py](../../../scripts/wiki_quadrant_contract.py) | Print the AQAL quadrant contract |
+| [wiki_integral_map.py](../../../scripts/wiki_integral_map.py) | Generate or check one anchor integral map |
 | [wiki_quadrant_projection_report.py](../../../scripts/wiki_quadrant_projection_report.py) | Review quadrant projections |
 | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Report quality/cost telemetry |
 | [wiki_read.py](../../../scripts/wiki_read.py) | Read explicitly scoped Git content by revision, stable section or frontmatter field |
@@ -72,6 +74,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_semantic_inventory.py](../../../scripts/wiki_semantic_inventory.py) | Verify authored semantics/read models |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Compile the source registry |
 | [wiki_sync_from_kit.py](../../../scripts/wiki_sync_from_kit.py) | Dry-run/apply B0/C1/C2/C3 kit adoption |
+| [wiki_sync_guarded.py](../../../scripts/wiki_sync_guarded.py) | Prepare and apply an externally admitted, plan-bound C1 sync |
 | [wiki_template_sections.py](../../../scripts/wiki_template_sections.py) | Preview modular section structure or filling on a trusted working tree |
 | [wiki_vercel_preview.py](../../../scripts/wiki_vercel_preview.py) | Prepare a synthetic-only Vercel function preview without deploying |
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepare deployment inputs |

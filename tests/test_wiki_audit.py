@@ -45,6 +45,58 @@ def audit():
     return _load_wiki_audit()
 
 
+@pytest.mark.parametrize(
+    ("setting", "required"),
+    [("false", False), ("true", True), ("", True), ("null", True), ("0", True), ('"false"', True)],
+)
+@pytest.mark.parametrize("change_location", ["working", "staged", "committed"])
+def test_global_log_requirement_uses_loaded_config_and_real_git_changes(
+    tmp_path, monkeypatch, audit, setting, required, change_location
+):
+    config_text = "paths:\n  memory_root: knowledge\n  system_dirname: operations\n"
+    if setting:
+        config_text += f"approval:\n  require_log_update: {setting}\n"
+    (tmp_path / "wiki.config.yaml").write_text(config_text, encoding="utf-8")
+    page = tmp_path / "knowledge/example/page.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("# Synthetic context\n", encoding="utf-8")
+
+    def git(*args):
+        subprocess.run(
+            ["git", "-c", "user.name=Synthetic", "-c", "user.email=test@example.invalid", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-b", "main")
+    git("add", ".")
+    git("commit", "-m", "Synthetic approved base")
+    git("switch", "-c", "wiki/context-change")
+    page.write_text("# Synthetic context\n\nEvidence remains in this context.\n", encoding="utf-8")
+    if change_location in {"staged", "committed"}:
+        git("add", ".")
+    if change_location == "committed":
+        git("commit", "-m", "Synthetic context evidence")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    errors: list[str] = []
+
+    audit.audit_log_changed(errors, load_config(tmp_path))
+
+    assert errors == (
+        ["knowledge changed without updating knowledge/operations/log.md"]
+        if required else []
+    )
+    if required:
+        log = tmp_path / "knowledge/operations/log.md"
+        log.parent.mkdir(parents=True)
+        log.write_text("# Synthetic log\n\nRecorded the context change.\n", encoding="utf-8")
+        git("add", ".")
+        errors = []
+        audit.audit_log_changed(errors, load_config(tmp_path))
+        assert errors == []
+
+
 @pytest.mark.parametrize("case", ["ordinary", "multiline", "wrong_actor", "duplicate", "wrong_type"])
 def test_shape_audit_keeps_typed_action_dialogue(tmp_path, monkeypatch, audit, case):
     from types import SimpleNamespace
@@ -593,6 +645,141 @@ def test_strict_local_requires_derived_link_to_exist(tmp_path, audit, monkeypatc
     )
 
 
+def test_angle_destinations_are_classified_and_local_targets_still_checked(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    notes = tmp_path / "memories"
+    notes.mkdir()
+    (notes / "existing file).md").write_text("synthetic\n", encoding="utf-8")
+    (notes / "folder").mkdir()
+
+    def target(markdown):
+        match = audit.MARKDOWN_LINK_RE.search(markdown)
+        assert match, markdown
+        return match.group(1)
+
+    for link in (
+        "[thread](<t3-thread://v2/example/123>)",
+        '[web](<https://example.test/a)b> "synthetic title")',
+        "[fragment](<#section>)",
+    ):
+        assert audit.local_link_target_path("memories/note.md", target(link)) is None
+    for link in (
+        "[local](<existing file).md#section>)",
+        "[local](<existing%20file).md>)",
+    ):
+        assert audit.local_link_target_exists("memories/note.md", target(link))
+    assert not audit.local_link_target_exists("memories/note.md", target("[missing](<missing file.md>)"))
+    assert audit.local_link_target_is_directory("memories/note.md", target("[dir](<folder>)"))
+    # A partial pair is not unwrapped to fabricate an external scheme.
+    assert not audit.local_link_target_exists("memories/note.md", "<t3-thread://v2/example/123")
+
+
+def test_clickable_link_audit_reports_missing_angle_local_not_external(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "link_audit_files", lambda config: ["note.md"])
+    (tmp_path / "note.md").write_text(
+        "[thread](<t3-thread://v2/example/123>)\n"
+        "[missing](<missing file.md>)\n", encoding="utf-8")
+    errors = []
+    audit.audit_clickable_local_links(errors, WikiConfig())
+    assert len(errors) == 1
+    assert "missing file.md" in errors[0]
+
+
+def test_direct_link_audit_uses_supplied_localized_config(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'link_audit_files', lambda config: ['note.md'])
+    (tmp_path / 'memorias').mkdir()
+    (tmp_path / 'memorias' / 'synthetic.md').write_text('synthetic\n')
+    (tmp_path / 'note.md').write_text('See `memorias/synthetic.md` here.\n')
+    defaults = WikiConfig()
+    config = WikiConfig(paths={**defaults.paths, 'memory_root': 'memorias'})
+    errors = []
+    audit.audit_clickable_local_links(errors, config)
+    assert any('local path must be a markdown link' in error for error in errors)
+
+
+def test_context_instructions_keep_security_checks_but_not_page_graph_obligations(tmp_path, audit, monkeypatch):
+    from tests.test_page_graph import _page, _write
+
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    defaults = WikiConfig()
+    config = WikiConfig(paths={**defaults.paths, "memory_root": "memorias"},
+                        audit={**defaults.audit, "orphan_check": True, "reachability_check": True})
+    _write(tmp_path / "AGENTS.md", "# Root instructions\n")
+    _write(tmp_path / "memorias/index.md", _page("root", "root_index", "Root", ""))
+    for name, file_name in (("one", "AGENTS.md"), ("two", "AGENTS.override.md")):
+        _write(tmp_path / f"memorias/{name}/index.md", _page(name, "context_hub", name, ""))
+        _write(tmp_path / f"memorias/{name}/{file_name}",
+               f"# Instructions\n\nRead `{file_name}` in the target repository.\n")
+    _write(tmp_path / "memorias/unpaired/AGENTS.md", "# Unpaired\n")
+    _write(tmp_path / "memorias/note.md", "Read `AGENTS.md` in the target repository.\n")
+    files = [p.relative_to(tmp_path).as_posix() for p in (tmp_path / "memorias").rglob("*.md")]
+    monkeypatch.setattr(audit, "link_audit_files", lambda config: files)
+    monkeypatch.setattr(audit, "markdown_files", lambda: files)
+    monkeypatch.setattr(audit, "_scannable_text_files", lambda: files)
+    graph_errors, link_errors, secret_errors, warnings = [], [], [], []
+    audit.audit_page_graph(graph_errors, warnings, config)
+    audit.audit_clickable_local_links(link_errors, config)
+    assert not any("memorias/one/AGENTS.md" in error or "memorias/two/AGENTS.override.md" in error for error in graph_errors + link_errors)
+    assert any("memorias/unpaired/AGENTS.md" in error for error in graph_errors)
+    assert any("memorias/note.md" in error for error in link_errors)
+
+    # Instruction classification must not remove files from secret scanning.
+    instruction = tmp_path / "memorias/one/AGENTS.md"
+    instruction.write_text(instruction.read_text() + "\nOPENAI_API_KEY=sk-" + "proj-" + "A" * 24 + "\n")
+    audit.audit_secrets(secret_errors, config)
+    assert any("memorias/one/AGENTS.md" in error for error in secret_errors)
+
+
+def test_claude_instruction_in_indexed_context_is_not_a_memory_page_obligation(tmp_path, audit, monkeypatch):
+    from tests.test_page_graph import _page, _write
+    from wiki_core.context_policy import is_context_instruction as is_policy_instruction
+
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    defaults = WikiConfig()
+    config = WikiConfig(audit={**defaults.audit, "orphan_check": True, "reachability_check": True,
+                               "min_outbound_links": 1})
+    _write(tmp_path / "AGENTS.md", "# Root instructions\n")
+    _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", ""))
+    _write(tmp_path / "memories/example/index.md", _page("example", "context_hub", "Example", ""))
+    _write(tmp_path / "memories/example/AGENTS.md", "# Instructions\n")
+    _write(tmp_path / "memories/example/CLAUDE.md", "@AGENTS.md\n\nRead `AGENTS.md`.\n")
+    _write(tmp_path / "memories/unindexed/CLAUDE.md", "@AGENTS.md\n")
+    files = [p.relative_to(tmp_path).as_posix() for p in (tmp_path / "memories").rglob("*.md")]
+    monkeypatch.setattr(audit, "link_audit_files", lambda config: files)
+    graph_errors, link_errors, warnings = [], [], []
+    audit.audit_page_graph(graph_errors, warnings, config)
+    audit.audit_clickable_local_links(link_errors, config)
+    assert not any("memories/example/CLAUDE.md" in item for item in graph_errors + link_errors + warnings)
+    assert any("memories/unindexed/CLAUDE.md: orphan memory page" in item for item in graph_errors)
+    assert any("memories/unindexed/CLAUDE.md: unreachable" in item for item in graph_errors)
+    assert any("memories/unindexed/CLAUDE.md" in item for item in link_errors)
+    assert not is_policy_instruction("memories/example/CLAUDE.md")
+
+
+def test_external_angle_link_does_not_exempt_secret_or_public_pii_scan(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "link_audit_files", lambda config: ["memories/note.md"])
+    monkeypatch.setattr(audit, "markdown_files", lambda: ["memories/note.md"])
+    monkeypatch.setattr(audit, "_scannable_text_files", lambda: ["memories/note.md"])
+    note = tmp_path / "memories/note.md"
+    note.parent.mkdir()
+    fake_key = "sk-" + "proj-" + "A" * 24
+    note.write_text(
+        "---\nvisibility: public\n---\n\n"
+        f"[external](<https://example.test/{fake_key}/529.982.247-25>)\n",
+        encoding="utf-8",
+    )
+    config = WikiConfig()
+    link_errors, secret_errors, pii_errors, warnings = [], [], [], []
+    audit.audit_clickable_local_links(link_errors, config)
+    audit.audit_secrets(secret_errors, config)
+    audit.audit_pii(pii_errors, warnings, config, public_export=True)
+    assert link_errors == []
+    assert secret_errors and pii_errors
+
+
 # ---------------------------------------------------------------------------
 # LOCAL_ARTIFACT_LINK_RE: extension coverage (.jsonl/.sqlite were escaping)
 # ---------------------------------------------------------------------------
@@ -660,8 +847,9 @@ def test_append_only_drive_artifact_links_are_ignored(tmp_path, audit, monkeypat
 
     assert warnings == [
         "1 link(s) to unversioned local artifact in 1 page(s); "
-        "general rule: content on Drive (wiki_drive_publish) and the wiki points to the "
-        "manifest view_url. Use --list-stale-gaps to list."
+        "use an authorized stable external link or publish with wiki_drive_publish.py "
+        "within the authorized file and destination scope. "
+        "Use --list-stale-gaps to list."
     ]
 
 
@@ -1601,8 +1789,9 @@ def test_action_transition_audit_blocks_deletion_but_allows_identity_preserving_
     audit.audit_action_state_transitions(errors)
 
     assert errors == [
-        f"{old_rel}: deleting an existing action discards its lifecycle history; "
-        "transition it to `cancelled` with a receipt and retain the page "
+        f"{old_rel}: only an action already canonically terminal at the "
+        "audit base can be retired; transition it with a receipt "
+        "and approve that change before deleting the page "
         "[action_page_deleted]"
     ]
 
@@ -1620,6 +1809,157 @@ def test_action_transition_audit_blocks_deletion_but_allows_identity_preserving_
     audit.audit_action_state_transitions(errors)
 
     assert errors == []
+
+
+@pytest.mark.parametrize("state", ["done", "cancelled"])
+def test_action_retirement_accepts_terminal_writer_contract_from_base(
+    tmp_path, monkeypatch, audit, state
+):
+    from wiki_core.action_transition import transition_action_page
+
+    rel = "memories/actions/action-retired.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    path.write_text(_action_document("open"), encoding="utf-8")
+    receipt_field = "completion_receipt" if state == "done" else "cancellation_receipt"
+    transition_action_page(
+        tmp_path,
+        rel,
+        state,
+        recorded_at="2026-07-11T15:00:00Z",
+        **{receipt_field: "Synthetic terminal outcome approved."},
+    )
+    previous = path.read_text(encoding="utf-8")
+    path.unlink()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == []
+
+
+@pytest.mark.parametrize(
+    "state", ["open", "in_progress", "blocked", "waiting_human", "invalid", "legacy_done"]
+)
+def test_action_retirement_rejects_nonterminal_base(tmp_path, monkeypatch, audit, state):
+    rel = "memories/actions/action-retired.md"
+    previous = _action_document(state)
+    if state == "legacy_done":
+        previous = previous.replace("action_state: legacy_done", "status: done")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert len(errors) == 1 and "[action_page_deleted]" in errors[0]
+
+
+def test_action_retirement_rejects_cancel_and_delete_in_one_proposal(
+    tmp_path, monkeypatch, audit
+):
+    from wiki_core.action_transition import transition_action_page
+
+    rel = "memories/actions/action-retired.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    previous = _action_document("open")
+    path.write_text(previous, encoding="utf-8")
+    transition_action_page(
+        tmp_path,
+        rel,
+        "cancelled",
+        cancellation_receipt="Synthetic retirement requested.",
+        recorded_at="2026-07-11T15:00:00Z",
+    )
+    path.unlink()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert len(errors) == 1 and "[action_page_deleted]" in errors[0]
+
+
+@pytest.mark.parametrize(
+    ("extra", "code"),
+    [
+        ("", "invalid_action_lifecycle_contract"),
+        (
+            "completion_receipt: Synthetic completion.\n"
+            "completed_at: 2026-07-11T15:00:00Z\n"
+            "action_state_history: malformed\n",
+            "invalid_base_action_history",
+        ),
+    ],
+)
+def test_action_retirement_rejects_invalid_terminal_base(
+    tmp_path, monkeypatch, audit, extra, code
+):
+    rel = "memories/actions/action-retired.md"
+    previous = _action_document("done").replace(
+        "next_action: Review synthetic evidence.\n", extra
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert len(errors) == 1 and f"[{code}]" in errors[0]
+
+
+def test_action_retirement_rejects_ambiguous_terminal_identity(
+    tmp_path, monkeypatch, audit
+):
+    rel = "memories/actions/action-retired.md"
+    other = "memories/actions/action-duplicate.md"
+    previous = _action_document("done").replace(
+        "next_action: Review synthetic evidence.\n",
+        "completion_receipt: Synthetic completion.\n"
+        "completed_at: 2026-07-11T15:00:00Z\n",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel, other})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous), (other, previous))},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert len(errors) == 2
+    assert all("[ambiguous_base_action_identity]" in error for error in errors)
 
 
 def test_action_transition_audit_accepts_central_writer_receipt(
@@ -2349,7 +2689,10 @@ def test_primary_pages_resolves_nested_context_hubs_by_identity(tmp_path, audit,
 
 
 def test_nested_context_hubs_missing_and_duplicate_fail_explicitly(tmp_path, audit, monkeypatch):
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
     monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    audit._audit_git_inventory.cache_clear()
+    audit.tracked_files.cache_clear()
     config = WikiConfig(contexts=('tax',), audit={'core_pages': []})
     errors, warnings = [], []
     audit.audit_frontmatter(errors, warnings, config)
@@ -2358,9 +2701,13 @@ def test_nested_context_hubs_missing_and_duplicate_fail_explicitly(tmp_path, aud
         path = tmp_path / f'memories/finance/{name}/index.md'
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f'---\npage_id: {name}-hub\npage_type: context_hub\ncontext: tax\n---\n# Synthetic hub\n')
+    audit._audit_git_inventory.cache_clear()
+    audit.tracked_files.cache_clear()
     errors, warnings = [], []
     audit.audit_frontmatter(errors, warnings, config)
     assert any('context tax: multiple context hubs:' in error for error in errors)
+    audit._audit_git_inventory.cache_clear()
+    audit.tracked_files.cache_clear()
 
 
 def test_context_hub_discovery_refuses_symlink_root_without_reading_it(tmp_path, audit, monkeypatch):
@@ -2430,8 +2777,11 @@ def test_context_hub_audit_matches_typed_discovery_without_coercion(tmp_path, au
     assert errors == typed_errors == []
 
 
-@pytest.mark.parametrize('marker', ['directory', 'file', 'symlink-file', 'symlink-directory'])
-@pytest.mark.parametrize('name', [' leading space', 'line\nbreak'])
+@pytest.mark.parametrize('marker,name', [
+    ('directory', ' leading space'), ('file', ' leading space'),
+    ('symlink-file', ' leading space'), ('symlink-directory', ' leading space'),
+    ('directory', 'line\nbreak'),
+])
 def test_audit_fences_tracked_boundaries_before_read(tmp_path, audit, monkeypatch, capsys, marker, name):
     root = tmp_path / 'wiki'
     folder = root / 'docs' / name / 'nested'

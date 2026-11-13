@@ -3,10 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from wiki_core.traversal import wiki_markdown_files
+from wiki_core.traversal import require_wiki_boundaries, wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
+from wiki_core.frontmatter import split_frontmatter
 from wiki_core.paths import WikiPaths
 
 
@@ -21,21 +22,33 @@ def _dedupe(values: list[str]) -> list[str]:
     return out
 
 
-def _repo_path(root: Path, source: str) -> Path | None:
+def _repo_path(root: Path, source: str, reads=None) -> Path | None:
     path = Path(source)
     if not path.is_absolute():
         path = root / source
+    if reads is not None:
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
+            raise RuntimeError('selected path unavailable') from None
+        from wiki_core.context_policy import safe_path
+        try:
+            if safe_path(relative.as_posix()) != relative.as_posix():
+                raise ValueError('noncanonical')
+        except ValueError:
+            raise RuntimeError('selected path unavailable') from None
+        return path
     try:
-        path.resolve().relative_to(root.resolve())
+        require_wiki_boundaries(root, files=(path,))
     except ValueError:
         return None
     return path
 
 
-def _read_config_page(path: Path, paths: WikiPaths) -> dict[str, Any] | None:
-    if not path.exists():
+def _read_config_page(path: Path, paths: WikiPaths, reads=None) -> dict[str, Any] | None:
+    if not (path.exists() if reads is None else reads.exists(path)):
         return None
-    values = parse_frontmatter(path)
+    values = parse_frontmatter(path if reads is None else reads.read_text(path, errors='replace'))
     if values.get("page_type") != "source_config":
         return None
     return {
@@ -51,39 +64,59 @@ def _read_config_page(path: Path, paths: WikiPaths) -> dict[str, Any] | None:
     }
 
 
-def find_source_config(root: Path, config: WikiConfig, source: str) -> dict[str, Any] | None:
+def find_source_config(root: Path, config: WikiConfig, source: str, *, reads=None) -> dict[str, Any] | None:
     """Return the source_config page that governs a repo-local source page.
 
     The preferred link is `config_ref` on the source page. The fallback scans
-    `sources/config/*.md` for a matching `source_refs` entry. Raw files and URLs
-    have no source page identity, so they return None.
+    the source's own configured sources directory's `config` subtree for a
+    matching `source_refs` entry, then the legacy global config. It never scans
+    unrelated contexts. Raw files and URLs have no source page identity.
     """
 
     paths = WikiPaths(root, config)
-    source_path = _repo_path(root, source)
-    if source_path is None or not source_path.exists() or source_path.suffix.lower() != ".md":
+    source_path = _repo_path(root, source, reads)
+    if (source_path is None or not (source_path.exists() if reads is None else reads.exists(source_path))
+            or source_path.suffix.lower() != ".md"):
         return None
 
-    values = parse_frontmatter(source_path)
+    source_text = source_path if reads is None else reads.read_text(source_path, errors='replace')
+    values = parse_frontmatter(source_text)
+    if reads is not None:
+        # The flat parser conflates an empty scalar and an empty sequence.
+        # Preserve the optional empty scalar while rejecting non-text refs;
+        # use the already-admitted bytes and never reread the source path.
+        typed_values, _ = split_frontmatter(source_text)
+        typed_ref = (typed_values or {}).get('config_ref')
+        if typed_ref is not None and not isinstance(typed_ref, str):
+            raise RuntimeError('explicit source configuration invalid')
     source_keys = {key for key in (str(values.get("page_id") or ""), paths.rel(source_path)) if key}
 
-    config_ref = str(values.get("config_ref") or "").strip()
+    config_ref = (str(values.get("config_ref") or "").strip() if reads is None
+                  else (typed_ref or '').strip())
     if config_ref:
-        config_path = _repo_path(root, config_ref)
+        config_path = _repo_path(root, config_ref, reads)
         if config_path is not None:
-            direct = _read_config_page(config_path, paths)
+            direct = _read_config_page(config_path, paths, reads)
             if direct is not None:
                 return direct
+        if reads is not None:
+            # The guarded caller cannot call an explicit unavailable or invalid
+            # input complete merely because a different fallback exists.
+            raise RuntimeError('explicit source configuration unavailable')
 
-    config_dir = paths.sources_dir / "config"
-    if not config_dir.exists():
-        return None
-    for path in sorted(wiki_markdown_files(config_dir, wiki_root=root)):
-        values = parse_frontmatter(path)
-        if values.get("page_type") != "source_config":
+    local_root = paths.collection_root(source_path, "sources_dirname")
+    config_dirs = list(dict.fromkeys(base / "config" for base in (local_root, paths.sources_dir) if base is not None))
+    for config_dir in config_dirs:
+        if not (config_dir.exists() if reads is None else reads.exists(config_dir)):
             continue
-        if source_keys & set(_list_values(values.get("source_refs"))):
-            return _read_config_page(path, paths)
+        candidates = (wiki_markdown_files(config_dir, wiki_root=root) if reads is None
+                      else reads.markdown(config_dir, root))
+        for path in candidates:
+            values = parse_frontmatter(path if reads is None else reads.read_text(path, errors='replace'))
+            if values.get("page_type") != "source_config":
+                continue
+            if source_keys & set(_list_values(values.get("source_refs"))):
+                return _read_config_page(path, paths, reads)
     return None
 
 
@@ -102,6 +135,8 @@ def merge_perspectives(
     channel_required = channel_required or []
     channel_optional = channel_optional or []
     skipped = set(source_config.get("perspectives_skip_with_reason") or []) if source_config else set()
+    from wiki_core.quadrants import DEFAULT_QUADRANT_MAP
+    protected = {item for ids in DEFAULT_QUADRANT_MAP.values() for item in ids} & set(root_required)
     merged_required = _dedupe(
         [
             item
@@ -111,7 +146,7 @@ def merge_perspectives(
                 + list(source_config.get("perspectives_required") or [] if source_config else [])
                 + list(required)
             )
-            if item not in skipped
+            if item not in skipped or item in protected
         ]
     )
     merged_optional = _dedupe(

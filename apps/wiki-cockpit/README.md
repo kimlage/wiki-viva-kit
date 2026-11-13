@@ -4,6 +4,31 @@ Local-first web cockpit for Wiki Viva. The 3D scene is the primary navigation
 surface: one continuous knowledge world where drill level is camera altitude
 bound to the URL and reading happens inside the world.
 
+The optional Codex job runner requires a CLI supporting `exec`, `--cd`,
+`--sandbox workspace-write`, `--json`, and `--output-last-message`. It uses
+the long output option because the short alias is absent in some versions,
+including the reported 0.41.0. This is a capability contract, not a guarantee
+that every release in a version range supports all flags; check `codex exec
+--help` for the installed version. An incompatible CLI exits with a failed
+job; the runner does not currently perform a preflight compatibility probe.
+For capability checks, connector discovery and job execution, the binary is
+selected by `WIKI_CODEX_BINARY` first, then `codex.binary` in `wiki.config.yaml`,
+then `codex` on PATH. An explicitly injected runner command remains separate.
+Relative binary paths and relative PATH entries resolve from the operator's
+working directory before the job switches to the wiki root.
+The operator fixes this selection at startup; restart it after changing the
+binary, `WIKI_CODEX_BINARY`, or PATH so the probe and job use the same choice.
+The job currently inherits the installed CLI's reasoning and MCP configuration;
+it does not guarantee isolation from the operator's configured MCP servers.
+Choose compatible settings in the Codex configuration before running a job.
+To override reasoning for jobs only, set `codex.job_reasoning_effort` in
+`wiki.config.yaml` to a value supported by the installed CLI and provider, for
+example `none`. Supported configured values are `none`, `minimal`, `low`,
+`medium`, `high`, and `xhigh`; omission retains the inherited configuration.
+Restart the operator after changing it. This does not disable MCP servers or
+guarantee that a particular provider accepts the selected effort. An invalid
+configured value prevents operator startup, even when the Codex runner is disabled.
+
 ## Source-management workspace
 
 The source manager is a standalone 2D application surface. Open

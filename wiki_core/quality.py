@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import stat
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
@@ -13,8 +15,8 @@ from wiki_core.events import is_ingestion_event_page as _is_ingestion_event_page
 from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
 from wiki_core.graph import build_page_graph
-from wiki_core.graph.page_graph import DEFAULT_ORPHAN_EXEMPT_TYPES, PageGraph
-from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION, read_matching_result, is_local_folder_request
+from wiki_core.graph.page_graph import DEFAULT_ORPHAN_EXEMPT_TYPES, PageGraph, is_context_instruction
+from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION, read_matching_result
 from wiki_core.paths import WikiPaths
 
 QUALITY_REPORT_SCHEMA_VERSION = "wiki_quality_report.v1"
@@ -119,18 +121,23 @@ def _has_hierarchy_parent(values: dict[str, Any]) -> bool:
 def _read_json(path: Path) -> dict[str, Any] | None:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except json.JSONDecodeError:
         return None
 
 
 def _chunk_payloads(paths: WikiPaths) -> list[dict[str, Any]]:
     payloads: list[dict[str, Any]] = []
-    from wiki_core.traversal import is_protected_artifact
+    from wiki_core.traversal import is_protected_artifact, require_wiki_boundaries, wiki_files
     if is_protected_artifact(paths.chunks):
         raise ValueError('protected artifacts require bound dispatch')
-    if not paths.chunks.exists():
+    require_wiki_boundaries(paths.root, directories=(paths.chunks,))
+    try:
+        mode = paths.chunks.stat().st_mode
+    except FileNotFoundError:
         return payloads
-    for path in sorted(paths.chunks.rglob("*.json")):
+    if not stat.S_ISDIR(mode):
+        raise NotADirectoryError(paths.chunks)
+    for path in wiki_files(paths.chunks, wiki_root=paths.root, suffix='.json'):
         data = _read_json(path)
         if not isinstance(data, dict):
             continue
@@ -250,6 +257,8 @@ def build_quality_report(
     frontmatter_by_rel: dict[str, dict[str, Any]] = {}
     quality_exempt_pages: list[dict[str, str]] = []
     quality_exemption_missing_reason: list[str] = []
+    known_paths = set(graph.nodes)
+    instruction_paths = {rel for rel in known_paths if is_context_instruction(rel, graph.memory_root, known_paths)}
 
     for rel, node in graph.nodes.items():
         page_path = root / rel
@@ -288,7 +297,7 @@ def build_quality_report(
             )
             if not reason:
                 quality_exemption_missing_reason.append(rel)
-        if not _is_event_rel(paths, rel):
+        if not _is_event_rel(paths, rel) and rel not in instruction_paths:
             for block in repeated_blocks_for_page(body):
                 repeated_index[block].append(rel)
 
@@ -297,18 +306,18 @@ def build_quality_report(
     low_density_pages = [
         page["path"]
         for page in pages
-        if page["page_type"] not in NAV_EXEMPT_TYPES and page["useful_lines"] < 3
+        if page["path"] not in instruction_paths and page["page_type"] not in NAV_EXEMPT_TYPES and page["useful_lines"] < 3
         and not _is_quality_exempt(frontmatter_by_rel.get(page["path"], {}), "low_density")
     ]
     thin_link_pages = [
         page["path"]
         for page in pages
-        if page["page_type"] not in NAV_EXEMPT_TYPES and page["outbound_links"] < 1
+        if page["path"] not in instruction_paths and page["page_type"] not in NAV_EXEMPT_TYPES and page["outbound_links"] < 1
     ]
     relation_pages_without_parent = [
         page["path"]
         for page in pages
-        if page["page_type"] in RELATION_PAGE_TYPES
+        if page["path"] not in instruction_paths and page["page_type"] in RELATION_PAGE_TYPES
         and not _has_hierarchy_parent(frontmatter_by_rel.get(page["path"], {}))
         and not _is_quality_exempt(
             frontmatter_by_rel.get(page["path"], {}), "hierarchy_parent"
@@ -317,6 +326,7 @@ def build_quality_report(
 
     repeated_blocks: list[dict[str, Any]] = []
     bad_repetition: list[dict[str, Any]] = []
+    repetition_unknown_metadata: list[dict[str, Any]] = []
     for block, rels in sorted(repeated_index.items()):
         unique_rels = sorted(set(rels))
         repeated_rels = [
@@ -339,10 +349,22 @@ def build_quality_report(
             "page_types": sorted(types),
         }
         repeated_blocks.append(record)
+        unknown_metadata_pages = [
+            rel
+            for rel in unique_rels
+            if not graph.nodes[rel].context or not graph.nodes[rel].page_type
+        ]
+        if unknown_metadata_pages:
+            repetition_unknown_metadata.append(
+                {**record, "unknown_metadata_pages": unknown_metadata_pages}
+            )
         grouped: dict[tuple[str, str], list[str]] = defaultdict(list)
         for rel in unique_rels:
             node = graph.nodes.get(rel)
-            if node:
+            # Empty metadata means the relationship is unknown, not that two
+            # pages share a context/type. Keep the block in repeated_blocks,
+            # but require both known fields before classifying it as bad.
+            if node and node.context and node.page_type:
                 grouped[(node.context, node.page_type)].append(rel)
         for (context, page_type), group_rels in sorted(grouped.items()):
             if len(group_rels) > 1:
@@ -361,14 +383,23 @@ def build_quality_report(
     schema_version = CONTEXT_PASS_SCHEMA_VERSION
     model_profile = str(config.llm.get("default_model_profile", "deep_context"))
     requests = {}
-    for request_path in sorted(paths.extraction_events.glob("*-llm-context-request.json")):
+    from wiki_core.traversal import require_wiki_boundaries
+    require_wiki_boundaries(paths.root, directories=(paths.extraction_events,))
+    try:
+        with os.scandir(paths.extraction_events) as entries:
+            request_paths = [Path(entry.path) for entry in entries
+                             if entry.name.endswith('-llm-context-request.json')
+                             and entry.is_file(follow_symlinks=False)]
+    except FileNotFoundError:
+        request_paths = []
+    for request_path in sorted(request_paths):
         try:
             if re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', request_path.name):
                 from wiki_core.llm.context_pass import load_local_request
                 request = load_local_request(paths, request_path)
             else:
                 request = json.loads(request_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except ValueError:
             if request_path.name.startswith('folder-'):
                 raise
             continue
@@ -404,7 +435,7 @@ def build_quality_report(
                 if (row is not None
                         and row.get("chunk_hash_sha256", chunk.get("hash_sha256")) == chunk.get("hash_sha256")
                         and read_matching_result(paths.llm_cache, request, row,
-                            root=paths.root if is_local_folder_request(request) else None) is not None):
+                            root=paths.root) is not None):
                     source_cached += 1
                 else:
                     source_pending += 1
@@ -485,6 +516,7 @@ def build_quality_report(
             "relation_pages_without_parent": relation_pages_without_parent,
             "bad_repetition_blocks": bad_repetition,
             "repeated_blocks": repeated_blocks,
+            **({"repetition_unknown_metadata": repetition_unknown_metadata} if repetition_unknown_metadata else {}),
             "events_without_consolidated_into": events_without_consolidated_into,
             "events_without_impact_closure": events_without_impact_closure,
             "quality_exempt_pages": quality_exempt_pages,
@@ -603,6 +635,18 @@ def render_markdown(report: dict[str, Any]) -> str:
         for item in flags["bad_repetition_blocks"][:20]:
             pages = ", ".join(f"`{page}`" for page in item["pages"])
             lines.append(f"- {item['text_preview']}... ({pages})")
+    else:
+        lines.append("- None.")
+    lines.extend(["", "### Repeated blocks with unknown context or page type", ""])
+    unknown_repetitions = flags.get("repetition_unknown_metadata", [])
+    if unknown_repetitions:
+        for item in unknown_repetitions[:20]:
+            pages = ", ".join(f"`{page}`" for page in item["pages"])
+            unknown = ", ".join(f"`{page}`" for page in item["unknown_metadata_pages"])
+            lines.append(f"- {item['text_preview']}... ({pages}; unknown metadata: {unknown})")
+        if len(unknown_repetitions) > 20:
+            omitted = len(unknown_repetitions) - 20
+            lines.append(f"- {omitted} additional blocks omitted; use `--format json` for the complete list.")
     else:
         lines.append("- None.")
     lines.extend(["", "### Quality exempt pages", ""])

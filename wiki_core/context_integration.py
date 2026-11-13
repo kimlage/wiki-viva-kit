@@ -2,10 +2,12 @@
 from __future__ import annotations
 import re
 from copy import deepcopy
+import hashlib
 import json
+import math
 import subprocess
 from pathlib import Path
-from wiki_core.context_policy import PolicyError, safe_path, is_context_instruction
+from wiki_core.context_policy import PolicyError, safe_path, is_context_instruction, policy_stage_cache
 from wiki_core.context_packet import build_packet, validate_result, guarded_context_read
 from wiki_core.repository_reader import RepositoryReader
 from wiki_core.git_env import local_git_environment, local_git_executable
@@ -59,12 +61,31 @@ class _QueryReuse:
         return receipt
 
 
-def preflight(root, policy, *, context_id, base, head, branch, packet, result, trusted_additional_readers=(), trusted_binding=None):
+def preflight(root, policy, *, context_id, base, head, branch, packet, result, trusted_additional_readers=(), trusted_binding=None, allow_owned_range=False, allow_owned_ranges=False):
     """Return a review candidate, never an approval or merge authorization.
 
     External independent reviewer and final-head gates remain mandatory. The
     caller is responsible for ensuring its trusted ref is independently kept.
     """
+    with policy_stage_cache():
+        return _preflight(root, policy, context_id=context_id, base=base, head=head, branch=branch,
+            packet=packet, result=result, trusted_additional_readers=trusted_additional_readers,
+            trusted_binding=trusted_binding, allow_owned_range=allow_owned_range, allow_owned_ranges=allow_owned_ranges)
+
+
+def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
+               trusted_additional_readers=(), trusted_binding=None, _assigned=None, allow_owned_range=False, allow_owned_ranges=False):
+    # _assigned is derived internally by preflight_composite, never exposed by
+    # the single-context entrypoint. Readers still see the complete Git trees.
+    if not isinstance(packet, dict): raise IntegrationError('invalid task packet')
+    range_mode = packet.get('schema_version') == 'wiki.task-context/v2'
+    ranges_mode = packet.get('schema_version') == 'wiki.task-context/v3'
+    if range_mode or ranges_mode:
+        from wiki_core.coordination_context import CoordinationBinding
+        if ((range_mode and allow_owned_range is not True) or (ranges_mode and allow_owned_ranges is not True)
+                or not isinstance(trusted_binding, CoordinationBinding)
+                or trusted_additional_readers or _assigned is not None):
+            raise IntegrationError('owned range unavailable')
     if getattr(policy, 'format_version', None) not in (None, 'folder'): raise IntegrationError('unsupported policy format')
     if not getattr(policy,'_binding',None) or Path(policy._binding[0])!=Path(root).resolve(): raise IntegrationError('unbound policy')
     if getattr(policy, 'format_version', None) == 'folder':
@@ -73,7 +94,8 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result, t
         except PolicyError as exc: raise IntegrationError('host binding unavailable') from exc
     policy=policy.fresh()
     folder_mode = getattr(policy, 'format_version', None) == 'folder'
-    if not isinstance(packet, dict): raise IntegrationError('invalid task packet')
+    if (range_mode or ranges_mode) and not folder_mode:
+        raise IntegrationError('owned range unavailable')
     if folder_mode != (packet.get('authority_format') == 'folder'):
         raise IntegrationError('packet authority format differs')
     packet_readers = packet.get('additional_readers', ())
@@ -110,13 +132,15 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result, t
         entry={k:item[k] for k in ('ref','producer','reason','use','classification')}
         for k in ('section','field'):
             if item[k] is not None: entry[k]=item[k]
+        if 'range' in item: entry['range'] = item['range']
         evidence.append(entry)
     try:
         if folder_mode:
             from wiki_core.context_packet import _qualify_trusted_producers
-            _qualify_trusted_producers(root, policy, context_id, evidence, packet['max_bytes'],
+            qualification_evidence = [{k: v for k, v in row.items() if k != 'range'} for row in evidence] if range_mode or ranges_mode else evidence
+            _qualify_trusted_producers(root, policy, context_id, qualification_evidence, packet['max_bytes'],
                                        trusted_binding=trusted_binding, additional_readers=trusted_additional_readers)
-        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet),entry_folder=packet.get('entry_folder'),entry_index=packet.get('entry_index'),additional_readers=trusted_additional_readers,trusted_binding=trusted_binding)
+        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet),entry_folder=packet.get('entry_folder'),entry_index=packet.get('entry_index'),additional_readers=trusted_additional_readers,trusted_binding=trusted_binding,allow_owned_range=allow_owned_range,allow_owned_ranges=allow_owned_ranges)
     except (PolicyError, ValueError, KeyError, TypeError) as exc: raise IntegrationError('packet authorization cannot be reproduced') from exc
     if rebuilt!=packet: raise IntegrationError('packet contents cannot be reproduced')
     canonical_query_budget=[32_000_000]
@@ -128,13 +152,42 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result, t
     # A historical read may still be used only if its selected bytes remain
     # identical at the current approved base; no fallback to a larger slice.
     for item in packet['inputs']:
-        try: now=guarded_context_read(base_reader,policy,item['ref'],section=item['section'],field=item['field'])
+        try: now=guarded_context_read(base_reader,policy,item['ref'],section=item['section'],field=item['field'],byte_range=item.get('range'))
         except ValueError as exc: raise IntegrationError('consumed input unavailable at approved base') from exc
         if now['content_digest']!=item['sha256']: raise IntegrationError('consumed input changed since task')
+    if range_mode:
+        ranged = [item for item in packet['inputs'] if 'range' in item]
+        if len(ranged) != 1: raise IntegrationError('owned range unavailable')
+        item = ranged[0]
+        try:
+            source = guarded_context_read(RepositoryReader(root,packet['content_revision']),policy,item['ref'])['content']
+            approved = guarded_context_read(base_reader,policy,item['ref'])['content']
+            candidate = guarded_context_read(proposal,policy,item['ref'])['content']
+            selected = guarded_context_read(proposal,policy,item['ref'],byte_range=item['range'])
+        except ValueError as exc:
+            raise IntegrationError('owned range unavailable') from exc
+        if (not approved.startswith(source) or not candidate.startswith(approved) or len(candidate) <= len(approved)
+                or selected['content_digest'] != item['sha256']):
+            raise IntegrationError('owned range append cannot be verified')
+    if ranges_mode:
+        ranged = [item for item in packet['inputs'] if 'range' in item]
+        if not ranged: raise IntegrationError('owned ranges unavailable')
+        for item in ranged:
+            try:
+                approved = guarded_context_read(base_reader, policy, item['ref'])
+                candidate = guarded_context_read(proposal, policy, item['ref'])
+                selected = guarded_context_read(proposal, policy, item['ref'], byte_range=item['range'])
+            except ValueError as exc:
+                raise IntegrationError('owned range unavailable') from exc
+            if (approved['content_sha256'] != item['document_sha256']
+                    or not candidate['content'].startswith(approved['content'])
+                    or selected['content_digest'] != item['sha256']):
+                raise IntegrationError('owned range document changed')
     raw=_git(root,'diff','--no-ext-diff','--no-textconv','--no-renames','--name-status','-z',base_reader.revision,proposal.revision).split(b'\0')
     if raw and raw[-1]==b'': raw.pop()
     if len(raw)%2: raise IntegrationError('unsupported diff')
     actual=[]
+    base_paths, proposal_paths = set(base_reader.paths), set(proposal.paths)
     # Active normative inputs require the separate policy-review path even if
     # the acting context would otherwise have read/write access to the file.
     normative={ref for c in policy.contexts.values() for k in ('instructions','skills','templates') for ref in c[k]}
@@ -142,6 +195,8 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result, t
     for i in range(0,len(raw),2):
         try: status=raw[i].decode(); path=safe_path(raw[i+1].decode())
         except (UnicodeError,PolicyError) as exc: raise IntegrationError('invalid diff path') from exc
+        if _assigned is not None and (status, path) not in _assigned:
+            continue
         if status not in ('A','M','D') or path.endswith('/context.yaml') or path=='context.yaml' or (folder_mode and path == 'wiki.config.yaml'): raise IntegrationError('unsupported or policy change')
         if is_context_instruction(path): raise IntegrationError('folder instruction change requires separate policy review')
         folder = str(Path(path).parent).replace('\\', '/')
@@ -157,10 +212,19 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result, t
         if path in normative: raise IntegrationError('normative input requires separate policy review')
         if policy.owner_of(path)!=context_id or not policy.permits(context_id,'write',path): raise IntegrationError('write outside context')
         if not policy.permits(context_id,'read',path): raise IntegrationError('proposal read denied')
+        # A deletion has no proposed blob to open. Require its base entry to
+        # be an accepted regular file, so symlinks, gitlinks and excluded
+        # paths cannot bypass the reader's checks. Modifications require safe
+        # entries on both sides; additions must be safe in the proposal.
+        if ((status in ('M', 'D') and path not in base_paths)
+                or (status in ('A', 'M') and path not in proposal_paths)):
+            raise IntegrationError('unsupported or unsafe proposed file')
         for reader_context in trusted_additional_readers:
             if policy._connection(context_id,reader_context,path,'interpretation','context',qualified=False) != 'approved':
                 raise IntegrationError('additional reader not authorized for proposal')
         changes.append((status, path))
+    if range_mode and changes != [('M', packet['output'])]:
+        raise IntegrationError('owned range supports only the selected output append')
     if folder_mode:
         from wiki_core.traversal import require_wiki_boundaries
         try: require_wiki_boundaries(root, files=tuple(Path(root) / path for _, path in changes))
@@ -237,6 +301,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result, t
                             continue
                         for selector in requirement['fields']:
                             def matches(item):
+                                if 'range' in item: return False
                                 normative = requirement.get('source_kind') == 'mandatory'
                                 if item['kind'] != ('mandatory' if normative else 'evidence') or item['ref']!=requirement['target'] or item['revision']!=consumed: return False
                                 observed={k:item[k] for k in ('ref','section','field','revision')}
@@ -257,4 +322,149 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result, t
     if folder_mode:
         output['coverage_missing'] = sorted(set(packet['coverage']['missing']) | set(result['read_coverage']['missing']))
     if any(x.category=='secret' for x in scan_text(json.dumps(output,ensure_ascii=False))): raise IntegrationError('secret detected in integration metadata')
+    return output
+
+
+def _bounded_composite_inputs(value):
+    """Reject non-JSON-like or oversized input before copying or serializing it.
+
+    The estimate intentionally counts every UTF-8 byte six times, an upper
+    bound for JSON string escaping. It can reject below the nominal limit.
+    """
+    remaining = 8_000_000
+    nodes = 0
+
+    def visit(item, depth):
+        nonlocal remaining, nodes
+        nodes += 1
+        remaining -= 2  # structural punctuation / separators
+        if nodes > 100_000 or remaining < 0 or depth > 64:
+            raise IntegrationError('composite preflight unavailable')
+        if item is None or type(item) is bool:
+            remaining -= 5
+        elif type(item) is int:
+            if item.bit_length() > 63: raise IntegrationError('composite preflight unavailable')
+            remaining -= 21
+        elif type(item) is float:
+            if not math.isfinite(item): raise IntegrationError('composite preflight unavailable')
+            remaining -= 32
+        elif type(item) is str:
+            if len(item) > remaining // 6: raise IntegrationError('composite preflight unavailable')
+            try: remaining -= 6 * len(item.encode('utf-8'))
+            except UnicodeError: raise IntegrationError('composite preflight unavailable') from None
+        elif type(item) in (list, tuple):
+            for child in item: visit(child, depth + 1)
+        elif type(item) is dict:
+            for key, child in item.items():
+                if type(key) is not str: raise IntegrationError('composite preflight unavailable')
+                visit(key, depth + 1)
+                visit(child, depth + 1)
+        else:
+            raise IntegrationError('composite preflight unavailable')
+        if remaining < 0: raise IntegrationError('composite preflight unavailable')
+
+    visit(value, 0)
+
+
+@policy_stage_cache()
+def preflight_composite(root, policy, *, base, head, branch, participants, trusted_binding):
+    """Qualify one full diff by owner for a trusted local integrator.
+
+    The host must independently authorize the caller to receive metadata for
+    *all* involved contexts. A binding is a ceiling, not that authorization.
+    This function is not a sandbox, an identity check, review or merge grant.
+    """
+    try:
+        return _preflight_composite(root, policy, base=base, head=head, branch=branch,
+                                    participants=participants, trusted_binding=trusted_binding)
+    except (ValueError, KeyError, TypeError, OSError, OverflowError):
+        # This trusted host API may combine owners. Do not expose a foreign
+        # path or which authority check failed through an error response.
+        raise IntegrationError('composite preflight unavailable') from None
+
+
+def _preflight_composite(root, policy, *, base, head, branch, participants, trusted_binding):
+    from wiki_core.context_packet import _check_trusted_binding
+    from wiki_core.coordination_context import CoordinationBinding
+
+    if (not isinstance(trusted_binding, CoordinationBinding)
+            or getattr(policy, 'format_version', None) != 'folder'
+            or type(participants) is not list or not 1 <= len(participants) <= 64):
+        raise IntegrationError('composite host binding unavailable')
+    if not getattr(policy, '_binding', None) or Path(policy._binding[0]) != Path(root).resolve():
+        raise IntegrationError('unbound policy')
+    _bounded_composite_inputs([base, head, branch, participants])
+    # Freeze the host-supplied packets/results for this operation. They remain
+    # intact: no rewritten result or synthetic single-owner receipt is trusted.
+    participants = deepcopy(participants)
+    rows = {}
+    for row in participants:
+        if (not isinstance(row, dict) or not {'context_id', 'packet', 'result'} <= set(row)
+                or set(row) - {'context_id', 'packet', 'result', 'additional_readers'}):
+            raise IntegrationError('invalid composite participant')
+        context = row['context_id']
+        readers = row.get('additional_readers', ())
+        if (not isinstance(context, str) or context in rows
+                or not isinstance(readers, (list, tuple)) or len(readers) > 64
+                or any(not isinstance(reader, str) for reader in readers)
+                or len(set(readers)) != len(readers)):
+            raise IntegrationError('invalid composite participant')
+        try:
+            _check_trusted_binding(root, policy, context, trusted_binding, readers)
+        except (PolicyError, ValueError, TypeError) as exc:
+            raise IntegrationError('composite host binding unavailable') from exc
+        rows[context] = row
+
+    policy = policy.fresh()
+    base_reader, proposal = RepositoryReader(root, base), RepositoryReader(root, head)
+    if base_reader.revision != policy.policy_revision:
+        raise IntegrationError('approved base moved')
+    raw = _git(root, 'diff', '--no-ext-diff', '--no-textconv', '--no-renames',
+               '--name-status', '-z', base_reader.revision, proposal.revision).split(b'\0')
+    if raw and raw[-1] == b'': raw.pop()
+    if not raw or len(raw) % 2 or len(raw) > 8192:
+        raise IntegrationError('empty or unsupported composite proposal')
+    partition = {context: set() for context in rows}
+    actual = []
+    seen = set()
+    for i in range(0, len(raw), 2):
+        try:
+            status, path = raw[i].decode(), safe_path(raw[i + 1].decode())
+            owner = policy.owner_of(path)
+        except (UnicodeError, PolicyError, ValueError, TypeError) as exc:
+            raise IntegrationError('invalid composite proposal') from exc
+        if status not in ('A', 'M', 'D') or path in seen or owner not in partition:
+            raise IntegrationError('composite coverage unavailable')
+        seen.add(path)
+        partition[owner].add((status, path))
+        actual.append({'path': path, 'action': {'A': 'created', 'M': 'modified', 'D': 'deleted'}[status]})
+    if any(not assigned for assigned in partition.values()):
+        raise IntegrationError('composite coverage unavailable')
+
+    summaries = []
+    for context in sorted(rows):
+        row = rows[context]
+        part = _preflight(root, policy, context_id=context, base=base_reader.revision,
+            head=proposal.revision, branch=branch, packet=row['packet'], result=row['result'],
+            trusted_additional_readers=tuple(row.get('additional_readers', ())),
+            trusted_binding=trusted_binding, _assigned=partition[context])
+        summaries.append({'context_id': context, 'task_id': part['task_id'],
+            'packet_digest': part['packet_digest'], 'changes_count': len(part['changes']),
+            'coverage_missing_count': len(part.get('coverage_missing', ()))})
+
+    # A moving approved ref or branch must invalidate the complete operation,
+    # not only whichever participant happened to be checked last.
+    policy.fresh()
+    if _git(root, 'rev-parse', '--verify', 'refs/heads/' + branch + '^{commit}').decode().strip() != proposal.revision:
+        raise IntegrationError('branch head changed')
+    digest = hashlib.sha256(json.dumps(sorted(actual, key=lambda x: (x['path'], x['action'])),
+        ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    output = {'schema_version': 'wiki.context-integration-composite/v1',
+        'state': 'independent_review_required', 'base': base_reader.revision,
+        'head': proposal.revision, 'branch': branch, 'participants': summaries,
+        'changes_count': len(actual), 'diff_sha256': digest,
+        'actor_identity': 'not_verified', 'semantic_coherence': 'not_assessed',
+        'review': 'not_performed', 'gates': 'not_performed', 'merge': 'not_performed'}
+    if any(x.category == 'secret' for x in scan_text(json.dumps(output, ensure_ascii=False))):
+        raise IntegrationError('secret detected in integration metadata')
     return output

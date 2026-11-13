@@ -36,6 +36,7 @@ import {
   TRACE_MODES,
   formatBytes,
   formatWhen,
+  groupSourceStreams,
   scheduleModeLabel,
   sourceScopeCounts,
   sourceDisplayName,
@@ -288,7 +289,7 @@ export function SourceDock({
         <header className="dockHeader">
           <SourcePlatformIcon source={source} size={16} />
           <strong title={source.title}>{sourceDisplayName(source.title)}</strong>
-          <span className="pill pill-muted">{t("source.sync.recorded")}: {t(`source.sync.${source.sync.last_status}`)}</span>
+          <span className={`pill pill-${SYNC_TONE[source.sync.last_status] ?? "muted"}`}>{t("source.sync.recorded")}: {t(`source.sync.${source.sync.last_status}`)}</span>
           {!embedded && <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button"><X size={16} /></button>}
         </header>
 
@@ -395,8 +396,10 @@ export function SourceDock({
                 <th>{t("source.streams.privacy")}</th>
               </tr>
             </thead>
-            <tbody>
-              {source.streams.map((stream) => (
+              {groupSourceStreams(source.streams).map(group => (
+                <tbody key={group.category}>
+                <tr className="sourceStreamCategory"><th scope="rowgroup" colSpan={3}>{t(`source.stream.category.${group.category}`)}</th></tr>
+                {group.streams.map((stream) => (
                 <tr
                   key={stream.id}
                   ref={(row) => {
@@ -453,15 +456,18 @@ export function SourceDock({
                     <small>{stream.privacy}</small>
                   </td>
                 </tr>
+                ))}
+                </tbody>
               ))}
               {source.streams.length === 0 && (
+                <tbody>
                 <tr>
                   <td colSpan={3}>
                     <small>{t("source.streams.none")}</small>
                   </td>
                 </tr>
+                </tbody>
               )}
-            </tbody>
           </table>
           {selectedStream && (
             <section className="sourceRecord" aria-label={t("source.record.title")}>
