@@ -85,8 +85,9 @@ def test_two_authorized_contexts_keep_same_source_artifacts_distinct(project, mo
     assert first_cache.is_file()
     module = _recording_cli(project, sha, second_request, monkeypatch, tmp_path)
     args = list(sys.argv)
-    for flag, value in [('--folder-context','b'), ('--folder-index','b/index.md'), ('--folder-output','b/result.md')]:
+    for flag, value in [('--folder-context','b'), ('--folder-output','b/result.md')]:
         args[args.index(flag) + 1] = value
+    args.extend(['--folder-index', 'b/index.md'])
     monkeypatch.setattr(sys, 'argv', args)
     monkeypatch.setenv('WIKI_FOLDER_INGEST_HOST_FOLDERS', 'a,b')
     assert module.main() == 0
