@@ -829,3 +829,40 @@ def test_proposed_grant_never_authorizes_query_reads(audit_collection,monkeypatc
     assert not report['blockers'] and any(x['reason']=='dynamic_query_requalification_required' for x in report['pending_reviews'])
     assert report['query_revalidation']['audit_authority']=='global_integrator_caller_trust'
     assert report['query_revalidation']['context_scope']=='query_recomputation_only_not_auditor_acl'
+
+
+@pytest.mark.parametrize('revoked', ['anchor', 'scope'])
+def test_exact_anchor_revalidation_rejects_revocation_before_member_read(audit_collection, monkeypatch, revoked):
+    from wiki_core.context_selection import revalidate_packet_queries
+
+    old = folder_packet(audit_collection)
+    old_revision = old['query_selections'][0]['revision']
+    config_path = audit_collection / 'wiki.config.yaml'
+    config = yaml.safe_load(config_path.read_text())
+    access = config['context_access'][AUDIT_CONTEXT]['policy']
+    access['read'] = ['file[self/index.md]', 'self/items', 'file[self/AGENTS.md]', 'AGENTS.md']
+    config_path.write_text(yaml.safe_dump(config))
+    narrower_revision = commit(audit_collection, 'Exact anchor and scoped collection')
+    current_policy = folder_policy(audit_collection)
+    historical = RepositoryReader(audit_collection, old_revision)
+    current = RepositoryReader(audit_collection, narrower_revision)
+    refreshed = revalidate_packet_queries(current_policy, old, historical, current)
+    assert refreshed[0]['authority_digest'] == old['query_selections'][0]['authority_digest']
+
+    if revoked == 'anchor':
+        access['read'] = ['self/items', 'file[self/AGENTS.md]', 'AGENTS.md']
+    else:
+        access['read'] = ['file[self/index.md]', 'file[self/items/first.md]',
+                          'file[self/AGENTS.md]', 'AGENTS.md']
+    config_path.write_text(yaml.safe_dump(config))
+    new_revision = commit(audit_collection, 'Revoke selected authority')
+    original = RepositoryReader._document
+
+    def no_member_read(reader, path, *args, **kwargs):
+        assert path != SCOPE + '/first.md', 'revoked query member opened'
+        return original(reader, path, *args, **kwargs)
+
+    monkeypatch.setattr(RepositoryReader, '_document', no_member_read)
+    with pytest.raises(PolicyError):
+        policy = folder_policy(audit_collection)
+        revalidate_packet_queries(policy, old, historical, RepositoryReader(audit_collection, new_revision))
