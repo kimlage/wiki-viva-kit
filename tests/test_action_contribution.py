@@ -65,6 +65,44 @@ def head_review(request, commit):
     return {**review(request), "proposal_commit": commit}
 
 
+@pytest.mark.parametrize('mutation', ['tracked', 'untracked', 'index_flag'])
+def test_gates_stop_before_next_command_when_candidate_changes(tmp_path, mutation):
+    target, _ = fixture(tmp_path)
+    calls = []
+
+    def runner(call):
+        calls.append(True)
+        result = call()
+        if len(calls) == 1:
+            if mutation == 'tracked':
+                target.write_text('temporary synthetic change\n')
+            elif mutation == 'untracked':
+                (tmp_path / 'new-synthetic-input').write_text('temporary\n')
+            else:
+                git(tmp_path, 'update-index', '--assume-unchanged', str(target.relative_to(tmp_path)))
+        return result
+
+    with pytest.raises(port.ContributionError, match='gate_modified_candidate_inputs'):
+        port._gates(tmp_path, load_config(tmp_path), effect_runner=runner)
+    assert len(calls) == 1
+
+
+def test_gates_allow_unchanged_proposal_already_modified_before_validation(tmp_path):
+    target, _ = fixture(tmp_path)
+    target.write_text(target.read_text() + '\nSynthetic proposed change.\n')
+    before = target.read_bytes()
+    results = port._gates(tmp_path, load_config(tmp_path))
+    assert all(result['exit_code'] == 0 for result in results)
+    assert target.read_bytes() == before
+
+
+def test_gates_refuse_existing_untracked_input_before_running(tmp_path):
+    fixture(tmp_path)
+    (tmp_path / 'synthetic-input').write_text('untracked\n')
+    with pytest.raises(port.ContributionError, match='gate_untracked_candidate_inputs'):
+        port._gates(tmp_path, load_config(tmp_path), effect_runner=lambda _: pytest.fail('gate ran'))
+
+
 def call(root, op, request, **kwargs):
     return run_git_workflow(root, load_config(root), op + "_contribution", {"request": request, **kwargs}, dry_run=False)
 

@@ -239,6 +239,28 @@ def _freshness_review_args(base: str | None, reviews: dict | None) -> list[str]:
     return args
 
 
+def _gate_input_fingerprint(root: Path) -> str:
+    """Fingerprint tracked candidate state without retaining its contents."""
+    commands = (
+        ("rev-parse", "HEAD"),
+        ("status", "--porcelain=v1", "-z", "--untracked-files=all"),
+        ("diff", "--binary", "--no-ext-diff", "--no-textconv", "HEAD", "--"),
+        ("diff", "--cached", "--binary", "--no-ext-diff", "--no-textconv", "HEAD", "--"),
+        ("ls-files", "-v", "-z"),
+    )
+    digest = hashlib.sha256()
+    for args in commands:
+        try:
+            result = subprocess.run(["git", *args], cwd=root, capture_output=True, timeout=120)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise ContributionError("gate_input_state_unavailable") from exc
+        if result.returncode:
+            raise ContributionError("gate_input_state_unavailable")
+        digest.update(len(result.stdout).to_bytes(8, "big"))
+        digest.update(result.stdout)
+    return digest.hexdigest()
+
+
 def _gates(root: Path, config: WikiConfig, *, full_checks: bool = False,
            committed_head: str | None = None, effect_runner=None,
            freshness_base: str | None = None, freshness_reviews: dict | None = None) -> list[dict]:
@@ -259,6 +281,9 @@ def _gates(root: Path, config: WikiConfig, *, full_checks: bool = False,
     if not isinstance(extra, list) or any(not isinstance(c, list) or not c or
             any(not isinstance(x, str) or not x for x in c) for c in extra):
         raise ContributionError("invalid_policy_gates")
+    if _git(root, "ls-files", "--others", "--exclude-standard"):
+        raise ContributionError("gate_untracked_candidate_inputs")
+    baseline = _gate_input_fingerprint(root)
     results = []
     for command in [*commands, *extra]:
         try:
@@ -268,6 +293,8 @@ def _gates(root: Path, config: WikiConfig, *, full_checks: bool = False,
             raise ContributionError("gate_unavailable") from exc
         results.append({"argv": command, "exit_code": p.returncode,
                         "output_sha256": hashlib.sha256(p.stdout + p.stderr).hexdigest()})
+        if _gate_input_fingerprint(root) != baseline:
+            raise ContributionError("gate_modified_candidate_inputs", {"gate_receipts": results})
         if p.returncode:
             from wiki_core.web.commands import SECRET_VALUE_RE
             output = (p.stdout + p.stderr).decode("utf-8", errors="replace")
