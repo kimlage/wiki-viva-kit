@@ -54,6 +54,12 @@ import { SourcePlatformIcon } from "./SourcePlatformIcon";
 import { SourceAuthorizationCard } from "./SourceAuthorizationCard";
 import { SourceObservationSummary } from "./SourceObservationSummary";
 
+function RecordedAuthAttempt({ source }: { source: SourceEntity }) {
+  if (source.lifecycle?.last_attempt_state !== "needs_auth" || source.sync.last_status === "needs_auth") return null;
+  const when = source.lifecycle.last_attempt_at;
+  return <span className="pill pill-warn recordedAuthAttempt">{t("source.lifecycle.recordedAttempt")}: {t("source.sync.needs_auth")}{when ? ` · ${formatWhen(when)}` : ""}</span>;
+}
+
 export function SourceDock({
   bundle,
   sourceId,
@@ -232,6 +238,7 @@ export function SourceDock({
                     <span className="sourceListState">
                       {s.pending_streams > 0 && <span className="pill pill-warn">{t("source.list.pendingN", { n: s.pending_streams })}</span>}
                       <span className={`pill pill-${tone}`}>{t(`source.sync.${s.sync.last_status}`)}</span>
+                      <RecordedAuthAttempt source={s} />
                     </span>
                   </button>
                 </li>
@@ -290,6 +297,7 @@ export function SourceDock({
           <SourcePlatformIcon source={source} size={16} />
           <strong title={source.title}>{sourceDisplayName(source.title)}</strong>
           <span className={`pill pill-${SYNC_TONE[source.sync.last_status] ?? "muted"}`}>{t("source.sync.recorded")}: {t(`source.sync.${source.sync.last_status}`)}</span>
+          <RecordedAuthAttempt source={source} />
           {!embedded && <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button"><X size={16} /></button>}
         </header>
 

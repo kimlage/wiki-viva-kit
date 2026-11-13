@@ -7021,6 +7021,11 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
   flex-shrink: 0;
 }
 
+.sourceDock .sourceListItem { flex-wrap: wrap; }
+.sourceDock .sourceListState { flex: 1 1 180px; min-width: 0; justify-content: flex-end; flex-wrap: wrap; }
+.sourceDock > .dockHeader { flex-wrap: wrap; }
+.sourceDock .recordedAuthAttempt { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+
 .sourceBadgeSm {
   font-size: 10px;
   padding: 1px 5px;

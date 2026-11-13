@@ -1068,6 +1068,7 @@ export const ES: Record<string, string> = {
   "source.lifecycle.stage": "Etapa de canalización",
   "source.lifecycle.adoption": "Adopción",
   "source.lifecycle.lastAttempt": "último intento",
+  "source.lifecycle.recordedAttempt": "Último intento registrado",
   "source.lifecycle.acceptedRef": "Árbitro aceptado",
   "source.lifecycle.receipt": "Revisado, sin cambios",
   "source.lifecycle.emitted": "Emitido: {pages} página(s) · {actions} acción(es) · {proposals} propuesta(s)",
