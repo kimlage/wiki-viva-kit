@@ -57,7 +57,7 @@ import { SourceObservationSummary } from "./SourceObservationSummary";
 function RecordedAuthAttempt({ source }: { source: SourceEntity }) {
   if (source.lifecycle?.last_attempt_state !== "needs_auth" || source.sync.last_status === "needs_auth") return null;
   const when = source.lifecycle.last_attempt_at;
-  return <span className="pill pill-warn">{t("source.lifecycle.recordedAttempt")}: {t("source.sync.needs_auth")}{when ? ` · ${formatWhen(when)}` : ""}</span>;
+  return <span className="pill pill-warn recordedAuthAttempt">{t("source.lifecycle.recordedAttempt")}: {t("source.sync.needs_auth")}{when ? ` · ${formatWhen(when)}` : ""}</span>;
 }
 
 export function SourceDock({
