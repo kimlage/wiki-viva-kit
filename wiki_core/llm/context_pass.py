@@ -44,6 +44,18 @@ def canonical_request_text(request: dict) -> str:
                       separators=(",", ":"), allow_nan=False) + "\n"
 
 
+def emitted_request_path(paths, source_id, *, folder_request=None):
+    """Select an existing request filename; this never authorizes its contents."""
+    if folder_request is not None:
+        if not isinstance(folder_request, dict) or folder_request.get('source_id') != source_id:
+            raise ValueError('folder request source differs')
+        from wiki_core.folder_request_identity_v2 import folder_request_path
+        return folder_request_path(paths, folder_request)
+    if not isinstance(source_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', source_id):
+        raise ValueError('invalid source identity')
+    return paths.extraction_events / f'{source_id}-llm-context-request.json'
+
+
 def request_limits(context_max_bytes=DEFAULT_CONTEXT_MAX_BYTES,
                    request_max_bytes=DEFAULT_REQUEST_MAX_BYTES) -> dict:
     if any(not isinstance(value, int) or isinstance(value, bool) or value <= 0

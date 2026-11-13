@@ -29,6 +29,32 @@ def test_identity_covers_contract_including_empty_chunks_and_excludes_cache_stat
     assert folder_request_identity({**request, 'pending_llm_calls':1, 'byte_accounting':{'request_bytes':99}}) == first
 
 
+def test_request_selection_preserves_legacy_names_and_exact_folder_identity(project):
+    from wiki_core.folder_request_identity_v2 import folder_request_identity, folder_request_path
+    from wiki_core.llm.context_pass import emitted_request_path
+    from wiki_core.paths import WikiPaths
+
+    config = load_config(project)
+    paths = WikiPaths(project, config)
+    assert emitted_request_path(paths, 'source-synthetic') == (
+        paths.extraction_events / 'source-synthetic-llm-context-request.json')
+    with pytest.raises(ValueError):
+        emitted_request_path(paths, '../outside')
+    request = {'context_binding_version': 2, 'source_id': 'source-synthetic', 'chunks': []}
+    request['folder_request_id'] = folder_request_identity(request)
+    assert request['folder_request_id'] == '7f904689a390fed22981dd2dac31f2e8b5e956c572f8e9795e884875a8d2fb97'
+    expected_name = ('folder-497d4504fc95d5e7c76a8431e21364b8b58e1573f6527b14ed816e533376cd2d-'
+                     '7f904689a390fed22981dd2dac31f2e8b5e956c572f8e9795e884875a8d2fb97-llm-context-request.json')
+    for folder in ('a', 'b'):
+        scoped = FolderWikiPaths(project, config, folder)
+        assert emitted_request_path(scoped, request['source_id'], folder_request=request) == folder_request_path(scoped, request)
+        assert emitted_request_path(scoped, request['source_id'], folder_request=request).name == expected_name
+        with pytest.raises(ValueError):
+            emitted_request_path(scoped, 'different-source', folder_request=request)
+        with pytest.raises(ValueError):
+            emitted_request_path(scoped, request['source_id'], folder_request={**request, 'folder_request_id': '0' * 64})
+
+
 def test_consolidation_requires_exact_retained_request(project, monkeypatch, tmp_path, capsys):
     from tests.test_folder_consolidate_v2 import fixture_inputs, metadata
     from wiki_core.consolidate import prepare_folder_consolidation

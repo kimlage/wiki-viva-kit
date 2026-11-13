@@ -191,13 +191,14 @@ def run(
     source_type = str(manifest["source_type"])
     if folder_selection is None:
         try:
+            from wiki_core.llm.context_pass import emitted_request_path
             state_files = ()
             if stream_id:
                 from wiki_core.source_state import _state_file
                 state_files = (_state_file(paths.source_state, source_id),)
             require_wiki_boundaries(root, files=(paths.source_manifests / f'{source_id}.json',
                 paths.source_text / f'{source_id}.json', paths.chunks / f'{source_id}.json',
-                paths.extraction_events / f'{source_id}-llm-context-request.json', *state_files))
+                emitted_request_path(paths, source_id), *state_files))
         except (ValueError, OSError) as exc:
             return _blocked_preparation(context, config, exc)
     if folder_selection is not None:
@@ -463,7 +464,8 @@ def run(
                 blocked = True
                 request_file = None
         else:
-            request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
+            from wiki_core.llm.context_pass import emitted_request_path
+            request_file = emitted_request_path(paths, source_id)
             request_file.write_text(canonical_request_text(request), encoding="utf-8")
         request_path = _rel(request_file, root) if request_file is not None else None
 

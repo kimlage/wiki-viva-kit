@@ -163,14 +163,12 @@ def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id:
     requests: list[dict] = []
     if not paths.extraction_events.exists():
         return requests
-    if folder_request is not None:
-        from wiki_core.folder_request_identity_v2 import folder_request_path
-        exact = folder_request_path(paths, folder_request)
-        candidates = [exact] if not exact.is_symlink() and exact.is_file() else []
-    elif source_id is not None:
-        if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,511}", source_id):
+    if folder_request is not None or source_id is not None:
+        from wiki_core.llm.context_pass import emitted_request_path
+        try:
+            exact = emitted_request_path(paths, source_id, folder_request=folder_request)
+        except (ValueError, TypeError, KeyError, AttributeError):
             return requests
-        exact = paths.extraction_events / f"{source_id}-llm-context-request.json"
         candidates = [exact] if not exact.is_symlink() and exact.is_file() else []
     else:  # Explicit trusted compatibility inspection retains its old scan.
         candidates = paths.extraction_events.glob("*-llm-context-request.json")
@@ -582,11 +580,9 @@ def main() -> int:
         return 1 if (required and request["pending_llm_calls"] > 0) else 0
 
     if args.emit_request:
-        if folder_selection is not None:
-            from wiki_core.folder_request_identity_v2 import folder_request_path
-            out = folder_request_path(paths, request)
-        else:
-            out = paths.extraction_events / f"{request['source_id']}-llm-context-request.json"
+        from wiki_core.llm.context_pass import emitted_request_path
+        out = emitted_request_path(paths, request['source_id'],
+                                   folder_request=request if folder_selection is not None else None)
         if folder_selection is not None:
             try:
                 from wiki_core.folder_ingestion_v2 import _check_local_boundaries

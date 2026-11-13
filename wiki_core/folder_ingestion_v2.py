@@ -123,8 +123,8 @@ def validate_folder_artifact_paths(root, paths, source_id, *, stream=False, scor
     files = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
              paths.chunks / f'{source_id}.json']
     if request is not None:
-        from wiki_core.folder_request_identity_v2 import folder_request_path
-        files.append(folder_request_path(paths, request))
+        from wiki_core.llm.context_pass import emitted_request_path
+        files.append(emitted_request_path(paths, source_id, folder_request=request))
     if stream:
         folders.append(paths.source_state)
         files.append(paths.source_state / f'{source_id}.json')
