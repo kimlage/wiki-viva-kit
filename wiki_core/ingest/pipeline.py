@@ -138,6 +138,7 @@ def run(
     omit_root_entity: bool = False,
     entry_folder: str | None = None,
     entry_index: str | None = None,
+    repo_selections=None,
 ) -> IngestResult:
     """Run the deterministic pipeline for ``source`` and return an IngestResult.
 
@@ -153,6 +154,8 @@ def run(
             raise ValueError('folder selection cannot replace an approved policy')
         if entry_index is not None and entry_folder is None:
             raise ValueError('index requires a context folder')
+        if repo_selections is not None and entry_folder is None:
+            raise ValueError('repository selection requires a context folder')
         if entry_folder is not None:
             if stream_id is not None:
                 raise ValueError('stream ingestion is unavailable for local folder entry')
@@ -162,7 +165,7 @@ def run(
                 raise ValueError('source selection unavailable')
             try:
                 selected_context = ingestion_block_context(root, config, {}, [], entry_folder=entry_folder,
-                    entry_index=entry_index, context_max_bytes=context_max_bytes)
+                    entry_index=entry_index, context_max_bytes=context_max_bytes, repo_selections=repo_selections)
             except (ValueError, OSError) as exc:
                 raise ContextRequestBlocked('local_folder_unavailable',
                     'Selected folder instructions or index are unavailable; no fallback was used.') from exc
@@ -395,9 +398,10 @@ def run(
         # Until requests and captures support multiple local contexts, never
         # replace an existing source's artifacts when entering another folder.
         try:
-            from wiki_core.llm.context_pass import _folder_documents
-            current = _folder_documents(root, entry_folder, entry_index, context_max_bytes)
-            if selected_context['documents'] != current:
+            current = ingestion_block_context(root, config, {}, [], entry_folder=entry_folder,
+                entry_index=entry_index, context_max_bytes=context_max_bytes, repo_selections=repo_selections,
+                expected_documents=selected_context['documents'])
+            if selected_context != current:
                 raise ValueError('selected folder context changed before persistence')
             from wiki_core.llm.context_pass import validate_local_entry_source
             current_source = validate_local_entry_source(root, source)

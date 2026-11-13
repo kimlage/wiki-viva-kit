@@ -592,6 +592,57 @@ def _folder_documents(root: Path, folder: str, index_path: str | None, max_bytes
     return documents
 
 
+def _repo_selections(root: Path, selections, expected_documents=None):
+    """Validate host-supplied selections before opening any repository body."""
+    from wiki_core.repo_read import contains_access_secrets, remote_identity
+    from wiki_core.repository_reader import canonical_path
+    if selections is None:
+        selections = ()
+    if not isinstance(selections, (list, tuple)) or len(selections) > 16 or contains_access_secrets(selections):
+        raise ValueError('repository selection unavailable')
+    selected = []
+    for item in selections:
+        if (not isinstance(item, (list, tuple)) or len(item) != 4
+                or any(not isinstance(value, str) or not value for value in item)):
+            raise ValueError('repository selection unavailable')
+        repo_root, identity, revision, path = item
+        if (not Path(repo_root).is_absolute() or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', revision)
+                or canonical_path(path) != path or remote_identity('https://' + identity)[0] != identity):
+            raise ValueError('repository selection unavailable')
+        resolved = Path(repo_root).resolve(strict=True)
+        if not resolved.is_dir() or resolved == Path(root).resolve() or contains_access_secrets(str(resolved)):
+            raise ValueError('repository selection unavailable')
+        selected.append((str(resolved), identity, revision, path))
+    if len(set(selected)) != len(selected):
+        raise ValueError('repository selection unavailable')
+    if expected_documents is not None:
+        expected = [(row['repository_root'], row['repository_read']['repository']['identity'],
+                     row['repository_read']['revision'], row['repository_read']['path'])
+                    for row in expected_documents if row.get('origin') == 'independent_git']
+        if selected != expected:
+            raise ValueError('repository selection changed')
+    return selected
+
+
+def _repo_documents(selections, max_bytes):
+    from wiki_core.repo_read import _prepare_repo_read, _read_prepared_repo
+    documents = []
+    if selections and max_bytes <= 0:
+        raise ValueError('context document budget exceeded')
+    prepared = [_prepare_repo_read(Path(repo_root), identity, revision, path,
+                                   max_bytes=min(max_bytes, 2_000_000))
+                for repo_root, identity, revision, path in selections]
+    if sum(item[4] for item in prepared) > max_bytes:
+        raise ValueError('context document budget exceeded')
+    for (repo_root, _identity, _revision, path), item in zip(selections, prepared):
+        receipt = _read_prepared_repo(item)
+        text = receipt.pop('text')
+        documents.append({'path': path, 'page_id': None, 'text': text,
+            'content_sha256': receipt['content_sha256'], 'origin': 'independent_git',
+            'repository_root': repo_root, 'repository_read': receipt})
+    return documents
+
+
 def ingestion_block_context(root: Path, config, input_context: dict,
                             perspectives_required: list[str], *,
                             approved_revision: str | None = None,
@@ -600,7 +651,8 @@ def ingestion_block_context(root: Path, config, input_context: dict,
                             context_max_bytes: int = DEFAULT_CONTEXT_MAX_BYTES,
                             content_revision: str = "HEAD",
                             entry_folder: str | None = None,
-                            entry_index: str | None = None) -> dict:
+                            entry_index: str | None = None,
+                            repo_selections=None, expected_documents=None) -> dict:
     """Construct the real contextual inputs at both production call sites.
 
     Without an explicit approved revision this preserves the working-tree
@@ -612,6 +664,8 @@ def ingestion_block_context(root: Path, config, input_context: dict,
         raise ValueError('folder selection cannot replace an approved policy')
     if entry_index is not None and entry_folder is None:
         raise ValueError('index requires a context folder')
+    if repo_selections is not None and entry_folder is None:
+        raise ValueError('repository selection requires a context folder')
     if approved_revision is not None:
         return _approved_ingestion_context(root, config, input_context,
             perspectives_required, approved_revision, policy_context, task_id, context_max_bytes, content_revision)
@@ -619,7 +673,10 @@ def ingestion_block_context(root: Path, config, input_context: dict,
     if policy_context is not None and approved_revision is None:
         raise ValueError("policy_context requires an explicit approved_revision")
     if entry_folder is not None:
+        repos = _repo_selections(root, repo_selections, expected_documents)
         selected = _folder_documents(root, entry_folder, entry_index, context_max_bytes)
+        remaining = context_max_bytes - sum(len(row['text'].encode('utf-8')) for row in selected)
+        selected.extend(_repo_documents(repos, remaining))
         return {'schema_version': 'wiki_block_stack.v1', 'center': None, 'stack': [], 'lenses': [],
                 'write_policy': 'proposal_branch_only', 'target_obligations': [],
                 'policy_mode': 'legacy_working_tree_compatibility', 'policy_enforced': False,
