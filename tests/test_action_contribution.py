@@ -103,6 +103,14 @@ def test_gates_refuse_existing_untracked_input_before_running(tmp_path):
         port._gates(tmp_path, load_config(tmp_path), effect_runner=lambda _: pytest.fail('gate ran'))
 
 
+def test_gates_refuse_preexisting_assume_unchanged_before_running(tmp_path):
+    target, _ = fixture(tmp_path)
+    git(tmp_path, 'update-index', '--assume-unchanged', str(target.relative_to(tmp_path)))
+    target.write_text('hidden candidate change\n')
+    with pytest.raises(port.ContributionError, match='gate_candidate_index_unqualified'):
+        port._gates(tmp_path, load_config(tmp_path), effect_runner=lambda _: pytest.fail('gate ran'))
+
+
 def call(root, op, request, **kwargs):
     return run_git_workflow(root, load_config(root), op + "_contribution", {"request": request, **kwargs}, dry_run=False)
 

@@ -283,6 +283,8 @@ def _gates(root: Path, config: WikiConfig, *, full_checks: bool = False,
         raise ContributionError("invalid_policy_gates")
     if _git(root, "ls-files", "--others", "--exclude-standard"):
         raise ContributionError("gate_untracked_candidate_inputs")
+    if any(not line.startswith("H ") for line in _git(root, "ls-files", "-v").splitlines()):
+        raise ContributionError("gate_candidate_index_unqualified")
     baseline = _gate_input_fingerprint(root)
     results = []
     for command in [*commands, *extra]:
