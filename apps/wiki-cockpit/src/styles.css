@@ -266,8 +266,8 @@
 .sourcePlatformBrandIcon-light { padding: 3px; background: #f7fafc; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22); }
 .sourcePlatformBrandIcon-dark { padding: 3px; background: #081117; box-shadow: 0 0 0 1px rgba(126, 217, 250, 0.22); }
 .dockHeader > .sourcePlatformBrandIcon { flex: 0 0 auto; max-width: 20px; max-height: 20px; }
-.sourceRegistryList i { width: 7px; height: 7px; border-radius: 50%; background: #62d99c; }
-.sourceRegistryList i.attention { background: #f0ae58; box-shadow: 0 0 8px rgba(240, 174, 88, 0.55); }
+.sourceRegistryStatus { width: 16px; height: 16px; display: grid; place-items: center; border: 1px solid #82929b; border-radius: 50%; color: #c6d0d5; font-size: 11px; font-weight: 700; line-height: 1; }
+.sourceRegistryStatus.attention { border-color: #f0ae58; color: #f0ae58; }
 .sourceMoveSelect { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 5px; margin: 2px 4px 5px 43px; color: #7894a3; font-size: 9.5px; }
 .sourceMoveSelect select { min-width: 0; height: 25px; padding: 2px 5px; border: 1px solid #294b5d; border-radius: 5px; background: #091720; color: #cde2eb; font: inherit; }
 .sourceRegistryResize { position: relative; z-index: 5; display: grid; place-items: center; width: 7px; cursor: col-resize; touch-action: none; background: rgba(9, 20, 28, 0.92); outline: 0; }

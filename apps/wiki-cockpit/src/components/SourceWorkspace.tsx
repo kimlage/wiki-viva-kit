@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 import { t } from "../data/i18n";
 import "../styles.css";
-import type { SourceGroup, SourceGroupsOperationResult } from "../types";
+import type { SourceEntity, SourceGroup, SourceGroupsOperationResult } from "../types";
 import { SourceDock } from "./SourceDock";
 import { SourcePendingOverview } from "./SourcePendingOverview";
 import { SourcePlatformIcon } from "./SourcePlatformIcon";
@@ -52,6 +52,10 @@ type SourceWorkspaceProps = Omit<ComponentProps<typeof SourceDock>, "embedded"> 
   onPreviewSourceGroups?: (groups: SourceGroup[]) => Promise<SourceGroupsOperationResult>;
   onApplySourceGroups?: (groups: SourceGroup[], previewToken: string) => Promise<SourceGroupsOperationResult>;
 };
+
+function sourceNeedsAttention(source: SourceEntity) {
+  return !source.recipe_ok || source.streams.length === 0 || source.pending_streams > 0;
+}
 
 function clampWidth(value: number) {
   const viewportMax = typeof window === "undefined" ? 620 : Math.min(620, Math.max(MIN_WIDTH, window.innerWidth * 0.48));
@@ -147,10 +151,11 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
         .join(" ")
         .toLocaleLowerCase()
         .includes(normalizedQuery))
-      .sort((a, b) => b.pending_streams - a.pending_streams || a.title.localeCompare(b.title))
+      .sort((a, b) => Number(sourceNeedsAttention(b)) - Number(sourceNeedsAttention(a)) || b.pending_streams - a.pending_streams || a.title.localeCompare(b.title))
   })).filter((group) => organizing || group.sources.length > 0), [groups, normalizedQuery, organizing, sourceById]);
 
   const selectedId = props.sourceId || "";
+  const attentionCount = sources.filter(sourceNeedsAttention).length;
   const overdue = sources.filter((source) => source.pending_streams > 0).length;
   const registryExpanded = registryWidth >= 420;
 
@@ -334,7 +339,7 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
           </label>
           <div className="sourceRegistryFilters" aria-label={t("source.registry.filters")}>
             <span className="pill pill-muted">{t("source.registry.all")} {sources.length}</span>
-            <span className="pill pill-warn">{t("source.registry.attention")} {overdue}</span>
+            <span className="pill pill-warn">{t("source.registry.attention")} {attentionCount}</span>
             <span className="pill pill-good" title={t("source.registry.recipeHint")}>{t("source.registry.configured")} {sources.filter((source) => source.recipe_ok).length}</span>
           </div>
 
@@ -443,7 +448,10 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
                               <strong title={source.title}>{sourceDisplayName(source.title)}</strong>
                               <small>{sourcePlatformLabel(source.platform)} · {sourceKindLabel(source.source_kind)} · {source.streams.length} {t("source.update.records")}</small>
                             </span>
-                            <i className={source.pending_streams > 0 ? "attention" : "healthy"} aria-hidden />
+                            <span className={`sourceRegistryStatus ${sourceNeedsAttention(source) ? "attention" : "neutral"}`} role="img"
+                              aria-label={t(sourceNeedsAttention(source) ? "source.registry.needsAttention" : "source.registry.noAttention")}>
+                              {sourceNeedsAttention(source) ? "!" : "–"}
+                            </span>
                           </button>
                           {organizing && (
                             <label className="sourceMoveSelect">
