@@ -1737,8 +1737,9 @@ def test_action_transition_audit_blocks_deletion_but_allows_identity_preserving_
     audit.audit_action_state_transitions(errors)
 
     assert errors == [
-        f"{old_rel}: deleting an existing action discards its lifecycle history; "
-        "transition it to `cancelled` with a receipt and retain the page "
+        f"{old_rel}: only an action already canonically terminal at the "
+        "audit base can be retired; transition it with a receipt "
+        "and approve that change before deleting the page "
         "[action_page_deleted]"
     ]
 
@@ -1756,6 +1757,157 @@ def test_action_transition_audit_blocks_deletion_but_allows_identity_preserving_
     audit.audit_action_state_transitions(errors)
 
     assert errors == []
+
+
+@pytest.mark.parametrize("state", ["done", "cancelled"])
+def test_action_retirement_accepts_terminal_writer_contract_from_base(
+    tmp_path, monkeypatch, audit, state
+):
+    from wiki_core.action_transition import transition_action_page
+
+    rel = "memories/actions/action-retired.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    path.write_text(_action_document("open"), encoding="utf-8")
+    receipt_field = "completion_receipt" if state == "done" else "cancellation_receipt"
+    transition_action_page(
+        tmp_path,
+        rel,
+        state,
+        recorded_at="2026-07-11T15:00:00Z",
+        **{receipt_field: "Synthetic terminal outcome approved."},
+    )
+    previous = path.read_text(encoding="utf-8")
+    path.unlink()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == []
+
+
+@pytest.mark.parametrize(
+    "state", ["open", "in_progress", "blocked", "waiting_human", "invalid", "legacy_done"]
+)
+def test_action_retirement_rejects_nonterminal_base(tmp_path, monkeypatch, audit, state):
+    rel = "memories/actions/action-retired.md"
+    previous = _action_document(state)
+    if state == "legacy_done":
+        previous = previous.replace("action_state: legacy_done", "status: done")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert len(errors) == 1 and "[action_page_deleted]" in errors[0]
+
+
+def test_action_retirement_rejects_cancel_and_delete_in_one_proposal(
+    tmp_path, monkeypatch, audit
+):
+    from wiki_core.action_transition import transition_action_page
+
+    rel = "memories/actions/action-retired.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    previous = _action_document("open")
+    path.write_text(previous, encoding="utf-8")
+    transition_action_page(
+        tmp_path,
+        rel,
+        "cancelled",
+        cancellation_receipt="Synthetic retirement requested.",
+        recorded_at="2026-07-11T15:00:00Z",
+    )
+    path.unlink()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert len(errors) == 1 and "[action_page_deleted]" in errors[0]
+
+
+@pytest.mark.parametrize(
+    ("extra", "code"),
+    [
+        ("", "invalid_action_lifecycle_contract"),
+        (
+            "completion_receipt: Synthetic completion.\n"
+            "completed_at: 2026-07-11T15:00:00Z\n"
+            "action_state_history: malformed\n",
+            "invalid_base_action_history",
+        ),
+    ],
+)
+def test_action_retirement_rejects_invalid_terminal_base(
+    tmp_path, monkeypatch, audit, extra, code
+):
+    rel = "memories/actions/action-retired.md"
+    previous = _action_document("done").replace(
+        "next_action: Review synthetic evidence.\n", extra
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert len(errors) == 1 and f"[{code}]" in errors[0]
+
+
+def test_action_retirement_rejects_ambiguous_terminal_identity(
+    tmp_path, monkeypatch, audit
+):
+    rel = "memories/actions/action-retired.md"
+    other = "memories/actions/action-duplicate.md"
+    previous = _action_document("done").replace(
+        "next_action: Review synthetic evidence.\n",
+        "completion_receipt: Synthetic completion.\n"
+        "completed_at: 2026-07-11T15:00:00Z\n",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel, other})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous), (other, previous))},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert len(errors) == 2
+    assert all("[ambiguous_base_action_identity]" in error for error in errors)
 
 
 def test_action_transition_audit_accepts_central_writer_receipt(
