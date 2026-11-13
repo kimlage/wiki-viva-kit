@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -55,15 +56,17 @@ def test_changed_paths_include_committed_worktree_untracked_and_deleted_paths(
     responses = {
         (
             "diff",
+            "--no-renames",
             "--name-only",
             "-z",
             f"{full_sha}..HEAD",
             "--",
         ): "memories/committed.md\0memories/deleted.md\0",
-        ("diff", "--name-only", "-z", "--"): "memories/unstaged.md\0",
+        ("diff", "--no-renames", "--name-only", "-z", "--"): "memories/unstaged.md\0",
         (
             "diff",
             "--cached",
+            "--no-renames",
             "--name-only",
             "-z",
             "--",
@@ -124,6 +127,37 @@ def test_changed_paths_include_committed_worktree_untracked_and_deleted_paths(
         "-z",
         "--",
     ] in calls
+
+
+@pytest.mark.parametrize('change', ['staged', 'committed', 'created_after_base'])
+def test_git_changes_include_both_sides_of_rename(tmp_path, change):
+    def git(*args):
+        return subprocess.run(['git', '-C', str(tmp_path), *args], check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    git('init', '-q')
+    git('config', 'user.name', 'Synthetic')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    old = tmp_path / 'archive' / 'member.md'
+    new = tmp_path / 'elsewhere' / 'member.md'
+    old.parent.mkdir()
+    new.parent.mkdir()
+    if change != 'created_after_base':
+        old.write_text('synthetic content\n')
+    else:
+        (tmp_path / 'base.md').write_text('base\n')
+    git('add', '.')
+    git('commit', '-qm', 'base')
+    base = git('rev-parse', 'HEAD')
+    if change == 'created_after_base':
+        old.write_text('synthetic content\n')
+        git('add', '.')
+        git('commit', '-qm', 'add member')
+    git('mv', str(old.relative_to(tmp_path)), str(new.relative_to(tmp_path)))
+    if change == 'committed':
+        git('commit', '-qm', 'move member')
+    changes = _load_script().collect_git_changes(base, root=tmp_path)
+    assert {'archive/member.md', 'elsewhere/member.md'} <= changes.paths
 
 
 def test_impact_requires_explicit_base_before_loading_the_wiki(

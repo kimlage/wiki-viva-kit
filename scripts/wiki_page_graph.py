@@ -114,9 +114,11 @@ def _git_paths(args: list[str], *, root: Path | None = None) -> set[str]:
 def collect_git_changes(base_sha: str, *, root: Path | None = None) -> GitChanges:
     """Collect committed, staged, unstaged, untracked and deleted paths."""
 
-    committed_args = ["diff", "--name-only", "-z", f"{base_sha}..HEAD", "--"]
-    unstaged_args = ["diff", "--name-only", "-z", "--"]
-    staged_args = ["diff", "--cached", "--name-only", "-z", "--"]
+    # Both ends can affect different dynamic-query scopes. Git's rename
+    # detection otherwise reports only the destination with --name-only.
+    committed_args = ["diff", "--no-renames", "--name-only", "-z", f"{base_sha}..HEAD", "--"]
+    unstaged_args = ["diff", "--no-renames", "--name-only", "-z", "--"]
+    staged_args = ["diff", "--cached", "--no-renames", "--name-only", "-z", "--"]
     untracked_args = ["ls-files", "--others", "--exclude-standard", "-z", "--"]
     deleted_commands = (
         [
