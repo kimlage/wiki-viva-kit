@@ -111,6 +111,37 @@ def test_gates_refuse_preexisting_assume_unchanged_before_running(tmp_path):
         port._gates(tmp_path, load_config(tmp_path), effect_runner=lambda _: pytest.fail('gate ran'))
 
 
+@pytest.mark.parametrize('mutation', ['mode_with_config', 'normalized_bytes', 'hidden_exclusion', 'ignored_derived'])
+def test_gates_stop_on_physical_input_change_hidden_from_git(tmp_path, mutation):
+    target, _ = fixture(tmp_path)
+    if mutation == 'normalized_bytes':
+        git(tmp_path, 'config', 'core.autocrlf', 'true')
+    calls = []
+
+    def runner(call):
+        calls.append(True)
+        result = call()
+        if len(calls) == 1:
+            if mutation == 'mode_with_config':
+                git(tmp_path, 'config', 'core.filemode', 'false')
+                target.chmod(target.stat().st_mode | 0o111)
+            elif mutation == 'normalized_bytes':
+                target.write_bytes(target.read_bytes().replace(b'\n', b'\r\n'))
+                git(tmp_path, 'add', str(target.relative_to(tmp_path)))
+            elif mutation == 'hidden_exclusion':
+                (tmp_path / '.git/info/exclude').write_text('synthetic-hidden\n')
+                (tmp_path / 'synthetic-hidden').write_text('hidden input\n')
+            else:
+                path = tmp_path / 'data/derived/synthetic-input'
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('ignored input\n')
+        return result
+
+    with pytest.raises(port.ContributionError, match='gate_modified_candidate_inputs'):
+        port._gates(tmp_path, load_config(tmp_path), effect_runner=runner)
+    assert len(calls) == 1
+
+
 def call(root, op, request, **kwargs):
     return run_git_workflow(root, load_config(root), op + "_contribution", {"request": request, **kwargs}, dry_run=False)
 
