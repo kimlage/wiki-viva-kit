@@ -4177,6 +4177,21 @@ Conteudo sintetico para volume local.
     )
 
 
+@pytest.mark.parametrize(
+    ('reference_date', 'expected'),
+    [(None, 'fresh'), (dt.date(2026, 7, 3), 'stale')],
+)
+def test_operations_and_pages_use_same_snapshot_reference_date(tmp_path, monkeypatch, reference_date, expected):
+    import wiki_core.web.snapshot_projection as projection
+
+    config = _sample_repo(tmp_path)
+    monkeypatch.setattr(projection, '_today', lambda: dt.date(2030, 1, 1))
+    snapshot = build_snapshot(tmp_path, config, generated_at='2026-07-01T12:00:00Z', reference_date=reference_date)
+    page = next(row for row in snapshot['pages.json']['pages'] if row['path'] == 'memories/operations.md')
+    assert page['freshness_state'] == expected
+    assert snapshot['operations.json']['freshness_state'] == expected
+
+
 def test_freshness_state_honors_stale_exempt() -> None:
     from wiki_core.web.snapshot import _freshness_state
     import datetime as dt

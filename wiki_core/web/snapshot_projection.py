@@ -1665,7 +1665,7 @@ def _section_records(markdown: str) -> list[dict[str, Any]]:
     return sections
 
 
-def _operations_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
+def _operations_payload(root: Path, config: WikiConfig, *, today: dt.date | None = None) -> dict[str, Any]:
     paths = WikiPaths(root, config)
     values: dict[str, Any] = {}
     body = ""
@@ -1678,7 +1678,7 @@ def _operations_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
         "title": _title(values, body, "Operations"),
         "updated_at": str(values.get("updated_at") or ""),
         "stale_after_days": str(values.get("stale_after_days") or ""),
-        "freshness_state": _freshness_state(values),
+        "freshness_state": _freshness_state(values, today=today),
         "sections": _section_records(body),
     }
 
@@ -2991,7 +2991,7 @@ def build_snapshot(
             pack_temporal_adapters
         ),
     )
-    operations = _operations_payload(root, config)
+    operations = _operations_payload(root, config, today=reference_date)
     actions = build_operator_command_cards(config)
     timeline = build_timeline_payload(
         root,
