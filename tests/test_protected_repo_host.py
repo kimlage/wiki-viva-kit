@@ -560,6 +560,43 @@ def test_publication_policy_denied_before_request_or_event(configured, monkeypat
     assert not (root / target).exists()
 
 
+def test_consolidation_does_not_open_existing_event_denied_for_read(configured, monkeypatch):
+    root, _, binding, args = configured
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    config['context_access']['.']['policy']['deny'] = {'read': ['memories/system/ingestion/events']}
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'deny event reads')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    args['approved_revision'] = git(root, 'rev-parse', 'HEAD')
+    prepared = prepare(root, binding, **args, source_context='system')
+    target = ('memories/system/ingestion/events/2026-11-04-' +
+              hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    event = root / target
+    write(root, target, 'existing synthetic event\n')
+    grant = replace(binding.repository_grants[0], event_target=target)
+    host = CoordinationBinding(binding.contexts, binding.trusted_ref, binding.manifest, (grant,))
+    import wiki_core.ingest.protected as protected
+    original_allowed = protected._allowed
+    event_actions = []
+    def track_allowed(root, policy, context_id, path, action):
+        if Path(path) == event:
+            event_actions.append(action)
+        return original_allowed(root, policy, context_id, path, action)
+    monkeypatch.setattr(protected, '_allowed', track_allowed)
+    original = Path.open
+    def guarded(path, *a, **kw):
+        if path == event:
+            pytest.fail('denied existing event opened')
+        return original(path, *a, **kw)
+    monkeypatch.setattr(Path, 'open', guarded)
+    with pytest.raises(ValueError, match='artifact unavailable'):
+        consolidate(root, host, **args, source_id=prepared['source_id'], request_id=prepared['request_id'],
+                    source_page='memories/sources/synthetic.md', event_target=target, date=dt.date(2026, 11, 4))
+    assert event_actions == ['write', 'read']
+    monkeypatch.setattr(Path, 'open', original)
+    assert event.read_text() == 'existing synthetic event\n'
+
+
 def test_external_content_counts_towards_context_budget_before_effects(configured):
     root, external, binding, args = configured
     write(external, 'guide.md', 'large synthetic context ' * 300)
