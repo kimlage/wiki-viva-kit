@@ -168,6 +168,42 @@ def require_capture_not_regressed(path: Path, payload: dict) -> None:
         raise ValueError("source_capture_incomplete: complete capture retained; retry extraction")
 
 
+def reusable_capture(paths, manifest: dict, extracted, chunks: list[dict], warnings: list[str], *, max_bytes: int) -> bool:
+    """Reuse an exact existing capture; never replace partial or divergent work."""
+    from wiki_core.traversal import is_in_nested_git
+    from wiki_core.context_selection import strict_json_loads
+    source_id = manifest['source_id']
+    files = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
+             paths.chunks / f'{source_id}.json']
+    for path in files:
+        if is_in_nested_git(path, wiki_root=paths.root):
+            raise ValueError('existing source capture unavailable')
+    present = [path.exists() for path in files]
+    if not any(present):
+        return False
+    if not all(present) or extracted is None or warnings:
+        raise ValueError('existing source capture is incomplete; retained without replacement')
+    values = []
+    for path in files:
+        if not path.is_file() or path.stat().st_size > max_bytes:
+            raise ValueError('existing source capture unavailable')
+        with path.open('rb') as stream:
+            values.append(strict_json_loads(stream.read(max_bytes + 1).decode('utf-8')))
+    old_manifest, old_text, old_chunks = values
+    expected_chunks = chunk_document(manifest, chunks, warnings=warnings)
+    if (not all(isinstance(item, dict) for item in values)
+            or any(old_manifest.get(key) != manifest.get(key) for key in
+                   ('schema_version', 'source_id', 'source_origin', 'source_type', 'hash_sha256'))
+            or any(old_chunks.get(key) != expected_chunks.get(key) for key in
+                   ('schema_version', 'source_id', 'source_hash_sha256', 'source_origin_id', 'extraction_complete', 'chunks'))
+            or old_text.get('schema_version') != 'wiki_extracted_text.v1'
+            or old_text.get('source_id') != source_id or old_text.get('source_type') != manifest.get('source_type')
+            or old_text.get('warnings') != warnings or old_text.get('units') != extracted.units
+            or old_text.get('text_characters') != len(extracted.text)):
+        raise ValueError('existing source capture differs; retained without replacement')
+    return True
+
+
 def resolve_source_manifest(manifest: dict, manifests: Path, chunks: Path, *, root: Path) -> dict:
     """Resolve old captures without changing their IDs or guessing from a basename.
 

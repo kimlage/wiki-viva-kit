@@ -92,6 +92,11 @@ def preparation_blocker(exc: Exception, source_id: str, owner: str) -> dict:
         exc = ContextRequestBlocked("context_budget_exceeded", "Required context cannot fit its explicit byte budget; choose an authorized narrower stage or revise the budget.")
     if isinstance(exc, ContextRequestBlocked):
         code, reason, status = exc.code, str(exc), "denied" if exc.code.endswith("_denied") else "pending"
+        if code.startswith('working_tree_'):
+            return {"error_code":code, "blocker":blocker("prepare_context_request", "source:" + source_id,
+                reason, owner, "Inspect the selected source, context and retained capture; resolve the mismatch before retrying.",
+                "The explicitly selected working-tree inputs are readable, unchanged and fit the byte budget.",
+                status=status, interface="Calling harness task interface and coordinator task record")}
         required = ("Install and configure the approved v4 deep-read prompt, then re-emit and read the bound request."
                     if code == "approved_prompt_migration_required"
                     else "Choose an explicit smaller source/stage or an authorized byte budget, then prepare again."
@@ -642,6 +647,15 @@ def ingestion_block_context(root: Path, config, input_context: dict,
 
     if policy_context is not None and approved_revision is None:
         raise ValueError("policy_context requires an explicit approved_revision")
+    entry = input_context.get('folder_entry')
+    if entry is not None:
+        return {'schema_version':'wiki_block_stack.v1', 'center':None, 'stack':[], 'lenses':[],
+                'write_policy':'proposal_branch_only', 'target_obligations':[],
+                'policy_mode':'working_tree_folder_entry', 'policy_enforced':False,
+                'entry_folder':entry['folder'], 'entry_index':entry['index_path'], 'documents':entry['documents'],
+                'unresolved_context_refs':[],
+                'limitations':['Host access is not verified; no ACL, sandbox or native instruction loading is proved',
+                               'Source configuration, linked sources and independent repositories were not automatically resolved']}
     from wiki_core.template_blocks import load_block_world, block_context_package
     from wiki_core.repository_reader import canonical_path
     from wiki_core.detectors import scan_text
@@ -902,7 +916,9 @@ def build_context_request(
         request["cached_calls" if existing is not None else "pending_llm_calls"] += 1
     if not folder_v2:
         request['instructions'] += suffix
-    if folder_v2:
+    if folder_v2 or (block_context_package or {}).get('policy_mode') == 'working_tree_folder_entry':
+        if not folder_v2:
+            request['instructions'] += ' Record using --request with this exact retained request path.'
         from wiki_core.folder_request_identity_v2 import folder_request_identity
         request['folder_request_id'] = folder_request_identity(request)
     return enforce_request_budget(request, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)

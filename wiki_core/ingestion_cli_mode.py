@@ -7,6 +7,7 @@ def validate_mode(parser, args):
     folder_options = (any(value is not None for value in folder) or args.folder_source_ref is not None
                       or args.folder_repo is not None or getattr(args, 'folder_queries', None) is not None
                       or getattr(args, 'folder_existing_sha256', None) is not None)
+<<<<<<< ours
     if args.mode is None:
         if folder_options:
             args.mode = 'folder'
@@ -14,6 +15,16 @@ def validate_mode(parser, args):
             args.mode = 'v1'
         else:
             args.mode = 'working-tree'
+=======
+    entry_folder = getattr(args, 'entry_folder', None)
+    entry_index = getattr(args, 'entry_index', None)
+    if entry_index is not None and entry_folder is None:
+        parser.error('entry-index requires entry-folder')
+    if args.mode != 'working-tree' and (entry_folder is not None or entry_index is not None):
+        parser.error('working-tree entry selection requires --mode working-tree')
+    if entry_folder is not None and (getattr(args, 'query', None) is not None or getattr(args, 'allow_unrequested', False)):
+        parser.error('working-tree folder entry requires a source and requested result')
+>>>>>>> theirs
     if args.mode == 'folder':
         if args.folder_context and args.folder_index is None:
             from wiki_core.folder_declarations_v2 import selected_folder_index
