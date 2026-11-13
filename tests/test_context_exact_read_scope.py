@@ -147,3 +147,42 @@ def test_folder_qualification_packet_and_later_directory_do_not_widen(tmp_path, 
     with pytest.raises(PolicyError):
         build_packet(root, p, '.', newer, evidence, 100_000, task_id='synthetic', goal='test',
                      output='synthetic', integrator='synthetic', entry_folder='.', trusted_binding=binding)
+
+
+def test_exact_anchor_and_prefix_query_share_only_relevant_authority(tmp_path):
+    from wiki_core.repository_reader import RepositoryReader
+
+    root = tmp_path / 'repo'
+    root.mkdir()
+    git(root, 'init', '-q')
+    git(root, 'config', 'user.name', 'Synthetic')
+    git(root, 'config', 'user.email', 'synthetic@example.invalid')
+    (root / 'docs/items').mkdir(parents=True)
+    (root / 'docs/index.md').write_text('---\npage_id: catalog\npage_type: source_catalog\n---\nCatalog.\n')
+    (root / 'docs/items/one.md').write_text('---\npage_id: one\npage_type: claim\nstatus: active\nvalue: retained\n---\nEntry.\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'synthetic query')
+    reader = RepositoryReader(root, git(root, 'rev-parse', 'HEAD'))
+    entry = {'target': 'docs/index.md', 'reason': 'synthetic', 'use': 'interpret',
+             'classification': 'synthetic', 'query': {'scope': 'docs/items',
+             'filters': {'status': 'active'}, 'field': 'value', 'max_enumerated': 20,
+             'max_matches': 10, 'max_scan_bytes': 10000}}
+    exact = make_policy([context('root', None, '.', ['file[docs/index.md]', 'docs/items'])])
+    prefix = make_policy([context('root', None, '.', ['docs/index.md', 'docs/items'])])
+    first, _, _ = select_query(exact, 'root', reader, entry)
+    second, _, _ = select_query(prefix, 'root', reader, entry)
+    assert first['members'] == [{'ref': 'docs/items/one.md', 'page_id': 'one'}]
+    assert first['authority_digest'] == second['authority_digest']
+    assert first['selected_digest'] == second['selected_digest']
+    assert not exact.permits('root', 'read', 'docs/index.md/child')
+    assert prefix.permits('root', 'read', 'docs/index.md/child')
+
+
+def test_exact_scope_cannot_enumerate_even_if_its_path_names_the_query_directory():
+    p = make_policy([context('root', None, '.', ['file[docs/index.md]', 'file[docs/items]'])])
+    query = {'target': 'docs/index.md', 'reason': 'synthetic', 'use': 'interpret',
+             'classification': 'synthetic', 'query': {'scope': 'docs/items',
+             'filters': {'status': 'active'}, 'field': 'value', 'max_enumerated': 20,
+             'max_matches': 10, 'max_scan_bytes': 10000}}
+    with pytest.raises(PolicyError, match='query scope not authorized'):
+        select_query(p, 'root', object(), query)

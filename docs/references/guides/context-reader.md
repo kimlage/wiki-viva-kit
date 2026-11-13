@@ -75,7 +75,10 @@ a directory query or make a statement about symlinks. The form is read-only;
 write and deny scopes retain their existing prefix syntax. Older policy engines
 reject brackets, so install and qualify the supporting kit before independently
 reviewing any consumer policy that uses this form. A candidate cannot authorize
-its own installation or normative change.
+its own installation or normative change. A directory query still needs a prefix
+covering its scope; an exact ceiling can authorize its anchor separately. The
+query authority digest covers that anchor and the selected scope, not unused
+descendants outside that scope.
 
 ```yaml
 read:
