@@ -45,6 +45,58 @@ def audit():
     return _load_wiki_audit()
 
 
+@pytest.mark.parametrize(
+    ("setting", "required"),
+    [("false", False), ("true", True), ("", True), ("null", True), ("0", True), ('"false"', True)],
+)
+@pytest.mark.parametrize("change_location", ["working", "staged", "committed"])
+def test_global_log_requirement_uses_loaded_config_and_real_git_changes(
+    tmp_path, monkeypatch, audit, setting, required, change_location
+):
+    config_text = "paths:\n  memory_root: knowledge\n  system_dirname: operations\n"
+    if setting:
+        config_text += f"approval:\n  require_log_update: {setting}\n"
+    (tmp_path / "wiki.config.yaml").write_text(config_text, encoding="utf-8")
+    page = tmp_path / "knowledge/example/page.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("# Synthetic context\n", encoding="utf-8")
+
+    def git(*args):
+        subprocess.run(
+            ["git", "-c", "user.name=Synthetic", "-c", "user.email=test@example.invalid", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-b", "main")
+    git("add", ".")
+    git("commit", "-m", "Synthetic approved base")
+    git("switch", "-c", "wiki/context-change")
+    page.write_text("# Synthetic context\n\nEvidence remains in this context.\n", encoding="utf-8")
+    if change_location in {"staged", "committed"}:
+        git("add", ".")
+    if change_location == "committed":
+        git("commit", "-m", "Synthetic context evidence")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    errors: list[str] = []
+
+    audit.audit_log_changed(errors, load_config(tmp_path))
+
+    assert errors == (
+        ["knowledge changed without updating knowledge/operations/log.md"]
+        if required else []
+    )
+    if required:
+        log = tmp_path / "knowledge/operations/log.md"
+        log.parent.mkdir(parents=True)
+        log.write_text("# Synthetic log\n\nRecorded the context change.\n", encoding="utf-8")
+        git("add", ".")
+        errors = []
+        audit.audit_log_changed(errors, load_config(tmp_path))
+        assert errors == []
+
+
 @pytest.mark.parametrize("case", ["ordinary", "multiline", "wrong_actor", "duplicate", "wrong_type"])
 def test_shape_audit_keeps_typed_action_dialogue(tmp_path, monkeypatch, audit, case):
     from types import SimpleNamespace

@@ -33,6 +33,20 @@ The existing [task-result schema](../schemas/wiki-task-result-v1.schema.json) bi
 
 ## 4. Preflight and independent integration
 
+Consumers that keep evidence and next steps in the owning context/action can
+opt out of the global-log update requirement in their reviewed configuration:
+
+```yaml
+approval:
+  require_log_update: false
+```
+
+The default is `true`: without this explicit boolean `false`, memory changes
+still require an update to the configured global log. The opt-out changes only
+that requirement; action receipts, provenance, privacy and the other audit
+gates remain required. It neither creates a second log nor permits rewriting
+existing log history.
+
 The integrator checks the exact base and branch HEAD, packet, result and actual diff. Use `POST /api/coordination/protected/preflight` in a host-bound authenticated operator, or the finite CLI:
 
 ```sh
