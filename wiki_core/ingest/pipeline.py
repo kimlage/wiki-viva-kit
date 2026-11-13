@@ -134,6 +134,8 @@ def run(
     omit_root_entity: bool = False,
     folder_selection=None,
     folder_queries=None,
+    entry_folder: str | None = None,
+    entry_index: str | None = None,
 ) -> IngestResult:
     """Run the deterministic pipeline for ``source`` and return an IngestResult.
 
@@ -144,6 +146,12 @@ def run(
     source_guard = None
     try:
         request_limits(context_max_bytes, request_max_bytes)
+        if entry_index is not None and entry_folder is None:
+            raise ValueError('folder index requires folder entry')
+        if entry_folder is not None and (approved_revision is not None or policy_context is not None or folder_selection is not None):
+            raise ValueError('working-tree folder entry cannot replace approved policy')
+        if entry_folder is not None and entry_index is None:
+            entry_index = ('index.md' if entry_folder == '.' else entry_folder + '/index.md')
         if folder_queries is not None and folder_selection is None:
             raise ContextRequestBlocked("folder_selection_required", "Folder queries require an explicit trusted folder selection.")
         if folder_selection is not None and stream_id:
@@ -284,6 +292,10 @@ def run(
             with _observed(observer, "input_stage_context") as metrics:
                 if source_guard is not None:
                     source_config, input_context = approved_ingestion_inputs(root, config, source_guard, root_entity_ref=root_entity_ref, omit_root_entity=omit_root_entity)
+                elif entry_folder is not None:
+                    source_config = None
+                    input_context = input_context_for_source(root, config, source, entry_folder=entry_folder,
+                        entry_index=entry_index, context_max_bytes=context_max_bytes)
                 else:
                     source_config = find_source_config(root, config, source)
                     input_context = input_context_for_source(root, config, source)
@@ -370,6 +382,17 @@ def run(
             pending = chunk_count
             request = None
             blocked = True
+    if write and not blocked and request is not None and folder_selection is None:
+        try:
+            from wiki_core.working_tree_folder import guard_request_path
+            guard_request_path(paths.extraction_events / f"{source_id}-llm-context-request.json", request)
+        except (ValueError, OSError) as exc:
+            report = preparation_blocker(exc, source_id, config.owner_label)
+            blockers.append(report["blocker"])
+            context_error_code = report["error_code"]
+            pending = chunk_count
+            request = None
+            blocked = True
     persist = write and not blocked
 
     if persist:
@@ -448,7 +471,18 @@ def run(
                 request_file = None
         else:
             request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
-            request_file.write_text(canonical_request_text(request), encoding="utf-8")
+            from wiki_core.working_tree_folder import guard_request_path, retain_request
+            try:
+                if guard_request_path(request_file, request):
+                    retain_request(request_file, request)
+                else:
+                    request_file.write_text(canonical_request_text(request), encoding="utf-8")
+            except (ValueError, OSError) as exc:
+                report = preparation_blocker(exc, source_id, config.owner_label)
+                blockers.append(report['blocker'])
+                context_error_code = report['error_code']
+                blocked = True
+                request_file = None
         request_path = _rel(request_file, root) if request_file is not None else None
 
 

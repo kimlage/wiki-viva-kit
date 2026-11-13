@@ -454,12 +454,20 @@ def input_context_for_source(
     source: str,
     *,
     generated_at: dt.date | str | None = None,
+    entry_folder: str | None = None,
+    entry_index: str | None = None,
+    context_max_bytes: int = 100_000,
 ) -> dict[str, Any]:
     """Return root/input metadata for a repo-local source page.
 
     Raw files and URLs usually have no source page yet; they still receive root
     defaults when a root entity is configured.
     """
+    if entry_folder is not None or entry_index is not None:
+        if entry_folder is None or entry_index is None:
+            raise ValueError('folder and index must both be selected')
+        from wiki_core.working_tree_folder import folder_input_context
+        return folder_input_context(root, entry_folder, entry_index, max_bytes=context_max_bytes)
     catalog = compile_input_stage(root, config, generated_at=generated_at)
     source_path = _repo_path(root, source)
     source_rel = _rel(root, source_path) if source_path is not None else source

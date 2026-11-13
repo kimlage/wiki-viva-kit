@@ -292,6 +292,18 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
             print("ERROR: result does not match the emitted context, source, chunk or schema", file=sys.stderr)
             return 2
         try:
+            # A retained working-tree entry identifies what to re-read; it is
+            # not an access grant. Detect edits, new overrides and missing paths.
+            from wiki_core.working_tree_folder import read_folder_entry
+            for retained in matching:
+                package = retained.get('block_context_package') or {}
+                if package.get('policy_mode') == 'working_tree_folder_entry':
+                    actual = read_folder_entry(paths.root, package['entry_folder'], package['entry_index'],
+                                               max_bytes=limits['context_max_bytes'])
+                    expected = {'folder':package['entry_folder'], 'index_path':package['entry_index'],
+                                'documents':package['documents']}
+                    if actual != expected:
+                        raise ValueError('working-tree folder context changed')
             if before_write is not None:
                 before_write()
             cache_dir = result_cache_for_request(paths.llm_cache, current_request) if current_request else paths.llm_cache
@@ -305,9 +317,9 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
                 out = write_folder_result(cache_dir, result)
             else:
                 out = write_result(cache_dir, result)
-        except (ValueError, OSError) as exc:
-            if before_write is not None:
-                return _blocked(exc, str(current_request.get("source_id") or "requested-input"), owner)
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            if before_write is not None or any((r.get("block_context_package") or {}).get("policy_mode") == "working_tree_folder_entry" for r in matching):
+                return _blocked(exc, str((current_request or {}).get("source_id") or "requested-input"), owner)
             print("ERROR: invalid result or unavailable cache output; verify the declared schema and current bound request.", file=sys.stderr)
             return 2
         written.append(str(out.relative_to(getattr(paths, "root", ROOT))))
@@ -333,6 +345,8 @@ def main() -> int:
     parser.add_argument("--profile")
     parser.add_argument("--approved-revision", help="Trusted local caller supplies current approved policy commit; this is not a remote access grant.")
     parser.add_argument("--policy-context", help="Explicit manifest context for the approved-policy adapter.")
+    parser.add_argument("--entry-folder", help="Explicit working-tree context folder; no access grant.")
+    parser.add_argument("--entry-index", help="Explicit working-tree context index (defaults to folder/index.md).")
     parser.add_argument("--folder-context", help="Exact folder selected under the trusted host binding.")
     parser.add_argument("--folder-index", help="Explicit authorized context index.")
     parser.add_argument("--folder-output", help="Concrete authorized proposal output.")
@@ -370,6 +384,10 @@ def main() -> int:
     validate_mode(parser, args)
 
     root = args.root.resolve()
+    if args.entry_folder is not None and args.entry_index is None:
+        args.entry_index = ('index.md' if args.entry_folder == '.' else args.entry_folder + '/index.md')
+    if args.entry_folder is not None and (args.required_perspective or args.optional_perspective):
+        parser.error('working-tree folder entry requires explicitly read perspectives, not catalog resolution')
     folder_selection = None
     folder_queries = None
     if args.mode == 'folder':
@@ -473,9 +491,23 @@ def main() -> int:
                 revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
                 source_config, input_context = approved_ingestion_inputs(root, config, source_guard, root_entity_ref=args.root_entity_ref, omit_root_entity=args.omit_root_entity)
             else:
-                source_config = find_source_config(root, config, args.source)
-                input_context = input_context_for_source(root, config, args.source)
-                input_context["source_config"] = source_config
+                if args.record_result and args.entry_folder is None:
+                    retained = _emitted_requests(paths, source_id=str(manifest['source_id']))
+                    if len(retained) == 1:
+                        package = retained[0].get('block_context_package') or {}
+                        if package.get('policy_mode') == 'working_tree_folder_entry':
+                            args.entry_folder = package.get('entry_folder')
+                            args.entry_index = package.get('entry_index')
+                            if not isinstance(args.entry_folder, str) or not isinstance(args.entry_index, str):
+                                raise ValueError('retained working-tree folder selection unavailable')
+                if args.entry_folder is not None:
+                    source_config = None
+                    input_context = input_context_for_source(root, config, args.source, entry_folder=args.entry_folder,
+                        entry_index=args.entry_index, context_max_bytes=args.context_max_bytes)
+                else:
+                    source_config = find_source_config(root, config, args.source)
+                    input_context = input_context_for_source(root, config, args.source)
+                    input_context["source_config"] = source_config
         except (ValueError, OSError) as exc:
             return _blocked(exc, "requested-input", config.owner_label)
     else:
@@ -602,8 +634,16 @@ def main() -> int:
             except (ValueError, OSError) as exc:
                 return _blocked(exc, str(manifest.get('source_id') or 'source-context-pass'), config.owner_label)
         else:
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(canonical_request_text(request), encoding="utf-8")
+            try:
+                from wiki_core.working_tree_folder import guard_request_path, retain_request
+                preserve = guard_request_path(out, request)
+                out.parent.mkdir(parents=True, exist_ok=True)
+                if preserve:
+                    retain_request(out, request)
+                else:
+                    out.write_text(canonical_request_text(request), encoding="utf-8")
+            except (ValueError, OSError) as exc:
+                return _blocked(exc, str(request.get('source_id') or 'source-context-pass'), config.owner_label)
         print(out.relative_to(root))
         return 0
 

@@ -56,6 +56,8 @@ def main() -> int:
     parser.add_argument("--actor")
     parser.add_argument("--approved-revision", help="Current approved policy SHA supplied by the trusted local caller.")
     parser.add_argument("--policy-context", help="Explicit approved context ID; no fallback on refusal.")
+    parser.add_argument("--entry-folder", help="Explicit working-tree context folder; no access grant.")
+    parser.add_argument("--entry-index", help="Explicit working-tree context index (defaults to folder/index.md).")
     parser.add_argument("--folder-context", help="Opt-in exact folder for a trusted local coordinator; never a grant.")
     parser.add_argument("--folder-index", help="Explicit authorized folder index.")
     parser.add_argument("--folder-output", help="Concrete authorized proposal output path.")
@@ -104,6 +106,7 @@ def main() -> int:
         root_entity_ref=args.root_entity_ref, omit_root_entity=args.omit_root_entity,
         folder_selection=selection,
         folder_queries=folder_queries,
+        entry_folder=args.entry_folder, entry_index=args.entry_index,
     )
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
     if result.secret_findings:

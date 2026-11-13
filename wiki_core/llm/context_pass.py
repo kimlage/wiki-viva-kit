@@ -639,6 +639,15 @@ def ingestion_block_context(root: Path, config, input_context: dict,
 
     if policy_context is not None and approved_revision is None:
         raise ValueError("policy_context requires an explicit approved_revision")
+    entry = input_context.get('folder_entry')
+    if entry is not None:
+        return {'schema_version':'wiki_block_stack.v1', 'center':None, 'stack':[], 'lenses':[],
+                'write_policy':'proposal_branch_only', 'target_obligations':[],
+                'policy_mode':'working_tree_folder_entry', 'policy_enforced':False,
+                'entry_folder':entry['folder'], 'entry_index':entry['index_path'], 'documents':entry['documents'],
+                'unresolved_context_refs':[],
+                'limitations':['Host access is not verified; no ACL, sandbox or native instruction loading is proved',
+                               'Source configuration, linked sources and independent repositories were not automatically resolved']}
     from wiki_core.template_blocks import load_block_world, block_context_package
     from wiki_core.repository_reader import canonical_path
     from wiki_core.detectors import scan_text
