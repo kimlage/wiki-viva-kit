@@ -294,13 +294,12 @@ def search(db_path: Path, query: str, limit: int = 20, *, page_signature: str | 
     if is_protected_artifact(db_path):
         raise ValueError('protected artifacts require bound dispatch')
     if wiki_root is not None:
-        from wiki_core.traversal import is_in_nested_git
+        from wiki_core.traversal import require_wiki_boundaries
         try:
-            crosses_boundary = is_in_nested_git(db_path, wiki_root=wiki_root)
+            require_wiki_boundaries(wiki_root, files=(db_path,
+                *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
         except (OSError, ValueError) as exc:
             raise ValueError('index_path_crosses_repository_boundary') from exc
-        if crosses_boundary:
-            raise ValueError('index_path_crosses_repository_boundary')
     if not db_path.exists():
         return []
     match = sanitize_fts_query(query)
@@ -344,10 +343,10 @@ def search_detailed(db_path: Path, query: str, limit: int = 20, *, source_ids=No
     if not match or type(limit) is not int or not 1 <= limit <= 1000:
         return result
     if wiki_root is not None:
-        from wiki_core.traversal import is_in_nested_git
+        from wiki_core.traversal import require_wiki_boundaries
         try:
-            if is_in_nested_git(db_path, wiki_root=wiki_root):
-                return {**result, "status": "index_error", "error": "index_path_crosses_repository_boundary"}
+            require_wiki_boundaries(wiki_root, files=(db_path,
+                *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
         except (OSError, ValueError):
             return {**result, "status": "index_error", "error": "index_path_crosses_repository_boundary"}
     if not db_path.is_file():
