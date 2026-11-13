@@ -78,7 +78,10 @@ reviewing any consumer policy that uses this form. A candidate cannot authorize
 its own installation or normative change. A directory query still needs a prefix
 covering its scope; an exact ceiling can authorize its anchor separately. The
 query authority digest covers that anchor and the selected scope, not unused
-descendants outside that scope.
+descendants outside that scope. In v1, mandatory references explicitly declared
+in the consumer lineage follow their own normative authorization and remain
+subject to inherited read denies; evidence between contexts requires the
+corresponding bilateral connection. Folder qualification has its own checks.
 
 ```yaml
 read:

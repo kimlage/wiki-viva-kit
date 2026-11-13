@@ -186,3 +186,11 @@ def test_exact_scope_cannot_enumerate_even_if_its_path_names_the_query_directory
              'max_matches': 10, 'max_scan_bytes': 10000}}
     with pytest.raises(PolicyError, match='query scope not authorized'):
         select_query(p, 'root', object(), query)
+
+
+def test_inherited_deny_overrides_child_exact_read():
+    parent = context('root', None, '.', ['.'], deny=['docs/private'])
+    child = context('child', 'root', 'docs', ['file[self/private/item.md]'])
+    policy = make_policy([parent, child])
+    assert 'docs/private' in policy.effective['child']['deny']['read']
+    assert not policy.permits('child', 'read', 'docs/private/item.md')

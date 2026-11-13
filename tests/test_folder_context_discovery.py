@@ -303,3 +303,14 @@ def test_root_read_requires_exact_bilateral_connections_for_foreign_packet(repo,
     config['context_access']['.']['imports'] = [rule]
     with pytest.raises(PolicyError, match='invalid relative path'):
         _folder_policy_at(root, commit(root, config))
+
+
+def test_exclusion_preserves_ownership_with_an_exact_read_ceiling(repo):
+    root, config = repo
+    config['context_discovery'] = {'exclude': [SNAPSHOT]}
+    config['context_access']['.']['policy']['read'] = ['self', f'file[{DOCUMENT}]']
+    policy = _folder_policy_at(root, commit(root, config))
+    assert SNAPSHOT not in policy.contexts
+    assert policy.owner_of(DOCUMENT) == '.'
+    assert f'file[{DOCUMENT}]' in policy.effective['.']['read']
+    assert connection(policy) == 'approved'
