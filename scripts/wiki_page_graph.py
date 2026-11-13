@@ -120,17 +120,20 @@ def collect_git_changes(base_sha: str, *, root: Path | None = None) -> GitChange
     unstaged_args = ["diff", "--no-renames", "--name-only", "-z", "--"]
     staged_args = ["diff", "--cached", "--no-renames", "--name-only", "-z", "--"]
     untracked_args = ["ls-files", "--others", "--exclude-standard", "-z", "--"]
+    # This is a union of deletions across transitions, not proof that every
+    # deleted name existed in the requested base tree.
     deleted_commands = (
         [
             "diff",
+            "--no-renames",
             "--name-only",
             "--diff-filter=D",
             "-z",
             f"{base_sha}..HEAD",
             "--",
         ],
-        ["diff", "--name-only", "--diff-filter=D", "-z", "--"],
-        ["diff", "--cached", "--name-only", "--diff-filter=D", "-z", "--"],
+        ["diff", "--no-renames", "--name-only", "--diff-filter=D", "-z", "--"],
+        ["diff", "--cached", "--no-renames", "--name-only", "--diff-filter=D", "-z", "--"],
     )
     kwargs = {"root": root} if root else {}
     untracked = _git_paths(untracked_args, **kwargs)
@@ -152,6 +155,18 @@ def changed_paths(base_sha: str) -> set[str]:
     """Compatibility wrapper returning the complete current path set."""
 
     return set(collect_git_changes(base_sha).paths)
+
+
+def _unrepresented_base_deletions(changes: GitChanges, base_graph, base_sha: str, *, root: Path | None = None) -> list[str]:
+    """Require graph coverage only for deleted paths that existed at the base."""
+    prefix = base_graph.memory_root.rstrip('/') + '/'
+    candidates = {path for path in changes.deleted_paths
+                  if path.startswith(prefix) and path.lower().endswith('.md')
+                  and path not in base_graph.nodes}
+    if not candidates:
+        return []
+    base_paths = _git_paths(['ls-tree', '-r', '--name-only', '-z', base_sha], root=root)
+    return sorted(candidates & base_paths)
 
 
 def _safe_materialized_path(root: Path, rel: str) -> Path:
@@ -306,14 +321,10 @@ def main(argv=None) -> int:
             and base_graph is not None
             and changes is not None
         )
-        memory_prefix = base_graph.memory_root.rstrip("/") + "/"
-        unrepresented_deletions = sorted(
-            path
-            for path in changes.deleted_paths
-            if path.startswith(memory_prefix)
-            and path.lower().endswith(".md")
-            and path not in base_graph.nodes
-        )
+        try:
+            unrepresented_deletions = _unrepresented_base_deletions(changes, base_graph, base_sha)
+        except GitCommandError as exc:
+            parser.error(f"could not collect exact-base impact evidence: {exc}")
         if unrepresented_deletions:
             parser.error(
                 "deleted memory paths were not represented in the exact base graph: "

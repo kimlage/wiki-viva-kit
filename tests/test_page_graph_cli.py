@@ -80,6 +80,7 @@ def test_changed_paths_include_committed_worktree_untracked_and_deleted_paths(
         ): "memories/untracked.md\0",
         (
             "diff",
+            "--no-renames",
             "--name-only",
             "--diff-filter=D",
             "-z",
@@ -88,6 +89,7 @@ def test_changed_paths_include_committed_worktree_untracked_and_deleted_paths(
         ): "memories/deleted.md\0",
         (
             "diff",
+            "--no-renames",
             "--name-only",
             "--diff-filter=D",
             "-z",
@@ -96,6 +98,7 @@ def test_changed_paths_include_committed_worktree_untracked_and_deleted_paths(
         (
             "diff",
             "--cached",
+            "--no-renames",
             "--name-only",
             "--diff-filter=D",
             "-z",
@@ -158,6 +161,87 @@ def test_git_changes_include_both_sides_of_rename(tmp_path, change):
         git('commit', '-qm', 'move member')
     changes = _load_script().collect_git_changes(base, root=tmp_path)
     assert {'archive/member.md', 'elsewhere/member.md'} <= changes.paths
+
+
+@pytest.mark.parametrize('renames', ['true', 'false'])
+def test_deleted_path_guard_distinguishes_transient_and_base_files(tmp_path, renames):
+    def git(*args):
+        return subprocess.run(['git', '-C', str(tmp_path), *args], check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    git('init', '-q')
+    git('config', 'user.name', 'Synthetic')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'diff.renames', renames)
+    memory = tmp_path / 'memories'
+    memory.mkdir()
+    base_page = memory / 'old [literal].md'
+    base_page.write_text('base page\n')
+    git('add', '.')
+    git('commit', '-qm', 'base')
+    base = git('rev-parse', 'HEAD')
+    transient = memory / 'new since base.md'
+    transient.write_text('synthetic transient\n')
+    git('add', '.')
+    git('commit', '-qm', 'add transient')
+    git('mv', 'memories/new since base.md', 'memories/moved.md')
+    git('rm', '--', 'memories/old [literal].md')
+    module = _load_script()
+    changes = module.collect_git_changes(base, root=tmp_path)
+    assert {'memories/new since base.md', 'memories/moved.md'} <= changes.paths
+    assert {'memories/new since base.md', 'memories/old [literal].md'} <= changes.deleted_paths
+    graph = SimpleNamespace(memory_root='memories', nodes={})
+    assert module._unrepresented_base_deletions(changes, graph, base, root=tmp_path) == ['memories/old [literal].md']
+    graph.nodes['memories/old [literal].md'] = {}
+    assert module._unrepresented_base_deletions(changes, graph, base, root=tmp_path) == []
+
+
+def test_deleted_path_guard_fails_closed_on_git_error(monkeypatch):
+    module = _load_script()
+    changes = module.GitChanges(paths=frozenset(), deleted_paths=frozenset({'memories/missing.md'}), untracked_paths=frozenset())
+    graph = SimpleNamespace(memory_root='memories', nodes={})
+    def fail(*args, **kwargs):
+        raise module.GitCommandError(['ls-tree'], returncode=1, detail='synthetic failure')
+    monkeypatch.setattr(module, 'run_git', fail)
+    with pytest.raises(module.GitCommandError):
+        module._unrepresented_base_deletions(changes, graph, 'a' * 40)
+
+
+def test_impact_cli_accepts_transient_rename_but_rejects_missing_base_page(tmp_path, monkeypatch, capsys):
+    def git(*args):
+        return subprocess.run(['git', '-C', str(tmp_path), *args], check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    git('init', '-q')
+    git('config', 'user.name', 'Synthetic')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'diff.renames', 'false')
+    memory = tmp_path / 'memories'
+    memory.mkdir()
+    (memory / 'base.md').write_text('base page\n')
+    git('add', '.')
+    git('commit', '-qm', 'base')
+    base = git('rev-parse', 'HEAD')
+    (memory / 'new.md').write_text('transient\n')
+    git('add', '.')
+    git('commit', '-qm', 'add transient')
+    git('mv', 'memories/new.md', 'memories/moved.md')
+    module = _load_script()
+    monkeypatch.setattr(module, 'ROOT', tmp_path)
+    _stub_clean_graph(monkeypatch, module)
+    base_graph = SimpleNamespace(memory_root='memories', nodes={'memories/base.md': {}})
+    monkeypatch.setattr(module, 'build_page_graph_at_commit', lambda _sha: base_graph)
+    monkeypatch.setattr(module, 'compute_impact', lambda *args, **kwargs: SimpleNamespace(
+        changed_pages=(), removed_pages=(), affected_pages=(), references={}))
+    monkeypatch.setattr(sys, 'argv', ['wiki_page_graph.py', '--impact', '--base', base])
+    assert module.main() == 0
+    assert 'memories/new.md' in json.loads(capsys.readouterr().out)['git_changes']['deleted_paths']
+    git('rm', '--', 'memories/base.md')
+    base_graph.nodes.clear()
+    with pytest.raises(SystemExit) as exc_info:
+        module.main()
+    assert exc_info.value.code == 2
+    assert 'memories/base.md' in capsys.readouterr().err
 
 
 def test_impact_requires_explicit_base_before_loading_the_wiki(
