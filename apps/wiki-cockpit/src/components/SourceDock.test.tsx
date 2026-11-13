@@ -151,6 +151,38 @@ describe("SourceDock operational workspace", () => {
     const recorded = screen.getByText(new RegExp(label));
     expect(recorded.classList.contains("pill-warn")).toBe(true);
   });
+  it.each([
+    ["en", "Last recorded attempt", "authentication required"],
+    ["pt-BR", "Última tentativa registrada", "autenticação necessária"],
+    ["es", "Último intento registrado", "se requiere autenticación"]
+  ])("distinguishes a recorded authentication attempt in %s", (language, attempt, auth) => {
+    configureLanguage(language);
+    const fixture = sourceFixture();
+    const source = sourceFixture({ lifecycle: { ...fixture.lifecycle!, last_attempt_state: "needs_auth" } });
+    const bundle = bundleWith(source);
+    const { rerender } = render(<SourceDock bundle={bundle} sourceId="" onNotice={noop} onClose={noop} />);
+    let warning = screen.getByText(new RegExp(`${attempt}: ${auth}`));
+    expect(warning.classList.contains("pill-warn")).toBe(true);
+    expect(warning.textContent).toContain("2026-07-10 08:00");
+    rerender(<SourceDock bundle={bundle} sourceId={source.source_id} onNotice={noop} onClose={noop} />);
+    warning = screen.getByText(new RegExp(`${attempt}: ${auth}`));
+    expect(warning.classList.contains("pill-warn")).toBe(true);
+
+    const both = sourceFixture({ sync: { ...fixture.sync, last_status: "needs_auth" }, lifecycle: source.lifecycle });
+    rerender(<SourceDock bundle={bundleWith(both)} sourceId={both.source_id} onNotice={noop} onClose={noop} />);
+    expect(screen.queryByText(new RegExp(`${attempt}: ${auth}`))).toBeNull();
+    rerender(<SourceDock bundle={bundleWith(both)} sourceId="" onNotice={noop} onClose={noop} />);
+    expect(screen.queryByText(new RegExp(`${attempt}: ${auth}`))).toBeNull();
+    const noAttempt = sourceFixture();
+    rerender(<SourceDock bundle={bundleWith(noAttempt)} sourceId="" onNotice={noop} onClose={noop} />);
+    expect(screen.queryByText(new RegExp(`${attempt}: ${auth}`))).toBeNull();
+    const noLifecycle = sourceFixture({ lifecycle: undefined });
+    rerender(<SourceDock bundle={bundleWith(noLifecycle)} sourceId="" onNotice={noop} onClose={noop} />);
+    expect(screen.queryByText(new RegExp(`${attempt}: ${auth}`))).toBeNull();
+    const noDate = sourceFixture({ lifecycle: { ...source.lifecycle!, last_attempt_at: "" } });
+    rerender(<SourceDock bundle={bundleWith(noDate)} sourceId="" onNotice={noop} onClose={noop} />);
+    expect(screen.getByText(new RegExp(`${attempt}: ${auth}`)).textContent).not.toContain("2026-07-10");
+  });
   it("keeps information review visible for historical streams and links its consumer", async () => {
     const source=sourceFixture({schedule:{mode:"one_shot",cadence_days:0,cron_hint:""}});
     source.streams=[{...source.streams[0],freshness_basis:"processing_state",information_review_pending:true,
