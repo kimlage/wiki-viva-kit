@@ -500,3 +500,54 @@ def test_cli_folder_selection_never_creates_its_own_host_binding(project):
         capture_output=True, text=True, env=env)
     assert call.returncode == 2
     assert not FolderWikiPaths(project, load_config(project), 'a').derived_root.exists()
+
+
+@pytest.mark.parametrize('with_source_config', [False, True])
+def test_folder_request_builder_is_final_for_capture_and_cli_emission(project, tmp_path, monkeypatch, capsys, with_source_config):
+    """The common builder already binds the complete folder request."""
+    from copy import deepcopy
+    from wiki_core.folder_request_identity_v2 import folder_request_identity
+    import wiki_core.ingest.pipeline as pipeline
+
+    sha, selection = setup(project)
+    if with_source_config:
+        put(project, 'a/source.md', '---\npage_id: source-synthetic\npage_type: source\nconfig_ref: a/source-config.md\n---\nSynthetic observation.\n')
+        put(project, 'a/source-config.md', '---\npage_id: config-synthetic\npage_type: source_config\n---\nSynthetic configuration.\n')
+        commit(project); sha = git(project, 'rev-parse', 'HEAD')
+    observed = []
+    original = pipeline.build_context_request
+    def capture(*args, **kwargs):
+        request = original(*args, **kwargs)
+        observed.append(deepcopy(request))
+        return request
+    monkeypatch.setattr(pipeline, 'build_context_request', capture)
+    result = run(str(project/'a/source.md'), 'system', project, load_config(project),
+                 approved_revision=sha, folder_selection=selection)
+    assert not result.blocked and result.request_path
+    actual = json.loads((project/result.request_path).read_text())
+    assert actual == observed[-1]
+    assert actual['folder_request_id'] == folder_request_identity(actual)
+    assert ('source_config_ref' in actual) is with_source_config
+    if with_source_config:
+        assert actual['source_config_ref'] == 'a/source-config.md'
+        assert actual['source_config_perspectives_applied'] is True
+
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_llm_context_pass.py'
+    spec = importlib.util.spec_from_file_location('folder_request_final', script)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    original_cli = module.build_context_request
+    cli_observed = []
+    def capture_cli(*args, **kwargs):
+        request = original_cli(*args, **kwargs)
+        cli_observed.append(deepcopy(request))
+        return request
+    monkeypatch.setattr(module, 'build_context_request', capture_cli)
+    monkeypatch.setenv('WIKI_FOLDER_INGEST_HOST_ROOT', str(project))
+    monkeypatch.setenv('WIKI_FOLDER_INGEST_HOST_FOLDERS', 'a')
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(project), '--source', str(project/'a/source.md'),
+        '--context', 'system', '--approved-revision', sha, '--folder-context', 'a', '--folder-index', 'a/index.md',
+        '--folder-output', 'a/result.md', '--emit-request'])
+    assert module.main() == 0
+    emitted = project / capsys.readouterr().out.strip()
+    assert json.loads(emitted.read_text()) == cli_observed[-1]
+    assert cli_observed[-1]['folder_request_id'] == folder_request_identity(cli_observed[-1])
