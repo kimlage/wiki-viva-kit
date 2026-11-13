@@ -195,6 +195,32 @@ coordinator; do not send confirmation-only updates. This is an operator
 agreement, not a scheduler, access grant or proof that a runtime integration
 exists.
 
+### Post-merge cleanup
+
+For the wiki and each project repository it coordinates, an authorized delivery
+includes cleanup after the merge, approved-main readback and wiki reconciliation.
+Adopt this obligation in the effective consumer and project instructions. Where
+the repository owner has authorized the policy, enable GitHub's automatic deletion
+of merged source branches; the operator still handles local branches and worktrees.
+
+Fetch the approved target and confirm that the exact branch head is integrated.
+For a squash or rebase merge, reconcile the proposed content and any later commits;
+a merged PR label alone does not establish that the current branch head is covered.
+Preserve a recoverable snapshot before retiring references or worktree data. Keep
+default/protected branches, tags, explicit backup/archive references, open proposals,
+active work and WIP. An inactive integrated worktree with unique or ignored files
+is preserved before its registration is removed; cleanup does not discard them.
+
+Remove eligible remote and local branches and inactive worktree registrations,
+comparing each expected head immediately before mutation. If a head or worktree
+changed, preserve it and reconcile that item; continue independent eligible items.
+Read back the surviving references and worktrees and record the result with the
+existing delivery. Retain valid review and test evidence: removing already
+integrated references does not reopen acceptance or require repeating gates for
+unchanged work. New code, failed checks or a newly discovered concern still receive
+the applicable validation. Keep genuinely pending proposals visible in their
+existing action or PR instead of creating another queue of completed deliveries.
+
 For a process failure, record its cause and the applicable rule or source on
 the existing action, issue, PR or log. If the rule was adequate, fix its
 implementation or application; if ambiguous or wrong, edit or remove the
