@@ -49,6 +49,14 @@ pending work, restore visibility and resume the same thread only under current
 direction and STOPs; if no observer is available, report verification pending
 without guessing its cause. See the [continuity and closeout contract](docs/references/guides/context-coordinators.md#thread-continuity-and-closeout).
 
+After an authorized merge and approved-main readback, retire the integrated
+local and remote branches and inactive worktrees as part of closeout, under the
+consumer's cleanup policy. Preserve WIP, active work, protected/default branches,
+tags and recovery references; compare the expected head before deletion. Reuse
+valid review and test evidence for an unchanged delivery. Apply this lifecycle
+to the wiki and the project repositories it coordinates; see
+[post-merge cleanup](docs/references/guides/context-coordinators.md#post-merge-cleanup).
+
 ## PR review policy
 
 - Before merging this kit, a reviewer independent of the change's author must
