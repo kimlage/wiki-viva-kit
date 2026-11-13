@@ -9,8 +9,6 @@ from __future__ import annotations
 import hashlib
 from contextlib import ExitStack
 import json
-import os
-import stat
 import subprocess
 import sys
 import tempfile
@@ -242,19 +240,15 @@ def _freshness_review_args(base: str | None, reviews: dict | None) -> list[str]:
 
 
 def _gate_input_fingerprint(root: Path) -> str:
-    """Fingerprint repository files and selected Git metadata in memory."""
+    """Fingerprint tracked candidate state without retaining its contents."""
     commands = (
         ("rev-parse", "HEAD"),
         ("status", "--porcelain=v1", "-z", "--untracked-files=all"),
         ("diff", "--binary", "--no-ext-diff", "--no-textconv", "HEAD", "--"),
         ("diff", "--cached", "--binary", "--no-ext-diff", "--no-textconv", "HEAD", "--"),
         ("ls-files", "-v", "-z"),
-        ("config", "--null", "--list"),
     )
     digest = hashlib.sha256()
-    def add(data: bytes) -> None:
-        digest.update(len(data).to_bytes(8, "big"))
-        digest.update(data)
     for args in commands:
         try:
             result = subprocess.run(["git", *args], cwd=root, capture_output=True, timeout=120)
@@ -262,54 +256,8 @@ def _gate_input_fingerprint(root: Path) -> str:
             raise ContributionError("gate_input_state_unavailable") from exc
         if result.returncode:
             raise ContributionError("gate_input_state_unavailable")
-        add(result.stdout)
-    def fail_walk(error):
-        raise error
-    count = 0
-    total = 0
-    try:
-        for directory, dirs, files in os.walk(root, topdown=True, followlinks=False, onerror=fail_walk):
-            dirs.sort(); files.sort()
-            if Path(directory) == root:
-                dirs[:] = [name for name in dirs if name != '.git']
-                files = [name for name in files if name != '.git']
-            for name in sorted([*dirs, *files]):
-                path = Path(directory) / name
-                info = path.lstat()
-                count += 1
-                if count > 100_000:
-                    raise ValueError('gate input count exceeded')
-                add(os.fsencode(path.relative_to(root)))
-                add(str(info.st_mode).encode('ascii'))
-                if stat.S_ISLNK(info.st_mode):
-                    add(os.fsencode(os.readlink(path)))
-                elif stat.S_ISREG(info.st_mode):
-                    total += info.st_size
-                    if total > 1_073_741_824:
-                        raise ValueError('gate input size exceeded')
-                    content = hashlib.sha256()
-                    fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0))
-                    with os.fdopen(fd, 'rb') as stream:
-                        opened = os.fstat(stream.fileno())
-                        if (info.st_dev, info.st_ino, info.st_mode) != (opened.st_dev, opened.st_ino, opened.st_mode):
-                            raise ValueError('gate input changed before read')
-                        for block in iter(lambda: stream.read(1_048_576), b''):
-                            content.update(block)
-                    after = path.lstat()
-                    if (info.st_ino, info.st_size, info.st_mtime_ns, info.st_mode) != (
-                            after.st_ino, after.st_size, after.st_mtime_ns, after.st_mode):
-                        raise ValueError('gate input changed during scan')
-                    add(content.digest())
-                elif not stat.S_ISDIR(info.st_mode):
-                    raise ValueError('gate input type unavailable')
-        git_dir = Path(_git(root, "rev-parse", "--absolute-git-dir"))
-        for rel in ('config', 'config.worktree', 'info/exclude', 'info/attributes'):
-            path = git_dir / rel
-            if path.is_symlink():
-                raise ValueError('gate metadata unavailable')
-            add(path.read_bytes() if path.exists() else b'')
-    except (OSError, ValueError) as exc:
-        raise ContributionError("gate_input_state_unavailable") from exc
+        digest.update(len(result.stdout).to_bytes(8, "big"))
+        digest.update(result.stdout)
     return digest.hexdigest()
 
 
@@ -341,8 +289,7 @@ def _gates(root: Path, config: WikiConfig, *, full_checks: bool = False,
     results = []
     for command in [*commands, *extra]:
         try:
-            call = lambda: subprocess.run(command, cwd=root, capture_output=True, timeout=600,
-                                          env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+            call = lambda: subprocess.run(command, cwd=root, capture_output=True, timeout=600)
             p = effect_runner(call) if effect_runner else call()
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise ContributionError("gate_unavailable") from exc
