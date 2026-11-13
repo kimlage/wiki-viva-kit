@@ -2527,6 +2527,8 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
 
 
 def audit_log_changed(errors: list[str], config: WikiConfig) -> None:
+    if config.approval.get("require_log_update", True) is False:
+        return
     paths = wiki_paths(config)
     prefix = memory_prefix(config)
     log_rel = paths.rel(paths.log_page)
