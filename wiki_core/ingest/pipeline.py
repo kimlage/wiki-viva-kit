@@ -386,6 +386,35 @@ def run(
             pending = chunk_count
             request = None
             blocked = True
+    if folder_selection is None and source_guard is None and request is not None and not blocked:
+        try:
+            current_manifest = build_manifest(source, context, root=root)
+            current_config = find_source_config(root, config, source)
+            current_input = input_context_for_source(root, config, source)
+            current_input['source_config'] = current_config
+            current_required, _ = merge_perspectives(current_config, required=[], optional=[],
+                root_required=list(current_input.get('perspectives_required') or []),
+                root_optional=list(current_input.get('perspectives_optional') or []))
+            current_package = ingestion_block_context(root, config, current_input, current_required,
+                task_id=source_id, context_max_bytes=context_max_bytes)
+            if (current_manifest.get('source_id') != source_id
+                    or current_manifest.get('hash_sha256') != manifest.get('hash_sha256')
+                    or current_input != input_context or current_package != context_package):
+                raise ValueError('source or context changed before retention')
+        except (ValueError, OSError) as exc:
+            report = preparation_blocker(exc, source_id, config.owner_label)
+            blockers.append(report['blocker']); context_error_code = report['error_code']
+            pending = chunk_count; request = None; blocked = True
+    capture_reused = False
+    if write and folder_selection is None and is_local_file and extracted is not None and not stream_id and not blocked:
+        try:
+            from wiki_core.source_manifest import reusable_capture
+            capture_reused = reusable_capture(paths, manifest, extracted, chunk_dicts, warnings,
+                                               max_bytes=request_max_bytes * 4 + 65536)
+        except (ValueError, OSError, TypeError, KeyError) as exc:
+            report = preparation_blocker(exc, source_id, config.owner_label)
+            blockers.append(report['blocker']); context_error_code = report['error_code']
+            pending = chunk_count; request = None; blocked = True
     persist = write and not blocked
 
     if persist:
@@ -399,7 +428,11 @@ def run(
     text_path: str | None = None
     chunks_path: str | None = None
     manifest_path: str | None = None
-    if persist:
+    if persist and capture_reused:
+        manifest_path = _rel(paths.source_manifests / f'{source_id}.json', root)
+        text_path = _rel(paths.source_text / f'{source_id}.json', root)
+        chunks_path = _rel(paths.chunks / f'{source_id}.json', root)
+    elif persist:
         with _observed(observer, "persistence") as metrics:
             manifest_file = write_manifest(manifest, paths.source_manifests)
             manifest_path = _rel(manifest_file, root)
@@ -435,7 +468,7 @@ def run(
 
     chunks_indexed = 0
     index_diagnostics = {}
-    if persist and folder_selection is None and (chunk_dicts or extracted is not None and not warnings):
+    if persist and folder_selection is None and not capture_reused and (chunk_dicts or extracted is not None and not warnings):
         # INCREMENTAL indexing: only the just-written source is (re)indexed,
         # instead of a full rebuild of the whole directory on every ingestion
         # (finding 13).
@@ -452,19 +485,15 @@ def run(
             metrics["sqlite_bytes"] = index_path.stat().st_size if index_path.exists() else None
 
     if persist and request is not None:
-        if folder_selection is not None:
-            from wiki_core.folder_request_identity_v2 import retain_folder_request
-            try:
-                request_file = retain_folder_request(root, paths, request)
-            except (ValueError, OSError) as exc:
-                report = preparation_blocker(exc, source_id, config.owner_label)
-                blockers.append(report['blocker'])
-                context_error_code = report['error_code']
-                blocked = True
-                request_file = None
-        else:
-            request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
-            request_file.write_text(canonical_request_text(request), encoding="utf-8")
+        from wiki_core.folder_request_identity_v2 import retain_request
+        try:
+            request_file = retain_request(root, paths, request)
+        except (ValueError, OSError) as exc:
+            report = preparation_blocker(exc, source_id, config.owner_label)
+            blockers.append(report['blocker'])
+            context_error_code = report['error_code']
+            blocked = True
+            request_file = None
         request_path = _rel(request_file, root) if request_file is not None else None
 
 

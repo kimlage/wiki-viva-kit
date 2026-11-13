@@ -95,6 +95,60 @@ def retain_folder_request(root, paths, request):
     return path
 
 
+def retain_request(root, paths, request):
+    """Retain an existing-format request without replacing another context."""
+    from pathlib import Path
+    from wiki_core.context_selection import strict_json_loads
+    from wiki_core.llm.context_pass import canonical_request_text
+    from wiki_core.traversal import require_wiki_boundaries
+    if request.get('context_binding_version') == 2:
+        return retain_folder_request(root, paths, request)
+    source_id = request.get('source_id')
+    if not isinstance(source_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', source_id):
+        raise ValueError('invalid source identity')
+    identity = request_identity(request)
+    legacy = paths.extraction_events / f'{source_id}-llm-context-request.json'
+    target = request_identity_path(paths, source_id, identity)
+    require_wiki_boundaries(Path(root), directories=(paths.extraction_events,), files=(legacy, target))
+    paths.extraction_events.mkdir(parents=True, exist_ok=True)
+    if not legacy.exists():
+        try:
+            _install_once(legacy, canonical_request_text(request))
+            return legacy
+        except FileExistsError:
+            pass
+    require_wiki_boundaries(Path(root), files=(legacy,))
+    if not legacy.is_file() or legacy.is_symlink() or legacy.stat().st_size > 2_000_000:
+        raise ValueError('legacy request unavailable; preserved')
+    with legacy.open('rb') as stream:
+        raw = stream.read(2_000_001)
+    if len(raw) > 2_000_000:
+        raise ValueError('legacy request unavailable; preserved')
+    try:
+        existing = strict_json_loads(raw.decode('utf-8'))
+        if request_identity(existing) == identity:
+            return legacy
+    except (ValueError, TypeError, KeyError):
+        raise ValueError('legacy request unavailable; preserved') from None
+    qualified = {**request, 'folder_request_id': identity}
+    require_wiki_boundaries(Path(root), files=(target,))
+    try:
+        _install_once(target, canonical_request_text(qualified))
+    except FileExistsError:
+        if not target.is_file() or target.is_symlink() or target.stat().st_size > 2_000_000:
+            raise ValueError('existing request unavailable; preserved') from None
+        with target.open('rb') as stream:
+            raw = stream.read(2_000_001)
+        try:
+            retained = strict_json_loads(raw.decode('utf-8'))
+            if (len(raw) > 2_000_000 or retained.get('folder_request_id') != identity
+                    or request_identity(retained) != identity):
+                raise ValueError('existing request differs; preserved')
+        except (ValueError, TypeError, KeyError, AttributeError):
+            raise ValueError('existing request unavailable; preserved') from None
+    return target
+
+
 def write_folder_result(cache_dir, result):
     """Create once; repeat the same result idempotently, never replace it."""
     from wiki_core.context_selection import strict_json_loads
