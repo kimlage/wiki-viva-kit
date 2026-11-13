@@ -3,9 +3,7 @@
 The loop is: **select inputs → ingest → deep read → consolidate + integrate →
 PR/review/gates → main → result readback → wiki reconciliation → post-merge
 cleanup → settle the accepted scope**. Follow the existing [closeout contract](../../../docs/references/guides/context-coordinators.md#thread-continuity-and-closeout).
-Retire integrated local/remote branches and inactive worktrees under the adopted
-[post-merge cleanup policy](../../../docs/references/guides/context-coordinators.md#post-merge-cleanup), preserving WIP and active proposals. Reuse still-valid
-review and test evidence for unchanged deliveries.
+Follow the [branch and PR lifecycle](../../../docs/references/guides/context-coordinators.md#post-merge-cleanup): commit and push WIP, keep paused work in draft PRs, and remove branches and worktrees when their PRs merge or close. Reuse still-valid review and test evidence for unchanged deliveries.
 The commands have their own effect and retry boundaries; the
 model steps — the deep read and the integration it feeds — are yours. The full per-CLI catalog is the
 command-reference page in the meta-wiki (linked from [AGENTS.md](../../../AGENTS.md)).
