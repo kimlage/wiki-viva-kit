@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from _common import ROOT
@@ -53,6 +54,8 @@ def main() -> None:
                 or args.action_id or args.event_file or args.expected_sha256 or args.as_operator or args.action_path):
             parser.error('source stage requires approved-revision; provide stage JSON on stdin')
         try:
+            if not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', args.approved_revision):
+                raise ProtectedCoordinationError('coordination_invalid_request')
             # The local CLI trusts its operator; discovering a folder is not a
             # host grant. Implicit contexts require an existing host binding.
             binding = CoordinationBinding.from_environment()
@@ -80,10 +83,10 @@ def main() -> None:
                 if not require_wiki_path(root, folder).is_dir():
                     raise ValueError('context folder unavailable')
                 payload['entry_folder'] = folder
-            from wiki_core.context_policy import load_policy, PolicyError
+            from wiki_core.context_policy import load_policy
             try:
                 policy = load_policy(root, args.approved_revision, binding.manifest, trusted_ref=binding.trusted_ref)
-            except (PolicyError, OSError) as exc:
+            except (ValueError, OSError) as exc:
                 raise ProtectedCoordinationError('coordination_policy_unavailable') from exc
             if getattr(policy, 'format_version', None) != 'folder':
                 raise ProtectedCoordinationError('coordination_policy_unavailable')
