@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from _common import ROOT
@@ -81,7 +82,12 @@ def main() -> None:
                     raise ValueError('context folder unavailable')
                 payload['entry_folder'] = folder
             from wiki_core.context_policy import load_policy
-            policy = load_policy(root, args.approved_revision, binding.manifest, trusted_ref=binding.trusted_ref)
+            if not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', args.approved_revision):
+                raise ProtectedCoordinationError('coordination_invalid_request')
+            try:
+                policy = load_policy(root, args.approved_revision, binding.manifest, trusted_ref=binding.trusted_ref)
+            except (ValueError, OSError) as exc:
+                raise ProtectedCoordinationError('coordination_policy_unavailable') from exc
             if getattr(policy, 'format_version', None) != 'folder':
                 raise ProtectedCoordinationError('coordination_policy_unavailable')
             folder = payload['entry_folder']
