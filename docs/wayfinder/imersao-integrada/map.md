@@ -17,6 +17,7 @@ combine.
 ## Notes
 
 - Branch: `wiki/wayfinder-imersao-integrada-20260730`.
+- Beauty-slice branch: `wiki/anatta-worlds-beauty-slice-20260730`.
 - Base: committed consolidation `44913a1d`; no dirty worktree state was copied.
 - Canonical product direction:
   [Anatta Worlds GDD 3.0](../../../apps/planetary-prototype-gallery/docs/gdd/GDD-3.0.md).
@@ -62,16 +63,23 @@ combine.
 - [Prototype QA](prototype-qa.md) — all three variants compile as isolated lab
   chunks, share one tested session and passed desktop/mobile truthfulness,
   architecture, asset and bundle gates.
+- [Build one basin as a beauty slice](issues/12-build-one-basin-beauty-slice.md)
+  — the existing images are the visual authority; the executable slice proves
+  one enterable basin and the 3D→2D receipt loop, but its reference-fidelity
+  gate remains explicitly failed.
+- [Beauty-slice QA](beauty-slice-qa.md) — runtime measurements, functional
+  readback and the current visual rejection record.
 
 ## Frontier
 
-1. Kim completes the same loop in organism, table and direct-scales variants.
-2. Kim records which grammar makes 3D necessary for orientation and consequence
-   and which makes 2D necessary for evidence and decision.
-3. Resolve ticket 09 with one winner or an explicit combination of exclusive
-   roles.
-4. Rewrite only the selected grammar against the production `SystemScene` and
-   measure sustained frames, memory and real no-WebGL behavior before merge.
+1. Kim inspects the beauty slice and its side-by-side comparison.
+2. Replace the mathematical terrain and shoreline with an authored,
+   erosion-aware terrain pipeline before expanding the map.
+3. Bake off the open river material and a privately licensed river adapter on
+   identical camera, geometry and light.
+4. Measure 1% low, decoded GPU memory and cold-cache load on physical hardware.
+5. Keep the visual gate failed until the render no longer reads as a terrain
+   demo beside the reference.
 
 ## Fog
 

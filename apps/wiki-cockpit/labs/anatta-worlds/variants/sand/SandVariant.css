@@ -1,0 +1,479 @@
+.sandVariant {
+  --sand-ink: #f4ecda;
+  --sand-muted: #c2b89f;
+  --sand-gold: #efbd6d;
+  --sand-water: #8ab8b1;
+  min-height: calc(100dvh - 4.5rem);
+  color: var(--sand-ink);
+  background: #706c5e;
+}
+
+.awVariant-sand > .awBrand,
+.awVariant-sand > .awSessionProgress,
+.awVariant-sand > .awSessionDebug {
+  display: none;
+}
+
+.awVariant-sand > .awPrototypeSwitcher {
+  border-color: rgba(235, 220, 191, 0.24);
+  background: rgba(24, 24, 19, 0.94);
+}
+
+.awVariant-sand > .awPrototypeSwitcher > button:last-child {
+  color: var(--sand-gold);
+}
+
+.sandStage {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.sandCanvas {
+  position: absolute;
+  inset: 0;
+}
+
+.sandCanvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+.sandOpticalFrame {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(12, 13, 12, 0.06);
+  box-shadow: inset 0 0 9rem rgba(24, 21, 14, 0.24);
+}
+
+.sandIdentity,
+.sandPhase,
+.sandReading,
+.sandTension,
+.sandTools,
+.sandActionRail,
+.sandHint,
+.sandDecisionDrawer {
+  position: absolute;
+  z-index: 5;
+}
+
+.sandIdentity {
+  top: clamp(1.2rem, 3vw, 2.8rem);
+  left: clamp(1.2rem, 3.4vw, 3.5rem);
+  max-width: min(31rem, 44vw);
+  pointer-events: none;
+  text-shadow: 0 0.25rem 1.4rem rgba(0, 0, 0, 0.74);
+}
+
+.sandIdentity > span,
+.sandPhase span,
+.sandReading span,
+.sandReading small,
+.sandTension span,
+.sandActionRail span,
+.sandHint {
+  font-size: 0.58rem;
+  font-weight: 760;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.sandIdentity > span {
+  color: #d7cdb7;
+}
+
+.sandIdentity h1 {
+  margin: 0.5rem 0 0;
+  font-family: Iowan Old Style, Baskerville, Georgia, serif;
+  font-size: clamp(2.6rem, 5.5vw, 5.8rem);
+  font-weight: 450;
+  letter-spacing: -0.065em;
+  line-height: 0.84;
+}
+
+.sandIdentity p {
+  max-width: 27rem;
+  margin: 1rem 0 0;
+  color: #ddd4c0;
+  font-family: Iowan Old Style, Baskerville, Georgia, serif;
+  font-size: clamp(0.82rem, 1.1vw, 1rem);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.sandPhase {
+  top: clamp(1.2rem, 3vw, 2.4rem);
+  left: 50%;
+  display: grid;
+  gap: 0.18rem;
+  min-width: 12rem;
+  padding: 0.58rem 0.95rem;
+  border: 1px solid rgba(241, 226, 196, 0.18);
+  border-radius: 999px;
+  background: rgba(26, 25, 20, 0.66);
+  text-align: center;
+  transform: translateX(-50%);
+  backdrop-filter: blur(14px);
+}
+
+.sandPhase span {
+  color: var(--sand-muted);
+  font-size: 0.5rem;
+}
+
+.sandPhase strong {
+  font-family: Iowan Old Style, Baskerville, Georgia, serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.sandReading {
+  top: clamp(1.2rem, 3vw, 2.4rem);
+  right: clamp(1.2rem, 3vw, 3rem);
+  display: grid;
+  min-width: 10.5rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(239, 226, 199, 0.19);
+  border-radius: 0.85rem;
+  background: rgba(25, 26, 22, 0.7);
+  box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(15px);
+}
+
+.sandReading span,
+.sandReading small {
+  color: var(--sand-muted);
+}
+
+.sandReading strong {
+  margin: 0.15rem 0;
+  font-family: Iowan Old Style, Baskerville, Georgia, serif;
+  font-size: 2.15rem;
+  font-weight: 440;
+  line-height: 1;
+}
+
+.sandReading button {
+  justify-self: start;
+  margin-top: 0.55rem;
+  padding: 0;
+  border: 0;
+  color: var(--sand-gold);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.62rem;
+}
+
+.sandTension {
+  top: 29%;
+  right: clamp(1.2rem, 3vw, 3rem);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: 15rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(239, 177, 94, 0.32);
+  border-radius: 0.72rem;
+  background: rgba(27, 26, 20, 0.62);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.sandTension i {
+  width: 0.52rem;
+  height: 0.52rem;
+  flex: 0 0 auto;
+  border: 1px solid #ffd08a;
+  border-radius: 50%;
+  background: #bf7639;
+  box-shadow: 0 0 0 0.34rem rgba(229, 149, 70, 0.13), 0 0 1.1rem rgba(240, 169, 83, 0.48);
+}
+
+.sandTension div {
+  display: grid;
+  gap: 0.14rem;
+}
+
+.sandTension span {
+  color: #d5cbb5;
+  font-size: 0.5rem;
+  line-height: 1.35;
+}
+
+.sandTension strong {
+  color: #ffd69b;
+  font-size: 0.68rem;
+  font-weight: 620;
+}
+
+.sandVariant[data-east-state="recovering"] .sandTension {
+  border-color: rgba(133, 197, 156, 0.42);
+}
+
+.sandVariant[data-east-state="recovering"] .sandTension i {
+  border-color: #a8dfba;
+  background: #639c77;
+  box-shadow: 0 0 0 0.34rem rgba(102, 168, 126, 0.13), 0 0 1.1rem rgba(133, 207, 161, 0.42);
+}
+
+.sandVariant[data-east-state="recovering"] .sandTension strong {
+  color: #bce4c7;
+}
+
+.sandTools {
+  bottom: 9.4rem;
+  left: 50%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(7.2rem, 1fr));
+  overflow: hidden;
+  width: min(27rem, calc(100vw - 2rem));
+  border: 1px solid rgba(235, 220, 191, 0.2);
+  border-radius: 0.86rem;
+  background: rgba(28, 27, 21, 0.74);
+  box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.27);
+  transform: translateX(-50%);
+  backdrop-filter: blur(16px);
+}
+
+.sandTools button {
+  position: relative;
+  display: grid;
+  gap: 0.05rem;
+  min-height: 3.8rem;
+  padding: 0.55rem 0.7rem 0.5rem 2rem;
+  border: 0;
+  border-right: 1px solid rgba(235, 220, 191, 0.12);
+  color: #e8ddc5;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sandTools button:last-child {
+  border-right: 0;
+}
+
+.sandTools button > span {
+  position: absolute;
+  top: 0.67rem;
+  left: 0.7rem;
+  color: #a99e87;
+  font-size: 0.6rem;
+}
+
+.sandTools button strong {
+  font-family: Iowan Old Style, Baskerville, Georgia, serif;
+  font-size: 0.88rem;
+  font-weight: 520;
+}
+
+.sandTools button small {
+  color: #9f9684;
+  font-size: 0.52rem;
+}
+
+.sandTools button:hover,
+.sandTools button:focus-visible,
+.sandTools button.active {
+  color: #fff4db;
+  background: rgba(239, 188, 105, 0.1);
+}
+
+.sandTools button.active::after {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0;
+  left: 0.8rem;
+  height: 2px;
+  content: "";
+  background: var(--sand-gold);
+}
+
+.sandActionRail {
+  right: clamp(1rem, 2.6vw, 2.4rem);
+  bottom: 5.05rem;
+  left: clamp(1rem, 2.6vw, 2.4rem);
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.7fr) minmax(16rem, 1.6fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0;
+  pointer-events: none;
+}
+
+.sandActionRail div {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.64rem 0.9rem;
+  border: 1px solid rgba(235, 220, 191, 0.2);
+  border-radius: 0.72rem;
+  background: rgba(28, 27, 21, 0.78);
+  box-shadow: 0 0.8rem 2.4rem rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(14px);
+}
+
+.sandActionRail span {
+  color: var(--sand-muted);
+  font-size: 0.48rem;
+}
+
+.sandActionRail strong {
+  font-family: Iowan Old Style, Baskerville, Georgia, serif;
+  font-size: 0.84rem;
+  font-weight: 520;
+}
+
+.sandActionRail p {
+  margin: 0;
+  color: #b6ab94;
+  font-size: 0.62rem;
+  text-align: center;
+}
+
+.sandActionRail > button,
+.sandDrawerClose {
+  min-height: 2.45rem;
+  padding: 0.58rem 0.9rem;
+  border: 1px solid rgba(239, 188, 105, 0.45);
+  border-radius: 0.6rem;
+  color: #fff2d5;
+  background: rgba(105, 76, 38, 0.86);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 720;
+  pointer-events: auto;
+}
+
+.sandHint {
+  bottom: 13.9rem;
+  left: 50%;
+  margin: 0;
+  color: #c8bea7;
+  font-size: 0.48rem;
+  text-shadow: 0 0.15rem 0.8rem rgba(0, 0, 0, 0.7);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.sandDecisionDrawer {
+  top: 1rem;
+  right: 1rem;
+  bottom: 9.8rem;
+  z-index: 120;
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  overflow: auto;
+  width: min(31rem, calc(100vw - 2rem));
+  padding: 0.65rem;
+  border: 1px solid rgba(240, 222, 185, 0.2);
+  border-radius: 1rem;
+  background: rgba(21, 22, 18, 0.9);
+  box-shadow: 0 1.8rem 5rem rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(22px);
+}
+
+.sandDrawerClose {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+  justify-self: end;
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+  background: rgba(63, 52, 36, 0.82);
+}
+
+.sandDecisionDrawer .awDecisionSurface {
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .awVariant-sand {
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 800px) {
+  .sandStage {
+    min-height: 100dvh;
+  }
+
+  .sandIdentity {
+    max-width: 70vw;
+  }
+
+  .sandIdentity p,
+  .sandPhase,
+  .sandTension,
+  .sandActionRail p {
+    display: none;
+  }
+
+  .sandReading {
+    min-width: 7.4rem;
+  }
+
+  .sandReading strong {
+    font-size: 1.65rem;
+  }
+
+  .sandTools {
+    bottom: 10.2rem;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .sandTools button {
+    min-width: 0;
+    padding-left: 1.8rem;
+  }
+
+  .sandTools button small {
+    display: none;
+  }
+
+  .sandActionRail {
+    top: 8.8rem;
+    right: 1rem;
+    bottom: auto;
+    left: auto;
+    display: block;
+  }
+
+  .sandHint {
+    display: none;
+  }
+
+  .sandActionRail div,
+  .sandActionRail p {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .sandIdentity h1 {
+    font-size: 2.4rem;
+  }
+
+  .sandIdentity > span {
+    font-size: 0.48rem;
+  }
+
+  .sandReading {
+    padding: 0.7rem;
+  }
+
+  .sandTools button strong {
+    font-size: 0.72rem;
+  }
+
+  .sandActionRail > button {
+    width: 100%;
+  }
+}

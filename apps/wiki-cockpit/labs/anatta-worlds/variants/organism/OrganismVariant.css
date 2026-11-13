@@ -1,480 +1,474 @@
 .organismVariant {
-  --organism-ink: #edf6ed;
-  --organism-muted: #a9bcae;
-  --organism-line: rgba(196, 224, 199, 0.18);
-  --organism-panel: rgba(14, 25, 22, 0.92);
-  --organism-amber: #f3b35b;
-  --organism-green: #7de59b;
-  min-height: calc(100dvh - 7rem);
-  padding: clamp(0.7rem, 1.5vw, 1.4rem);
-  color: var(--organism-ink);
+  --beauty-ink: #eef3ed;
+  --beauty-muted: #aebdb6;
+  --beauty-glass: rgba(11, 20, 18, 0.74);
+  --beauty-line: rgba(216, 232, 220, 0.2);
+  --beauty-amber: #f1a64d;
+  --beauty-aqua: #79c9be;
+  position: relative;
+  min-height: calc(100dvh - 4.5rem);
+  color: var(--beauty-ink);
+  background: #1c2522;
 }
 
-.organismStage {
+.awVariant-organism > .awBrand,
+.awVariant-organism > .awSessionProgress,
+.awVariant-organism > .awPrototypeSwitcher,
+.awVariant-organism > .awSessionDebug {
+  display: none;
+}
+
+.awVariant-organism,
+.organismVariant {
+  overflow-x: clip;
+}
+
+.beautyStage {
   position: relative;
-  min-height: clamp(47rem, 82dvh, 61rem);
+  min-height: max(48rem, calc(100dvh - 4.5rem));
   overflow: hidden;
-  border: 1px solid var(--organism-line);
-  border-radius: clamp(1.1rem, 2vw, 2rem);
-  background:
-    radial-gradient(circle at 72% 38%, rgba(87, 145, 105, 0.12), transparent 32%),
-    #101a18;
-  box-shadow:
-    0 1.8rem 5rem rgba(0, 0, 0, 0.34),
-    inset 0 1px rgba(255, 255, 255, 0.04);
+  background: #8f9d98;
   isolation: isolate;
 }
 
-.organismWorldViewport {
+.beautyWorldViewport {
   position: absolute;
   inset: 0;
-  min-width: 0;
-  transition:
-    right 440ms cubic-bezier(0.22, 1, 0.36, 1),
-    filter 300ms ease;
 }
 
-.organismVariant--docked .organismWorldViewport {
-  right: min(31rem, 40vw);
-}
-
-.organismWorldViewport canvas {
+.beautyWorldViewport canvas {
   display: block;
   width: 100% !important;
   height: 100% !important;
-  pointer-events: none;
   touch-action: none;
 }
 
-.organismWorldVignette {
+.beautyOpticalFrame {
   position: absolute;
+  z-index: 2;
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(5, 11, 9, 0.48), transparent 24%, transparent 66%, rgba(5, 10, 8, 0.68)),
-    linear-gradient(90deg, rgba(4, 10, 8, 0.58), transparent 27%, transparent 74%, rgba(4, 10, 8, 0.28));
+    linear-gradient(180deg, rgba(10, 17, 15, 0.34), transparent 22%, transparent 67%, rgba(7, 12, 10, 0.56)),
+    linear-gradient(90deg, rgba(7, 13, 11, 0.32), transparent 28%, transparent 78%, rgba(7, 13, 11, 0.16));
+  box-shadow: inset 0 0 8rem rgba(7, 13, 11, 0.16);
 }
 
-.organismWorldHeading {
+.beautyIdentity,
+.beautyTension,
+.beautyContextRail,
+.beautyPerformance,
+.beautyInteractionHint,
+.beautyFixedExit {
   position: absolute;
-  z-index: 2;
-  top: clamp(1.2rem, 3vw, 2.6rem);
-  left: clamp(1.2rem, 3vw, 3rem);
-  max-width: min(28rem, 44vw);
-  pointer-events: none;
-  text-shadow: 0 2px 1rem rgba(0, 0, 0, 0.75);
+  z-index: 5;
 }
 
-.organismWorldHeading > span,
-.organismPhaseRail > span {
-  display: block;
-  margin-bottom: 0.45rem;
-  color: #b9d0bd;
+.beautyFixedExit {
+  top: clamp(1rem, 2.2vw, 2rem);
+  left: clamp(1rem, 2.5vw, 2.4rem);
+  padding: 0.52rem 0.72rem;
+  border: 1px solid rgba(197, 226, 216, 0.35);
+  border-radius: 999px;
+  color: #eaf4ee;
+  background: rgba(10, 20, 17, 0.78);
+  box-shadow: 0 0.7rem 2rem rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(12px);
+  cursor: pointer;
   font-size: 0.68rem;
-  font-weight: 760;
-  letter-spacing: 0.16em;
+  font-weight: 720;
+}
+
+.beautyIdentity {
+  top: clamp(1rem, 2.4vw, 2.2rem);
+  left: clamp(1rem, 2.6vw, 2.5rem);
+  max-width: min(28rem, 42vw);
+  pointer-events: none;
+  text-shadow: 0 0.2rem 1.2rem rgba(0, 0, 0, 0.74);
+}
+
+.beautyIdentity > span {
+  display: block;
+  margin-bottom: 0.42rem;
+  color: #d3ded5;
+  font-size: 0.66rem;
+  font-weight: 780;
+  letter-spacing: 0.17em;
   text-transform: uppercase;
 }
 
-.organismWorldHeading h1 {
+.beautyIdentity h1 {
   margin: 0;
   font-family: ui-serif, Georgia, serif;
-  font-size: clamp(2rem, 4vw, 4.5rem);
-  font-weight: 520;
-  letter-spacing: -0.045em;
-  line-height: 0.95;
+  font-size: clamp(2.15rem, 4.2vw, 4.15rem);
+  font-weight: 500;
+  letter-spacing: -0.06em;
+  line-height: 0.88;
 }
 
-.organismWorldHeading p {
-  max-width: 25rem;
-  margin: 0.8rem 0 0;
-  color: var(--organism-muted);
-  font-size: clamp(0.78rem, 1.15vw, 0.98rem);
-  line-height: 1.55;
+.beautyIdentity p {
+  max-width: 24rem;
+  margin: 0.72rem 0 0;
+  color: #d2ddd6;
+  font-size: clamp(0.74rem, 1.02vw, 0.92rem);
+  line-height: 1.5;
 }
 
-.organismEastBeacon {
-  position: absolute;
-  z-index: 3;
-  top: 38%;
-  left: 64%;
+.beautyTension {
+  top: clamp(6rem, 19vh, 11.5rem);
+  right: clamp(1rem, 2.8vw, 2.8rem);
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  min-width: 10.5rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid rgba(243, 179, 91, 0.38);
-  border-radius: 0.8rem;
-  background: rgba(12, 22, 18, 0.72);
-  box-shadow: 0 0.9rem 2.4rem rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(12px);
+  max-width: 15rem;
+  padding: 0.62rem 0.72rem;
+  border: 1px solid rgba(241, 166, 77, 0.34);
+  border-radius: 0.7rem;
+  background: rgba(12, 21, 18, 0.62);
+  box-shadow: 0 0.8rem 2.4rem rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px) saturate(1.15);
   pointer-events: none;
 }
 
-.organismEastBeacon::after {
-  position: absolute;
-  top: calc(100% + 1px);
-  left: 1.15rem;
-  width: 1px;
-  height: clamp(2.2rem, 7vh, 4.6rem);
-  background: linear-gradient(var(--organism-amber), transparent);
-  content: "";
-  transform: rotate(18deg);
-  transform-origin: top;
-}
-
-.organismEastBeacon > span {
-  width: 0.55rem;
-  height: 0.55rem;
+.beautyTension > span {
+  width: 0.52rem;
+  height: 0.52rem;
   flex: 0 0 auto;
-  border: 2px solid var(--organism-amber);
+  border: 1px solid #ffc272;
   border-radius: 50%;
-  box-shadow: 0 0 0 0.32rem rgba(243, 179, 91, 0.13);
+  background: rgba(241, 166, 77, 0.34);
+  box-shadow: 0 0 0 0.34rem rgba(241, 166, 77, 0.12), 0 0 1rem rgba(241, 166, 77, 0.35);
 }
 
-.organismEastBeacon div {
+.beautyTension div {
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: baseline;
-  gap: 0.1rem 0.65rem;
+  gap: 0.12rem;
 }
 
-.organismEastBeacon small {
-  color: var(--organism-muted);
-  font-size: 0.66rem;
+.beautyTension small {
+  color: #d6dfd8;
+  font-size: 0.61rem;
+  font-weight: 760;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.organismEastBeacon strong {
-  font-variant-numeric: tabular-nums;
-  font-size: 1rem;
-}
-
-.organismEastBeacon em {
-  grid-column: 1 / -1;
-  color: #f0c88f;
+.beautyTension strong {
+  color: #ffd5a0;
   font-size: 0.7rem;
-  font-style: normal;
+  font-weight: 620;
+  line-height: 1.35;
 }
 
-.organismVariant[data-east-state="recovering"] .organismEastBeacon {
-  border-color: rgba(125, 229, 155, 0.45);
+.organismVariant[data-east-state="recovering"] .beautyTension {
+  border-color: rgba(121, 201, 150, 0.44);
 }
 
-.organismVariant[data-east-state="recovering"] .organismEastBeacon::after {
-  background: linear-gradient(var(--organism-green), transparent);
+.organismVariant[data-east-state="recovering"] .beautyTension > span {
+  border-color: #8ee1a6;
+  background: rgba(84, 196, 121, 0.34);
+  box-shadow: 0 0 0 0.34rem rgba(84, 196, 121, 0.12), 0 0 1rem rgba(84, 196, 121, 0.35);
 }
 
-.organismVariant[data-east-state="recovering"] .organismEastBeacon > span {
-  border-color: var(--organism-green);
-  box-shadow: 0 0 0 0.32rem rgba(125, 229, 155, 0.13);
+.organismVariant[data-east-state="recovering"] .beautyTension strong {
+  color: #b9ecc5;
 }
 
-.organismVariant[data-east-state="recovering"] .organismEastBeacon em {
-  color: #a6edb8;
-}
-
-.organismIntention {
-  position: absolute;
-  z-index: 4;
-  bottom: clamp(1.1rem, 2.4vw, 2.2rem);
-  left: clamp(1.1rem, 2.4vw, 2.4rem);
-  width: min(20rem, calc(42vw - 2rem));
-}
-
-.organismIntention .awIntentionCard {
-  margin: 0;
-  border-color: var(--organism-line);
-  background: rgba(12, 22, 18, 0.82);
-  box-shadow: 0 1rem 2.8rem rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px);
-}
-
-.organismDecision {
-  position: absolute;
-  z-index: 5;
-  width: min(29rem, calc(100% - 2rem));
-  max-height: calc(100% - 3rem);
-  overflow: auto;
-  overscroll-behavior: contain;
-  border: 1px solid rgba(196, 224, 199, 0.22);
-  border-radius: 1.25rem;
-  background: var(--organism-panel);
-  box-shadow:
-    0 1.4rem 4rem rgba(0, 0, 0, 0.46),
-    inset 0 1px rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(18px) saturate(1.1);
-  transition:
-    top 440ms cubic-bezier(0.22, 1, 0.36, 1),
-    right 440ms cubic-bezier(0.22, 1, 0.36, 1),
-    bottom 440ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-radius 260ms ease;
-}
-
-.organismVariant--anchored .organismDecision {
-  top: 16%;
-  right: clamp(1rem, 3vw, 2.7rem);
-}
-
-.organismVariant--anchored .organismDecision::before {
-  position: absolute;
-  top: 43%;
-  right: 100%;
-  width: clamp(2.2rem, 5vw, 5.2rem);
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(243, 179, 91, 0.76));
-  content: "";
-}
-
-.organismVariant--docked .organismDecision {
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(31rem, 42vw);
-  max-height: none;
-  border-block: 0;
-  border-right: 0;
-  border-radius: 0;
-}
-
-.organismDecisionHandle {
-  position: sticky;
-  z-index: 2;
-  top: 0;
+.beautyContextRail {
+  right: clamp(1rem, 2.6vw, 2.4rem);
+  bottom: clamp(1rem, 2.4vw, 2.2rem);
+  left: clamp(1rem, 2.6vw, 2.4rem);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.8rem;
-  padding: 0.75rem 0.85rem;
-  border-bottom: 1px solid var(--organism-line);
-  background: rgba(12, 23, 19, 0.96);
-  backdrop-filter: blur(16px);
+  gap: 1rem;
+  padding: 0.72rem 0.78rem 0.72rem 1rem;
+  border: 1px solid var(--beauty-line);
+  border-radius: 0.85rem;
+  background: linear-gradient(90deg, rgba(10, 19, 16, 0.78), rgba(14, 25, 21, 0.64));
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(16px) saturate(1.18);
 }
 
-.organismDecisionHandle > div {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
-}
-
-.organismDecisionHandle > div > span {
-  width: 0.5rem;
-  height: 0.5rem;
-  flex: 0 0 auto;
-  border: 1px solid var(--organism-amber);
-  border-radius: 50%;
-  background: rgba(243, 179, 91, 0.16);
-}
-
-.organismVariant[data-east-state="recovering"] .organismDecisionHandle > div > span {
-  border-color: var(--organism-green);
-  background: rgba(125, 229, 155, 0.16);
-}
-
-.organismDecisionHandle p {
+.beautyContextRail div {
   display: grid;
-  min-width: 0;
-  margin: 0;
+  gap: 0.1rem;
 }
 
-.organismDecisionHandle small {
-  color: var(--organism-muted);
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
+.beautyContextRail span {
+  color: var(--beauty-muted);
+  font-size: 0.59rem;
+  font-weight: 760;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
 }
 
-.organismDecisionHandle strong {
-  overflow: hidden;
-  font-size: 0.76rem;
-  font-weight: 630;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.beautyContextRail strong {
+  font-family: ui-serif, Georgia, serif;
+  font-size: clamp(0.86rem, 1.15vw, 1.08rem);
+  font-weight: 560;
 }
 
-.organismDecisionHandle button {
-  min-height: 2.75rem;
-  flex: 0 0 auto;
-  padding: 0.55rem 0.8rem;
-  border: 1px solid rgba(196, 224, 199, 0.24);
-  border-radius: 999px;
-  color: var(--organism-ink);
-  background: rgba(255, 255, 255, 0.045);
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 720;
+.beautyContextRail button,
+.beautyWorldCallout,
+.beautyInteriorExit {
+  border: 1px solid rgba(236, 246, 237, 0.24);
+  color: #f6faf5;
+  background: rgba(28, 55, 46, 0.88);
   cursor: pointer;
+  font: inherit;
 }
 
-.organismDecisionHandle button:hover,
-.organismDecisionHandle button:focus-visible {
-  border-color: rgba(243, 179, 91, 0.7);
+.beautyContextRail button {
+  min-height: 2.45rem;
+  padding: 0.58rem 0.92rem;
+  border-color: rgba(126, 205, 184, 0.46);
+  border-radius: 0.62rem;
+  background: linear-gradient(135deg, rgba(39, 106, 91, 0.96), rgba(32, 79, 70, 0.94));
+  box-shadow: 0 0.45rem 1.35rem rgba(13, 39, 33, 0.3);
+  font-size: 0.75rem;
+  font-weight: 760;
+  letter-spacing: 0.015em;
+}
+
+.beautyContextRail button:hover,
+.beautyContextRail button:focus-visible,
+.beautyWorldCallout:hover,
+.beautyWorldCallout:focus-visible,
+.beautyInteriorExit:hover,
+.beautyInteriorExit:focus-visible {
+  border-color: rgba(189, 245, 224, 0.72);
+  background-color: rgba(41, 92, 78, 0.96);
   outline: none;
-  background: rgba(243, 179, 91, 0.1);
+  transform: translateY(-1px);
 }
 
-.organismDecision > .awDecisionSurface {
-  width: auto;
-  max-width: none;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.organismPhaseRail {
-  position: absolute;
-  z-index: 3;
-  right: clamp(1.2rem, 3vw, 2.8rem);
-  bottom: clamp(1.1rem, 2.4vw, 2.2rem);
-  width: min(18rem, 27vw);
+.beautyPerformance {
+  top: clamp(1rem, 2.2vw, 2rem);
+  right: clamp(1rem, 2.6vw, 2.4rem);
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.05rem 0.48rem;
+  min-width: 8.5rem;
+  padding: 0.5rem 0.62rem;
+  border: 1px solid rgba(213, 229, 218, 0.18);
+  border-radius: 0.58rem;
+  background: rgba(10, 18, 16, 0.6);
+  backdrop-filter: blur(10px);
   pointer-events: none;
 }
 
-.organismVariant--anchored .organismPhaseRail {
+.beautyPerformance span {
+  grid-column: 1 / -1;
+  color: #b8c9bf;
+  font-size: 0.52rem;
+  font-weight: 780;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.beautyPerformance strong {
+  font-size: 0.72rem;
+}
+
+.beautyPerformance small {
+  align-self: end;
+  color: #b7c5bd;
+  font-size: 0.56rem;
+}
+
+.beautyPerformance[data-budget="within"] {
+  border-color: rgba(118, 214, 154, 0.32);
+}
+
+.beautyPerformance[data-budget="over"] {
+  border-color: rgba(239, 164, 82, 0.46);
+}
+
+.beautyInteractionHint {
+  bottom: clamp(5rem, 9vh, 6.8rem);
+  left: 50%;
+  margin: 0;
+  color: rgba(234, 242, 236, 0.68);
+  font-size: 0.57rem;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0.15rem 0.6rem rgba(0, 0, 0, 0.85);
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.beautyWorldCallout {
+  display: grid;
+  min-width: 12rem;
+  padding: 0.62rem 0.7rem;
+  border-radius: 0.68rem;
+  text-align: left;
+  white-space: nowrap;
+  background: rgba(11, 23, 20, 0.82);
+  box-shadow: 0 0.8rem 2rem rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+  transition: 160ms ease;
+}
+
+.beautyWorldCallout span,
+.beautyWorldCallout small {
+  color: #b6c6be;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.beautyWorldCallout strong {
+  margin: 0.14rem 0 0.12rem;
+  font-family: ui-serif, Georgia, serif;
+  font-size: 0.92rem;
+  font-weight: 560;
+}
+
+.beautyWorldCallout--module {
+  border-color: rgba(232, 174, 103, 0.44);
+}
+
+.beautyInteriorExit {
+  padding: 0.48rem 0.66rem;
+  border-radius: 999px;
+  background: rgba(12, 22, 19, 0.86);
+  box-shadow: 0 0.7rem 2rem rgba(0, 0, 0, 0.32);
+  font-size: 0.66rem;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.beautyConsoleProjection {
+  width: 590px;
+  height: 410px;
+  padding: 10px;
+  border: 1px solid rgba(133, 214, 203, 0.46);
+  border-radius: 16px;
+  color: #eaf5ef;
+  background:
+    linear-gradient(rgba(68, 139, 127, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(68, 139, 127, 0.05) 1px, transparent 1px),
+    rgba(7, 19, 18, 0.95);
+  background-size: 22px 22px;
+  box-shadow:
+    0 0 0 2px rgba(5, 10, 9, 0.85),
+    0 0 3rem rgba(62, 178, 157, 0.22),
+    inset 0 0 2rem rgba(55, 129, 117, 0.08);
+  overflow: auto;
+  transform-origin: center;
+}
+
+.beautyConsoleFrame {
+  min-height: 100%;
+  padding: 14px;
+  border: 1px solid rgba(126, 199, 189, 0.17);
+  border-radius: 11px;
+}
+
+.beautyConsoleHardware {
+  display: block;
+  margin-bottom: 9px;
+  color: #76bcb1;
+  font: 700 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.18em;
+}
+
+.beautyConsoleProjection .awDecisionSurface {
+  color: #e8f1eb;
+  background: transparent;
+}
+
+.beautyConsoleProjection .awDecisionSurface > header {
+  border-color: rgba(124, 195, 184, 0.18);
+}
+
+.beautyConsoleProjection .awSurfaceBody {
+  padding: 0.9rem;
+}
+
+.beautyConsoleProjection .awSurfaceBody h2 {
+  font-size: 1.18rem;
+}
+
+.beautyConsoleProjection button {
+  min-height: 2rem;
+}
+
+.organismVariant--approaching .beautyIdentity,
+.organismVariant--interior .beautyIdentity,
+.organismVariant--approaching .beautyTension,
+.organismVariant--interior .beautyTension,
+.organismVariant--approaching .beautyInteractionHint,
+.organismVariant--interior .beautyInteractionHint {
   opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms ease;
 }
 
-.organismPhaseRail .awPhaseDots {
-  justify-content: flex-end;
+.organismVariant--interior .beautyContextRail {
+  opacity: 0;
+  pointer-events: none;
 }
 
-.organismVariant--reducedMotion *,
-.organismVariant--reducedMotion *::before,
-.organismVariant--reducedMotion *::after {
-  scroll-behavior: auto !important;
-  transition-duration: 0.001ms !important;
-  animation-duration: 0.001ms !important;
-  animation-iteration-count: 1 !important;
+.beautyScreenReader {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-@media (max-width: 1000px) {
-  .organismStage {
-    min-height: 69rem;
-    overflow: auto;
+@media (max-width: 760px) {
+  .beautyStage {
+    min-height: max(44rem, calc(100dvh - 3.5rem));
   }
 
-  .organismWorldViewport,
-  .organismVariant--docked .organismWorldViewport {
-    position: relative;
-    right: auto;
-    height: 31rem;
+  .beautyIdentity {
+    max-width: calc(100vw - 8rem);
   }
 
-  .organismWorldHeading {
-    top: 4.75rem;
-    max-width: calc(100% - 2.5rem);
-  }
-
-  .organismEastBeacon {
-    top: 20rem;
-    left: auto;
-    right: 1rem;
-  }
-
-  .organismIntention {
-    top: 23.5rem;
-    bottom: auto;
-    width: min(20rem, calc(100% - 2rem));
-  }
-
-  .organismDecision,
-  .organismVariant--anchored .organismDecision,
-  .organismVariant--docked .organismDecision {
-    position: relative;
-    top: auto;
-    right: auto;
-    bottom: auto;
-    width: calc(100% - 2rem);
-    max-height: none;
-    margin: 1rem;
-    overflow: visible;
-    border: 1px solid rgba(196, 224, 199, 0.22);
-    border-radius: 1.25rem;
-  }
-
-  .organismVariant--anchored .organismDecision::before {
-    top: auto;
-    right: 2.2rem;
-    bottom: 100%;
-    width: 1px;
-    height: 3rem;
-    background: linear-gradient(transparent, rgba(243, 179, 91, 0.76));
-  }
-
-  .organismPhaseRail {
+  .beautyIdentity p,
+  .beautyInteractionHint {
     display: none;
   }
-}
 
-@media (max-width: 620px) {
-  .organismVariant {
-    min-height: auto;
-    padding: 0.45rem;
-  }
-
-  .organismStage {
-    min-height: 67rem;
-    border-radius: 1rem;
-  }
-
-  .organismWorldViewport {
-    height: 28rem;
-  }
-
-  .organismWorldHeading {
-    top: 4.75rem;
-    left: 1rem;
-  }
-
-  .organismWorldHeading h1 {
-    font-size: clamp(2.2rem, 11vw, 3.35rem);
-  }
-
-  .organismWorldHeading p {
-    max-width: calc(100vw - 4rem);
-  }
-
-  .organismEastBeacon {
-    top: 18.5rem;
+  .beautyTension {
+    top: 7rem;
     right: 0.75rem;
-    min-width: 9.5rem;
+    max-width: 11rem;
   }
 
-  .organismIntention {
-    top: 21.5rem;
-    left: 0.75rem;
-    width: calc(100% - 1.5rem);
+  .beautyPerformance {
+    top: 0.75rem;
+    right: 0.75rem;
+    min-width: auto;
   }
 
-  .organismDecision,
-  .organismVariant--anchored .organismDecision,
-  .organismVariant--docked .organismDecision {
-    width: calc(100% - 1rem);
-    margin: 0.5rem;
+  .beautyPerformance small {
+    display: none;
   }
 
-  .organismDecisionHandle {
-    align-items: flex-start;
+  .beautyContextRail {
+    right: 0.7rem;
+    bottom: 0.7rem;
+    left: 0.7rem;
   }
 
-  .organismDecisionHandle button {
-    max-width: 8.5rem;
-    min-height: 2.75rem;
-    white-space: normal;
+  .beautyContextRail button {
+    max-width: 11rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .organismVariant *,
-  .organismVariant *::before,
-  .organismVariant *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.001ms !important;
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
+  .beautyContextRail button,
+  .beautyWorldCallout,
+  .beautyInteriorExit {
+    transition: none;
   }
 }

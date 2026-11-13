@@ -16,6 +16,7 @@ import "./prototype.css";
 const OrganismVariant = lazy(() => import("./variants/organism/OrganismVariant"));
 const TableVariant = lazy(() => import("./variants/table/TableVariant"));
 const ScalesVariant = lazy(() => import("./variants/scales/ScalesVariant"));
+const SandVariant = lazy(() => import("./variants/sand/SandVariant"));
 
 export function AnattaWorldsPrototype() {
   const [session, dispatch] = useReducer(prototypeReducer, INITIAL_PROTOTYPE_SESSION);
@@ -28,7 +29,9 @@ export function AnattaWorldsPrototype() {
     ? TableVariant
     : query.variant === "scales"
       ? ScalesVariant
-      : OrganismVariant;
+      : query.variant === "sand"
+        ? SandVariant
+        : OrganismVariant;
 
   return (
     <div
@@ -36,6 +39,7 @@ export function AnattaWorldsPrototype() {
       data-prototype-variant={query.variant}
       data-prototype-phase={session.phase}
       data-renderer-mode={rendererMode}
+      data-claim-decisions={JSON.stringify(session.claimDecisions)}
     >
       <PrototypeBrand variantName={`${selectedVariant.key} — ${selectedVariant.name}`} />
       <SessionProgress session={session} />

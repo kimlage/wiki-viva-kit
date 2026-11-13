@@ -18,13 +18,13 @@
     "inline_data_assets": "forbidden",
     "budgets": {
       "max_asset_count": 64,
-      "max_total_bytes": 2097152,
-      "max_single_asset_bytes": 524288
+      "max_total_bytes": 5242880,
+      "max_single_asset_bytes": 1048576
     }
   },
   "external_assets": {
-    "state": "none",
-    "declared_count": 0
+    "state": "present",
+    "declared_count": 14
   },
   "icon_dependencies": [
     {
@@ -36,7 +36,7 @@
       "license": {
         "spdx": "ISC",
         "file": "assets/THIRD_PARTY_NOTICES.md",
-        "sha256": "5b2dd7f3a080884f5aa5364818858d2928fdaed45f970744665cc8749672a52c"
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
       }
     }
   ],
@@ -63,6 +63,366 @@
         "source": "repository",
         "upstream_url": null,
         "attribution": "Wiki Viva Kit contributors"
+      }
+    },
+    {
+      "id": "anatta-ground-arm",
+      "path": "public/assets/anatta-beauty/ground-arm.webp",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "abfd730a614db92bdf539c019b0f60bf228fcf194e1fe2226220642dfdc94615",
+        "bytes": 23526
+      },
+      "budget": {
+        "max_bytes": 65536
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/aerial_grass_rock",
+        "attribution": "Poly Haven contributors; aerial_grass_rock; optimized ARM derivative"
+      }
+    },
+    {
+      "id": "anatta-ground-diffuse",
+      "path": "public/assets/anatta-beauty/ground-diff.webp",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "c6e4b6978daaa2c000723c73a8dfd487c459d1f266aa87677f25d838c57f5d43",
+        "bytes": 36772
+      },
+      "budget": {
+        "max_bytes": 65536
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/aerial_grass_rock",
+        "attribution": "Poly Haven contributors; aerial_grass_rock; optimized diffuse derivative"
+      }
+    },
+    {
+      "id": "anatta-ground-normal",
+      "path": "public/assets/anatta-beauty/ground-normal.webp",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "8eb0dcc25f43d195c41d26932604036c9113fb9543f466c91bbd16e98694a194",
+        "bytes": 45048
+      },
+      "budget": {
+        "max_bytes": 65536
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/aerial_grass_rock",
+        "attribution": "Poly Haven contributors; aerial_grass_rock; optimized normal derivative"
+      }
+    },
+    {
+      "id": "anatta-rock-diffuse",
+      "path": "public/assets/anatta-beauty/rock-diff.webp",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "49439424bf2db25019c46227a3ad985ad37cc3c54a74965232aef9d159030f52",
+        "bytes": 42534
+      },
+      "budget": {
+        "max_bytes": 65536
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/rocky_terrain_03",
+        "attribution": "Poly Haven contributors; rocky_terrain_03; optimized diffuse derivative"
+      }
+    },
+    {
+      "id": "anatta-rock-normal",
+      "path": "public/assets/anatta-beauty/rock-normal.webp",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "bfab5eb124a2c27b393e81034183cab0a36f5ca506c8f0feeb78837252833b4f",
+        "bytes": 71656
+      },
+      "budget": {
+        "max_bytes": 98304
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/rocky_terrain_03",
+        "attribution": "Poly Haven contributors; rocky_terrain_03; optimized normal derivative"
+      }
+    },
+    {
+      "id": "anatta-wood-diffuse",
+      "path": "public/assets/anatta-beauty/wood-diff.webp",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "5d5ce6d64d23e7a75782300d4eda24f3d83e4fe6b5769e551d1edff608f64b5f",
+        "bytes": 12230
+      },
+      "budget": {
+        "max_bytes": 32768
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/weathered_planks",
+        "attribution": "Poly Haven contributors; weathered_planks; optimized diffuse derivative"
+      }
+    },
+    {
+      "id": "anatta-wood-normal",
+      "path": "public/assets/anatta-beauty/wood-normal.webp",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "8a5ebea95a2e7798eb55a3d9cc6cfc669659f5fd2a70358e783db8af600ad586",
+        "bytes": 9036
+      },
+      "budget": {
+        "max_bytes": 32768
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/weathered_planks",
+        "attribution": "Poly Haven contributors; weathered_planks; optimized normal derivative"
+      }
+    },
+    {
+      "id": "anatta-fir-sapling-model",
+      "path": "public/assets/anatta-beauty/fir-sapling-optimized.glb",
+      "kind": "model",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "012f54b527f635c719a7bed66a2a9b983c5bedeeb06523dae90147c2e8c1551f",
+        "bytes": 696020
+      },
+      "budget": {
+        "max_bytes": 1048576
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/fir_sapling",
+        "attribution": "Poly Haven contributors; fir_sapling; three game-ready Meshopt tree variants"
+      }
+    },
+    {
+      "id": "anatta-overcast-environment",
+      "path": "public/assets/anatta-beauty/overcast-soil-512.hdr",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "08b118ba00bac44f6465648167a37c944f858c18fb11bddbba92ae4bbb7cab26",
+        "bytes": 345603
+      },
+      "budget": {
+        "max_bytes": 524288
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/overcast_soil_puresky",
+        "attribution": "Poly Haven contributors; overcast_soil_puresky; optimized 512 pixel HDR derivative"
+      }
+    },
+    {
+      "id": "anatta-mountainside-model",
+      "path": "public/assets/anatta-beauty/mountainside-optimized.glb",
+      "kind": "model",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "596367300e0bf644f2a62c79c2f050fe972e7c74edf3cbe6678778e7219e5cbe",
+        "bytes": 365964
+      },
+      "budget": {
+        "max_bytes": 524288
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/mountainside",
+        "attribution": "Poly Haven contributors; mountainside; game-ready Meshopt cliff derivative"
+      }
+    },
+    {
+      "id": "anatta-rock-moss-set-model",
+      "path": "public/assets/anatta-beauty/rock-moss-set-optimized.glb",
+      "kind": "model",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "27d8941bd99d3dae332c865683df67a096d10be09d636a2bce559066de359511",
+        "bytes": 185444
+      },
+      "budget": {
+        "max_bytes": 262144
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/rock_moss_set_02",
+        "attribution": "Poly Haven contributors; rock_moss_set_02; optimized Meshopt and WebP derivative"
+      }
+    },
+    {
+      "id": "anatta-boulder-model",
+      "path": "public/assets/anatta-beauty/boulder-optimized.glb",
+      "kind": "model",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "9620272fc16eef67e6e377ff25b1672920f3fb47bf03ab9cb356eb4e33be2864"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "57a36a9c2e4bc64e382c52100737388823532bff2b73d2ea568334da123d1d67",
+        "bytes": 767972
+      },
+      "budget": {
+        "max_bytes": 1048576
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://polyhaven.com/a/boulder_01",
+        "attribution": "Poly Haven contributors; boulder_01; decimated Meshopt and WebP derivative"
+      }
+    },
+    {
+      "id": "anatta-water-normal-a",
+      "path": "public/assets/anatta-beauty/water-normal-a.jpg",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "MIT",
+        "file": "assets/THREE_WATER_LICENSE.md",
+        "sha256": "de32e9c7406855838d4075d28bf1ab1e2f391e6bd1128d3f2fb1475d49fcf8be"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "6d7825469a374ff84700b4fb1a2890bd1fce0ca1f777bdd4d5ecdaf15833a804",
+        "bytes": 406361
+      },
+      "budget": {
+        "max_bytes": 524288
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://github.com/mrdoob/three.js/blob/r170/examples/textures/water/Water_1_M_Normal.jpg",
+        "attribution": "Three.js authors; Water_1_M_Normal.jpg; vendored without modification"
+      }
+    },
+    {
+      "id": "anatta-water-normal-b",
+      "path": "public/assets/anatta-beauty/water-normal-b.jpg",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "MIT",
+        "file": "assets/THREE_WATER_LICENSE.md",
+        "sha256": "de32e9c7406855838d4075d28bf1ab1e2f391e6bd1128d3f2fb1475d49fcf8be"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "1f6f3fc5af584fb3ad7ff97df39b1835aaa184f53bf647c63120a83be7d63183",
+        "bytes": 437899
+      },
+      "budget": {
+        "max_bytes": 524288
+      },
+      "provenance": {
+        "source": "vendored",
+        "upstream_url": "https://github.com/mrdoob/three.js/blob/r170/examples/textures/water/Water_2_M_Normal.jpg",
+        "attribution": "Three.js authors; Water_2_M_Normal.jpg; vendored without modification"
+      }
+    },
+    {
+      "id": "anatta-hydrology-house",
+      "path": "public/assets/anatta-beauty/hydrology-house.glb",
+      "kind": "model",
+      "origin": "first_party",
+      "license": {
+        "spdx": "MIT",
+        "file": "assets/FIRST_PARTY_ASSET_LICENSE.md",
+        "sha256": "3960f834c06ae2e7870e7fd8957b28804333ee9a1bba663897cabad70c409642"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "226f4d9bd98486dc61cfaed86133d24b157e65009f004a70a6a2c48d6cb877a5",
+        "bytes": 339996
+      },
+      "budget": {
+        "max_bytes": 524288
+      },
+      "provenance": {
+        "source": "repository",
+        "upstream_url": null,
+        "attribution": "Wiki Viva Kit contributors; built by scripts/build_anatta_module.py"
       }
     }
   ]

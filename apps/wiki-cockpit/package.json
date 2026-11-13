@@ -24,6 +24,7 @@
   "dependencies": {
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.17.10",
+    "@react-three/postprocessing": "^2.19.1",
     "dompurify": "^3.4.11",
     "lucide-react": "0.468.0",
     "marked": "^18.0.5",

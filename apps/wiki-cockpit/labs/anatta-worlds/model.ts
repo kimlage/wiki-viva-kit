@@ -1,4 +1,4 @@
-export type PrototypeVariantId = "organism" | "table" | "scales";
+export type PrototypeVariantId = "organism" | "table" | "scales" | "sand";
 export type RendererMode = "3d" | "2d";
 export type LensId = "hydrology" | "climate" | "compare";
 export type MissionChoice = "do" | "delegate" | "ask_evidence" | "compost";
@@ -20,7 +20,7 @@ export type PrototypePhase =
 
 export type PrototypeVariant = {
   id: PrototypeVariantId;
-  key: "A" | "B" | "C";
+  key: "A" | "B" | "C" | "D";
   name: string;
   shortName: string;
   promise: string;
@@ -47,6 +47,13 @@ export const PROTOTYPE_VARIANTS: readonly PrototypeVariant[] = [
     name: "Escalas diretas",
     shortName: "Escalas",
     promise: "Mundo, distrito e interior dividem responsabilidades sem perder o mesmo ID."
+  },
+  {
+    id: "sand",
+    key: "D",
+    name: "Planeta de areia",
+    shortName: "Areia",
+    promise: "O estado do mundo aparece num planeta material contínuo: dunas, umidade e consequência localizada."
   }
 ] as const;
 
