@@ -197,29 +197,27 @@ exists.
 
 ### Post-merge cleanup
 
-For the wiki and each project repository it coordinates, an authorized delivery
-includes cleanup after the merge, approved-main readback and wiki reconciliation.
-Adopt this obligation in the effective consumer and project instructions. Where
-the repository owner has authorized the policy, enable GitHub's automatic deletion
-of merged source branches; the operator still handles local branches and worktrees.
+For the wiki and each coordinated project, only `main` is permanent. Every other
+branch has a PR; push and open a draft no later than the end of the turn in which
+it was created. A draft records incomplete or paused work, including STOP, and
+does not authorize resumption. A ready PR is awaiting review, a merged PR is
+integrated, and a closed PR is discarded with its specific reason in a comment.
 
-Fetch the approved target and confirm that the exact branch head is integrated.
-For a squash or rebase merge, reconcile the proposed content and any later commits;
-a merged PR label alone does not establish that the current branch head is covered.
-Preserve a recoverable snapshot before retiring references or worktree data. Keep
-default/protected branches, tags, explicit backup/archive references, open proposals,
-active work and WIP. An inactive integrated worktree with unique or ignored files
-is preserved before its registration is removed; cleanup does not discard them.
+Compare content against current `main`: integrate useful work or discard it;
+branch name and age do not decide. Commit and push uncommitted worktree changes
+before deciding. For squash or rebase, compare the content and later commits;
+a merged label alone does not prove that the current head is covered. Preserve
+unique work, including untracked or ignored files, without deleting personal or
+historical files outside Git. Compare expected heads immediately before mutation.
+If anything changed, reconcile it before deleting that item.
 
-Remove eligible remote and local branches and inactive worktree registrations,
-comparing each expected head immediately before mutation. If a head or worktree
-changed, preserve it and reconcile that item; continue independent eligible items.
-Read back the surviving references and worktrees and record the result with the
-existing delivery. Retain valid review and test evidence: removing already
-integrated references does not reopen acceptance or require repeating gates for
-unchanged work. New code, failed checks or a newly discovered concern still receive
-the applicable validation. Keep genuinely pending proposals visible in their
-existing action or PR instead of creating another queue of completed deliveries.
+On merge or close, remove the local and remote branch and worktree in the same
+delivery. Do not create backup branches, bundles or snapshots; GitHub retains PR
+commits in `refs/pull/<n>/head`. Enable automatic deletion of merged branches
+where authorized, and still verify local and remote state. Read back branches,
+worktrees and PRs, and record the result with the existing delivery. Retain valid
+review and test evidence for unchanged work; new changes or concerns receive the
+applicable validation. Keep incomplete work in its PR rather than a new queue.
 
 For a process failure, record its cause and the applicable rule or source on
 the existing action, issue, PR or log. If the rule was adequate, fix its
