@@ -36,6 +36,7 @@ from wiki_core.action_adoption import (
     ACTION_ADOPTION_RECEIPT_PATH,
     verify_action_adoption_git_contract,
 )
+from wiki_core.action_state import resolve_action_state
 from wiki_core.action_transition import action_transition_diagnostics
 from wiki_core.detectors import scan_file
 from wiki_core.experience_packs import PackError
@@ -738,7 +739,8 @@ def audit_action_state_transitions(errors: list[str]) -> None:
     about writes: when an action already exists at the PR base, a changed
     semantic ``action_state`` must carry the append-only receipt chain emitted
     by the central writer. Equivalent legacy-to-canonical adoption remains a
-    migration no-op and is not blocked.
+    migration no-op and is not blocked. Structural retirement is permitted
+    only for a valid canonical terminal action already present at that base.
     """
 
     config = load_config(ROOT)
@@ -802,9 +804,31 @@ def audit_action_state_transitions(errors: list[str]) -> None:
         if not current_path.is_file():
             base_page_id = base_page_id_by_path.get(rel)
             if base_page_id and base_page_id not in current_action_locations:
+                if len(base_by_page_id[base_page_id]) != 1:
+                    errors.append(
+                        f"{rel}: action page_id matches multiple base actions; "
+                        "retirement lifecycle origin is ambiguous "
+                        "[ambiguous_base_action_identity]"
+                    )
+                    continue
+                previous_text = base_by_path[rel]
+                previous_values, _body = canonical_parse_frontmatter(previous_text)
+                resolution = resolve_action_state(previous_values)
+                if resolution.source == "action_state" and resolution.terminal:
+                    # Retirement removes only a live projection. The approved
+                    # Git base retains the terminal facts and receipt history.
+                    # Read the base, never an intermediate working-tree cancel.
+                    for diagnostic in action_transition_diagnostics(
+                        previous_text, previous_text
+                    ):
+                        errors.append(
+                            f"{rel}: {diagnostic.message} [{diagnostic.code}]"
+                        )
+                    continue
                 errors.append(
-                    f"{rel}: deleting an existing action discards its lifecycle history; "
-                    "transition it to `cancelled` with a receipt and retain the page "
+                    f"{rel}: only an action already canonically terminal at the "
+                    "audit base can be retired; transition it with a receipt "
+                    "and approve that change before deleting the page "
                     "[action_page_deleted]"
                 )
             continue

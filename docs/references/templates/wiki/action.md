@@ -72,9 +72,16 @@ the task: changing its title preserves its path and `page_id`. Legacy `state`,
 `status`, `State:` and `Estado:` values remain readable and can be canonicalized
 through the same boundary; new targets use the exact canonical vocabulary.
 
-Deleting an existing action is not a lifecycle transition and is rejected by
-the audit because it would discard the history. Cancel it with a
-`cancellation_receipt` and retain the page. A pure file move/rename that keeps
+Retiring an action from the live tree is a structural operation under the
+repository's normal authorization and PR review policy. The audit permits it
+only when the approved audit base already has an unambiguous canonical
+`action_state: done` or `action_state: cancelled`, valid terminal fields and
+well-formed history. Git retains the original page, terminal facts and receipts;
+retirement does not erase that history or reopen the action. An active action
+must first transition through the writer and have that terminal change approved
+in a separate proposal. Cancelling and deleting in the same proposal is rejected.
+Remove or reconcile incoming references and generated navigation before promotion;
+the ordinary link and dependency gates still apply. A pure file move/rename that keeps
 the same `page_id` is a structural operation under the repository's normal PR review policy;
 the auditor follows that identity and still validates any lifecycle change.
 
