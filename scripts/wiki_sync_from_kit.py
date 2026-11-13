@@ -338,7 +338,18 @@ def _copy_c1(kit: Path, consumer: Path, plan: dict[str, Any]) -> None:
                 stream.flush()
             os.chmod(temp_name, 0o755 if files[rel]["mode"] == "100755" else 0o644)
             _check_consumer_path(consumer, rel)
-            os.replace(temp_name, target)
+            before = plan["_consumer_state"][rel]
+            if _consumer_state(consumer, {rel: {}})[rel] != before:
+                raise SyncError(f"consumer target changed before write: {rel}")
+            if before["kind"] == "missing":
+                # Linking a prepared file fails atomically if a new destination
+                # appeared since the state check; replace would overwrite it.
+                try:
+                    os.link(temp_name, target)
+                except FileExistsError as exc:
+                    raise SyncError(f"consumer target changed before write: {rel}") from exc
+            else:
+                os.replace(temp_name, target)
         finally:
             if os.path.exists(temp_name):
                 os.unlink(temp_name)

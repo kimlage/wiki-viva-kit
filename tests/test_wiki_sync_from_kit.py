@@ -80,6 +80,53 @@ def _sync_module():
     return module
 
 
+@pytest.mark.parametrize('operation', ['add', 'change'])
+def test_sync_preserves_concurrent_destination_write(tmp_path: Path, monkeypatch, operation: str) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    if operation == 'change':
+        assert _run(kit, consumer, manifest).returncode == 0
+        _git(consumer, 'add', '.')
+        _git(consumer, 'commit', '-qm', 'adopt initial kit')
+        (kit / 'portable/tool.txt').write_text('v2\n')
+        _git(kit, 'add', 'portable/tool.txt')
+        _git(kit, 'commit', '-qm', 'update kit file')
+
+    sync = _sync_module()
+    plan = sync.build_plan(kit, consumer, manifest, [])
+    target = consumer / 'portable/tool.txt'
+    original_chmod = sync.os.chmod
+
+    def concurrent_write(path, mode):
+        original_chmod(path, mode)
+        if Path(path).parent == target.parent:
+            target.write_text('concurrent user work\n')
+
+    monkeypatch.setattr(sync.os, 'chmod', concurrent_write)
+    with pytest.raises(sync.SyncError, match='consumer target changed'):
+        sync._copy_c1(kit, consumer, plan)
+    assert target.read_text() == 'concurrent user work\n'
+    assert not list(target.parent.glob('.wiki-sync-*'))
+
+
+def test_sync_add_does_not_replace_file_created_after_last_check(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    sync = _sync_module()
+    plan = sync.build_plan(kit, consumer, manifest, [])
+    target = consumer / 'portable/tool.txt'
+    original_link = sync.os.link
+
+    def concurrent_link(source, destination, *args, **kwargs):
+        if Path(destination) == target:
+            target.write_text('concurrent user work\n')
+        return original_link(source, destination, *args, **kwargs)
+
+    monkeypatch.setattr(sync.os, 'link', concurrent_link)
+    with pytest.raises(sync.SyncError, match='consumer target changed'):
+        sync._copy_c1(kit, consumer, plan)
+    assert target.read_text() == 'concurrent user work\n'
+    assert not list(target.parent.glob('.wiki-sync-*'))
+
+
 def test_dry_run_is_read_only_and_machine_readable(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     before = _git(consumer, "status", "--porcelain")
@@ -525,15 +572,23 @@ def test_c1_replacement_preserves_ignored_hardlink(tmp_path: Path) -> None:
     assert not list(target.parent.glob('.wiki-sync-*'))
 
 
-def test_c1_cleans_temporary_file_when_replacement_fails(tmp_path: Path, monkeypatch) -> None:
+@pytest.mark.parametrize('operation', ['add', 'change'])
+def test_c1_cleans_temporary_file_when_installation_fails(tmp_path: Path, monkeypatch, operation: str) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
+    if operation == 'change':
+        assert _run(kit, consumer, manifest).returncode == 0
+        _git(consumer, 'add', '.')
+        _git(consumer, 'commit', '-qm', 'adopt initial kit')
+        (kit / 'portable/tool.txt').write_text('v2\n')
+        _git(kit, 'add', 'portable/tool.txt')
+        _git(kit, 'commit', '-qm', 'update kit file')
     sync = _sync_module()
     plan = sync.build_plan(kit, consumer, manifest, [])
 
-    def fail_replace(source, target):
+    def fail_install(source, target):
         raise OSError('synthetic replacement failure')
 
-    monkeypatch.setattr(sync.os, 'replace', fail_replace)
+    monkeypatch.setattr(sync.os, 'link' if operation == 'add' else 'replace', fail_install)
     with pytest.raises(OSError, match='synthetic replacement failure'):
         sync._copy_c1(kit, consumer, plan)
     assert not list(consumer.rglob('.wiki-sync-*'))
