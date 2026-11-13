@@ -948,20 +948,32 @@ def transition_action_page(
 
 
 def contribution_log_text(before: str, action_ref: str, log_ref: str,
-                          material: str, recorded_at: str) -> str:
+                          material: str, recorded_at: str, *, log_format: str | None = None) -> str:
     """Deterministic annotation in the consumer's existing memory log."""
     link = Path(os.path.relpath(action_ref, Path(log_ref).parent)).as_posix()
-    return before + ("\n\n## [" + recorded_at[:10] + "] Reviewed action body\n\n"
+    heading = "[" + recorded_at[:10] + "] Reviewed action body"
+    prefix = "\n\n"
+    if log_format is not None:
+        if log_format != "record_v1" or not before.endswith("\n"):
+            raise ActionTransitionError("invalid_contribution_log_boundary")
+        # Existing record hashes include trailing blank lines. Start exactly
+        # at the existing boundary, without silently changing the last record.
+        heading += " " + material
+        from wiki_core.document_records import section_spans
+        if any(title == heading for title, *_ in section_spans(before)[1]):
+            raise ActionTransitionError("contribution_log_heading_collision")
+        prefix = ""
+    return before + (prefix + "## " + heading + "\n\n"
         + "- Prepared a reviewed body contribution to [the action](" + link + "). "
         + "Material: `" + material + "`. Execution and served adoption are not implied.\n")
 
 
 def append_contribution_log(root: Path, log_ref: str, action_ref: str,
-                            material: str, recorded_at: str) -> None:
+                            material: str, recorded_at: str, *, log_format: str | None = None) -> None:
     path, ref = _contained_action_path(root, log_ref)
     with _TRANSITION_LOCK, _action_file_lock(root, ref):
         before = path.read_text(encoding="utf-8")
-        after = contribution_log_text(before, action_ref, ref, material, recorded_at)
+        after = contribution_log_text(before, action_ref, ref, material, recorded_at, log_format=log_format)
         _assert_no_secrets(after)
         _atomic_write(path, after)
 

@@ -255,13 +255,20 @@ def evaluate_impact(
         return freshness_state(values.get("updated_at"), values.get("stale_after_days"),
                                today, stale_exempt=is_stale_exempt(values.get("stale_exempt")))
 
-    included = [dict(path=p, state=verdict(p) if p in nodes else "removed", **reasons[p])
+    def document_path(path: str) -> str | None:
+        # Record identities are opaque. Consumers must not parse node-id text
+        # or mistake a verified evidence node for a document to update.
+        graph = current if path in current["nodes"] else base
+        return graph["nodes"][path].get("document_path", path if path in graph["documents"] else None)
+
+    included = [dict(path=p, document_path=document_path(p), state=verdict(p) if p in nodes else "removed", **reasons[p])
                 for p in sorted(reasons)]
     debt = [dict(path=p, state=verdict(p), reason="outside_change_dependency_closure")
             for p in sorted(set(nodes) - set(reasons)) if verdict(p) != "fresh"]
     blockers = [r for r in included if r["state"] in {"stale", "unknown"}]
     return dict(schema_version="wiki_freshness_impact.v1", evaluated_on=today.isoformat(),
                 seeds=seeds, included=included, blockers=blockers, unrelated_debt=debt,
+                affected_dependents=[r for r in included if r["reason"] == "affected_dependent" and r["document_path"] is not None],
                 removed_pages=sorted(set(base["nodes"]) - set(nodes)),
                 nonpropagating_relations=nonpropagating,
                 relation_errors=current["errors"], base_relation_diagnostics=base["errors"],

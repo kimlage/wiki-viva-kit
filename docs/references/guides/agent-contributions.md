@@ -8,9 +8,10 @@ application already open on the project remains the executor; the kit never
 launches another agent. Claude, Codex, Hermes or a manual operator can supply
 reviewable material through this trusted local interface.
 
-This increment covers **one existing action's body and its deterministic
-annotation in the existing memory log**, not arbitrary files or complete
-project integration. The request still has exactly one authored file; the
+By default the port covers **one existing action's body and its deterministic
+annotation in the existing memory log**. A committed consumer opt-in can also
+prepare its single existing freshness-record contract as described below.
+This does not cover arbitrary files or complete project integration. The request still has exactly one authored file; the
 log annotation is generated from its link, material hash and receipt time.
 Its exact append-only bytes are revalidated on every use. It is not a second
 task database or an additional business claim. Lifecycle, questions, answers and direction still
@@ -125,6 +126,143 @@ approval of that commit. The local review JSON cannot satisfy that human gate.
 No access, absent CI or a pending gate is a refusal/wait, never successful
 adoption. Local-only projects can prepare/review proposals; another integration
 policy requires its own explicit adapter.
+
+## Strict consumers and local validation
+
+Kit adoption still uses the existing B0/C1/C2/C3 sync. Never invoke that entire
+sync for each contribution: it copies managed code, regenerates kit outputs
+and writes `kit.lock`. The contribution's optional preparation below runs only
+in its isolated scratch, before the normal read-only gates.
+
+These settings must already be committed in the approved consumer policy:
+
+```yaml
+approval:
+  gate: github_pr
+  contribution_c3:
+    argv: [python3, consumer/prepare_records.py]
+    derived_paths: [consumer/records.json]
+  contribution_validation:
+    mode: local
+  contribution_gates:
+    - [python3, scripts/wiki_check_methodology_coverage.py, --check]
+    # Declare the consumer's full applicable validation here. This example
+    # command alone does not establish adequate coverage for every consumer.
+audit:
+  freshness_records: consumer/records.json
+```
+
+The two opt-ins are independent. Absent `contribution_validation`, integration
+still requires nonempty successful GitHub checks. Explicit local mode requires
+nonempty `contribution_gates` and runs them **in addition to** audit, input-stage,
+PR-summary and diff checks. It never enables Actions, invents a remote check or
+accepts an old `web/gates.py` receipt as promotion evidence. Present failed or
+pending remote checks still hold the PR. The PR must be ready; the operator can
+use the existing `gh pr ready <number> --repo <owner/repo>` operation after
+review, then query/reconcile its actual state. No new ready operation is added.
+
+`contribution_c3` permits exactly the path already selected by
+`audit.freshness_records`: an existing tracked regular nonexecutable JSON
+`document_record.v1` file outside the memory root. Paths are normalized;
+symlinks, including ancestor directories, and mode changes are refused. The
+command is a repository-owned tracked executable, or a fixed Python/Node
+interpreter name followed by a tracked repository-relative script. No shell,
+inline code or executable comes from the card/request. Committed policy and
+script bytes/modes are checked against local and canonical inputs. This is
+trusted consumer code with provenance, **not a process/network sandbox**;
+an opt-in flag or exit zero cannot prove semantic correctness or determinism.
+
+The material must include:
+
+```json
+{
+  "consumer_preparation": {
+    "schema_version": "wiki_consumer_preparation.v1",
+    "authored_plan": {"consumer_specific_reviewed_semantics": "..."}
+  }
+}
+```
+
+This whole plan participates in `material_sha256` and the independent material
+review. An arbitrary nonempty object is not a sufficient semantic plan. The
+consumer's committed script must validate the actual selectors, relationships,
+purposes and limits it supports. The core transports that authorship; it never
+chooses record independence, classifies a factual edge as provenance, approves
+domain truth or refreshes another page's date.
+
+The script receives `--contribution-file <temporary-0600-file>` containing
+`{request, action_receipt, generated_log: {path, heading}, derived_paths}`.
+Input is external to the scratch; stdin is closed, execution is bounded and
+the result contains exit code and output/source/executable hashes rather than
+the raw output. It may change only the single declared record contract.
+Action/log bytes and modes, all other tracked paths and the candidate HEAD are
+checked before gates; every gate must preserve its input state. A failed or
+inconclusive plan, required extra page/artifact file, policy change or source
+refresh is an explicit conflict, not a silent expansion of this port.
+
+The full base snapshot and prior immutable artifacts remain literal values.
+Existing authored record fields and base bindings remain unchanged; only an
+existing record's current hash can change. New record declarations and current
+bindings require authored semantics and full head review. No historical date,
+base, evidence capture or freshness budget is renewed. New artifact declarations
+are limited to the actual generated body-integration receipt, explicitly
+listed in `authored_plan.added_artifacts` using this selector template:
+
+```json
+{
+  "origin": "current", "id": "integration-act",
+  "document": "memories/actions/example.md",
+  "field": "action_state_history", "match_key": "receipt_id",
+  "match_value": "$receipt_id", "sha256": "$receipt_sha256"
+}
+```
+
+Only the two placeholders are resolved from the real generated history entry.
+Prior artifacts remain unchanged and ordered; the new declaration is appended
+inside the same metadata file. This proves the **act of integration**, never a
+business conclusion or live execution. The authored binding retains its real
+role. The [synthetic consumer example](../../../tests/fixtures/contribution_consumer_prepare.py)
+illustrates a deliberately narrow integration-act plan, not a universal domain
+adapter. A private consumer must supply and review its own effective script.
+
+New C3 contributions use `contribution.log_format: record_v1` in their canonical
+receipt. Their log H2 contains the full material hash and starts at the existing
+terminal newline, preserving prior section bytes and unique same-day headings.
+A missing newline/collision refuses preparation. Legacy contributions without
+the marker keep their original104 format and exact verification; they are not
+rewritten. Canonical action receipts and `updated_at` remain real frontmatter:
+`document_records.project_records` still treats changed remainder/FM as a
+whole-page seed. A new H2 does **not** automatically isolate that change.
+Unresolved factual dependencies must continue blocking; unrelated pages must
+not be refreshed or recaptured merely to make a synthetic annotation pass.
+
+Prepare returns `proposal_commit`, `proposal_tree` and sorted
+`candidate_files: [{path, sha256}]` over every changed blob, including metadata.
+The Git tree/commit and separate mode checks bind file types and executable
+bits. For C3 or local validation, `head_review.candidate_files` must equal that
+exact manifest, in addition to its existing full `proposal_commit` and complete
+independent report. Any new head requires new review. Derived hashes are kept
+outside the commit to avoid self-reference.
+
+In explicit local mode, integration uses the existing `_gates` operation on a
+fresh isolated clone of the **immutable candidate commit**, without C3. Each
+gate must preserve HEAD, tree, index and nonignored source files. Its returned
+`validation_receipt` binds `mode: local`, commit/tree, policy SHA, exact candidate
+manifest, command sources/modes and each command/exit/output hash;
+`validation_receipt_sha256` hashes that complete receipt. These are local facts,
+not GitHub CI. The independent head report still covers the complete candidate.
+A dry run does not run these gates and returns `ready_for_local_validation`,
+`local_gates_not_run: true`, never local merge readiness.
+
+Policy, script, metadata, log and action overlaps are rechecked against actual
+local/canonical inputs before promotion; a moved proposal head or changed
+policy invalidates the result. GitHub still receives an exact-head CAS merge;
+remote branch protection is never bypassed. Reconcile never executes C3 or
+validation gates. Merged metadata is read back alongside action/log; checkout
+adoption and served adoption remain separate. Consumer deployment also needs
+its normal gates, source/refs, reviewed script/config, build dependencies and
+independent PR review; this port does not install dependencies or operate the
+live reader.
 
 ## Recovery and adoption coverage
 

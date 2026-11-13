@@ -1616,7 +1616,7 @@ def _added_lines_for_path(rel: str) -> list[str]:
     return lines
 
 
-def _impact_ack_added(config: WikiConfig, affected_rel: str) -> bool:
+def _impact_ack_added(config: WikiConfig, affected_rel: str, *, base_ref: str | None = None) -> bool:
     ledger = ROOT / str(config.paths.get("impact_acks_page") or "")
     if not str(config.paths.get("impact_acks_page") or "").strip():
         ledger = wiki_paths(config).ingest_dir / "impact-acks.md"
@@ -1624,14 +1624,24 @@ def _impact_ack_added(config: WikiConfig, affected_rel: str) -> bool:
         ledger_rel = ledger.relative_to(ROOT).as_posix()
     except ValueError:
         return False
-    tracked = bool(run_git(["ls-files", "--error-unmatch", ledger_rel]))
-    if not ledger.exists() and not tracked:
-        return False
-    lines = (
-        ledger.read_text(encoding="utf-8", errors="replace").splitlines()
-        if ledger.exists() and not tracked
-        else _added_lines_for_path(ledger_rel)
-    )
+    if base_ref:
+        from scripts.wiki_page_graph import run_git as exact_git
+        tracked = bool(exact_git(["ls-files", "--", ledger_rel], root=ROOT).strip())
+        in_base = bool(exact_git(["ls-tree", "--name-only", base_ref, "--", ledger_rel], root=ROOT).strip())
+        if not ledger.is_file():
+            return False
+        lines = (ledger.read_text(encoding="utf-8").splitlines() if not tracked and not in_base else
+                 [line[1:] for line in exact_git(["diff", "--unified=0", base_ref, "--", ledger_rel], root=ROOT).splitlines()
+                  if line.startswith("+") and not line.startswith("+++")])
+    else:
+        tracked = bool(run_git(["ls-files", "--error-unmatch", ledger_rel]))
+        if not ledger.exists() and not tracked:
+            return False
+        lines = (
+            ledger.read_text(encoding="utf-8", errors="replace").splitlines()
+            if ledger.exists() and not tracked
+            else _added_lines_for_path(ledger_rel)
+        )
     for line in lines:
         low = line.lower()
         if affected_rel not in line:
@@ -1643,8 +1653,38 @@ def _impact_ack_added(config: WikiConfig, affected_rel: str) -> bool:
     return False
 
 
-def audit_impact(errors: list[str], config: WikiConfig) -> None:
+def audit_impact(errors: list[str], config: WikiConfig, *, base_ref: str | None = None) -> None:
     if not config.audit.get("impact_check", False):
+        return
+    if config.audit.get("freshness_scope") == "impact":
+        from scripts.wiki_page_graph import GitCommandError
+        from wiki_core.freshness_impact import repository_report, input_hashes
+        from wiki_core.graph.page_graph import DEFAULT_IMPACT_EXEMPT_TYPES
+        try:
+            report = repository_report(ROOT, config, base_ref or str(config.audit.get("freshness_base") or ""))
+            if report["relation_errors"]:
+                raise ValueError("current typed relation integrity: " + "; ".join(report["relation_errors"]))
+            graph = build_page_graph(ROOT, config)
+            exempt = DEFAULT_IMPACT_EXEMPT_TYPES | set(config.audit.get("impact_exempt_types") or [])
+            obligations = []
+            for row in report["affected_dependents"]:
+                affected = row["document_path"]
+                if affected not in graph.nodes:
+                    raise ValueError("typed affected document is not in the current graph: " + affected)
+                if graph.nodes[affected].page_type in exempt:
+                    continue
+                # A change to a different record in this file is not review of
+                # this affected assertion. Changed nodes are already separate
+                # seeds, not affected_dependents, in the canonical projection.
+                if _impact_ack_added(config, affected, base_ref=report["base_sha"]):
+                    continue
+                obligations.append(f"{affected}: impacted by changed node {row['seed']} via {row['path']}; "
+                    "update the affected assertion in this diff or add a new reasoned line to the impact ack ledger")
+            if input_hashes(ROOT, config) != report["input_sha256"]:
+                raise ValueError("typed impact inputs changed during audit")
+            errors.extend(obligations)
+        except (GitCommandError, OSError, ValueError, KeyError, TypeError) as exc:
+            errors.append(f"typed impact evidence unavailable: {exc}")
         return
     graph = build_page_graph(ROOT, config)
     changed_all = changed_paths_for_audit()
@@ -2351,7 +2391,7 @@ CHECKS: tuple[tuple[str, "callable"], ...] = (
     ("duplicate_entity_names", lambda ctx: audit_duplicate_entity_names(ctx.errors, ctx.config)),
     ("entity_mention_links", lambda ctx: audit_entity_mention_links(ctx.warnings, ctx.config, ctx.errors)),
     ("operational_concept_links", lambda ctx: audit_operational_concept_links(ctx.errors, ctx.config)),
-    ("impact", lambda ctx: audit_impact(ctx.errors, ctx.config)),
+    ("impact", lambda ctx: audit_impact(ctx.errors, ctx.config, base_ref=ctx.freshness_base)),
     ("operation_page", lambda ctx: audit_operation_page(ctx.errors, ctx.warnings, ctx.config)),
     ("ingestion_events", lambda ctx: audit_ingestion_events(ctx.errors, ctx.config)),
     ("consolidation", lambda ctx: audit_consolidation(ctx.errors, ctx.warnings, ctx.config)),
