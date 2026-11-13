@@ -211,9 +211,12 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
                 return [ref] if navigation.existing_reference_safe(page.path, text, ref) else []
             return paths_by_id.get(ref, [])
         def validate_requirement(entry, target):
+            proof = navigation.last_proof
+            provenance = ({'relocation_provenance': dict(proof)} if entry.get('historical_target')
+                          and proof and proof['target'] == target else {})
             pin = entry.get('consumed_revision')
             if not pin or entry.get('query') or entry.get('source_kind'):
-                return
+                return provenance
             # The pin is an observation of an identity, not permission to
             # consume whichever page currently occupies the same pathname.
             target_id = by_path[target]
@@ -223,6 +226,7 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
             if (pinned_id != target_id or len(locations) != 1
                     or not navigation.continuous(pin, locations[0], target_id, target)):
                 raise ValueError('information requirement pin has unsafe or ambiguous identity')
+            return provenance
         represented = {e["field"] for e in edges if e["path"] == page.path}
         for field in FRONTMATTER_REF_FIELDS:
             if field in represented:
@@ -460,7 +464,7 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None, r
         if len(targets) != 1:
             raise ValueError('information requirement target is missing or ambiguous')
         if validate_requirement:
-            validate_requirement(entry, targets[0])
+            entry = {**entry, **(validate_requirement(entry, targets[0]) or {})}
         result.append({**entry, 'target': targets[0]})
     return result
 

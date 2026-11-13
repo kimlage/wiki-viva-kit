@@ -8,8 +8,12 @@ semantic-inventory and information-use audits share this resolution.
 An unchanged document must have an exact committed preimage containing the
 reference while its target existed. Source and target need unique, explicit
 `page_id` in the configured memory root. Each move in its surviving Git lineage
-must preserve the blob and file mode. Same-path content revisions remain ordinary
-history. A moved record also needs a surviving unique identity. This works across
+must preserve the blob and file mode, except a same-commit move and the narrowly
+qualified physical `moc_parent` reframing described below can preserve identity
+when all other document and body bytes are unchanged. The old grouping must
+already have a unique surviving identity at the reference's original revision;
+its later creation or resurrection cannot establish that authority. Same-path
+content revisions remain ordinary history. A moved record also needs a surviving unique identity. This works across
 merge commits and when a later proposal's base already includes the migration.
 Relation projections retain the literal target, Git origin and authored role;
 historical link-role digests, source pins and document bytes remain untouched.
@@ -25,9 +29,10 @@ An accumulating log can retain an old occurrence without claiming that its new
 whole-document blob existed before the move. Every old dated
 `## [YYYY-MM-DD] ...` record must survive byte for byte, uniquely and in the same
 relative order. New dated records may precede, follow or separate old records.
-The preamble stays exact; blank record separators are outside the record payload
-(which retains its actual final newline and LF/CRLF bytes). This is a mapping of
-complete parsed H2 records, never a substring or prefix heuristic. Each relevant
+The preamble stays exact, and original record separators and LF/CRLF bytes stay
+intact. Additional blank separators may follow a preserved record; they cannot
+replace or remove its old bytes. This maps complete parsed H2 records, never a
+substring or whole-body prefix heuristic. Each relevant
 committed version must preserve the old records and metadata; a factual detour
 followed by a revert fails. Attribution maps the current occurrence offset back
 to its exact original record, Git commit/path and original body offset.
@@ -46,10 +51,24 @@ does not need (and cannot assert) its own historical whole-blob preimage.
 The original event bytes, verification date, consumed revision and role digest
 remain intact. Unsupported source references remain subject to ordinary gates.
 
+An actual inline occurrence in a committed document or a uniquely preserved
+dated log record can also prove that a **directory address** existed as a Git
+tree at its origin. This is historical address evidence only: it supplies no
+current directory or page target, and does not satisfy page requirements,
+consolidation evidence, or grant access. A missing original tree, a duplicated
+or altered occurrence, or ambiguous origin refuses the link. If the old path
+was removed and later occupied again, or a moved source would redirect its
+relative href to a different directory, the link audit reports the collision.
+The children may have moved to several locations; no equivalent current
+directory is inferred. The repository host must qualify Git history and reads.
+
 Missing history, identity collisions, deletion/resurrection, copies with the
 same identity, symlinks, nested repositories and unsafe paths cannot establish
 relocation. Reoccupying a former path cannot steal an unchanged record's
 historical identity. A newly authored or changed document cannot acquire an old alias.
+Only an origin with a coexisting explicit memory target can establish relocation;
+missing targets and non-memory artifacts do not trigger a page-lineage proof.
+Artifact references remain subject to their ordinary checks.
 Current information requirements must name the canonical target. Historical
 requirements retain their original consumed revision and original target;
 query/policy authority is not transferred through relocation. Both routes check
@@ -72,9 +91,12 @@ Use an explicit consumer-owned C3 adapter for the selected navigation scope:
 
 1. Preserve a clean approved base and fetch sufficient Git history. Keep all
    domain data in the consumer. Do not change freshness bases to hide a diff.
-2. Commit the reviewed physical moves with identical bytes and executable
-   mode. Keep source records, historical declarations, curation and authority
-   intact. A simultaneous move and factual rewrite does not prove relocation.
+2. Commit the reviewed physical moves preserving executable mode. Identical
+   bytes establish the normal move. A simultaneous move and narrowly qualified
+   `moc_parent` change can establish the same identity under the checks above;
+   other simultaneous rewrites are not established by this resolver. Keep
+   source records, historical declarations, curation and authority intact. A
+   simultaneous move and factual rewrite does not prove relocation.
 3. Reconcile current references to canonical destinations. For an action body,
    use [reconcile_action_navigation](../../../wiki_core/action_transition.py)
    with the SHA-256 of its exact current file bytes and the proposed body. CRLF
@@ -132,7 +154,13 @@ certificate, historical recertification or reusable authorization receipt.
 
 A C3 structural stage may correct an old grouping such as `alpha` to an existing
 qualified `organization-beta/project-gamma/index.md`. The old grouping need not
-be an ancestor of the new project. A conventional `index.md`/`README.md` may be a
+be an ancestor of the new project and can itself remain a `project` page rather
+than being relabeled as a context hub. Such a grouping page may point to the
+preferred index in its own folder; another same-folder page cannot serve as
+that physical index. The old grouping must exist with one unique page identity
+in the original audited base; a proposal cannot introduce it later or substitute
+another occupant or resurrect it after deletion before the structural change.
+A conventional `index.md`/`README.md` may be a
 `project`; it need not be relabeled `context_hub`. Editorial `context` labels and
 `sources_policy` curation may differ among grouping indexes. The action retains
 its own context, owner, lifecycle, facts, dates, history and body bytes. The
@@ -174,8 +202,9 @@ general hierarchy/frontmatter patch API.
 
 Git parents, object metadata and identity parses are cached only within one
 invocation. Identical memory trees share their identity inventory. The bounded
-ancestry read and exact record mappings are reused across resolutions; missing/truncated history fails
-closed. Writes still recheck HEAD, selected identity uniqueness, mode and exact
+ancestry read, document/link parses, record mappings and record-lineage checks are
+reused across occurrences; missing/truncated history fails closed. Writes still
+recheck HEAD, selected identity uniqueness, mode and exact
 bytes. This reduces repeated local work without a global cache or latency SLA.
 
 ## Synthetic verification

@@ -30,8 +30,8 @@ def physical_hierarchy(root, *, writable=True):
     (root / 'index.md').write_text('# Synthetic physical entry\n')
     (root / '.gitignore').write_text('data/derived/\n')
     page(root, 'index')
-    alpha = page(root, 'alpha', context='alpha-editorial', sources_policy='old-curation')
-    alpha.write_text(alpha.read_text().replace('page_type: project', 'page_type: context_hub'))
+    page(root, 'alpha', context='alpha-editorial', sources_policy='old-curation',
+         moc_parent='memories/index.md')
     page(root, 'organization-beta/index', context='beta-editorial', sources_policy='organization-curation',
          moc_parent='memories/index.md')
     project = page(root, 'organization-beta/project-gamma/index', context='gamma-editorial',
@@ -53,7 +53,8 @@ def bound_packet(root, base, refs):
 
 
 @pytest.mark.parametrize('mutation', ['none', 'read_only', 'missing_instructions', 'owner',
-    'action_context', 'action_owner', 'expanded_authority', 'false_parent', 'outside', 'missing_binding'])
+    'action_context', 'action_owner', 'expanded_authority', 'false_parent', 'old_non_group',
+    'old_bad_parent', 'old_missing_at_base', 'old_reoccupied', 'old_resurrected', 'outside', 'missing_binding'])
 def test_qualified_project_reframing_preserves_action_and_uses_normal_host_preflight(repo, monkeypatch, mutation):
     project = physical_hierarchy(repo, writable=mutation != 'read_only')
     if mutation != 'read_only':
@@ -65,6 +66,7 @@ def test_qualified_project_reframing_preserves_action_and_uses_normal_host_prefl
                                       'owner_kind': 'human', 'owner_ref': 'synthetic operator'})
     before = action.read_bytes()
     old_ref = action.relative_to(repo).as_posix()
+    original_alpha = None
     if mutation == 'missing_instructions':
         (repo / 'AGENTS.md').unlink()
     elif mutation == 'owner':
@@ -72,16 +74,43 @@ def test_qualified_project_reframing_preserves_action_and_uses_normal_host_prefl
     elif mutation == 'false_parent':
         project.write_bytes(project.read_bytes().replace(b'moc_parent: memories/organization-beta/index.md',
                                                         b'moc_parent: memories/alpha.md'))
+    elif mutation == 'old_non_group':
+        alpha = repo / 'memories/alpha.md'
+        alpha.write_bytes(alpha.read_bytes().replace(b'page_type: project', b'page_type: note'))
+    elif mutation == 'old_bad_parent':
+        page(repo, 'other')
+        alpha = repo / 'memories/alpha.md'
+        alpha.write_bytes(alpha.read_bytes().replace(b'moc_parent: memories/index.md',
+                                                    b'moc_parent: memories/other.md'))
+    elif mutation == 'old_missing_at_base':
+        alpha = repo / 'memories/alpha.md'
+        original_alpha = alpha.read_bytes()
+        alpha.unlink()
     elif mutation == 'expanded_authority':
         project.parent.joinpath('AGENTS.md').write_text('# Separate physical context\n')
-        # A common human owner and read access are not a write grant across
-        # contexts. No new access entry or bilateral connection is invented.
+        config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+        config['context_access']['memories/organization-beta/project-gamma'] = {
+            'owner': 'synthetic operator', 'policy': {'read': ['self'], 'write': [],
+                'capabilities': [], 'deny': {}, 'publication': []}}
+        (repo / 'wiki.config.yaml').write_text(yaml.safe_dump(config))
+        # This negative has a common human owner and explicit read access,
+        # still no write grant or cross-context connection.
     base = commit(repo); git(repo, 'update-ref', 'refs/remotes/origin/main', base)
     binding = packet = None
-    if mutation not in {'missing_instructions', 'expanded_authority'}:
+    if mutation not in {'missing_instructions', 'expanded_authority', 'old_missing_at_base'}:
         binding, packet = bound_packet(repo, base, [old_ref, 'memories/alpha.md',
             'memories/organization-beta/index.md', project.relative_to(repo).as_posix()])
     git(repo, 'checkout', '-qb', 'wiki/qualified-c3')
+    if original_alpha is not None:
+        (repo / 'memories/alpha.md').write_bytes(original_alpha)
+    elif mutation == 'old_reoccupied':
+        alpha = repo / 'memories/alpha.md'
+        alpha.write_bytes(alpha.read_bytes().replace(b'page_id: alpha', b'page_id: replacement'))
+    elif mutation == 'old_resurrected':
+        alpha = repo / 'memories/alpha.md'
+        original_alpha = alpha.read_bytes()
+        alpha.unlink(); commit(repo)
+        alpha.write_bytes(original_alpha); commit(repo)
     destination = 'memories/organization-beta/project-gamma/action.md'
     if mutation == 'outside':
         destination = 'memories/outside/action.md'
@@ -127,9 +156,14 @@ def test_qualified_project_reframing_preserves_action_and_uses_normal_host_prefl
 
 @pytest.mark.parametrize('newline', ['\n', '\r\n'], ids=['lf', 'crlf'])
 @pytest.mark.parametrize('mutation', ['none', 'metadata', 'metadata_only', 'new_url', 'copy',
-    'transplant', 'reorder', 'duplicate', 'role', 'pin', 'digest', 'revert', 'authority'])
+    'transplant', 'reorder', 'duplicate', 'role', 'pin', 'digest', 'revert', 'authority', 'separator_removed',
+    'parent_missing_origin', 'parent_reoccupied', 'parent_resurrected'])
 def test_preserved_records_map_prepend_offsets_and_structural_metadata(repo, newline, mutation):
     physical_hierarchy(repo)
+    alpha = repo / 'memories/alpha.md'
+    alpha_bytes = alpha.read_bytes()
+    if mutation == 'parent_missing_origin':
+        alpha.unlink()
     page(repo, 'guide')
     role = declare_link_role('[Observed](guide.md)', 'review_record')
     old_record = '## [2026-07-10] Original\n\n' + role + '\n'
@@ -138,18 +172,25 @@ def test_preserved_records_map_prepend_offsets_and_structural_metadata(repo, new
                moc_parent='memories/alpha.md', consumed_revision='a' * 40)
     log.write_bytes(log.read_bytes().replace(b'\n', newline.encode()))
     original = log.read_bytes(); origin = commit(repo)
+    if mutation == 'parent_missing_origin':
+        alpha.write_bytes(alpha_bytes); commit(repo)
+    elif mutation == 'parent_reoccupied':
+        alpha.write_bytes(alpha_bytes.replace(b'page_id: alpha', b'page_id: replacement')); commit(repo)
+    elif mutation == 'parent_resurrected':
+        alpha.unlink(); commit(repo)
+        alpha.write_bytes(alpha_bytes); commit(repo)
     move(repo, 'memories/guide.md', 'memories/navigation/guide.md'); commit(repo)
     if mutation == 'revert':
         log.write_bytes(original.replace(b'Original', b'Factual detour')); commit(repo)
         log.write_bytes(original); commit(repo)
-    if mutation in {'metadata', 'metadata_only', 'authority'}:
+    if mutation in {'metadata', 'metadata_only', 'authority', 'parent_missing_origin', 'parent_reoccupied', 'parent_resurrected'}:
         move(repo, 'memories/log.md', 'memories/organization-beta/project-gamma/log.md'); commit(repo)
         log = repo / 'memories/organization-beta/project-gamma/log.md'
     addition = '## [2026-07-11] New\n\n' + (role if mutation == 'new_url' else 'New entry.') + '\n\n'
     if mutation != 'metadata_only':
         log.write_bytes(log.read_bytes().replace(old_record.replace('\n', newline).encode(),
             (addition + old_record).replace('\n', newline).encode()))
-    if mutation in {'metadata', 'metadata_only', 'authority'}:
+    if mutation in {'metadata', 'metadata_only', 'authority', 'parent_missing_origin', 'parent_reoccupied', 'parent_resurrected'}:
         log.write_bytes(log.read_bytes().replace(b'moc_parent: memories/alpha.md',
             b'moc_parent: memories/organization-beta/project-gamma/index.md'))
     if mutation == 'authority':
@@ -170,6 +211,9 @@ def test_preserved_records_map_prepend_offsets_and_structural_metadata(repo, new
         log.write_bytes(log.read_bytes().replace(('a' * 40).encode(), ('b' * 40).encode()))
     elif mutation == 'digest':
         log.write_bytes(log.read_bytes().replace(b'sha256:', b'sha256:0'))
+    elif mutation == 'separator_removed':
+        log.write_bytes(log.read_bytes().replace((role + '\n\n').replace('\n', newline).encode(),
+                                                (role + '\n').replace('\n', newline).encode()))
     commit(repo)
     raw = log.read_bytes().decode(); _, body = _parse_document(raw)
     ref = log.relative_to(repo).as_posix(); offset = body.rindex('[Observed]')
@@ -186,3 +230,86 @@ def test_preserved_records_map_prepend_offsets_and_structural_metadata(repo, new
             assert nav.resolve(ref, raw, 'guide.md', href=True, body_offset=body.index('[Observed]')) is None
     else:
         assert resolved is None
+
+
+def test_record_and_link_parsing_is_local_reused_and_still_revalidates(repo, monkeypatch):
+    import wiki_core.navigation as navigation
+    page(repo, 'guide')
+    entry = '## [2026-07-10] Old\n\n[Observed](guide.md)\n'
+    log = page(repo, 'log', body='# Log\n\n' + entry)
+    commit(repo)
+    move(repo, 'memories/guide.md', 'memories/navigation/guide.md'); commit(repo)
+    log.write_bytes(log.read_bytes().replace(entry.encode(),
+        ('## [2026-07-11] New\n\nNew record.\n\n' + entry).encode()))
+    commit(repo)
+    calls = {'links': [], 'records': []}
+    for name, key in [('inline_links', 'links'), ('dated_records', 'records')]:
+        original = getattr(navigation, name)
+        def counted(body, original=original, key=key):
+            calls[key].append(body)
+            return original(body)
+        monkeypatch.setattr(navigation, name, counted)
+    history = NavigationHistory(repo)
+    raw = log.read_bytes().decode(); body = _parse_document(raw)[1]
+    offset = body.index('[Observed]')
+    for _ in range(2):
+        assert history.resolve('memories/log.md', raw, 'guide.md', href=True,
+                               body_offset=offset) == 'memories/navigation/guide.md'
+    assert all(len(values) == len(set(values)) for values in calls.values())
+    assert history.record_bodies and history.link_bodies
+    assert not NavigationHistory(repo).record_bodies  # No process-global cache.
+    target = repo / 'memories/navigation/guide.md'
+    target.write_bytes(target.read_bytes() + b'\nConcurrent fact.\n')
+    assert not history.confirm()
+
+
+@pytest.mark.parametrize('mutation', ['structural', 'fact', 'owner', 'invented_parent', 'recreated'])
+def test_move_and_grouping_change_in_one_git_commit_preserves_only_qualified_identity(repo, mutation):
+    physical_hierarchy(repo)
+    target = page(repo, 'guide', moc_parent='memories/alpha.md')
+    source = page(repo, 'record', body='[Evidence](guide.md)\n')
+    commit(repo)
+    if mutation == 'invented_parent':
+        (repo / 'memories/alpha.md').unlink(); commit(repo)
+        page(repo, 'alpha', context='alpha-editorial', sources_policy='old-curation',
+             moc_parent='memories/index.md'); commit(repo)
+    move(repo, 'memories/guide.md', 'memories/organization-beta/project-gamma/guide.md')
+    target = repo / 'memories/organization-beta/project-gamma/guide.md'
+    data = target.read_bytes().replace(b'moc_parent: memories/alpha.md',
+        b'moc_parent: memories/organization-beta/project-gamma/index.md')
+    if mutation == 'fact':
+        data += b'\nFactual change.\n'
+    elif mutation == 'owner':
+        data = data.replace(b'page_type: project', b'page_type: project\nowner_ref: other')
+    target.write_bytes(data); commit(repo)
+    if mutation == 'recreated':
+        target.unlink(); commit(repo)
+        target.write_bytes(data); commit(repo)
+    nav = NavigationHistory(repo)
+    resolved = nav.resolve('memories/record.md', source.read_bytes().decode(), 'guide.md', href=True)
+    assert resolved == ('memories/organization-beta/project-gamma/guide.md' if mutation == 'structural' else None)
+
+
+def test_historical_directory_record_survives_atomic_qualified_log_reframing(repo):
+    physical_hierarchy(repo)
+    page(repo, 'old-domain/item')
+    entry = '## [2026-07-10] Old\n\n[Directory](old-domain/)\n'
+    log = page(repo, 'log', body='# Log\n\n' + entry, moc_parent='memories/alpha.md')
+    original = log.read_bytes(); origin = commit(repo)
+    move(repo, 'memories/old-domain/item.md', 'memories/current/item.md')
+    (repo / 'memories/old-domain').rmdir(); commit(repo)
+    move(repo, 'memories/log.md', 'memories/organization-beta/project-gamma/log.md')
+    log = repo / 'memories/organization-beta/project-gamma/log.md'
+    log.write_bytes(log.read_bytes().replace(b'moc_parent: memories/alpha.md',
+        b'moc_parent: memories/organization-beta/project-gamma/index.md'))
+    commit(repo)
+    log.write_bytes(log.read_bytes().replace(entry.encode(),
+        ('## [2026-07-11] New\n\nNew entry.\n\n' + entry).encode())); commit(repo)
+    raw = log.read_bytes().decode(); body = _parse_document(raw)[1]
+    proof = NavigationHistory(repo).historical_directory(
+        'memories/organization-beta/project-gamma/log.md', raw, 'old-domain/',
+        body_offset=body.index('[Directory]'))
+    assert proof['source_revision'] == origin
+    assert proof['historical_directory'] == 'memories/old-domain'
+    assert proof['current_target'] is None
+    assert entry.encode() in original and entry.encode() in log.read_bytes()

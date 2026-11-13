@@ -2000,6 +2000,14 @@ def validate_action_transition_diffs(
         base = navigation.git('rev-parse', '--verify', base_ref + '^{commit}').decode().strip()
         if navigation.text(base, previous_ref) != previous_text:
             return refused
+        baseline_parent_ref = old.get('moc_parent')
+        baseline_parent_id = None
+        if baseline_parent_ref != new.get('moc_parent'):
+            # A structural regrouping cannot invent its original grouping or
+            # give an old pathname to a different page during the proposal.
+            baseline_parent_id = navigation.grouping_anchor(base, baseline_parent_ref)
+            if not baseline_parent_id:
+                return refused
         # Include proposal parents of a CI merge result, without substituting
         # its first parent, HEAD or a merge-base for the actual audited base.
         navigation.git('merge-base', '--is-ancestor', base, navigation.head)
@@ -2026,8 +2034,7 @@ def validate_action_transition_diffs(
         stages.update({revision: {revision} for revision in boundaries})
         def admit(text, ref, parents, revision):
             authored = document(text)[0].get(_HISTORY_FIELD) or []
-            if (not isinstance(authored, list) or authored != history[:len(authored)]
-                    ):
+            if not isinstance(authored, list) or authored != history[:len(authored)]:
                 return None
             if any(parent not in stages for parent in parents):
                 return None
@@ -2038,7 +2045,9 @@ def validate_action_transition_diffs(
             if len(authored) <= len(prior):
                 if all((document(versions[parent][0])[0].get(_HISTORY_FIELD) or []) == authored
                         and structural_navigation(navigation, versions[parent][1], versions[parent][0], text,
-                        destination=ref, hierarchy_revision=revision) for parent in parents):
+                        destination=ref, hierarchy_revision=revision,
+                        baseline_parent_ref=baseline_parent_ref,
+                        baseline_parent_id=baseline_parent_id) for parent in parents):
                     return ancestors | ({revision} if revision in versions else set())
             else:
                 first = authored[len(prior)]

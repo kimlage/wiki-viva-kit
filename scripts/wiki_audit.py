@@ -1928,8 +1928,11 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
                 href = match.group(1)
                 offset = line_offsets[lineno - 1] + match.start() - body_start
                 if (not navigation.existing_reference_safe(rel, text, href, href=True, body_offset=offset)
-                        or (not local_link_target_exists(rel, href) and not navigation.resolve(rel, text, href, href=True, body_offset=offset))):
-                    errors.append(f"{rel}:{lineno}: markdown link target does not exist: `{href}`")
+                        or (not local_link_target_exists(rel, href)
+                            and not navigation.resolve(rel, text, href, href=True, body_offset=offset)
+                            and not navigation.historical_directory(rel, text, href, body_offset=offset))):
+                    reason = navigation.directory_diagnostic or 'markdown link target does not exist'
+                    errors.append(f"{rel}:{lineno}: {reason}: `{href}`")
 
             for match in INLINE_CODE_LOCAL_PATH_RE.finditer(line):
                 value = match.group(1)
