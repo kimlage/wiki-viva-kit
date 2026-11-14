@@ -1158,7 +1158,7 @@ def seed_action_proposal(root: Path, page: Path | str, committed: str, current: 
     from wiki_core.action_contribution import _reconcile_source
     path, ref = _contained_action_path(root, page)
     with _TRANSITION_LOCK, _action_file_lock(root, ref):
-        if path.read_bytes().decode("utf-8") != committed:
+        if _logical_eol(path.read_bytes().decode("utf-8")) != _logical_eol(committed):
             raise ActionTransitionError("stale_proposal_seed")
         _reconcile_source(committed, current, committed)
         _assert_no_secrets(current)
@@ -1694,10 +1694,16 @@ def action_transition_diagnostics(
         # separate approved change, not hidden in an editorial date exception.
         if any(e.get("kind") != "body_consolidation" for e in content_events):
             return (ActionTransitionDiagnostic("consolidation_mixed_body_changes", "review factual and editorial body changes separately"),)
-        logical_eol = all(e.get("schema_version") == _EOL_RECEIPT_VERSION for e in content_events)
-        rebuilt = _logical_eol(previous_body) if logical_eol else previous_body
+        logical_eol = False
+        rebuilt = previous_body
         try:
             for event in content_events:
+                if event.get("schema_version") == _EOL_RECEIPT_VERSION:
+                    if not logical_eol:
+                        rebuilt = _logical_eol(rebuilt)
+                    logical_eol = True
+                elif logical_eol:
+                    return (ActionTransitionDiagnostic("invalid_body_consolidation", "mixed editorial receipt representations require separate review"),)
                 records = (event.get("contribution") or {}).get("consolidations")
                 if logical_eol and isinstance(records, list):
                     records = [{**row, "paragraph": _logical_eol(row["paragraph"])}

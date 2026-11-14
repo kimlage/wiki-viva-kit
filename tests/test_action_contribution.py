@@ -468,3 +468,32 @@ def test_source_check_refuses_newline_only_byte_change_before_remote_effect(tmp_
         port._integration_source_check(tmp_path, load_config(tmp_path), request['files'][0]['base_commit'],
             request['files'][0]['path'], {'before_sha256': hashlib.sha256(before).hexdigest()}, dry_run=False)
     assert path.read_bytes() == current
+
+
+@pytest.mark.parametrize('factual_change', [False, True])
+def test_contribution_reconciles_lf_git_blob_with_crlf_checkout(tmp_path, factual_change):
+    p, request = fixture(tmp_path)
+    (tmp_path / '.gitattributes').write_text('memories/actions/*.md text eol=crlf\n')
+    git(tmp_path, 'add', '.gitattributes')
+    git(tmp_path, 'commit', '-m', 'Synthetic checkout conversion')
+    ref = request['files'][0]['path']
+    base_commit = git(tmp_path, 'rev-parse', 'HEAD')
+    blob = port._blob(tmp_path, base_commit, ref)
+    request['files'][0]['base_commit'] = base_commit
+    assert '\r\n' not in blob
+    p.unlink()
+    git(tmp_path, 'checkout', '--', ref)
+    assert b'\r\n' in p.read_bytes()
+    git(tmp_path, 'diff', '--quiet', '--', ref)
+    if factual_change:
+        p.write_bytes(p.read_bytes().replace(b'Original evidence.', b'Different evidence.'))
+    physical = p.read_bytes()
+    out = call(tmp_path, 'prepare', request, review=review(request))
+    if factual_change:
+        assert out['status'] == 'refused' and out['error'] == 'source_body_conflict'
+        assert p.read_bytes() == physical
+        return
+    assert out['status'] == 'prepared', json.dumps(out, indent=2)
+    candidate = port._blob(tmp_path, out['proposal_commit'], ref)
+    assert action_transition_diagnostics(blob, candidate) == ()
+    assert p.read_bytes() == physical

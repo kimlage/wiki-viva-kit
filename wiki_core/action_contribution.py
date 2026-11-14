@@ -17,7 +17,7 @@ from typing import Any
 
 from wiki_core.action_transition import (
     ActionTransitionError, _action_file_lock, _assert_no_secrets,
-    _contained_action_path, _parse_document, integrate_action_body,
+    _contained_action_path, _parse_document, _logical_eol, integrate_action_body,
     action_transition_diagnostics, _SUPPORT_FIELDS, contribution_log_text, append_contribution_log,
 )
 from wiki_core.config import WikiConfig, load_config
@@ -434,9 +434,9 @@ def _reconcile_source(known: str, current: str, proposed: str) -> str:
     proposed_fm, new_body = _parse_document(proposed)
     if old_fm != proposed_fm:
         raise ContributionError("frontmatter_changes_not_supported")
-    if old_body != body:
+    if _logical_eol(old_body) != _logical_eol(body):
         raise ContributionError("source_body_conflict")
-    if current != known:
+    if _logical_eol(current) != _logical_eol(known):
         # Permit only legitimate canonical transition suffixes, not arbitrary
         # history exclusions or owner/tool/authority changes.
         allowed = {*_SUPPORT_FIELDS, "action_state", "action_state_history", "updated_at", "completed_at"}

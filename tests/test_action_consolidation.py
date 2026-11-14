@@ -144,3 +144,31 @@ def test_eol_receipt_consolidation_audits_logical_checkout_conversion(tmp_path):
     assert action_transition_diagnostics(physical, after) == ()
     assert action_transition_diagnostics(git_base, after) == ()
     assert action_transition_diagnostics(git_base, after + '\nA new factual assertion.\n')
+
+
+def test_legacy_then_eol_consolidation_survives_checkout_conversion(tmp_path):
+    p, canonical, records = fixture(tmp_path)
+    other = ('A second synthetic paragraph records separate reviewed evidence, '
+             'preserving its historical origin while avoiding any claim of current execution. '
+             'The remaining context still requires its own verification.')
+    p.write_text(p.read_text() + '\n' + other + '\n')
+    canonical.write_text(canonical.read_text() + '\n' + other + '\n')
+    records[0]['canonical_sha256'] = hashlib.sha256(canonical.read_bytes()).hexdigest()
+    base = p.read_text()
+    _, body = _parse_document(base)
+    integrate_action_body(tmp_path, p, _consolidated_body(body, records),
+        expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'legacy-first', 'material_sha256': 'a' * 64},
+        recorded_at='2026-07-11T23:45:00-03:00', consolidations=records)
+    p.write_bytes(p.read_bytes().replace(b'\n', b'\r\n'))
+    middle = p.read_bytes().decode('utf-8')
+    _, body = _parse_document(middle)
+    second = [dict(records[0], paragraph=other)]
+    integrate_action_body(tmp_path, p, _consolidated_body(body, second),
+        expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'eol-second', 'material_sha256': 'b' * 64},
+        recorded_at='2026-07-11T23:46:00-03:00', consolidations=second)
+    after = p.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(middle, after) == ()
+    assert action_transition_diagnostics(base, after) == ()
+    assert action_transition_diagnostics(base, after + '\nA new factual assertion.\n')
