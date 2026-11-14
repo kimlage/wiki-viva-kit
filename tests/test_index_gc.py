@@ -20,7 +20,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from wiki_core.config import WikiConfig, load_config
-from wiki_core.index.sqlite import build_index, check_index, index_source, prune_index, search
+from wiki_core.index.sqlite import build_index, check_index, index_pages, index_source, prune_index, search
 from wiki_core.paths import WikiPaths
 from wiki_core.source_manifest import source_id_for, source_origin
 
@@ -51,6 +51,26 @@ def _observation(directory, source, texts, at, **metadata):
     source_id = source_id_for(str(source), digest, root=directory.parent)
     return _write_chunks(directory, source_id, texts, source_origin_id=origin["id"],
                          observed_at=at, extraction_complete=True, **metadata)
+
+
+@pytest.mark.parametrize('reserved', ['.wiki-viva-protected', '.WIKI-VIVA-PROTECTED'])
+def test_page_index_and_search_refuse_protected_database_before_connect(tmp_path, monkeypatch, reserved):
+    ordinary = tmp_path / 'ordinary.sqlite'
+    index_source(ordinary, _write_chunks(tmp_path / 'chunks', 'example', ['synthetic needle']))
+    protected = tmp_path / reserved / 'index.sqlite'
+    original_connect = sqlite3.connect
+    def connect(path, *args, **kwargs):
+        if Path(path) == protected:
+            pytest.fail('protected database reached SQLite')
+        return original_connect(path, *args, **kwargs)
+    monkeypatch.setattr(sqlite3, 'connect', connect)
+    with pytest.raises(ValueError, match='protected artifacts'):
+        index_pages(protected, [])
+    with pytest.raises(ValueError, match='protected artifacts'):
+        search(protected, 'needle')
+    assert not protected.parent.exists()
+    assert search(ordinary, 'needle')
+    assert index_pages(ordinary, [])['pages_indexed'] == 0
 
 
 def test_index_source_incremental(tmp_path: Path) -> None:
