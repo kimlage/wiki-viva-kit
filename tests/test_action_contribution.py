@@ -5,6 +5,7 @@ import copy
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -661,6 +662,44 @@ def test_signer_selection_refuses_defaults_and_ambiguous_paths(tmp_path):
     with pytest.raises(port.ContributionError, match='git_signing_config_value_unsupported'):
         port._scratch_signing_settings(tmp_path, (('gpg.format', 'ssh'), ('gpg.ssh.program', '/synthetic/signer'),
                                                    ('user.signingkey', 'key::literal'), ('gpg.mintrustlevel', '')))
+
+
+@pytest.mark.parametrize('first,last', [('gpg.program', 'gpg.openpgp.program'),
+                                       ('gpg.openpgp.program', 'gpg.program')])
+def test_openpgp_program_alias_uses_last_configured_signer(tmp_path, first, last):
+    settings = (('gpg.format', 'openpgp'), (first, '/synthetic/old-signer'),
+                (last, '/synthetic/effective-signer'))
+    result = port._scratch_signing_settings(tmp_path, settings)
+    assert (last, '/synthetic/effective-signer') in result
+    assert (first, '/synthetic/old-signer') not in result
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='synthetic signer uses POSIX shell')
+@pytest.mark.parametrize('first,last', [('gpg.program', 'gpg.openpgp.program'),
+                                       ('gpg.openpgp.program', 'gpg.program')])
+def test_prepare_uses_same_openpgp_alias_as_selected_git(tmp_path, first, last):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    _, request = fixture(root)
+    marker = tmp_path / 'selected-signer'
+    for label in ('A', 'B'):
+        signer = tmp_path / ('signer-' + label)
+        signer.write_text('#!/bin/sh\nprintf ' + label + ' > ' + shlex.quote(str(marker)) + '\nexit 1\n')
+        signer.chmod(0o755)
+    git(root, 'config', 'commit.gpgSign', 'true')
+    git(root, 'config', 'gpg.format', 'openpgp')
+    git(root, 'config', first, str(tmp_path / 'signer-A'))
+    git(root, 'config', last, str(tmp_path / 'signer-B'))
+    tree = git(root, 'rev-parse', 'HEAD^{tree}')
+    direct = subprocess.run(['git', 'commit-tree', tree, '-p', 'HEAD', '-S'], cwd=root,
+                            input=b'synthetic commit\n', capture_output=True)
+    assert direct.returncode != 0 and marker.exists()
+    expected = marker.read_text()
+    marker.unlink()
+    result = call(root, 'prepare', request, review=review(request))
+    assert not result['ok'] and result['error'] == 'command_failed:git'
+    assert marker.read_text() == expected
+    assert port._candidate(root, result['branch']) is None
 
 
 def test_selected_local_unsigned_policy_overrides_global_signing(tmp_path, monkeypatch):

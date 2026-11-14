@@ -195,6 +195,8 @@ def _scratch_signing_settings(root: Path, settings: tuple[tuple[str, str], ...])
                 "openpgp": ("gpg.openpgp.program", "gpg.program")}
     if signing_format not in programs or not any(key.casefold() in programs[signing_format] for key, _ in settings):
         raise ContributionError("git_signer_path_selection_unsupported")
+    active_programs = programs[signing_format]
+    effective_program = max(index for index, (key, _) in enumerate(settings) if key.casefold() in active_programs)
     signing_key = next((value for key, value in reversed(settings)
                         if key.casefold() == "user.signingkey"), "")
     if signing_format == "ssh" and not signing_key:
@@ -205,6 +207,8 @@ def _scratch_signing_settings(root: Path, settings: tuple[tuple[str, str], ...])
                    if key.casefold() in scalar_keys}
     result = []
     for index, (key, value) in enumerate(settings):
+        if key.casefold() in {"gpg.program", "gpg.openpgp.program", "gpg.ssh.program", "gpg.x509.program"} and index != effective_program:
+            continue
         if key.casefold() in last_scalar and last_scalar[key.casefold()] != index:
             continue
         if not value:
