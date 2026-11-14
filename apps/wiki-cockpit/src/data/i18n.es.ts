@@ -351,6 +351,7 @@ export const ES: Record<string, string> = {
   "information.assessedAt": "Evaluación registrada: {when}",
   "information.reason.validity": "La observación está fuera de la validez requerida.",
   "information.reason.changed": "El contenido o la evidencia cambió después de la verificación.",
+  "information.reason.transitive": "Los requisitos transitivos no se evaluaron en esta vista.",
   "information.reason.missing": "Falta información o evidencia para este alcance, o se necesita actualizar la vista.",
   "information.reason.unconfirmed": "Este alcance aún necesita verificación factual confirmada.",
   "information.reviewQueued": "Información pendiente de revisión",

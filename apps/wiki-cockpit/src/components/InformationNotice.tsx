@@ -3,6 +3,7 @@ import type { InformationUse } from "../types";
 import { useEffect, useState } from "react";
 
 function explanation(reason: string): string {
+  if (reason === "information_transitive_requirements_not_assessed") return t("information.reason.transitive");
   if (/expired|future|not_yet_valid|no_longer_valid/.test(reason)) return t("information.reason.validity");
   if (reason === "information_changed_since_verification") return t("information.reason.changed");
   if (/missing|unreadable/.test(reason)) return t("information.reason.missing");
