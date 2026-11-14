@@ -334,8 +334,11 @@ def test_legacy_source_removed_during_preparation_preserves_prior_capture(tmp_pa
 
 def test_legacy_source_replaced_by_fifo_does_not_block(tmp_path, monkeypatch):
     import os
+    import pytest
     import wiki_core.ingest.pipeline as pipeline
 
+    if not hasattr(os, 'mkfifo') or not hasattr(os, 'O_NONBLOCK'):
+        pytest.skip('FIFO or nonblocking open unavailable')
     source = tmp_path / 'synthetic.md'
     source.write_text('# Synthetic\n' + ('original synthetic content ' * 80))
     original = pipeline.build_context_request
@@ -352,3 +355,16 @@ def test_legacy_source_replaced_by_fifo_does_not_block(tmp_path, monkeypatch):
     assert result.context_error_code == 'source_changed_before_persistence'
     assert result.request_path is None and result.manifest_path is None
     assert not (tmp_path / 'data/derived/wiki').exists()
+
+
+def test_legacy_ingestion_without_nonblocking_open_warns_and_remains_available(tmp_path, monkeypatch):
+    import os
+    import wiki_core.ingest.pipeline as pipeline
+
+    source = tmp_path / 'synthetic.md'
+    source.write_text('# Synthetic\n' + ('original synthetic content ' * 80))
+    monkeypatch.delattr(os, 'O_NONBLOCK', raising=False)
+    result = pipeline.run(str(source), 'system', tmp_path, WikiConfig(), record_score=False)
+    assert not result.blocked and result.written
+    assert result.request_path and (tmp_path / result.request_path).is_file()
+    assert 'Local source recheck unavailable: nonblocking open is not supported.' in result.warnings
