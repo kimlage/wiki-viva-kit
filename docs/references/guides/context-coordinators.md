@@ -424,3 +424,72 @@ Missing retained proof leaves the work held/unknown; recovery after
 a process crash is bounded by actual retained history, not promised as complete.
 The kit retains no extra durable delivery queue. The operator owns activation
 and reader/service adoption in the project application already in use.
+
+## Optional session hooks
+
+The repository may opt in to `scripts/wiki_session_hook.py`. It consumes one
+provider event as JSON on stdin. It uses the read-only integration checker and
+returns JSON to the host; it does not post, merge, clean, persist a queue or
+change action state. `SessionStart` injects a short count summary. `Stop` defaults
+to `--mode observe` and warns only. `--mode enforce` may request one continuation
+for a verified current-branch-without-PR, uncommitted current worktree or merged
+current branch/worktree remaining. It does not block on other findings or an
+unavailable observation. A provider `stop_hook_active` event ends that one
+attempt; no generic continuation is requested.
+
+`SubagentStop` checks only the explicitly selected executor agent types. Its
+final handoff uses separate `Proposal`, `Head`, `Base`, `Review`, `Gates`,
+`Pending` and `Responsible-Thread` lines; head and base are full SHAs. An
+incomplete executor handoff may cause one focused continuation. This is a shape
+check, not proof of review, gates or delivery. Claude's `SubagentHandback` may
+carry the report separately from `last_assistant_message`; when the host does
+not supply the report in that field, this adapter cannot verify that handback.
+Do not enable blocking for that flow without a host adapter that supplies it.
+
+A continuation requires a trusted host-maintained `--stop-state-file` whose
+entire content is `running`. A missing, unreadable, stale or unrecognized
+state must be represented as `unknown` by that host; `stop`, an explicit
+`stop_requested` input, a STOP notice in the response, or an already active
+stop hook prevents a continuation. This file is an input owned by the host,
+not created by the kit. The hook cannot authenticate its contents or infer a
+user STOP from an unavailable transcript. Only enable blocking if the host
+can maintain this state for the current session and respect owner STOPs.
+The `--executor-type` option can be repeated; absent it, only `executor`
+qualifies. `--timeout` is bounded to 1–60 seconds. These are opt-in behavior
+and do not grant authority or replace the destination policy.
+
+Codex discovers project hooks in `.codex/hooks.json` (and requires trust for
+non-managed hooks); Claude Code reads `.claude/settings.json`. The following
+examples use a placeholder for a host-maintained state file. Install only the
+provider's configuration in the consumer repository, adjust paths and
+executor type, and follow the host's trust and policy requirements. The same
+script handles both providers.
+
+Codex `.codex/hooks.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py", "timeout": 45}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py --mode observe --stop-state-file /path/to/runtime-state", "timeout": 45}]}],
+    "SubagentStop": [{"matcher": "^executor$", "hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py --executor-type executor --stop-state-file /path/to/runtime-state", "timeout": 45}]}]
+  }
+}
+```
+
+Claude Code `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py", "timeout": 45}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py --mode observe --stop-state-file /path/to/runtime-state", "timeout": 45}]}],
+    "SubagentStop": [{"matcher": "^executor$", "hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py --executor-type executor --stop-state-file /path/to/runtime-state", "timeout": 45}]}]
+  }
+}
+```
+
+After observing behavior, an authorized consumer may change the Stop command
+from `--mode observe` to `--mode enforce`. Official schemas and lifecycle
+semantics: [Codex hooks](https://learn.chatgpt.com/docs/hooks) and
+[Claude Code hooks](https://code.claude.com/docs/en/hooks).
