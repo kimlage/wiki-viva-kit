@@ -733,7 +733,8 @@ def test_prepare_refuses_unproven_signer_resolution_from_relative_path(tmp_path,
     assert port._candidate(tmp_path, result['branch']) is None
 
 
-def test_signer_selection_refuses_defaults_and_ambiguous_paths(tmp_path):
+def test_signer_selection_refuses_defaults_and_ambiguous_paths(tmp_path, monkeypatch):
+    monkeypatch.setenv('PATH', '.' + os.pathsep + os.environ.get('PATH', ''))
     with pytest.raises(port.ContributionError, match='git_signer_path_selection_unsupported'):
         port._scratch_signing_settings(tmp_path, (('gpg.format', 'ssh'), ('user.signingkey', 'key::literal')))
     with pytest.raises(port.ContributionError, match='git_signer_path_selection_unsupported'):
@@ -751,6 +752,32 @@ def test_signer_selection_refuses_defaults_and_ambiguous_paths(tmp_path):
     with pytest.raises(port.ContributionError, match='git_signing_config_value_unsupported'):
         port._scratch_signing_settings(tmp_path, (('gpg.format', 'ssh'), ('gpg.ssh.program', '/synthetic/signer'),
                                                    ('user.signingkey', 'key::literal'), ('gpg.mintrustlevel', '')))
+
+
+@pytest.mark.skipif(os.name == 'nt' or shutil.which('ssh-keygen') is None, reason='requires POSIX SSH signing fixture')
+def test_prepare_preserves_default_ssh_signer_with_qualified_path(tmp_path, monkeypatch):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    _, request = fixture(root)
+    key = tmp_path / 'synthetic-key'
+    subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)], check=True)
+    git(root, 'config', 'commit.gpgSign', 'true')
+    git(root, 'config', 'gpg.format', 'ssh')
+    git(root, 'config', 'user.signingkey', str(key))
+    monkeypatch.delenv('GIT_EXEC_PATH', raising=False)
+    result = call(root, 'prepare', request, review=review(request))
+    assert result['ok'] and result['status'] == 'prepared', result
+    allowed = tmp_path / 'allowed-signers'
+    allowed.write_text('operator@example.test ' + key.with_suffix('.pub').read_text())
+    verify = subprocess.run(['git', '-c', 'gpg.ssh.allowedSignersFile=' + str(allowed), 'verify-commit',
+                             result['proposal_commit']], cwd=root, capture_output=True)
+    assert verify.returncode == 0, verify.stderr.decode(errors='replace')
+
+
+def test_signer_selection_refuses_custom_git_exec_path(monkeypatch):
+    monkeypatch.setenv('GIT_EXEC_PATH', '/synthetic/git-exec-path')
+    with pytest.raises(port.ContributionError, match='git_signer_path_selection_unsupported'):
+        port._qualified_signer_program('synthetic-signer')
 
 
 @pytest.mark.parametrize('first,last', [('gpg.program', 'gpg.openpgp.program'),

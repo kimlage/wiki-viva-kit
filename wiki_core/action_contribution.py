@@ -187,15 +187,44 @@ def _commit_signing_policy(root: Path) -> tuple[bool, tuple[tuple[str, str], ...
     return True, tuple(values)
 
 
+def _qualified_signer_program(name: str) -> str:
+    """Resolve a bare program only when Git and PATH selection are stable enough to compare."""
+    import shutil
+    from wiki_core.git_env import local_git_environment, local_git_executable
+    path = os.environ.get("PATH")
+    if (os.name == "nt" or path is None or "GIT_EXEC_PATH" in os.environ
+            or any(not os.path.isabs(part) for part in path.split(os.pathsep))):
+        raise ContributionError("git_signer_path_selection_unsupported")
+    trusted = local_git_executable()
+    original_git = shutil.which("git", path=path)
+    if not original_git or Path(original_git).resolve() != Path(trusted).resolve():
+        raise ContributionError("git_signer_path_selection_unsupported")
+    try:
+        exec_path = subprocess.run([trusted, "--exec-path"], env=local_git_environment(),
+                                   capture_output=True, timeout=120)
+    except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+        raise ContributionError("git_signer_path_selection_unsupported") from exc
+    directory = os.fsdecode(exec_path.stdout).removesuffix("\n")
+    if exec_path.returncode or len(exec_path.stdout) > 4096 or not os.path.isabs(directory):
+        raise ContributionError("git_signer_path_selection_unsupported")
+    found = shutil.which(name, path=directory + os.pathsep + path)
+    if not found or not os.path.isabs(found):
+        raise ContributionError("git_signer_path_selection_unsupported")
+    return found
+
+
 def _scratch_signing_settings(root: Path, settings: tuple[tuple[str, str], ...]) -> tuple[tuple[str, str], ...]:
     """Keep selected repo-relative signing files anchored across the clone."""
     signing_format = next((value.casefold() for key, value in reversed(settings)
                            if key.casefold() == "gpg.format"), "openpgp")
     programs = {"ssh": ("gpg.ssh.program",), "x509": ("gpg.x509.program",),
                 "openpgp": ("gpg.openpgp.program", "gpg.program")}
-    if signing_format not in programs or not any(key.casefold() in programs[signing_format] for key, _ in settings):
+    if signing_format not in programs:
         raise ContributionError("git_signer_path_selection_unsupported")
     active_programs = programs[signing_format]
+    if not any(key.casefold() in active_programs for key, _ in settings):
+        default_name = {"ssh": "ssh-keygen", "x509": "gpgsm", "openpgp": "gpg"}[signing_format]
+        settings += ((active_programs[0], _qualified_signer_program(default_name)),)
     effective_program = max(index for index, (key, _) in enumerate(settings) if key.casefold() in active_programs)
     signing_key = next((value for key, value in reversed(settings)
                         if key.casefold() == "user.signingkey"), "")
@@ -222,9 +251,9 @@ def _scratch_signing_settings(root: Path, settings: tuple[tuple[str, str], ...])
         if (key_file or signer_file) and not path.is_absolute() and (root / path).is_file():
             value = str((root / path).resolve())
         elif lowered in {"gpg.program", "gpg.openpgp.program", "gpg.ssh.program", "gpg.x509.program"} and not path.is_absolute():
-            # A bare signer can resolve differently after changing cwd or Git's
-            # PATH/exec-path; refuse rather than choose a different program.
-            raise ContributionError("git_signer_path_selection_unsupported")
+            if "/" in value or "\\" in value:
+                raise ContributionError("git_signer_path_selection_unsupported")
+            value = _qualified_signer_program(value)
         result.append((key, value))
     return tuple(result)
 
