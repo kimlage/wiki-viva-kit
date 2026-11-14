@@ -67,6 +67,12 @@ message as a role change. This template does not authenticate either identity.
 
 ## Capability check by the executor
 
+For writable repository work, the executor fetches the destination and creates
+its own focused worktree from `origin/main` (or the expressly designated base).
+The absence of a pre-existing worktree is not a blocker. After integration or
+discard, remove the worktree and branch under the destination's cleanup contract;
+coordinate cleanup with the integrator when it owns that step.
+
 | Required tool or service | Expected host, account and resource | Verified capability and evidence | Available or blocked |
 | --- | --- | --- | --- |
 | | | | |

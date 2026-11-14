@@ -14,6 +14,7 @@ import signal
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -25,17 +26,29 @@ FIELDS = ('proposal', 'head', 'base', 'review', 'gates', 'pending', 'responsible
 
 
 def check(root: Path, timeout: float) -> dict:
-    if not CHECKER.is_file():
-        return {'ok': False, 'status': 'waiting:integration_checker_unavailable'}
+    """Fast, incomplete observation: local Git and at most one bounded GH query."""
     try:
-        p = subprocess.run([sys.executable, str(CHECKER), '--root', str(root), '--json'],
-                           capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', timeout=timeout)
-        result = json.loads(p.stdout)
-        if p.returncode or not isinstance(result, dict):
+        p = subprocess.run(['git', '--no-optional-locks', 'status', '--porcelain', '--untracked-files=no'],
+                           cwd=root, capture_output=True, timeout=min(timeout, 0.5))
+        local = 'dirty' if p.returncode == 0 and p.stdout else ('clean' if p.returncode == 0 else 'unknown')
+    except (OSError, subprocess.TimeoutExpired):
+        local = 'unknown'
+    try:
+        env = dict(os.environ, GH_PROMPT_DISABLED='1')
+        # A descendant retaining a pipe must not defeat subprocess.run's timeout.
+        # The outer worker supervisor cleans up its whole process group on return.
+        with tempfile.TemporaryFile() as output:
+            p = subprocess.run(['gh', 'pr', 'list', '--state', 'open', '--limit', '25',
+                                '--json', 'number,isDraft'], cwd=root, env=env,
+                               stdout=output, stderr=subprocess.DEVNULL, timeout=min(timeout, 0.8))
+            output.seek(0)
+            prs = json.loads(output.read()) if p.returncode == 0 else None
+        if not isinstance(prs, list):
             raise ValueError
-        return result
+        remote = f'{len(prs)} open PRs' + (' (limit reached)' if len(prs) >= 25 else '')
     except (OSError, ValueError, subprocess.TimeoutExpired):
-        return {'ok': False, 'status': 'waiting:integration_observation_unavailable'}
+        remote = 'PR state unknown'
+    return {'ok': True, 'summary': f'Local tracked changes: {local}; {remote}. Run wiki_integration_check.py for full verification.'}
 
 
 def _repository_root(path: Path) -> Path | None:
@@ -152,14 +165,7 @@ def handle(event: dict, root: Path, mode: str, stop_state: str,
     continued = event.get('stop_hook_active') is not False
     if name == 'SessionStart':
         observation = check(root, timeout)
-        if observation.get('ok'):
-            counts: dict[str, int] = {}
-            for item in observation.get('proposals', []) + observation.get('hygiene', []):
-                key = str(item.get('status', 'unknown')).split(':', 1)[0]
-                counts[key] = counts.get(key, 0) + 1
-            summary = 'Integration observations: ' + (', '.join(f'{k}={v}' for k, v in sorted(counts.items())) or 'none')
-        else:
-            summary = 'Integration observation unavailable; run wiki_integration_check.py when available.'
+        summary = observation.get('summary') or 'Integration observation unavailable; run wiki_integration_check.py when available.'
         return {'hookSpecificOutput': {'hookEventName': 'SessionStart', 'additionalContext': summary}}
     if name == 'SubagentStop':
         if event.get('agent_type') not in executor_types:

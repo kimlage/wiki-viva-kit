@@ -14,9 +14,41 @@ BASE = 'b' * 40
 
 
 def test_session_start_injects_bounded_summary(monkeypatch, tmp_path):
-    monkeypatch.setattr(hook, 'check', lambda *args: {'ok': True, 'proposals': [{'status': 'waiting:checks'}, {'status': 'integrable'}], 'hygiene': [{'status': 'fix:dirty_worktree'}]})
+    monkeypatch.setattr(hook, 'check', lambda *args: {'ok': True, 'summary': 'Local tracked changes: clean; 2 open PRs.'})
     output = hook.handle({'hook_event_name': 'SessionStart'}, tmp_path, 'observe', 'unknown', {'executor'}, 10)
-    assert output['hookSpecificOutput']['additionalContext'] == 'Integration observations: fix=1, integrable=1, waiting=1'
+    assert output['hookSpecificOutput']['additionalContext'] == 'Local tracked changes: clean; 2 open PRs.'
+
+
+def test_session_start_large_repository_is_fast_and_makes_one_limited_query(tmp_path):
+    import os
+    import time
+    subprocess.run(['git', 'init', '-q', str(tmp_path)], check=True)
+    for i in range(1500):
+        path = tmp_path / 'pages' / f'{i // 100}' / f'{i}.md'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('Synthetic page\n', encoding='utf-8')
+    subprocess.run(['git', 'add', 'pages'], cwd=tmp_path, check=True)
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    calls = tmp_path / 'gh-calls'
+    gh = bin_dir / 'gh'
+    gh.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$GH_CALLS"\nprintf "[]\\n"\n', encoding='utf-8')
+    gh.chmod(0o755)
+    env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'], GH_CALLS=str(calls))
+    event = json.dumps({'hook_event_name': 'SessionStart', 'cwd': str(tmp_path)})
+    started = time.monotonic()
+    proc = subprocess.run([sys.executable, str(SCRIPT)], input=event, capture_output=True, text=True, env=env, timeout=3)
+    elapsed = time.monotonic() - started
+    assert proc.returncode == 0
+    assert elapsed < 2, elapsed
+    assert '0 open PRs' in json.loads(proc.stdout)['hookSpecificOutput']['additionalContext']
+    assert calls.read_text().splitlines() == ['pr list --state open --limit 25 --json number,isDraft']
+
+
+def test_session_start_reports_gh_failure_as_unknown(monkeypatch, tmp_path):
+    subprocess.run(['git', 'init', '-q', str(tmp_path)], check=True)
+    monkeypatch.setenv('PATH', '')
+    assert 'PR state unknown' in hook.check(tmp_path, 2)['summary']
 
 
 def test_stop_observe_and_bounded_enforce(monkeypatch, tmp_path):
@@ -238,14 +270,17 @@ def _write_synthetic_checker(tmp_path):
     import shutil
     script = tmp_path / 'wiki_session_hook.py'
     shutil.copy(SCRIPT, script)
-    checker = tmp_path / 'wiki_integration_check.py'
-    checker.write_text('import os, pathlib, subprocess, sys, time\n'
+    checker = tmp_path / 'gh'
+    checker.write_text(f'#!{sys.executable}\n'
+                       'import os, pathlib, subprocess, sys, time\n'
                        'child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])\n'
                        'pathlib.Path(os.environ["SYNTHETIC_PID_PATH"]).write_text(str(child.pid))\n'
                        'time.sleep(60)\n')
+    checker.chmod(0o755)
     return script
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='synthetic executable uses a Unix shebang')
 def test_session_start_full_path_times_out_and_kills_grandchild(tmp_path):
     import os
     import time
@@ -253,13 +288,15 @@ def test_session_start_full_path_times_out_and_kills_grandchild(tmp_path):
     subprocess.run(['git', 'init', '-q', str(repo)], check=True)
     script = _write_synthetic_checker(tmp_path)
     pidfile = tmp_path / 'session-child.pid'
-    env = dict(os.environ, SYNTHETIC_PID_PATH=str(pidfile))
+    env = dict(os.environ, SYNTHETIC_PID_PATH=str(pidfile), PATH=str(tmp_path) + os.pathsep + os.environ['PATH'])
     started = time.monotonic()
     result = subprocess.run([sys.executable, str(script), '--timeout', '1'],
                             input=json.dumps({'hook_event_name': 'SessionStart', 'cwd': str(repo)}),
                             capture_output=True, text=True, env=env, timeout=4)
     assert result.returncode == 0 and time.monotonic() - started < 3
-    assert 'timed out' in json.loads(result.stdout)['systemMessage']
+    output = json.loads(result.stdout)
+    assert ('PR state unknown' in output.get('hookSpecificOutput', {}).get('additionalContext', '')
+            or 'timed out' in output.get('systemMessage', ''))
     assert pidfile.exists()
     pid = int(pidfile.read_text())
     deadline = time.monotonic() + 2
@@ -277,7 +314,7 @@ def test_sigterm_cleans_up_session_start_tree(tmp_path):
     subprocess.run(['git', 'init', '-q', str(repo)], check=True)
     script = _write_synthetic_checker(tmp_path)
     pidfile = tmp_path / 'signal-child.pid'
-    env = dict(os.environ, SYNTHETIC_PID_PATH=str(pidfile))
+    env = dict(os.environ, SYNTHETIC_PID_PATH=str(pidfile), PATH=str(tmp_path) + os.pathsep + os.environ['PATH'])
     proc = subprocess.Popen([sys.executable, str(script), '--timeout', '10'],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True, env=env)

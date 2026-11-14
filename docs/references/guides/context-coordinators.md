@@ -433,8 +433,11 @@ and reader/service adoption in the project application already in use.
 The repository may opt in to `scripts/wiki_session_hook.py`. It consumes one
 provider event as JSON on stdin. It uses the read-only integration checker and
 returns JSON to the host; it does not post, merge, clean, persist a queue or
-change action state. `SessionStart` queries the checker and injects a short count
-summary. `Stop` uses local Git only in both modes; it does not query GitHub.
+change action state. `SessionStart` injects a short, incomplete local observation:
+tracked Git changes and at most one GitHub query limited to 25 open PRs, with a
+short query timeout. Untracked files and further PRs are not inventoried; if the
+query fails the PR state is unknown. Run `wiki_integration_check.py` for the
+full read-only verification. `Stop` uses local Git only in both modes; it does not query GitHub.
 It defaults to `--mode observe` and warns only. In `--mode enforce`, verified
 uncommitted changes or a local branch without an upstream may cause one
 continuation. Missing upstream is only a local tracking fact: it does not prove
@@ -479,8 +482,12 @@ that deliberately creates a separate session can leave the process group and is
 outside this group-based cleanup. These are opt-in behavior
 and do not grant authority or replace the destination policy.
 
-Codex discovers project hooks in `.codex/hooks.json` (and requires trust for
-non-managed hooks); Claude Code reads `.claude/settings.json`. The following
+Codex discovers project hooks in `.codex/hooks.json` or `[hooks]` in
+`.codex/config.toml`. The project's `.codex` layer must be trusted; review and
+trust each non-managed hook using `/hooks` in the Codex CLI. Changes to the
+hook require renewed trust. Hooks are enabled by default; `[features] hooks =
+false` disables them, and an administrator may also disable them by policy.
+`codex_hooks` is a deprecated alias. Claude Code reads `.claude/settings.json`. The following
 examples use a placeholder for a host-maintained state file. Install only the
 provider's configuration in the consumer repository, adjust paths and
 executor type, and follow the host's trust and policy requirements. The same
@@ -514,3 +521,10 @@ After observing behavior, an authorized consumer may change the Stop command
 from `--mode observe` to `--mode enforce`. Official schemas and lifecycle
 semantics: [Codex hooks](https://learn.chatgpt.com/docs/hooks) and
 [Claude Code hooks](https://code.claude.com/docs/en/hooks).
+
+To verify loading, first trust the project and the exact hook via `/hooks` in
+interactive Codex. Then run `codex exec` in that repository with a prompt asking
+it to report the injected `Local tracked changes` observation. A direct shell
+invocation of the script proves the script works, not that Codex loaded it. If
+the observation is missing, inspect `/hooks` and feature/policy settings; do not
+claim loading based on the configuration file alone.
