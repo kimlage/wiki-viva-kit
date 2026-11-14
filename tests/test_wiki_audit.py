@@ -2969,3 +2969,33 @@ def test_action_adoption_receipt_rejects_invalid_utf8_even_if_replacement_matche
     errors = []
     assert audit._action_adoption_baseline(errors, WikiConfig()) == (None, True)
     assert any('[action_adoption_receipt_rewritten]' in e for e in errors)
+
+
+def test_action_receipt_audit_checks_lf_blob_with_crlf_checkout(tmp_path, monkeypatch):
+    import hashlib
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import transition_action_page
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path)
+    rel = path.relative_to(tmp_path).as_posix()
+    (tmp_path / '.gitattributes').write_text('memories/actions/*.md text eol=crlf\n')
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic LF blob with CRLF checkout')
+    blob = git('show', f'main:{rel}')
+    path.unlink()
+    git('checkout', '--', rel)
+    checkout = path.read_bytes()
+    assert b'\r\n' in checkout and b'\r\n' not in blob
+    git('diff', '--quiet', '--', rel)
+    transition_action_page(tmp_path, path, 'in_progress',
+        expected_sha256=hashlib.sha256(checkout).hexdigest(), recorded_at='2026-07-11T15:00:00Z')
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert errors == []
