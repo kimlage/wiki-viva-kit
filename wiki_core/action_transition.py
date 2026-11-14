@@ -1306,6 +1306,10 @@ def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000) -
             return value_type, value.isoformat(), value.fold
         if value_type is date:
             return value_type, value.isoformat()
+        if value_type is int:
+            # Hash randomized strings rather than attacker-selected integer
+            # hashes, while retaining exact type and value.
+            return value_type, str(value)
         if value_type is float:
             import struct
             return value_type, struct.pack("!d", value)

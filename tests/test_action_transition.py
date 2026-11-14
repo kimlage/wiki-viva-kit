@@ -1445,3 +1445,15 @@ def test_comment_typed_comparison_preserves_local_offsets_and_float_sign():
     assert not transition_module._comment_typed_equal({utc: 'x'}, {local: 'x'})
     assert not transition_module._comment_typed_equal({'value': -0.0}, {'value': 0.0})
     assert not transition_module._comment_typed_equal({-0.0: 'x'}, {0.0: 'x'})
+
+
+def test_comment_typed_comparison_handles_colliding_integer_keys():
+    import sys
+    # CPython hashes these distinct integers identically; compare them without
+    # the quadratic probing caused by their original numeric hashes.
+    modulus = sys.hash_info.modulus
+    left = {i * modulus: i for i in range(6000)}
+    right = dict(reversed(list(left.items())))
+    assert transition_module._comment_typed_equal(left, right)
+    right[modulus] = -1
+    assert not transition_module._comment_typed_equal(left, right)
