@@ -130,3 +130,32 @@ def test_registry_keeps_existing_context_and_parent(tmp_path, monkeypatch, exist
     paths.source_registry_page.parent.mkdir(parents=True, exist_ok=True)
     paths.source_registry_page.write_text(content)
     assert reg.build_registry(paths, WikiConfig(), "2026-06-10") == content
+
+
+@pytest.mark.parametrize("content", [
+    "---\ncontext: team\nmoc_parent: memories/team/index.md\nother: [bad\n---\n",
+    "---\ncontext: team\nmoc_parent: memories/team/index.md\n---suffix\n",
+])
+def test_writer_refuses_invalid_existing_registry_without_mutation(tmp_path, monkeypatch, content):
+    reg, paths = registry(tmp_path, monkeypatch)
+    target = paths.source_registry_page
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+    monkeypatch.setattr(reg.sys, "argv", ["wiki_source_registry.py", "--write"])
+    with pytest.raises(ValueError, match="source registry frontmatter"):
+        reg.main()
+    assert target.read_text(encoding="utf-8") == content
+
+
+@pytest.mark.parametrize("freshness, expected", [
+    ({"default": 30, "system": 7, "team": 90}, 90),
+    ({"default": 30, "system": 7, "team": 90, "type:source_registry": 14}, 14),
+])
+def test_registry_freshness_uses_preserved_context(tmp_path, monkeypatch, freshness, expected):
+    reg, paths = registry(tmp_path, monkeypatch)
+    paths.source_registry_page.parent.mkdir(parents=True, exist_ok=True)
+    paths.source_registry_page.write_text("---\ncontext: team\nmoc_parent: memories/team/index.md\n---\n")
+    config = WikiConfig(freshness=freshness)
+    metadata = yaml.safe_load(reg.build_registry(paths, config, "2026-06-10").split("---", 2)[1])
+    assert metadata["context"] == "team"
+    assert metadata["stale_after_days"] == expected

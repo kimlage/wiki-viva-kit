@@ -129,6 +129,25 @@ def read_frontmatter(path: Path) -> dict[str, object]:
         return {}
 
 
+def _read_registry_frontmatter(path: Path) -> dict[str, object]:
+    """Refuse to overwrite an existing registry whose identity cannot be read."""
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---\n"):
+        raise ValueError("source registry frontmatter is missing or invalid")
+    end = text.find("\n---\n", 4)
+    if end < 0 and text.endswith("\n---"):
+        end = len(text) - 4
+    if end < 0:
+        raise ValueError("source registry frontmatter is missing or invalid")
+    try:
+        values = yaml.safe_load(text[4:end])
+    except yaml.YAMLError:
+        raise ValueError("source registry frontmatter is invalid") from None
+    if not isinstance(values, dict):
+        raise ValueError("source registry frontmatter must be a mapping")
+    return values
+
+
 def _parse_date(value: object) -> dt.date | None:
     text = str(value or "").strip()
     if not text:
@@ -296,9 +315,7 @@ def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
 
     rows = collect_sources(paths, updated_at)
     index_rel = paths.rel(paths.memory_root / "index.md")
-    existing = read_frontmatter(reg_path) if reg_path.exists() else {}
-    if not isinstance(existing, dict):
-        raise ValueError("source registry frontmatter must be a mapping")
+    existing = _read_registry_frontmatter(reg_path) if reg_path.exists() else {}
     context = existing.get("context", config.default_context)
     parent = existing.get("moc_parent", index_rel)
     if not all(isinstance(value, str) and value.strip() for value in (context, parent)):
@@ -313,7 +330,7 @@ def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
         *yaml.safe_dump({"context": context}, allow_unicode=True).rstrip().splitlines(),
         "visibility: private_self",
         f"updated_at: {updated_at}",
-        f"stale_after_days: {freshness_for(config.default_context, 'source_registry', config)}",
+        f"stale_after_days: {freshness_for(context, 'source_registry', config)}",
         "sources_policy: memoria_consolidada",
         "gate: github_pr",
         "sensitive_data_policy: private_sensitive_allowed",
