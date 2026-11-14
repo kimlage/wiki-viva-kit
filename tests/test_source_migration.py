@@ -347,7 +347,7 @@ def test_operational_recipe_deduplicates_source_linked_by_config(tmp_path: Path,
     (['Synthetic observation without a file reference', 'https://example.invalid/events/record.md'], ''),
     (['Synthetic observation without a file reference', 'memories/events/example.md'], 'memories/events/example.md'),
 ])
-def test_operational_migration_uses_file_reference_not_prose_or_url(tmp_path: Path, refs: list[str], expected: str) -> None:
+def test_operational_migration_skips_selected_prose_and_lowercase_https(tmp_path: Path, refs: list[str], expected: str) -> None:
     _seed_source_wiki(tmp_path)
     source = tmp_path / 'memories/sources/methodology.md'
     rows = ''.join(f'    - {ref}\n' for ref in refs)
