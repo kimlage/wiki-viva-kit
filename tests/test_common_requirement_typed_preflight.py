@@ -23,7 +23,9 @@ def test_common_requirement_type_change_is_validated(audit_collection):
               'read_coverage': {'observed_refs': packet['declared_read_set'],
                                 'missing': packet['coverage']['missing']}, 'blockers': []}
     git(root, 'checkout', '-qb', 'wiki/common-type')
-    for value, accepted in ((1, True), (True, False), (1.0, False)):
+    for value, expected in ((1, None), (True, 'invalid proposed information requirement'),
+                            (1.0, 'invalid proposed information requirement'),
+                            (2, 'new requirement is unpinned')):
         proposed = deepcopy(requirement)
         proposed['max_age_days'] = value
         declare(root, proposed)
@@ -32,8 +34,8 @@ def test_common_requirement_type_change_is_validated(audit_collection):
         git(root, 'add', '.'); git(root, 'commit', '-qm', 'synthetic requirement type')
         args = dict(context_id=AUDIT_CONTEXT, base=base, head=git(root, 'rev-parse', 'HEAD'),
                     branch='wiki/common-type', packet=packet, result=result)
-        if accepted:
+        if expected is None:
             assert preflight(root, folder_policy(root), **args)['state'] == 'independent_review_required'
         else:
-            with pytest.raises(IntegrationError, match='invalid proposed information requirement'):
+            with pytest.raises(IntegrationError, match=expected):
                 preflight(root, folder_policy(root), **args)
