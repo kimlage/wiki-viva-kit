@@ -1316,7 +1316,10 @@ def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000) -
                 return False
             if pair in done:
                 continue
-            if len(left) != len(right) or len(left) > max_nodes - visited:
+            # Account for already queued work before expanding another shared
+            # collection; aliases must not accumulate an unbounded pending stack.
+            if (len(left) != len(right)
+                    or visited + len(pending) + len(left) + 1 > max_nodes):
                 return False
             active.add(pair)
             pending.append((True, left, right))

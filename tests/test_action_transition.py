@@ -1422,3 +1422,15 @@ def test_comment_typed_comparison_bounds_shared_aliases_and_rejects_cycles():
     assert not transition_module._comment_typed_equal({'a': 1, 'b': 2}, {'a': 1, 'b': 2}, max_nodes=2)
     many = {str(i): i for i in range(6000)}
     assert transition_module._comment_typed_equal(many, dict(reversed(list(many.items()))))
+
+
+def test_comment_typed_comparison_limits_scheduled_work_before_expansion():
+    expanded = []
+    class WatchedList(list):
+        def __iter__(self):
+            expanded.append(True)
+            return super().__iter__()
+    child_left = WatchedList([0] * 80)
+    child_right = WatchedList([0] * 80)
+    assert not transition_module._comment_typed_equal([child_left] * 80, [child_right] * 80, max_nodes=100)
+    assert expanded == []
