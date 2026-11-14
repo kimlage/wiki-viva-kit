@@ -71,6 +71,25 @@ def _request_for(paths: WikiPaths, source_id: str, request_path: str | None = No
     return requests[0] if requests else None
 
 
+def _publish_local_packet_once(path: Path, text: str) -> None:
+    """Publish a complete local packet without replacing an existing path."""
+    import os
+    import secrets
+
+    # Use the normal creation mode and umask, while keeping the final name
+    # absent until all bytes have been written and flushed.
+    temporary = path.parent / ('.wiki-packet-' + secrets.token_hex(16) + '.tmp')
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            stream.write(text)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.link(temporary, path, follow_symlinks=False)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def consolidate_one(
     source_id: str, *, emit_event: bool, packet: bool, source_page: str | None,
     source_ref: str | None, context: str, date: dt.date, force: bool,
@@ -156,8 +175,7 @@ def consolidate_one(
         require_wiki_boundaries(ROOT, files=(packet_file,))
         if request_id:
             if not packet_file.exists():
-                with packet_file.open('x', encoding='utf-8') as stream:
-                    stream.write(packet_text)
+                _publish_local_packet_once(packet_file, packet_text)
         else:
             packet_file.write_text(packet_text, encoding='utf-8')
         print(packet_file.relative_to(ROOT).as_posix())

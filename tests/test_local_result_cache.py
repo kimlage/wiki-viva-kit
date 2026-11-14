@@ -584,3 +584,43 @@ def test_result_recording_rejects_changed_instruction_then_allows_restored(appro
     assert cli.main() == 0
     capsys.readouterr()
     assert all((cache_dir / f"{row['cache_key']}.json").is_file() for row in request['chunks'])
+
+
+def test_local_packet_published_only_after_complete_write(tmp_path, monkeypatch):
+    import os
+    consolidate = module('wiki_consolidate')
+    target = tmp_path / 'packet.json'
+    original_link = os.link
+
+    def inspect_publication(source, destination, **kwargs):
+        assert not target.exists()
+        assert Path(source).read_text(encoding='utf-8') == '{"complete": true}\n'
+        return original_link(source, destination, **kwargs)
+
+    monkeypatch.setattr(os, 'link', inspect_publication)
+    consolidate._publish_local_packet_once(target, '{"complete": true}\n')
+    assert target.read_text(encoding='utf-8') == '{"complete": true}\n'
+    assert sorted(p.name for p in tmp_path.iterdir()) == ['packet.json']
+
+
+def test_local_packet_failure_and_competing_writer_are_preserved(tmp_path, monkeypatch):
+    import os
+    consolidate = module('wiki_consolidate')
+    target = tmp_path / 'packet.json'
+    original_fsync = os.fsync
+    monkeypatch.setattr(os, 'fsync', lambda _fd: (_ for _ in ()).throw(OSError('synthetic failure')))
+    with pytest.raises(OSError, match='synthetic failure'):
+        consolidate._publish_local_packet_once(target, 'partial candidate')
+    assert list(tmp_path.iterdir()) == []
+    monkeypatch.setattr(os, 'fsync', original_fsync)
+    original_link = os.link
+
+    def competing_writer(source, destination, **kwargs):
+        target.write_text('other writer')
+        return original_link(source, destination, **kwargs)
+
+    monkeypatch.setattr(os, 'link', competing_writer)
+    with pytest.raises(FileExistsError):
+        consolidate._publish_local_packet_once(target, 'new candidate')
+    assert target.read_text() == 'other writer'
+    assert sorted(p.name for p in tmp_path.iterdir()) == ['packet.json']
