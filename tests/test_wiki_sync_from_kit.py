@@ -16,7 +16,9 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/wiki_sync_from_kit.py"
 requires_safe_drift = pytest.mark.skipif(
-    os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd
+    os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_NONBLOCK")
+    or not hasattr(os, "O_DIRECTORY") or os.open not in os.supports_dir_fd
+    or os.stat not in os.supports_dir_fd or os.stat not in os.supports_follow_symlinks
     or os.access not in os.supports_dir_fd or os.access not in os.supports_follow_symlinks,
     reason="drift inspection requires POSIX no-follow and directory-relative reads",
 )
@@ -877,3 +879,75 @@ def test_actual_nested_git_repo_is_untouched_by_b0_and_allow_dirty_apply(tmp_pat
         assert _git(nested, 'status', '--porcelain') == nested_status
         assert not (nested / 'tool.txt').exists()
         assert not (consumer / 'kit.lock').exists()
+
+
+def _manual_drift_lock(consumer: Path, entries: dict[str, bytes]):
+    """Build a synthetic lock/index directly, without invoking sync."""
+    import hashlib
+    sync = _sync_module()
+    managed = {}
+    for rel, data in entries.items():
+        path = consumer / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        managed[rel] = {'sha256': hashlib.sha256(data).hexdigest(), 'mode': '100644'}
+    tree = [{'path': rel, **managed[rel]} for rel in sorted(managed)]
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'source_sha': 'a' * 40,
+            'manifest_sha256': 'b' * 64, 'portable_tree_sha256': sync._canonical_sha256(tree),
+            'managed_files': managed}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    _git(consumer, 'add', '-A')
+    _git(consumer, 'commit', '-qm', 'synthetic lock and files')
+    return sync
+
+
+@requires_safe_drift
+def test_drift_rejects_protected_selection_before_managed_metadata_or_body(tmp_path, monkeypatch):
+    consumer = _repo(tmp_path / 'consumer')
+    protected = 'data/.WIKI-VIVA-PROTECTED/secret.txt'
+    sync = _manual_drift_lock(consumer, {'a-normal.txt': b'normal', protected: b'synthetic'})
+    monkeypatch.setattr(sync, '_check_consumer_path', lambda *_: pytest.fail('managed path resolved'))
+    monkeypatch.setattr(sync, '_drift_index_states', lambda *_: pytest.fail('index selection opened'))
+    original = sync._drift_worktree_file
+    def only_lock(root, rel, **kwargs):
+        if rel != 'kit.lock':
+            pytest.fail('managed body opened')
+        return original(root, rel, **kwargs)
+    monkeypatch.setattr(sync, '_drift_worktree_file', only_lock)
+    with pytest.raises(sync.SyncError, match='protected drift selection'):
+        sync.inspect_drift(consumer)
+
+
+@requires_safe_drift
+def test_drift_human_output_escapes_terminal_control(tmp_path, monkeypatch, capsys):
+    consumer = _repo(tmp_path / 'consumer')
+    rel = 'synthetic-\x1b[31m-\x7f.txt'
+    sync = _manual_drift_lock(consumer, {rel: b'original'})
+    (consumer / rel).write_bytes(b'changed')
+    monkeypatch.setattr(sys, 'argv', [str(SCRIPT), '--kit', str(consumer), '--consumer', str(consumer), '--inspect-drift'])
+    assert sync.main() == 1
+    output = capsys.readouterr().out
+    assert '\x1b' not in output and '\x7f' not in output
+    assert '\\u001b' in output and '\\u007f' in output
+    monkeypatch.setattr(sys, 'argv', [str(SCRIPT), '--kit', str(consumer), '--consumer', str(consumer), '--inspect-drift', '--json'])
+    assert sync.main() == 1
+    output = capsys.readouterr().out
+    assert '\x1b' not in output and '\x7f' not in output
+    assert json.loads(output)['drift'][0]['path'] == rel
+
+
+@requires_safe_drift
+def test_drift_git_output_and_duration_are_bounded(tmp_path, monkeypatch):
+    sync = _sync_module()
+    with pytest.raises(sync.SyncError, match='exceeded limits'):
+        sync._drift_git_run([sys.executable, '-c', 'print("x" * 10000)'], tmp_path, output_limit=64)
+    monkeypatch.setattr(sync, 'DRIFT_GIT_TIMEOUT_SECONDS', 0.2)
+    with pytest.raises(sync.SyncError, match='exceeded limits'):
+        sync._drift_git_run([sys.executable, '-c', 'import time; time.sleep(3)'], tmp_path, output_limit=64)
+
+
+def test_drift_fails_closed_without_nonblocking_open(tmp_path, monkeypatch):
+    sync = _sync_module()
+    monkeypatch.delattr(sync.os, 'O_NONBLOCK', raising=False)
+    with pytest.raises(sync.SyncError, match='requires no-follow directory-relative reads'):
+        sync._drift_worktree_file(tmp_path, 'kit.lock')
