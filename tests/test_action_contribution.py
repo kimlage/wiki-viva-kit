@@ -504,6 +504,47 @@ def test_prepare_preserves_global_identity_without_inherited_repo(tmp_path, monk
     assert author.strip() == b'Synthetic Global <global@example.test>'
 
 
+def test_transport_uses_selected_repo_despite_inherited_git_directory(tmp_path, monkeypatch):
+    selected = tmp_path / 'selected'
+    selected.mkdir()
+    fixture(selected)
+    other = tmp_path / 'other'
+    other.mkdir()
+    fixture(other)
+    (other / 'extra').write_text('different synthetic repository')
+    git(other, 'add', 'extra')
+    git(other, 'commit', '-qm', 'other repository')
+    selected_oid = git(selected, 'rev-parse', 'HEAD')
+    other_oid = git(other, 'rev-parse', 'HEAD')
+    assert selected_oid != other_oid
+    remote = tmp_path / 'remote.git'
+    subprocess.run(['git', 'init', '--bare', str(remote)], check=True, capture_output=True)
+    git(selected, 'remote', 'add', 'origin', str(remote))
+    git(other, 'remote', 'add', 'origin', str(remote))
+    with monkeypatch.context() as scoped:
+        scoped.setenv('GIT_DIR', str(other / '.git'))
+        scoped.setenv('GIT_INDEX_FILE', str(other / 'synthetic-index'))
+        port._git(selected, 'push', 'origin', 'refs/heads/main:refs/heads/main')
+        assert port._fetch_remote_ref(selected, 'refs/heads/main') == selected_oid
+        assert port._remote_branch(selected, 'main') == selected_oid
+    assert git(remote, 'rev-parse', 'refs/heads/main') == selected_oid
+    assert git(selected, 'for-each-ref', 'refs/wiki/contribution-read') == ''
+    assert git(other, 'for-each-ref', 'refs/wiki/contribution-read') == ''
+
+
+def test_transport_environment_preserves_auth_but_binds_repository(tmp_path, monkeypatch):
+    fixture(tmp_path)
+    monkeypatch.setenv('GIT_SSH_COMMAND', 'synthetic-ssh-command')
+    monkeypatch.setenv('GIT_ASKPASS', 'synthetic-askpass')
+    monkeypatch.setenv('GIT_OBJECT_DIRECTORY', '/synthetic/unrelated-objects')
+    env = port._transport_git_environment(tmp_path)
+    assert env['GIT_SSH_COMMAND'] == 'synthetic-ssh-command'
+    assert env['GIT_ASKPASS'] == 'synthetic-askpass'
+    assert 'GIT_OBJECT_DIRECTORY' not in env
+    assert Path(env['GIT_DIR']).resolve() == (tmp_path / '.git').resolve()
+    assert Path(env['GIT_WORK_TREE']).resolve() == tmp_path.resolve()
+
+
 def test_local_gates_use_selected_clone_despite_inherited_git_directory(tmp_path, monkeypatch):
     root = tmp_path / 'selected'
     root.mkdir()

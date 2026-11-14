@@ -46,9 +46,9 @@ def _sha(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def _run(root: Path, *argv: str, timeout: int = 120) -> str:
+def _run(root: Path, *argv: str, timeout: int = 120, env: dict[str, str] | None = None) -> str:
     try:
-        p = subprocess.run(argv, cwd=root, text=True, capture_output=True, timeout=timeout)
+        p = subprocess.run(argv, cwd=root, env=env, text=True, capture_output=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ContributionError("command_outcome_unknown: reconcile before retry") from exc
     if p.returncode:
@@ -77,7 +77,27 @@ def _local_git_bytes(root: Path, *argv: str) -> bytes:
 def _git(root: Path, *argv: str) -> str:
     if argv and argv[0] in {"rev-parse", "merge-base", "diff", "ls-files", "status", "log"}:
         return os.fsdecode(_local_git_bytes(root, *argv)).strip()
-    return _run(root, "git", *argv)
+    if argv and argv[0] == "update-ref":
+        return _local_git_effect(root, *argv)
+    return _run(root, "git", *argv, env=_transport_git_environment(root))
+
+
+def _transport_git_environment(root: Path) -> dict[str, str]:
+    """Bind remote Git commands to the repository used for local observation.
+
+    Preserve transport and credential configuration; this is not remote identity
+    authentication or protection against concurrent repository configuration edits.
+    """
+    selectors = {"GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE",
+                 "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+                 "GIT_NAMESPACE", "GIT_REPLACE_REF_BASE", "GIT_SHALLOW_FILE",
+                 "GIT_GRAFT_FILE", "GIT_CEILING_DIRECTORIES", "GIT_DISCOVERY_ACROSS_FILESYSTEM"}
+    env = {key: value for key, value in os.environ.items() if key.upper() not in selectors}
+    git_dir = os.fsdecode(_local_git_bytes(root, "rev-parse", "--absolute-git-dir")).removesuffix("\n")
+    env["GIT_DIR"] = git_dir
+    env["GIT_WORK_TREE"] = str(root.resolve())
+    env["GIT_NO_REPLACE_OBJECTS"] = "1"
+    return env
 
 
 def _local_git_probe(root: Path, *argv: str) -> subprocess.CompletedProcess:
@@ -756,7 +776,7 @@ def _fetch_remote_ref(root: Path, source_ref: str, expected: str | None = None) 
 
 def _remote_branch(root: Path, branch: str) -> str | None:
     p = subprocess.run(["git", "ls-remote", "--exit-code", "--refs", "origin", f"refs/heads/{branch}"],
-                       cwd=root, text=True, capture_output=True, timeout=120)
+                       cwd=root, env=_transport_git_environment(root), text=True, capture_output=True, timeout=120)
     if p.returncode == 2:
         return None  # successful lookup, no such ref; not a transport failure
     if p.returncode:
