@@ -514,7 +514,7 @@ def test_contribution_reconciles_lf_git_blob_with_crlf_checkout(tmp_path, factua
     assert p.read_bytes() == physical
 
 
-@pytest.mark.parametrize('change', ['failed', 'pending', 'draft', 'changes_requested', 'head', 'base', 'number', 'head_ref', 'repository', 'owner', 'cross_repo'])
+@pytest.mark.parametrize('change', ['failed', 'pending', 'draft', 'changes_requested', 'head', 'base', 'number', 'head_ref', 'repository', 'owner', 'cross_repo', 'null', 'list'])
 def test_github_checks_are_reobserved_before_merge_effect(tmp_path, monkeypatch, change):
     _, request = fixture(tmp_path)
     prepared = call(tmp_path, 'prepare', request, review=review(request))
@@ -537,6 +537,8 @@ def test_github_checks_are_reobserved_before_merge_effect(tmp_path, monkeypatch,
     elif change == 'repository': later['headRepository'] = {'name': 'other'}
     elif change == 'owner': later['headRepositoryOwner'] = {'login': 'other'}
     elif change == 'cross_repo': later['isCrossRepository'] = True
+    elif change == 'null': later = None
+    elif change == 'list': later = []
     else: later['number'] = 2
     observed = []
     def read_pr(*_args):
@@ -553,4 +555,8 @@ def test_github_checks_are_reobserved_before_merge_effect(tmp_path, monkeypatch,
     result = call(tmp_path, 'integrate', request, pr=1, head_review=head_review(request, commit))
     assert len(observed) == 2
     assert not result.get('remote_merged', False)
-    assert result['status'] in {'waiting_ci_or_pr', 'waiting_pr_review', 'refused'}
+    if change in {'null', 'list'}:
+        assert result['status'] == 'unknown'
+        assert result['error'] == 'contribution_observation_unknown'
+    else:
+        assert result['status'] in {'waiting_ci_or_pr', 'waiting_pr_review', 'refused'}

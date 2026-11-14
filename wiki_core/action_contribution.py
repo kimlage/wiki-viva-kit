@@ -885,6 +885,8 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
         # immediately before the merge attempt. This narrows, not removes, the
         # race between the observation and GitHub's effect.
         current_pr = _pr(root, pr["number"])
+        if not isinstance(current_pr, dict):
+            raise ContributionError("contribution_observation_unknown")
         identity_fields = ("number", "headRefOid", "headRefName", "baseRefName",
                            "headRepository", "headRepositoryOwner", "isCrossRepository")
         if any(current_pr.get(field) != pr.get(field) for field in identity_fields):
