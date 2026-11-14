@@ -161,7 +161,10 @@ result, verifiable acceptance criteria, current state or blocker, and the next
 responsible actor. Reference common rules instead of copying them into the
 brief. The executor returns evidence and remaining work against those criteria;
 an independent reviewer compares each criterion with the evidence and records
-findings and their resolution. The integrator checks review, applicable
+findings and their resolution. Where CI is available at the destination, the
+executor checks its result for the exact final head before sending the handoff,
+and includes the state and evidence. If it is pending, mark the handoff
+`awaiting CI` and name that event; do not present it as ready. The integrator checks review, applicable
 validations, approved-main readback and wiki reconciliation. The coordinator
 correlates the states and evidence across fronts and reconciles discrepancies;
 a partial merge or sent message alone does not resolve a dependency.

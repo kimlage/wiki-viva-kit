@@ -249,7 +249,9 @@ produce a named wait rather than a readiness claim. The GitHub adapter refuses a
 inventory at its 1,000-proposal bound instead of presenting a truncated result.
 
 Each proposal reports `integrable`, `waiting:<event>`, `fix:<finding>` or
-`done`; hygiene findings are separate. For a merged or closed proposal the
+`done`; hygiene findings are separate. Every open proposal with a completed
+failing CI check on its observed head reports `fix:ci_failed` with the names of
+the failed checks, even when it is a draft or awaits another condition. For a merged or closed proposal the
 command reads canonical action pages from the observed default-branch commit.
 When an open action cites that proposal in its next action, body or evidence
 references and predates closure, it reports `fix:action_stale` with action ID,
