@@ -14,6 +14,11 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-14] Index read-only integration observation
+
+The [command reference](wiki/command-reference.md) lists the read-only
+integration observation CLI. This change does not renew source dates.
+
 ## [2026-11-12] Restore authorized Drive publication
 
 Restore [Drive publication](../../scripts/wiki_drive_publish.py) under the owner's

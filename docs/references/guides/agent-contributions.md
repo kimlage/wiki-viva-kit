@@ -235,3 +235,51 @@ Tests distinguish synthetic adapter reports and mocked GitHub CI from real
 local Git/CLI execution. Neither proves a model or provider was called. Public
 fixtures contain only fictional content; personal configuration and material
 remain in each private consumer.
+
+## Read-only integration observation
+
+Run `python3 scripts/wiki_integration_check.py --root /path/to/repo [--pr N] [--json]`
+to observe GitHub proposal readiness and local branch/worktree hygiene. Without
+`--pr`, the command inventories proposals, local and remote branches and
+worktrees. A filtered observation does not claim that the global branch inventory
+is complete. It reads destination policy from the retained object for the live
+default branch and does not fetch, run gates, change refs, post, merge or clean
+anything. Missing local objects, provider access, policy or a supported adapter
+produce a named wait rather than a readiness claim. The GitHub adapter refuses an
+inventory at its 1,000-proposal bound instead of presenting a truncated result.
+
+Each proposal reports `integrable`, `waiting:<event>`, `fix:<finding>` or
+`done`; hygiene findings are separate. For a merged or closed proposal the
+command reads canonical action pages from the observed default-branch commit.
+When an open action cites that proposal in its next action, body or evidence
+references and predates closure, it reports `fix:action_stale` with action ID,
+proposal and responsible owner. A later action update or receipt is current;
+terminal actions do not produce the finding. Date-only evidence whose possible time zones overlap closure, absent
+links, unreadable sources or missing closure timestamps are indeterminate and
+name the next event and responsible role. `done` describes the proposal only
+and never proves the action is closed. Explicit PR numbers and links to the
+observed repository are supported; other reference formats require reconciliation. This is an advisory snapshot, not an
+approval or authorization. Recheck current head, base, policy and observations
+before an effect. A closed proposal requires an explicit reason comment using
+`Disposition-Reason:`, `Motivo:` or `Reason for closure:`; an unrecognized
+comment leaves `waiting:verify_closure_reason` for an operator to reconcile. An orphan branch or a
+worktree finding does not authorize deletion.
+
+The GitHub adapter accepts an independent native approval on the exact commit
+with the full SHA in its body, or a comment by a different GitHub account from
+the proposal author with separate lines `Head: <full SHA>` and `Review:
+approved`. A comment claiming another reviewer under the author's own account
+cannot establish independence. `Responsible-Thread: <thread reference>` in an
+exact-head comment supplies the optional routing field. Shared-account agent
+reviews therefore need independent verification outside this adapter.
+
+With `require_human_review: true`, the GitHub adapter reports
+`waiting:human_review_identity`: GitHub's `User` account type cannot establish
+that a human operated a shared account. The integrator verifies the owner's
+approval under the destination policy. With `local_gates`, the command may report `integrable` when the integration
+operation is the next executable step; `required_at_integration` explicitly
+requires running local gates on the exact head. It does not claim they passed:
+the existing contribution contract reruns them, and a comment cannot replace
+that run. The JSON `pending` array retains all simultaneously observed waits. For a destination
+without a supported policy adapter, follow its own repository rules; this
+command cannot infer them from prose.

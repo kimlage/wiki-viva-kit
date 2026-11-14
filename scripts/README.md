@@ -276,3 +276,11 @@ The [local operator guide](../docs/references/guides/local-operator.md) describe
 read-only discovery, effect-specific sessions, finite proposals and opt-in
 execution. External agent adapters and source-review jobs default to disabled;
 reader/context/ingestion CLIs do not require a resident process or scheduler.
+
+### Integration observation
+
+[wiki_integration_check.py](wiki_integration_check.py) observes proposal
+readiness and Git lifecycle hygiene without mutation:
+`python3 scripts/wiki_integration_check.py --root /path/to/repo [--pr N] [--json]`.
+See [integration observation](../docs/references/guides/agent-contributions.md#read-only-integration-observation)
+for the supported GitHub adapter, exact-head handoff and local-gate limitations.
