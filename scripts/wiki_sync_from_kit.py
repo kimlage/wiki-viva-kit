@@ -111,8 +111,8 @@ def _canonical_sha256(value: Any) -> str:
 def _load_yaml(path: Path) -> dict[str, Any]:
     try:
         value = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, yaml.YAMLError):
-        # Parser diagnostics may quote source bytes; do not echo lock content.
+    except (OSError, UnicodeError, yaml.YAMLError, ValueError, TypeError, AttributeError, OverflowError):
+        # Parser and scalar-constructor diagnostics may quote source bytes.
         raise SyncError(f"cannot read {path.name}") from None
     if not isinstance(value, dict):
         raise SyncError(f"{path.name} must contain a YAML mapping")

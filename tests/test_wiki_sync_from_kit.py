@@ -102,7 +102,10 @@ def test_dry_run_is_read_only_and_machine_readable(tmp_path: Path) -> None:
     assert not (consumer / "kit.lock").exists()
 
 
-@pytest.mark.parametrize('content', [b'bad: [SYNTHETIC_PRIVATE_MARKER', b'\xffSYNTHETIC_PRIVATE_MARKER'])
+@pytest.mark.parametrize('content', [b'bad: [SYNTHETIC_PRIVATE_MARKER', b'\xffSYNTHETIC_PRIVATE_MARKER',
+                                    b'date: 2024-13-01\nnote: SYNTHETIC_PRIVATE_MARKER\n',
+                                    b'date: !!timestamp nonsense\nnote: SYNTHETIC_PRIVATE_MARKER\n',
+                                    b'count: !!int SYNTHETIC_PRIVATE_MARKER\n'])
 def test_lock_read_failure_does_not_echo_yaml_content(tmp_path: Path, content: bytes) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     (consumer / 'kit.lock').write_bytes(content)
