@@ -102,6 +102,36 @@ def test_dry_run_is_read_only_and_machine_readable(tmp_path: Path) -> None:
     assert not (consumer / "kit.lock").exists()
 
 
+@pytest.mark.parametrize('content', [b'bad: [SYNTHETICMARKER', b'\xffSYNTHETICMARKER',
+                                    b'date: 2024-13-01\nnote: SYNTHETICMARKER\n',
+                                    b'date: !!timestamp nonsense\nnote: SYNTHETICMARKER\n',
+                                    b'count: !!int SYNTHETICMARKER\n',
+                                    pytest.param(b'deep: ' + b'[' * 1500 + b'SYNTHETICMARKER' + b']' * 1500,
+                                                 id='deep-nesting')])
+def test_lock_read_failure_does_not_echo_yaml_content(tmp_path: Path, content: bytes) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    (consumer / 'kit.lock').write_bytes(content)
+    result = _run(kit, consumer, manifest, '--dry-run')
+    assert result.returncode == 2
+    assert 'kit.lock' in result.stderr
+    assert 'SYNTHETICMARKER' not in result.stdout + result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_lock_io_failure_does_not_echo_exception_text(tmp_path: Path, monkeypatch) -> None:
+    import traceback
+    sync = _sync_module()
+    lock = tmp_path / 'kit.lock'
+    def fail(_path, *args, **kwargs):
+        raise OSError('SYNTHETICMARKER')
+    with monkeypatch.context() as scoped:
+        scoped.setattr(Path, 'read_text', fail)
+        with pytest.raises(sync.SyncError) as error:
+            sync._load_yaml(lock)
+    assert 'kit.lock' in str(error.value)
+    assert 'SYNTHETICMARKER' not in ''.join(traceback.format_exception(error.value))
+
+
 def test_apply_runs_c1_c2_explicit_c3_and_is_idempotent(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     c3 = "python3 -c \"from pathlib import Path; Path('consumer-owned.txt').write_text('c3\\n')\""
