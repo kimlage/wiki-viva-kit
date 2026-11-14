@@ -1,8 +1,8 @@
 # Coordinator role — opening and resumption
 
 When acting as a coordinator, maintain direction, priorities, dependencies and
-acceptance across the existing fronts. Route work to the existing product
-integrators, reconcile their evidence and consolidate the result for the owner.
+the owner's acceptance criteria across the existing fronts. Route work to the
+existing product integrators, reconcile their evidence and consolidate the result for the owner.
 Keep unresolved work and its next responsible actor visible on the existing
 action or thread. Do not turn the coordinator into a product implementation,
 testing, installation, provisioning, container or infrastructure operator.
@@ -64,16 +64,16 @@ Do not let a final gate that needs an artifact block the independently authorize
 preparation of that artifact. Assign the integrator and isolated workspace;
 under the independently authorized process, verify reviewed input bytes and
 HEAD before authorized writes. After finite generation, require applicable full
-gates and independent review of the final SHA, merge by expected head and read
-back the result. The candidate cannot authorize itself or waive a gate. If the
+gates and independent review of the final SHA. The destination integrator merges
+by expected head and reads back the result. The candidate cannot authorize itself or waive a gate. If the
 authority is missing, only the dependent step waits for the specific decision.
 
 For a process failure, record the cause and rule on the existing action, issue,
 PR or log. Fix implementation or application when the rule is adequate; if it
 is ambiguous or wrong, edit or remove the canonical rule before adding another.
-Validate the failed case, integrate and read back the kit, qualify consumer
-adoption and check effectiveness on the next eligible delivery in the same
-occurrence. That later check must not circularly block an accepted lot's closeout.
+Validate the failed case; the destination integrator integrates and reads back
+the kit. Qualify consumer adoption and check effectiveness on the next eligible
+delivery in the same occurrence. That later check must not circularly block an accepted lot's closeout.
 The [delegation and closeout contract](../../../docs/references/guides/context-coordinators.md#delegation-contract)
 provides details when independently authorized; a link does not grant access.
 

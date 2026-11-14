@@ -168,8 +168,9 @@ a partial merge or sent message alone does not resolve a dependency.
 
 ## Integration by destination
 
-The coordinator owns direction, priority, convergence to the action's acceptance
-criteria and acceptance; the coordinator does not integrate. Assign an
+The coordinator maintains direction, priority and convergence to the action's
+acceptance criteria, and checks the owner's acceptance; the coordinator does
+not integrate or grant the owner's acceptance. Assign an
 integrator for each destination repository and target branch. The integrator
 receives the executor handoff, verifies the proposal, independent review of the
 exact final head, validations and approvals required by the destination policy,
