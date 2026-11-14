@@ -1323,7 +1323,11 @@ def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000,
                 raise ValueError("integer comparison key too large")
             charge(size)
             return value_type, value < 0, abs(value).to_bytes(size, "big")
-        if value_type in {str, bytes}:
+        if value_type is str:
+            # Four bytes per code point is a conservative UTF-8 upper bound;
+            # avoid allocating an encoded copy just to check the budget.
+            charge(4 * len(value))
+        elif value_type is bytes:
             charge(len(value))
         if value_type is float:
             import struct

@@ -1474,3 +1474,8 @@ def test_comment_typed_comparison_memoizes_scalars_and_limits_value_work():
     assert not transition_module._comment_typed_equal(values, list(values), max_value_bytes=2000)
     too_large = -(2 ** 8_000_000)
     assert not transition_module._comment_typed_equal({too_large: 'x'}, {too_large: 'x'})
+
+
+def test_comment_typed_comparison_budgets_unicode_without_encoding_copy():
+    assert not transition_module._comment_typed_equal('😀', '😀', max_value_bytes=2)
+    assert transition_module._comment_typed_equal('😀', '😀', max_value_bytes=8)
