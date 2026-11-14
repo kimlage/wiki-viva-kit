@@ -4,7 +4,9 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -94,6 +96,44 @@ def test_gates_allow_unchanged_proposal_already_modified_before_validation(tmp_p
     results = port._gates(tmp_path, load_config(tmp_path))
     assert all(result['exit_code'] == 0 for result in results)
     assert target.read_bytes() == before
+
+
+@pytest.mark.parametrize('policy,mode,prepared', [('enabled', 'require', True), ('blocked', 'reject', False)])
+def test_prepare_custom_gate_observes_synthetic_global_git_config(tmp_path, monkeypatch, policy, mode, prepared):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    for key in list(os.environ):
+        if key.startswith('GIT_'):
+            monkeypatch.delenv(key, raising=False)
+    config_path = tmp_path / 'synthetic-gitconfig'
+    config_path.write_text('[synthetic]\n\tpolicy = ' + policy + '\n')
+    monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(config_path))
+    monkeypatch.setenv('GIT_CONFIG_NOSYSTEM', '1')
+    _, request = fixture(root)
+    marker = tmp_path / 'gate-observation'
+    gate = root / 'scripts' / 'synthetic_custom_gate.py'
+    gate.write_text(
+        'from pathlib import Path\nimport subprocess, sys\n'
+        'p = subprocess.run(["git", "config", "--get", "synthetic.policy"], capture_output=True, text=True)\n'
+        'value = p.stdout.strip()\n'
+        'Path(sys.argv[1]).write_text(value or "missing")\n'
+        'sys.exit((value != "enabled") if sys.argv[2] == "require" else (value == "blocked"))\n'
+    )
+    config_file = root / 'wiki.config.yaml'
+    config = yaml.safe_load(config_file.read_text())
+    config['approval']['contribution_gates'] = [[sys.executable, 'scripts/synthetic_custom_gate.py', str(marker), mode]]
+    config_file.write_text(yaml.safe_dump(config, sort_keys=False))
+    git(root, 'add', 'wiki.config.yaml', 'scripts/synthetic_custom_gate.py')
+    git(root, 'commit', '-qm', 'synthetic configured gate')
+    request['files'][0]['base_commit'] = git(root, 'rev-parse', 'HEAD')
+    result = call(root, 'prepare', request, review=review(request))
+    assert result['ok'] is prepared, result
+    assert marker.read_text() == policy
+    if prepared:
+        assert result['status'] == 'prepared' and port._candidate(root, result['branch'])
+    else:
+        assert result['error'].startswith('proposal_gate_failed:')
+        assert port._candidate(root, result['branch']) is None
 
 
 def test_gates_refuse_existing_untracked_input_before_running(tmp_path):
