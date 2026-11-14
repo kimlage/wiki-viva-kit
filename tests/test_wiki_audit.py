@@ -2934,3 +2934,25 @@ def test_crlf_action_comment_uses_exact_git_preimage_for_audit(tmp_path, monkeyp
     errors = []
     audit.audit_action_state_transitions(errors)
     assert errors == []
+
+
+@pytest.mark.parametrize('endings', ['lf', 'crlf', 'mixed'])
+def test_action_adoption_receipt_immutability_compares_exact_bytes(tmp_path, monkeypatch, endings):
+    audit = _load_wiki_audit()
+    original = b'version: receipt\nnote: synthetic\n'
+    if endings == 'crlf':
+        original = original.replace(b'\n', b'\r\n')
+    elif endings == 'mixed':
+        original = original.replace(b'\n', b'\r\n', 1)
+    path = tmp_path / audit.ACTION_ADOPTION_RECEIPT_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(original)
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, '_text_at_audit_base', lambda _ref: original.decode('utf-8'))
+    errors = []
+    assert audit._action_adoption_baseline(errors, WikiConfig()) == (None, False)
+    assert errors == []
+    changed = original.replace(b'\r\n', b'\n') if b'\r\n' in original else original.replace(b'\n', b'\r\n')
+    path.write_bytes(changed)
+    assert audit._action_adoption_baseline(errors, WikiConfig()) == (None, True)
+    assert any('[action_adoption_receipt_rewritten]' in e for e in errors)

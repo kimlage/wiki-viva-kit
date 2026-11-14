@@ -381,7 +381,7 @@ def _text_at_audit_base(rel: str) -> str | None:
             cwd=ROOT,
             stderr=subprocess.DEVNULL,
         ).decode("utf-8")
-    except (subprocess.CalledProcessError, UnicodeDecodeError):
+    except subprocess.CalledProcessError:
         return None
 
 
@@ -692,7 +692,7 @@ def _action_adoption_baseline(
                 "[action_adoption_receipt_deleted]"
             )
             return None, True
-        current_text = _audit_read_text(path, encoding="utf-8", errors="replace")
+        current_text = _audit_read_bytes(path).decode("utf-8", errors="replace")
         if current_text != previous_text:
             errors.append(
                 f"{rel}: action adoption receipt is immutable "
