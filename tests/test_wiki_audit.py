@@ -2956,3 +2956,16 @@ def test_action_adoption_receipt_immutability_compares_exact_bytes(tmp_path, mon
     path.write_bytes(changed)
     assert audit._action_adoption_baseline(errors, WikiConfig()) == (None, True)
     assert any('[action_adoption_receipt_rewritten]' in e for e in errors)
+
+
+def test_action_adoption_receipt_rejects_invalid_utf8_even_if_replacement_matches(tmp_path, monkeypatch):
+    audit = _load_wiki_audit()
+    previous = 'note: \ufffd\n'
+    path = tmp_path / audit.ACTION_ADOPTION_RECEIPT_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b'note: \xff\n')
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, '_text_at_audit_base', lambda _ref: previous)
+    errors = []
+    assert audit._action_adoption_baseline(errors, WikiConfig()) == (None, True)
+    assert any('[action_adoption_receipt_rewritten]' in e for e in errors)

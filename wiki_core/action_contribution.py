@@ -524,7 +524,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         if (scratch / log_ref).read_text() != expected_log:
             raise ContributionError("gate_modified_log_annotation")
         # Check commands may not silently modify the reviewed proposal.
-        after = (scratch / path).read_text()
+        after = (scratch / path).read_bytes().decode("utf-8")
         if _sha(after) != receipt["after_sha256"]:
             raise ContributionError("gate_modified_proposal")
         changed = _git(scratch, "diff", "--name-only", base).splitlines()

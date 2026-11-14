@@ -426,8 +426,12 @@ def test_external_effect_failure_is_unknown_not_automatic_retry(tmp_path, monkey
         port._run(tmp_path, "gh", "pr", "merge", "1")
 
 
-@pytest.mark.parametrize('proposed_endings', ['lf', 'crlf'])
-def test_prepare_contribution_retains_crlf_preimage_bytes(tmp_path, proposed_endings):
+@pytest.mark.parametrize('proposed_endings', ['lf', 'crlf', 'crlf_allowed'])
+def test_prepare_contribution_retains_crlf_preimage_bytes(tmp_path, monkeypatch, proposed_endings):
+    if proposed_endings == 'crlf_allowed':
+        monkeypatch.setenv('GIT_CONFIG_COUNT', '1')
+        monkeypatch.setenv('GIT_CONFIG_KEY_0', 'core.whitespace')
+        monkeypatch.setenv('GIT_CONFIG_VALUE_0', 'cr-at-eol')
     p, request = fixture(tmp_path)
     original = p.read_bytes().replace(b'\n', b'\r\n')
     p.write_bytes(original)

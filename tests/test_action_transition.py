@@ -1290,7 +1290,7 @@ def test_page_edit_keeps_previous_v5_receipts_and_validates_exact_body_binding(t
 
 
 @pytest.mark.parametrize('writer', ['transition', 'body'])
-@pytest.mark.parametrize('newline', ['lf', 'crlf', 'mixed'])
+@pytest.mark.parametrize('newline', ['lf', 'crlf', 'mixed', 'cr_in_body', 'cr_only'])
 def test_action_writer_cas_binds_exact_file_bytes(tmp_path, writer, newline):
     from wiki_core.action_transition import integrate_action_body
 
@@ -1301,9 +1301,14 @@ def test_action_writer_cas_binds_exact_file_bytes(tmp_path, writer, newline):
         raw_before = raw_before.replace(b'\n', b'\r\n')
     elif newline == 'mixed':
         raw_before = raw_before.replace(b'\n', b'\r\n', 1)
+    elif newline == 'cr_in_body':
+        raw_before = raw_before.replace(b'Body is preserved verbatim.', b'Body is preserved\rverbatim.')
+    elif newline == 'cr_only':
+        raw_before = raw_before.replace(b'\n', b'\r')
     path.write_bytes(raw_before)
     exact_sha = hashlib.sha256(raw_before).hexdigest()
-    normalized_sha = hashlib.sha256(logical_before.encode('utf-8')).hexdigest()
+    normalized = raw_before.decode('utf-8').replace('\r\n', '\n').replace('\r', '\n')
+    normalized_sha = hashlib.sha256(normalized.encode('utf-8')).hexdigest()
 
     def apply(expected):
         if writer == 'transition':

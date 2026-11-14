@@ -692,8 +692,8 @@ def _action_adoption_baseline(
                 "[action_adoption_receipt_deleted]"
             )
             return None, True
-        current_text = _audit_read_bytes(path).decode("utf-8", errors="replace")
-        if current_text != previous_text:
+        current_bytes = _audit_read_bytes(path)
+        if current_bytes != previous_text.encode("utf-8"):
             errors.append(
                 f"{rel}: action adoption receipt is immutable "
                 "[action_adoption_receipt_rewritten]"
