@@ -67,12 +67,15 @@ python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
 The command is read-only. It reports each differing or missing managed path,
 the lock's expected hash and mode, and the worktree and Git index kind, hash
 and mode where available. Untracked or deleted index entries are reported as
-missing; unmerged or unsafe entries abort the report. Exit 0 means both views
+missing; unmerged, intent-to-add, unsupported index metadata or unsafe entries
+abort the report. Exit 0 means both views
 match the lock, 1 means drift, and 2 means inspection was refused or could not
 complete. The inspection requires POSIX nonblocking, directory-relative
 no-follow reads; unsupported platforms fail closed. It refuses reserved
-`.wiki-viva-protected` paths rather than accessing them through this generic
-route. It inspects only paths named in the lock, not every consumer file.
+`.wiki-viva-protected` and `.git` components case-insensitively and checks
+existing physical aliases before reading. These checks do not replace host
+filesystem isolation or eliminate races. It inspects only paths named in the
+lock, not every consumer file; Git itself loads index metadata to answer a query.
 The selection is limited to 8,192 paths of at most 4,096 encoded bytes each;
 overlapping file/directory selections are refused. Git index results exclude
 unselected descendants. Git operations have time and output limits, and

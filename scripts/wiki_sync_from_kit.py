@@ -212,6 +212,43 @@ def _consumer_state(consumer: Path, paths: dict[str, dict[str, Any]]) -> dict[st
     return state
 
 
+
+
+def _drift_check_consumer_path(consumer: Path, rel: str) -> None:
+    """Check physical aliases of reserved siblings without reading bodies."""
+    _check_consumer_path(consumer, rel)
+    current = consumer
+    for part in rel.split("/"):
+        current = current / part
+        try:
+            chosen = current.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise SyncError("unsafe or unreadable consumer path") from exc
+        for reserved in (current.parent / ".git", current.parent / ".wiki-viva-protected"):
+            try:
+                boundary = reserved.lstat()
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                raise SyncError("unsafe or unreadable consumer path") from exc
+            if (chosen.st_dev, chosen.st_ino) == (boundary.st_dev, boundary.st_ino):
+                raise SyncError("consumer path aliases a reserved component")
+
+
+def _drift_reject_reserved_alias(parent_fd: int, selected_fd: int) -> None:
+    """Refuse a selected inode that aliases a reserved sibling before reading."""
+    selected = os.fstat(selected_fd)
+    for name in ('.git', '.wiki-viva-protected'):
+        try:
+            reserved = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            continue
+        if (selected.st_dev, selected.st_ino) == (reserved.st_dev, reserved.st_ino):
+            raise SyncError('consumer path aliases a reserved component')
+
+
 def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> tuple[dict[str, Any], bytes | None]:
     """Read a regular file through a no-follow directory chain, or refuse."""
     if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_NONBLOCK")
@@ -222,6 +259,7 @@ def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> 
     directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
     if is_protected_artifact(consumer) or is_protected_artifact(Path(rel)):
         raise SyncError("protected selection requires bound dispatch")
+    _validate_drift_selection([rel])
     flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | getattr(os, "O_CLOEXEC", 0)
     opened: list[int] = []
     try:
@@ -230,10 +268,12 @@ def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> 
         parts = rel.split("/")
         for part in parts[:-1]:
             try:
-                parent = os.open(part, directory_flags, dir_fd=parent)
+                selected = os.open(part, directory_flags, dir_fd=parent)
             except FileNotFoundError:
                 return {"kind": "missing"}, None
-            opened.append(parent)
+            opened.append(selected)
+            _drift_reject_reserved_alias(parent, selected)
+            parent = selected
             try:
                 os.stat(".git", dir_fd=parent, follow_symlinks=False)
             except FileNotFoundError:
@@ -245,6 +285,7 @@ def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> 
         except FileNotFoundError:
             return {"kind": "missing"}, None
         opened.append(fd)
+        _drift_reject_reserved_alias(parent, fd)
         before = os.fstat(fd)
         if not stat.S_ISREG(before.st_mode):
             return {"kind": "other"}, None
@@ -316,7 +357,7 @@ def _validate_drift_selection(paths: list[str]) -> None:
     for rel in paths:
         try:
             if (not isinstance(rel, str) or not rel or "\\" in rel or "\0" in rel
-                    or Path(rel).is_absolute() or any(part in ("", ".", "..", ".git") for part in rel.split("/"))
+                    or Path(rel).is_absolute() or any(part in ("", ".", "..") or part.casefold() == ".git" for part in rel.split("/"))
                     or len(os.fsencode(rel)) > DRIFT_MAX_PATH_BYTES or is_protected_artifact(Path(rel))):
                 raise SyncError("unsafe or protected drift selection")
         except UnicodeError as exc:
@@ -340,20 +381,30 @@ def _drift_index_metadata(consumer: Path, paths: list[str]) -> dict[str, tuple[s
         # Exclude those descendants so only exact selected files are emitted.
         include = [f":(top,literal){rel}" for rel in selected]
         exclude = [f":(top,exclude,literal){rel}/" for rel in selected]
-        result = _drift_git_run([*_drift_git_prefix(), "ls-files", "--stage", "-z", "--", *include, *exclude],
+        result = _drift_git_run([*_drift_git_prefix(), "ls-files", "--stage", "--debug", "-z", "--", *include, *exclude],
                                 consumer, output_limit=2 * 1024 * 1024)
         if result.returncode:
             raise SyncError("consumer index unavailable")
-        for record in filter(None, result.output.split(b"\0")):
+        debug = re.compile(rb"  ctime: -?\d+:-?\d+\n  mtime: -?\d+:-?\d+\n"
+                           rb"  dev: -?\d+\tino: -?\d+\n  uid: -?\d+\tgid: -?\d+\n"
+                           rb"  size: -?\d+\tflags: ([0-9a-fA-F]+)\n")
+        offset = 0
+        while offset < len(result.output):
             try:
-                metadata, name = record.split(b"\t", 1)
+                end = result.output.index(b"\0", offset)
+                metadata, name = result.output[offset:end].split(b"\t", 1)
+                details = debug.match(result.output, end + 1)
+                if details is None:
+                    raise ValueError("unsupported index metadata")
+                flags = int(details.group(1), 16)
                 mode, oid, stage = metadata.decode("ascii").split()
                 rel = name.decode("utf-8")
                 if (rel not in selected or rel in entries or stage != "0" or mode not in {"100644", "100755"}
-                        or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", oid)):
+                        or flags & 0x20000000 or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", oid)):
                     raise ValueError("invalid index entry")
+                offset = details.end()
             except (UnicodeError, ValueError) as exc:
-                raise SyncError("consumer index has unsafe or unmerged entry") from exc
+                raise SyncError("consumer index has unsafe, unmerged or intent-to-add entry") from exc
             entries[rel] = (mode, oid)
     return entries
 
@@ -433,7 +484,7 @@ def inspect_drift(consumer: Path) -> dict[str, Any]:
     # Reject the whole selection before resolving or enumerating any managed path.
     _validate_drift_selection(list(managed))
     for rel, expected in managed.items():
-        _check_consumer_path(consumer, rel)
+        _drift_check_consumer_path(consumer, rel)
         if (not isinstance(expected, dict)
                 or not isinstance(expected.get("sha256"), str)
                 or not re.fullmatch(r"[0-9a-f]{64}", expected["sha256"])

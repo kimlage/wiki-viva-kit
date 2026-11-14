@@ -1005,3 +1005,50 @@ def test_drift_exact_pathspec_accepts_literal_special_names(tmp_path):
     sync = _manual_drift_lock(consumer, entries)
     report = sync.inspect_drift(consumer)
     assert report['status'] == 'clean' and report['managed_total'] == 2
+
+
+@requires_safe_drift
+def test_drift_rejects_case_variant_git_metadata_before_selection(tmp_path, monkeypatch):
+    consumer = _repo(tmp_path / 'consumer')
+    sync = _sync_module()
+    expected = {'sha256': 'c' * 64, 'mode': '100644'}
+    tree = [{'path': '.GIT/config', **expected}]
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'source_sha': 'a' * 40,
+            'manifest_sha256': 'b' * 64, 'portable_tree_sha256': sync._canonical_sha256(tree),
+            'managed_files': {'.GIT/config': expected}}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    monkeypatch.setattr(sync, '_check_consumer_path', lambda *_: pytest.fail('managed metadata inspected'))
+    monkeypatch.setattr(sync, '_drift_index_states', lambda *_: pytest.fail('index selection opened'))
+    with pytest.raises(sync.SyncError, match='unsafe or protected drift selection'):
+        sync.inspect_drift(consumer)
+
+
+@requires_safe_drift
+def test_drift_rejects_physical_alias_of_reserved_component(tmp_path):
+    consumer = _repo(tmp_path / 'consumer')
+    sync = _sync_module()
+    reserved = consumer / '.wiki-viva-protected'
+    reserved.write_bytes(b'synthetic reserved')
+    alias = consumer / 'synthetic-alias'
+    os.link(reserved, alias)
+    with pytest.raises(sync.SyncError, match='aliases a reserved component'):
+        sync._drift_check_consumer_path(consumer, 'synthetic-alias')
+    with pytest.raises(sync.SyncError, match='aliases a reserved component'):
+        sync._drift_worktree_file(consumer, 'synthetic-alias')
+
+
+@requires_safe_drift
+def test_drift_rejects_intent_to_add_even_when_bytes_match(tmp_path):
+    import hashlib
+    consumer = _repo(tmp_path / 'consumer')
+    sync = _sync_module()
+    (consumer / 'empty.txt').write_bytes(b'')
+    _git(consumer, 'add', '-N', 'empty.txt')
+    expected = {'sha256': hashlib.sha256(b'').hexdigest(), 'mode': '100644'}
+    tree = [{'path': 'empty.txt', **expected}]
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'source_sha': 'a' * 40,
+            'manifest_sha256': 'b' * 64, 'portable_tree_sha256': sync._canonical_sha256(tree),
+            'managed_files': {'empty.txt': expected}}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    with pytest.raises(sync.SyncError, match='intent-to-add'):
+        sync.inspect_drift(consumer)
