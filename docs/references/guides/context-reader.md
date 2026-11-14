@@ -359,7 +359,7 @@ The human reader's opt-in information assessment uses the current page's
 explicit operational requirements and the evidence already loaded for those
 requirements. It does not recursively authorize or open additional transitive
 requirements. If an already loaded prerequisite or its loaded evidence declares
-a nonempty requirement list or a link with a valid, unambiguous operational role
+a nonempty or malformed requirement declaration, or a link with a valid, unambiguous operational role
 recognized by the Markdown parser, the reader reports that transitive requirements
 were not assessed and does not mark that direct requirement ready. This is a
 coverage limit, not a finding that nested information is false or unavailable.
