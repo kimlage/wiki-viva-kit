@@ -168,7 +168,7 @@ def test_closed_and_merged_hygiene_survive_missing_target_policy(monkeypatch, tm
     assert check.inspect(tmp_path, 2)['proposals'][0]['status'] == 'waiting:verify_branch_reuse'
     pr['state'] = 'CLOSED'
     pr['comments'] = []
-    assert check.inspect(tmp_path, 2)['proposals'][0]['status'] == 'fix:closure_reason_missing'
+    assert check.inspect(tmp_path, 2)['proposals'][0]['status'] == 'waiting:verify_branch_reuse'
 
 
 def test_target_branch_must_match_destination_policy():
@@ -378,6 +378,8 @@ def test_short_number_collision_does_not_associate_a_different_repository():
     assert check._action_reference('PR #502 local; repo=other/repo PR #503', 502, 'github.com/owner/repo') is True
     assert check._action_reference('PR #502; PR #503 (other/repo)', 502, 'github.com/owner/repo') is True
     assert check._action_reference('https://github.com/example/foreign\nPR #502', 502, 'github.com/example/local') is False
+    assert check._action_reference('PR #502 https://github.com/example/foreign/', 502, 'github.com/example/local') is False
+    assert check._action_reference('PR #502 em https://git.example/example/foreign', 502, 'github.com/example/local') is False
     assert check._action_reference('https://github.com/example/foreign.git\nPR #502', 502, 'github.com/example/local') is False
     assert check._action_reference('github.com/example/foreign\nPR #502', 502, 'github.com/example/local') is False
     assert check._action_reference('example/foreign\nPR #502', 502, 'github.com/example/local') is False
@@ -547,6 +549,26 @@ def test_reused_branch_on_different_open_head_is_not_closed_pr_residue(monkeypat
     monkeypatch.setattr(check, '_worktrees', lambda root: [{'path': '/wt', 'branch': 'wiki/reused', 'head': new_head, 'dirty': False}])
     monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
     assert check.inspect(tmp_path)['proposals'][0]['status'] == 'done'
+
+
+def test_filtered_closed_pr_cannot_identify_same_head_branch_reuse(monkeypatch, tmp_path):
+    closed = candidate() | {'state': 'CLOSED', 'headRefName': 'wiki/reused', 'comments': []}
+    opened = candidate() | {'number': 2, 'headRefName': 'wiki/reused'}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: closed if 'view' in args else [closed, opened])
+    def git(root, *args):
+        if '--symref' in args:
+            return f'ref: refs/heads/main\tHEAD\n{BASE}\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main\n{HEAD}\trefs/heads/wiki/reused'
+        return f'main\t{BASE}\nwiki/reused\t{HEAD}'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {})
+    monkeypatch.setattr(check, '_ancestry', lambda *args: 'current')
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    assert check.inspect(tmp_path)['proposals'][0]['status'] == 'done'
+    assert check.inspect(tmp_path, 1)['proposals'][0]['status'] == 'waiting:verify_branch_reuse'
 
 
 @pytest.mark.parametrize('head', [HEAD, None])

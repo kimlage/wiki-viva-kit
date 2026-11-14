@@ -281,8 +281,13 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
     # A bare repository and number on one line, or an explicit Repo: label
     # elsewhere in the action, make the short number repository-qualified.
     contextual: set[tuple[str, str, str]] = set()
-    root_urls = re.compile(r"(?<![\w/@.-])(?:https?://)?([^/\s]+)/([^/\s]+)/([\w.-]+)(?=$|[?#\s)\]},;])", re.I)
+    root_urls = re.compile(r"(?<![\w/@.-])(?:https?://)?([^/\s]+)/([^/\s]+)/([\w.-]+)/?(?=$|[?#\s)\]},;])", re.I)
     ssh_urls = re.compile(r"(?<![\w/@.-])git@([\w.-]+):([\w.-]+)/([\w.-]+)(?=$|[?#\s)\]},;])", re.I)
+    def repository_url(match: re.Match, source: str) -> bool:
+        link_host = match.group(1).lower()
+        known = link_host in {host, 'github.com', 'gitlab.com', 'bitbucket.org'}
+        # An unknown host with a fragment may be an ordinary documentation link.
+        return known or ('.' in link_host and source[match.end():match.end() + 1] != '#')
     number_pattern = re.compile(r"(?i)(?:\b(?:PR|pull[ \t]+request|proposta)[ \t]*[:=]?[ \t]*#?[ \t]*|(?<![\w/])#)([0-9]+)(?![A-Za-z0-9_])")
     for line in text.splitlines():
         for segment in line.split(';'):
@@ -291,7 +296,7 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
                 continue
             names = list(re.finditer(repo_name, segment, re.I))
             links = [match for match in root_urls.finditer(segment)
-                     if match.group(1).lower() in {host, 'github.com', 'gitlab.com', 'bitbucket.org'}]
+                     if repository_url(match, segment)]
             ssh_links = list(ssh_urls.finditer(segment))
             if len(numbers) > 1 and (names or links or ssh_links):
                 ambiguous_path = True
@@ -299,8 +304,7 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
             for match in names:
                 add_separate(match, contextual)
             for match in links:
-                if match.group(1).lower() in {host, 'github.com', 'gitlab.com', 'bitbucket.org'}:
-                    contextual.add(repo_id(*match.group(1, 2, 3)))
+                contextual.add(repo_id(*match.group(1, 2, 3)))
             for match in ssh_links:
                 contextual.add(repo_id(*match.group(1, 2, 3)))
     label = (r"(?i)\b(?:repo(?:sitory)?|reposit[oó]rio)[ \t]*[:=][ \t]*"
@@ -314,7 +318,7 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
         for match in re.finditer(repo_name, text, re.I):
             add_separate(match, hints)
         for match in root_urls.finditer(text):
-            if match.group(1).lower() in {host, 'github.com', 'gitlab.com', 'bitbucket.org'}:
+            if repository_url(match, text):
                 hints.add(repo_id(*match.group(1, 2, 3)))
         for match in ssh_urls.finditer(text):
             hints.add(repo_id(*match.group(1, 2, 3)))
@@ -565,7 +569,11 @@ def inspect(root: Path, number: int | None = None) -> dict:
                                 (w.get("branch") is None or
                                  (w.get("branch") == branch and branch != default and
                                   (branch, head) not in open_refs)) for w in worktrees))
-                uncertain_reuse = bool(number is not None and branch_present and not residue)
+                uncertain_reuse = bool(number is not None and (branch_present or residue))
+                if number is not None:
+                    # A filtered view cannot tell whether another open PR uses
+                    # the same branch and SHA, even when they still exist.
+                    residue = False
                 if number is None and branch_present and branch not in open_heads:
                     residue = True
                 scope = (_closure_reason_scope(pr, destination_policy, residue=residue)
