@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Read canonical coordinator routes or prepare revision-bound agent context."""
 from __future__ import annotations
-import argparse
 import json
 import re
 import sys
 from pathlib import Path
 from _common import ROOT
 from wiki_core.context_selection import strict_json_loads
+from wiki_core.cli_errors import SafeArgumentParser
 from wiki_core.context_policy import revision
 from wiki_core.config import load_config
 from wiki_core.coordination import coordination_index, profile_packet_migration, transition_dialogue_action
@@ -16,7 +16,7 @@ from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordi
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = SafeArgumentParser(prog="wiki_coordination.py", description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--context-id", help="Explicit context ID; source stages can select a host-bound context from cwd.")
     parser.add_argument("--approved-revision", help="Current approved commit SHA for protected packet mode.")
@@ -157,9 +157,12 @@ def main() -> None:
         from wiki_core.web.snapshot import build_snapshot
         result = coordination_index(root, build_snapshot(root, load_config(root)))
     if args.event_file:
-        if args.event_file.stat().st_size > 16_000:
-            parser.error("event file exceeds limit")
-        event = json.loads(args.event_file.read_text())
+        try:
+            if args.event_file.stat().st_size > 16_000:
+                parser.error("event file exceeds limit")
+            event = json.loads(args.event_file.read_text())
+        except (OSError, UnicodeError, ValueError, RecursionError):
+            parser.error("event input unavailable")
         if not isinstance(event, dict) or event.get("coordinator") != args.profile:
             parser.error("event coordinator must equal selected profile")
         result = transition_dialogue_action(
