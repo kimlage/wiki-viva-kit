@@ -64,7 +64,7 @@ Packet generation is not evidence of LLM reading, comprehension or execution. Ru
 
 The [coordinator role contract](../../../.skills/wiki-viva/reference/coordinator.md)
 sets the behavioral boundary for both opening and resumption: the coordinator
-maintains direction and acceptance; existing integrators perform product code,
+maintains direction and the owner's acceptance criteria; existing integrators perform product code,
 tests, integration and infrastructure. Before any dispatch, the coordinator
 checks current owner direction and pauses; an old queued message does not lift
 a later pause. A protected packet may request `task.role: coordinator` to
@@ -166,6 +166,34 @@ validations, approved-main readback and wiki reconciliation. The coordinator
 correlates the states and evidence across fronts and reconciles discrepancies;
 a partial merge or sent message alone does not resolve a dependency.
 
+## Integration by destination
+
+The coordinator maintains direction, priority and convergence to the action's
+acceptance criteria, and checks the owner's acceptance; the coordinator does
+not integrate or grant the owner's acceptance. Assign an
+integrator for each destination repository and target branch. The integrator
+receives the executor handoff, verifies the proposal, independent review of the
+exact final head, validations and approvals required by the destination policy,
+then integrates, reads back the target main, cleans up the branch and worktree
+and updates the existing action. Send findings and correction criteria to the
+responsible thread; request information or access from other fronts only within
+their owners' authority.
+
+The integrator's runtime thread must be able to follow proposal events through
+completion; a delegated child unable to observe those events cannot serve this
+role. One proposal integrates at a time per destination; separate destinations
+may proceed in parallel. The default preparation limit is two proposals per
+destination and the consumer can adjust it. A new proposal must serve the
+action's acceptance criteria; record an out-of-scope finding on the action or
+in an issue instead of creating a proposal.
+
+Read policy from the destination's `wiki.config.yaml` `approval:` block, or
+from its AGENTS or equivalent repository rules if it has no wiki. If
+`require_human_review: true`, prepare all other work, wait for human approval
+of the exact final SHA and resume when it arrives. GitHub is an adapter, not an
+assumption about the destination. The [handoff template](../templates/wiki/subagent-brief.md#integration-handoff)
+records the proposal and evidence needed by the integrator.
+
 ## Thread continuity and closeout
 
 When taking responsibility for a front, receiving a result and before ending a
@@ -220,8 +248,9 @@ historical files outside Git. Compare expected heads immediately before mutation
 If anything changed, reconcile it before deleting that item.
 
 On merge or close, remove the local and remote branch and worktree in the same
-delivery. Do not create backup branches, bundles or snapshots; GitHub retains PR
-commits in `refs/pull/<n>/head`. Enable automatic deletion of merged branches
+delivery. Do not create backup branches, bundles or snapshots. On GitHub, PR
+commits remain available through `refs/pull/<n>/head`; other adapters have their own
+retention behavior. Enable automatic deletion of merged branches
 where authorized, and still verify local and remote state. Read back branches,
 worktrees and PRs, and record the result with the existing delivery. Retain valid
 review and test evidence for unchanged work; new changes or concerns receive the
