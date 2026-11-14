@@ -80,6 +80,32 @@ def test_consumer_commands_and_ten_second_target(tmp_path):
     assert hook(root, base, new).returncode != 0
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='POSIX fake executable; Windows has a separate integration test')
+def test_installed_hook_uses_venv_python_for_consumer_command(tmp_path):
+    root = repo(tmp_path)
+    remote = tmp_path / 'remote.git'
+    subprocess.run(['git', 'init', '--bare', '-q', str(remote)], check=True)
+    git(root, 'remote', 'add', 'origin', str(remote))
+    config = {'pre_push': {'quick_commands': [['python3', '-c', 'import yaml']]}}
+    (root / 'wiki.config.yaml').write_text(json.dumps(config))
+    git(root, 'add', 'wiki.config.yaml')
+    git(root, 'commit', '-qm', 'consumer gate')
+    subprocess.run([sys.executable, '-m', 'venv', '--system-site-packages', str(root / '.venv')], check=True)
+    selected = root / '.venv' / 'bin' / 'python3'
+    assert subprocess.run([str(selected), '-c', 'import yaml'], capture_output=True).returncode == 0
+    fake_bin = tmp_path / 'external-bin'
+    fake_bin.mkdir()
+    fake = fake_bin / 'python3'
+    fake.write_text('#!/bin/sh\nexit 53\n')
+    fake.chmod(0o755)
+    env = dict(os.environ, PATH=str(fake_bin) + os.pathsep + os.environ['PATH'])
+    assert subprocess.run(['python3', '-c', 'import yaml'], env=env).returncode == 53
+    subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--install'], check=True)
+    result = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/topic'], cwd=root,
+                            capture_output=True, text=True, timeout=15, env=env)
+    assert result.returncode == 0, result.stderr
+
+
 def test_install_and_real_push_blocks_bad_change(tmp_path):
     root = repo(tmp_path)
     remote = tmp_path / 'remote.git'
