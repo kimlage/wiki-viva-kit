@@ -71,6 +71,45 @@ def test_tracked_obsidian_state_is_not_read_or_copied_into_preview(prepared, mon
     assert all(".obsidian" not in ref.split("/") for ref in reads)
 
 
+
+@pytest.mark.parametrize("marker_kind", ["none", "file", "directory"])
+def test_parent_tracked_document_respects_nested_repository_boundary(prepared, monkeypatch, marker_kind):
+    srv, root, params, _unlock, _clock = prepared
+    nested = root / "memories/nested"
+    nested.mkdir()
+    target = nested / "page.md"
+    target.write_text("Synthetic tracked parent content\n")
+    _commit_inputs(root, params)
+    ref = "memories/nested/page.md"
+    assert ref in _git(root, "ls-files").splitlines()
+    marker = nested / ".git"
+    if marker_kind == "directory":
+        marker.mkdir()
+    elif marker_kind == "file":
+        marker.write_text("gitdir: synthetic\n")
+    before = _state(root)
+    reads = []
+    original_entry = normal_proposal._worktree_entry
+
+    def guarded_entry(where, mode, selected):
+        if selected == ref:
+            reads.append(selected)
+            if marker_kind != "none":
+                pytest.fail("nested tracked body opened before its repository boundary")
+        return original_entry(where, mode, selected)
+
+    monkeypatch.setattr(normal_proposal, "_worktree_entry", guarded_entry)
+    if marker_kind == "none":
+        preview = normal_proposal.preview_proposal(root, srv.server.config, params)
+        assert ref in reads and ref in preview["readset"]
+    else:
+        with pytest.raises(normal_proposal.ProposalError, match="proposal_path_crosses_repository_boundary"):
+            normal_proposal.preview_proposal(root, srv.server.config, params)
+        assert not reads
+    assert target.read_text() == "Synthetic tracked parent content\n"
+    assert _state(root) == before
+
+
 def test_proposal_pins_selected_local_cache_not_legacy_cache(prepared, monkeypatch):
     from wiki_core.input_stage import LOCAL_FOLDER_INPUT_STATUS
     from wiki_core.paths import WikiPaths
