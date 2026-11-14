@@ -19,6 +19,7 @@ def test_session_start_injects_bounded_summary(monkeypatch, tmp_path):
     assert output['hookSpecificOutput']['additionalContext'] == 'Local tracked changes: clean; 2 open PRs.'
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='synthetic gh uses a Unix shell script')
 def test_session_start_large_repository_is_fast_and_makes_one_limited_query(tmp_path):
     import os
     import time
@@ -42,13 +43,59 @@ def test_session_start_large_repository_is_fast_and_makes_one_limited_query(tmp_
     assert proc.returncode == 0
     assert elapsed < 2, elapsed
     assert '0 open PRs' in json.loads(proc.stdout)['hookSpecificOutput']['additionalContext']
-    assert calls.read_text().splitlines() == ['pr list --state open --limit 25 --json number,isDraft']
+    assert calls.read_text().splitlines() == ['pr list --state open --limit 25 --json number,isDraft,statusCheckRollup']
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='synthetic executable uses a Unix shebang')
+def test_session_start_kills_git_descendant_without_waiting_for_pipe(tmp_path):
+    import os
+    import shutil
+    import time
+    real_git = shutil.which('git')
+    repo = tmp_path / 'repo'
+    subprocess.run([real_git, 'init', '-q', str(repo)], check=True)
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    fake_git = bin_dir / 'git'
+    fake_git.write_text(f'#!{sys.executable}\n'
+                        'import os, pathlib, subprocess, sys, time\n'
+                        'if sys.argv[1] == "rev-parse":\n'
+                        '    os.execv(os.environ["REAL_GIT"], [os.environ["REAL_GIT"], *sys.argv[1:]])\n'
+                        'child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])\n'
+                        'pathlib.Path(os.environ["CHILD_PID"]).write_text(str(child.pid))\n'
+                        'time.sleep(60)\n')
+    fake_git.chmod(0o755)
+    fake_gh = bin_dir / 'gh'
+    fake_gh.write_text('#!/bin/sh\nprintf "[]\\n"\n')
+    fake_gh.chmod(0o755)
+    pidfile = tmp_path / 'pid'
+    env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'],
+               REAL_GIT=real_git, CHILD_PID=str(pidfile))
+    started = time.monotonic()
+    proc = subprocess.run([sys.executable, str(SCRIPT)],
+                          input=json.dumps({'hook_event_name': 'SessionStart', 'cwd': str(repo)}),
+                          capture_output=True, text=True, env=env, timeout=3)
+    assert time.monotonic() - started < 2
+    assert 'tracked changes: unknown' in json.loads(proc.stdout)['hookSpecificOutput']['additionalContext']
+    assert pidfile.exists()
+    assert not _process_running(int(pidfile.read_text()))
 
 
 def test_session_start_reports_gh_failure_as_unknown(monkeypatch, tmp_path):
     subprocess.run(['git', 'init', '-q', str(tmp_path)], check=True)
     monkeypatch.setenv('PATH', '')
     assert 'PR state unknown' in hook.check(tmp_path, 2)['summary']
+
+
+def test_session_start_counts_failed_ci_and_drafts(monkeypatch, tmp_path):
+    prs = [{'isDraft': True, 'statusCheckRollup': [{'status': 'COMPLETED', 'conclusion': 'FAILURE'}]},
+           {'isDraft': False, 'statusCheckRollup': [{'status': 'IN_PROGRESS', 'conclusion': None}]},
+           {'isDraft': False, 'statusCheckRollup': [{'status': 'COMPLETED', 'conclusion': 'SUCCESS'}]}]
+    def fake(argv, root, timeout, env=None):
+        return (0, json.dumps(prs).encode()) if argv[0] == 'gh' else (0, b'')
+    monkeypatch.setattr(hook, '_bounded_output', fake)
+    summary = hook.check(tmp_path, 2)['summary']
+    assert '3 open PRs, 1 drafts, 1 with failed CI' in summary
 
 
 def test_stop_observe_and_bounded_enforce(monkeypatch, tmp_path):

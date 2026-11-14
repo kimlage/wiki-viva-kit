@@ -25,27 +25,38 @@ MAX_INPUT = 1_000_000
 FIELDS = ('proposal', 'head', 'base', 'review', 'gates', 'pending', 'responsible-thread')
 
 
+def _bounded_output(argv: list[str], root: Path, timeout: float, env=None) -> tuple[int, bytes]:
+    # Do not wait on inherited pipe handles after killing a timed-out child.
+    with tempfile.TemporaryFile() as output:
+        p = subprocess.run(argv, cwd=root, env=env, stdout=output,
+                           stderr=subprocess.DEVNULL, timeout=timeout)
+        output.seek(0)
+        return p.returncode, output.read()
+
+
 def check(root: Path, timeout: float) -> dict:
     """Fast, incomplete observation: local Git and at most one bounded GH query."""
     try:
-        p = subprocess.run(['git', '--no-optional-locks', 'status', '--porcelain', '--untracked-files=no'],
-                           cwd=root, capture_output=True, timeout=min(timeout, 0.5))
-        local = 'dirty' if p.returncode == 0 and p.stdout else ('clean' if p.returncode == 0 else 'unknown')
+        code, output = _bounded_output(['git', '--no-optional-locks', 'status', '--porcelain', '--untracked-files=no'],
+                                       root, min(timeout, 0.5))
+        local = 'dirty' if code == 0 and output else ('clean' if code == 0 else 'unknown')
     except (OSError, subprocess.TimeoutExpired):
         local = 'unknown'
     try:
         env = dict(os.environ, GH_PROMPT_DISABLED='1')
-        # A descendant retaining a pipe must not defeat subprocess.run's timeout.
-        # The outer worker supervisor cleans up its whole process group on return.
-        with tempfile.TemporaryFile() as output:
-            p = subprocess.run(['gh', 'pr', 'list', '--state', 'open', '--limit', '25',
-                                '--json', 'number,isDraft'], cwd=root, env=env,
-                               stdout=output, stderr=subprocess.DEVNULL, timeout=min(timeout, 0.8))
-            output.seek(0)
-            prs = json.loads(output.read()) if p.returncode == 0 else None
-        if not isinstance(prs, list):
+        # The outer worker supervisor cleans up the whole process group on return.
+        code, output = _bounded_output(['gh', 'pr', 'list', '--state', 'open', '--limit', '25',
+                                        '--json', 'number,isDraft,statusCheckRollup'], root, min(timeout, 0.8), env)
+        prs = json.loads(output) if code == 0 else None
+        if not isinstance(prs, list) or any(not isinstance(pr, dict) for pr in prs):
             raise ValueError
-        remote = f'{len(prs)} open PRs' + (' (limit reached)' if len(prs) >= 25 else '')
+        failed = sum(any(isinstance(item, dict) and (
+            (item.get('status') == 'COMPLETED' and item.get('conclusion') in {'FAILURE', 'TIMED_OUT', 'STARTUP_FAILURE'})
+            or (item.get('__typename') == 'StatusContext' and item.get('state') in {'FAILURE', 'ERROR'}))
+                         for item in (pr.get('statusCheckRollup') or [])) for pr in prs)
+        drafts = sum(pr.get('isDraft') is True for pr in prs)
+        remote = (f'{len(prs)} open PRs, {drafts} drafts, {failed} with failed CI'
+                  + (' (limit reached)' if len(prs) >= 25 else ''))
     except (OSError, ValueError, subprocess.TimeoutExpired):
         remote = 'PR state unknown'
     return {'ok': True, 'summary': f'Local tracked changes: {local}; {remote}. Run wiki_integration_check.py for full verification.'}
@@ -53,9 +64,8 @@ def check(root: Path, timeout: float) -> dict:
 
 def _repository_root(path: Path) -> Path | None:
     try:
-        p = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=path,
-                           capture_output=True, timeout=5)
-        return Path(os.fsdecode(p.stdout.strip())).resolve() if p.returncode == 0 and p.stdout.strip() else None
+        code, output = _bounded_output(['git', 'rev-parse', '--show-toplevel'], path, 0.5)
+        return Path(os.fsdecode(output.strip())).resolve() if code == 0 and output.strip() else None
     except (OSError, subprocess.TimeoutExpired):
         return None
 

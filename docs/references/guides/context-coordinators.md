@@ -434,8 +434,9 @@ The repository may opt in to `scripts/wiki_session_hook.py`. It consumes one
 provider event as JSON on stdin. It uses the read-only integration checker and
 returns JSON to the host; it does not post, merge, clean, persist a queue or
 change action state. `SessionStart` injects a short, incomplete local observation:
-tracked Git changes and at most one GitHub query limited to 25 open PRs, with a
-short query timeout. Untracked files and further PRs are not inventoried; if the
+tracked Git changes and at most one GitHub query limited to 25 open PRs, counting
+drafts and PRs with completed failed checks, with a short query timeout.
+Untracked files and further PRs are not inventoried; if the
 query fails the PR state is unknown. Run `wiki_integration_check.py` for the
 full read-only verification. `Stop` uses local Git only in both modes; it does not query GitHub.
 It defaults to `--mode observe` and warns only. In `--mode enforce`, verified
@@ -522,9 +523,13 @@ from `--mode observe` to `--mode enforce`. Official schemas and lifecycle
 semantics: [Codex hooks](https://learn.chatgpt.com/docs/hooks) and
 [Claude Code hooks](https://code.claude.com/docs/en/hooks).
 
-To verify loading, first trust the project and the exact hook via `/hooks` in
-interactive Codex. Then run `codex exec` in that repository with a prompt asking
-it to report the injected `Local tracked changes` observation. A direct shell
-invocation of the script proves the script works, not that Codex loaded it. If
-the observation is missing, inspect `/hooks` and feature/policy settings; do not
-claim loading based on the configuration file alone.
+To verify loading, configure a temporary, reviewed wrapper as the SessionStart
+command. Have it write a fresh unpredictable nonce, supplied outside the model
+prompt, to a local temporary receipt and then invoke this script with stdin
+unchanged. Do not record the event or transcript. Trust the project and this
+exact wrapper via `/hooks` in interactive Codex, run `codex exec` in the same
+repository, and verify the nonce in the receipt. Remove the temporary diagnostic
+and review/trust the restored configuration. A direct shell invocation, a
+configuration file, or a model repeating text supplied in the prompt does not
+prove Codex loaded the hook. If the receipt is absent, inspect `/hooks` and
+feature/policy settings.
