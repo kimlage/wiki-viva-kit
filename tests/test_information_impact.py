@@ -68,7 +68,7 @@ def test_only_superseded_inactive_legacy_history_can_be_retired():
         assert affected_dynamic_queries(new, old, {'consumer.md','AGENTS.md'}, set(), _retirement_approved=True), mutation
 
 
-def test_authority_change_revalidates_distinct_current_query_after_retirement():
+def test_authority_change_requires_revalidation_of_distinct_current_query_after_retirement():
     from copy import deepcopy
 
     historical = {
