@@ -432,15 +432,16 @@ provider event as JSON on stdin. It uses the read-only integration checker and
 returns JSON to the host; it does not post, merge, clean, persist a queue or
 change action state. `SessionStart` injects a short count summary. `Stop` defaults
 to `--mode observe` and warns only. `--mode enforce` may request one continuation
-for a verified current-branch-without-PR, uncommitted current worktree or merged
-current branch/worktree remaining. It does not block on other findings or an
-unavailable observation. A provider `stop_hook_active` event ends that one
+for a verified current-branch-without-PR, uncommitted current worktree or a
+merged branch/worktree remaining in the destination. It does not block on other
+findings or an unavailable observation. A provider `stop_hook_active` event ends that one
 attempt; no generic continuation is requested.
 
 `SubagentStop` checks only the explicitly selected executor agent types. Its
 final handoff uses separate `Proposal`, `Head`, `Base`, `Review`, `Gates`,
 `Pending` and `Responsible-Thread` lines; head and base are nonzero full SHAs,
-the proposal is a URL or numbered PR, review is a reference citing the head SHA,
+the proposal is a URL or numbered PR with `repo=owner/repo`, followed by
+`target=<branch>`; review is a reference citing the head SHA,
 gates use `name=passed|failed|pending|waiting`, and the thread has a runtime
 reference. Pending may say
 `none`; placeholders do not count as evidence. An incomplete executor handoff

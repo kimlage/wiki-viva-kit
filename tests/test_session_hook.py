@@ -40,7 +40,7 @@ def test_stop_observe_and_bounded_enforce(monkeypatch, tmp_path):
     assert 'decision' not in hook.handle(event | {'last_assistant_message': 'STOP requested'}, tmp_path, 'enforce', 'running', {'executor'}, 10)
 
 
-def test_only_current_merged_worktree_blocks(monkeypatch, tmp_path):
+def test_merged_worktree_blocks(monkeypatch, tmp_path):
     monkeypatch.setattr(hook, 'check', lambda *args: {'ok': True, 'hygiene': [{'status': 'fix:merged_worktree_remaining', 'path': str(tmp_path), 'branch': 'wiki/work'}]})
     monkeypatch.setattr(hook, '_current_branch', lambda root: 'wiki/work')
     result = hook.handle({'hook_event_name': 'Stop', 'stop_hook_active': False}, tmp_path, 'enforce', 'running', {'executor'}, 10)
@@ -52,7 +52,7 @@ def test_executor_handoff_and_non_executor(tmp_path):
     assert hook.handle(event, tmp_path, 'observe', 'running', {'executor'}, 10)['decision'] == 'block'
     assert 'decision' not in hook.handle(event | {'stop_hook_active': True}, tmp_path, 'observe', 'running', {'executor'}, 10)
     assert hook.handle(event | {'agent_type': 'reviewer'}, tmp_path, 'enforce', 'running', {'executor'}, 10) == {}
-    handoff = f'Proposal: PR 1\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review {HEAD}\nGates: pytest=passed\nPending: none\nResponsible-Thread: thread:sample'
+    handoff = f'Proposal: PR 1 repo=owner/repo target=main\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review {HEAD}\nGates: pytest=passed\nPending: none\nResponsible-Thread: thread:sample'
     assert hook.handle(event | {'last_assistant_message': handoff}, tmp_path, 'observe', 'running', {'executor'}, 10) == {}
 
 
@@ -101,7 +101,7 @@ def test_placeholder_handoff_is_incomplete():
 def test_hook_accepts_filled_canonical_brief():
     brief = (SCRIPT.parents[1] / 'docs/references/templates/wiki/subagent-brief.md').read_text()
     replacements = {
-        '<PR URL or number, destination repository and target branch>': 'PR #123 to main',
+        '<PR URL or PR number with repo=owner/repo, then target=branch>': 'PR #123 repo=owner/repo target=main',
         '<full final head SHA>': HEAD, '<full base SHA>': BASE,
         '<independent review reference and full head SHA>': 'https://example.test/review ' + HEAD,
         '<gate=passed, gate=pending>': 'pytest=passed', '<items and wait events, or none>': 'none',
@@ -113,14 +113,14 @@ def test_hook_accepts_filled_canonical_brief():
 
 
 def test_handoff_rejects_unnamed_gates_and_unbound_review():
-    message = f'Proposal: PR 1\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review {HEAD}\nGates: not passed\nPending: none\nResponsible-Thread: thread:sample'
+    message = f'Proposal: PR 1 repo=owner/repo target=main\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review {HEAD}\nGates: not passed\nPending: none\nResponsible-Thread: thread:sample'
     assert not hook.complete_handoff(message)
     assert not hook.complete_handoff(message.replace('Gates: not passed', 'Gates: tests=passed').replace('review ' + HEAD, 'review'))
 
 
 def test_handoff_rejects_partial_sha():
     short = 'a' * 41
-    message = f'Proposal: PR 1\nHead: {short}\nBase: {BASE}\nReview: https://example.test/review {short}\nGates: pytest=passed\nPending: none\nResponsible-Thread: thread:sample'
+    message = f'Proposal: PR 1 repo=owner/repo target=main\nHead: {short}\nBase: {BASE}\nReview: https://example.test/review {short}\nGates: pytest=passed\nPending: none\nResponsible-Thread: thread:sample'
     assert not hook.complete_handoff(message)
 
 
@@ -151,6 +151,20 @@ def test_missing_attempt_state_never_continues(monkeypatch, tmp_path):
 
 
 def test_failed_gate_cannot_have_no_pending_items():
-    msg = f'Proposal: PR 1\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review {HEAD}\nGates: tests=failed\nPending: none\nResponsible-Thread: thread:sample'
+    msg = f'Proposal: PR 1 repo=owner/repo target=main\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review {HEAD}\nGates: tests=failed\nPending: none\nResponsible-Thread: thread:sample'
     assert not hook.complete_handoff(msg)
     assert hook.complete_handoff(msg.replace('Pending: none', 'Pending: repair failed tests'))
+
+
+def test_merged_residue_in_another_worktree_blocks(monkeypatch, tmp_path):
+    monkeypatch.setattr(hook, 'check', lambda *args: {'ok': True, 'hygiene': [{'status': 'fix:merged_worktree_remaining', 'path': '/other', 'branch': 'wiki/merged'}]})
+    monkeypatch.setattr(hook, '_current_branch', lambda root: 'wiki/current')
+    result = hook.handle({'hook_event_name': 'Stop', 'stop_hook_active': False}, tmp_path, 'enforce', 'running', {'executor'}, 10)
+    assert result['decision'] == 'block' and 'merged_branch_or_worktree_remaining' in result['reason']
+
+
+def test_handoff_requires_destination_repository_and_branch():
+    msg = f'Proposal: PR 1\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review {HEAD}\nGates: tests=passed\nPending: none\nResponsible-Thread: thread:sample'
+    assert not hook.complete_handoff(msg)
+    assert not hook.complete_handoff(msg.replace('Proposal: PR 1', 'Proposal: PR 1 repo=owner/repo'))
+    assert hook.complete_handoff(msg.replace('Proposal: PR 1', 'Proposal: PR 1 repo=owner/repo target=main'))

@@ -73,7 +73,7 @@ def mechanical_findings(observation: dict, root: Path, branch: str | None) -> li
             findings.add('current_branch_without_proposal')
         if current_tree and status == 'fix:dirty_worktree':
             findings.add('uncommitted_changes')
-        if (current_branch or current_tree) and status in {'fix:merged_branch_remaining', 'fix:merged_worktree_remaining'}:
+        if status in {'fix:merged_branch_remaining', 'fix:merged_worktree_remaining'}:
             findings.add('merged_branch_or_worktree_remaining')
     return sorted(findings)
 
@@ -95,7 +95,12 @@ def complete_handoff(message: Any) -> bool:
         return False
     if fields['pending'].lower() in {'unknown', 'tbd', 'missing', 'unavailable', '-'}:
         return False
-    if not re.search(r'(?i)\b(?:pr|proposal)\s*#?\s*\d+\b|https?://\S+', fields['proposal']):
+    proposal = fields['proposal']
+    url = re.search(r'(?i)https?://[^/\s]+/[^/\s]+/[^/\s]+/\S+', proposal)
+    numbered = re.search(r'(?i)\b(?:pr|proposal)\s*#?\s*\d+\b', proposal)
+    repository = re.search(r'(?i)\brepo=[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\b', proposal)
+    target = re.search(r'(?i)\btarget=[A-Za-z0-9_./-]+', proposal)
+    if not target or not (url or (numbered and repository)):
         return False
     if (not re.search(r'(?i)(?:https?://|t3-thread://|review:)[^\s]+', fields['review'])
             or fields['head'].lower() not in fields['review'].lower()):

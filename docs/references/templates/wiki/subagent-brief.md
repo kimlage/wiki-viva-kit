@@ -103,7 +103,7 @@ pending item. `Responsible-Thread` names the executor thread, and the
 integrator recipient is identified after these fields.
 
 ```text
-Proposal: <PR URL or number, destination repository and target branch>
+Proposal: <PR URL or PR number with repo=owner/repo, then target=branch>
 Head: <full final head SHA>
 Base: <full base SHA>
 Review: <independent review reference and full head SHA>
