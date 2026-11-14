@@ -677,7 +677,7 @@ def test_callback_mutation_before_final_readback_reports_partial(repo):
     assert output['global_audit'] == 'not_performed'
 
 
-@pytest.mark.parametrize('content', [b'invalid \xff text', b'contains\x00nul', b'contains\x01control',
+@pytest.mark.parametrize('content', [b'invalid \xff text', b'contains\x00nul', b'contains\x01control', b'contains\x7fcontrol',
                                      'contains\u0085control'.encode('utf-8'),
                                      b'version https://git-lfs.github.com/spec/v1\n'])
 def test_selected_nontext_worktree_reports_partial_without_scanning(repo, monkeypatch, content):
