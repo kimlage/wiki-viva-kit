@@ -328,7 +328,7 @@ def test_linked_action_stale_current_terminal_and_indeterminate():
     stale = check._action_observation(fm, '', pr, 'github.com/owner/repo')
     assert stale == {'status': 'fix:action_stale', 'action_id': 'action-demo', 'pr': 1,
                      'responsible': 'team-owner', 'event': 'proposal_closed_after_action'}
-    fm['updated_at'] = '2026-11-15'
+    fm['updated_at'] = '2026-11-16'
     assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'current'
     fm['updated_at'] = '2026-11-14'
     assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'waiting:action_reconciliation'
@@ -358,3 +358,21 @@ def test_action_findings_read_canonical_git_blobs(monkeypatch, tmp_path):
     findings, available = check._action_findings(tmp_path, BASE, [pr], 'github.com/owner/repo')
     assert available and findings[0]['status'] == 'fix:action_stale'
     assert findings[0]['action_id'] == 'action-demo'
+
+
+def test_last_receipt_alone_and_timezone_date_ambiguity():
+    pr = candidate() | {'state': 'MERGED', 'mergedAt': '2026-11-14T02:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'action-demo', 'action_state': 'open',
+          'next_action': 'PR #1', 'action_state_history': [{'at': '2026-11-13T01:00:00Z'}]}
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'fix:action_stale'
+    fm['updated_at'] = '2026-11-13'
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'waiting:action_reconciliation'
+
+
+def test_numeric_reference_and_unreadable_last_receipt():
+    pr = candidate() | {'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'a', 'action_state': 'open',
+          'updated_at': '2026-11-10', 'evidence_refs': [1]}
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'fix:action_stale'
+    fm['action_state_history'] = [{'at': 'invalid'}]
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'waiting:action_reconciliation'

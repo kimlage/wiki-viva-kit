@@ -6,7 +6,7 @@ runtime identity. Only an explicit, exact-head handoff can supply local evidence
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta, timezone
 import re
 import subprocess
 from pathlib import Path
@@ -206,7 +206,12 @@ def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str)
         return None
     cited = "\n".join((str(frontmatter.get("next_action") or ""),
                         str(frontmatter.get("evidence_refs") or ""), body))
-    if not _action_reference(cited, number, repository):
+    references = frontmatter.get("evidence_refs") or []
+    if not isinstance(references, list):
+        references = [references]
+    numeric_reference = any(str(ref).strip() == str(number) for ref in references)
+    numeric_next = str(frontmatter.get("next_action") or "").strip() == str(number)
+    if not numeric_reference and not numeric_next and not _action_reference(cited, number, repository):
         return None
     state = frontmatter.get("action_state")
     if state in TERMINAL_ACTION_STATES:
@@ -230,11 +235,24 @@ def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str)
     except ValueError:
         updated_date = None
     history = frontmatter.get("action_state_history") or []
-    receipt_times = [_event_time(x.get("at") or x.get("recorded_at")) for x in history if isinstance(x, dict)] if isinstance(history, list) else []
-    receipt_times = [x for x in receipt_times if x is not None]
-    if (updated_time and updated_time >= event) or any(x >= event for x in receipt_times) or (updated_date and updated_date > event.date()):
+    if not isinstance(history, list) or (history and not isinstance(history[-1], dict)):
+        return {**result, "status": "waiting:action_reconciliation", "event": "receipt_time_unavailable"}
+    last_receipt = (_event_time(history[-1].get("at") or history[-1].get("recorded_at")) if history else None)
+    intervals: list[tuple[datetime, datetime]] = []
+    if updated_time:
+        intervals.append((updated_time, updated_time))
+    elif updated_date:
+        # A date without a timezone may refer to any local time at a UTC
+        # offset from -12 to +14 hours. Only compare non-overlapping ranges.
+        midnight = datetime.combine(updated_date, time.min, tzinfo=timezone.utc)
+        intervals.append((midnight - timedelta(hours=14), midnight + timedelta(days=1, hours=12)))
+    if last_receipt:
+        intervals.append((last_receipt, last_receipt))
+    if any(start >= event for start, _ in intervals):
         return {**result, "status": "current", "event": "action_updated_after_proposal"}
-    if updated_time and updated_time < event or updated_date and updated_date < event.date():
+    if history and last_receipt is None:
+        return {**result, "status": "waiting:action_reconciliation", "event": "receipt_time_unavailable"}
+    if intervals and all(end <= event for _, end in intervals):
         return {**result, "status": "fix:action_stale", "event": "proposal_closed_after_action"}
     return {**result, "status": "waiting:action_reconciliation", "event": "action_update_time_ambiguous"}
 

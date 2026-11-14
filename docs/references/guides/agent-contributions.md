@@ -254,7 +254,7 @@ command reads canonical action pages from the observed default-branch commit.
 When an open action cites that proposal in its next action, body or evidence
 references and predates closure, it reports `fix:action_stale` with action ID,
 proposal and responsible owner. A later action update or receipt is current;
-terminal actions do not produce the finding. Same-day date-only evidence, absent
+terminal actions do not produce the finding. Date-only evidence whose possible time zones overlap closure, absent
 links, unreadable sources or missing closure timestamps are indeterminate and
 name the next event and responsible role. `done` describes the proposal only
 and never proves the action is closed. Explicit PR numbers and links to the
