@@ -307,12 +307,40 @@ def _drift_git_run(argv: list[str], consumer: Path, *, output_limit: int,
         raise SyncError("drift Git command unavailable or exceeded limits") from exc
 
 
+
+def _validate_drift_selection(paths: list[str]) -> None:
+    """Reject reserved, invalid and overlapping paths before Git enumeration."""
+    if len(paths) > DRIFT_MAX_MANAGED_PATHS:
+        raise SyncError("drift selection exceeds path limit")
+    selected = set()
+    for rel in paths:
+        try:
+            if (not isinstance(rel, str) or not rel or "\\" in rel or "\0" in rel
+                    or Path(rel).is_absolute() or any(part in ("", ".", "..", ".git") for part in rel.split("/"))
+                    or len(os.fsencode(rel)) > DRIFT_MAX_PATH_BYTES or is_protected_artifact(Path(rel))):
+                raise SyncError("unsafe or protected drift selection")
+        except UnicodeError as exc:
+            raise SyncError("unsafe or protected drift selection") from exc
+        if rel in selected:
+            raise SyncError("duplicate drift selection")
+        selected.add(rel)
+    for rel in selected:
+        parts = rel.split("/")
+        if any("/".join(parts[:i]) in selected for i in range(1, len(parts))):
+            raise SyncError("overlapping drift selection")
+
+
 def _drift_index_metadata(consumer: Path, paths: list[str]) -> dict[str, tuple[str, str]]:
     """Read only selected index entries; refuse unmerged/non-regular records."""
+    _validate_drift_selection(paths)
     entries: dict[str, tuple[str, str]] = {}
     for start in range(0, len(paths), 32):
         selected = paths[start:start + 32]
-        result = _drift_git_run([*_drift_git_prefix(), "--literal-pathspecs", "ls-files", "--stage", "-z", "--", *selected],
+        # A literal Git pathspec also matches descendants of a directory.
+        # Exclude those descendants so only exact selected files are emitted.
+        include = [f":(top,literal){rel}" for rel in selected]
+        exclude = [f":(top,exclude,literal){rel}/" for rel in selected]
+        result = _drift_git_run([*_drift_git_prefix(), "ls-files", "--stage", "-z", "--", *include, *exclude],
                                 consumer, output_limit=2 * 1024 * 1024)
         if result.returncode:
             raise SyncError("consumer index unavailable")
@@ -378,7 +406,9 @@ def inspect_drift(consumer: Path) -> dict[str, Any]:
         raise SyncError("protected selection requires bound dispatch")
     top = _drift_git_run([*_drift_git_prefix(), "rev-parse", "--show-toplevel"], consumer, output_limit=16384)
     try:
-        top_path = Path(os.fsdecode(top.output).strip()).resolve()
+        if not top.output.endswith(b"\n"):
+            raise ValueError('missing Git line terminator')
+        top_path = Path(os.fsdecode(top.output[:-1])).resolve()
     except (ValueError, OSError):
         raise SyncError("consumer path must be its Git root and Git must support --no-lazy-fetch") from None
     if top.returncode or top_path != consumer.resolve():
@@ -400,16 +430,8 @@ def inspect_drift(consumer: Path) -> dict[str, Any]:
     managed = lock.get("managed_files")
     if not isinstance(managed, dict) or not managed:
         raise SyncError("kit.lock managed_files must be a non-empty mapping")
-    if len(managed) > DRIFT_MAX_MANAGED_PATHS:
-        raise SyncError("drift selection exceeds path limit")
     # Reject the whole selection before resolving or enumerating any managed path.
-    for rel in managed:
-        try:
-            if (not isinstance(rel, str) or len(os.fsencode(rel)) > DRIFT_MAX_PATH_BYTES
-                    or is_protected_artifact(Path(rel))):
-                raise SyncError("unsafe or protected drift selection")
-        except UnicodeError as exc:
-            raise SyncError("unsafe or protected drift selection") from exc
+    _validate_drift_selection(list(managed))
     for rel, expected in managed.items():
         _check_consumer_path(consumer, rel)
         if (not isinstance(expected, dict)

@@ -74,8 +74,10 @@ no-follow reads; unsupported platforms fail closed. It refuses reserved
 `.wiki-viva-protected` paths rather than accessing them through this generic
 route. It inspects only paths named in the lock, not every consumer file.
 The selection is limited to 8,192 paths of at most 4,096 encoded bytes each;
-Git operations have time and output limits, and exceeding a limit refuses the
-report. These limits do not bound every possible filesystem delay. It is not
+overlapping file/directory selections are refused. Git index results exclude
+unselected descendants. Git operations have time and output limits, and
+exceeding a limit refuses the report. These limits do not bound every possible
+filesystem delay. It is not
 an atomic snapshot against an actively changing worktree: stop writers and
 rerun before making a decision. Git must support `--no-lazy-fetch`; missing
 index blobs cause refusal rather than a network fetch or repair of the object

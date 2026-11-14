@@ -951,3 +951,57 @@ def test_drift_fails_closed_without_nonblocking_open(tmp_path, monkeypatch):
     monkeypatch.delattr(sync.os, 'O_NONBLOCK', raising=False)
     with pytest.raises(sync.SyncError, match='requires no-follow directory-relative reads'):
         sync._drift_worktree_file(tmp_path, 'kit.lock')
+
+
+@requires_safe_drift
+@pytest.mark.parametrize('missing_worktree', [False, True])
+def test_drift_index_never_emits_descendants_of_selected_directory(tmp_path, monkeypatch, missing_worktree):
+    import hashlib
+    consumer = _repo(tmp_path / 'consumer')
+    sync = _sync_module()
+    nested = consumer / 'selected/.WIKI-VIVA-PROTECTED/synthetic.txt'
+    nested.parent.mkdir(parents=True)
+    nested.write_bytes(b'synthetic protected body')
+    expected = {'sha256': hashlib.sha256(b'expected file').hexdigest(), 'mode': '100644'}
+    tree = [{'path': 'selected', **expected}]
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'source_sha': 'a' * 40,
+            'manifest_sha256': 'b' * 64, 'portable_tree_sha256': sync._canonical_sha256(tree),
+            'managed_files': {'selected': expected}}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    _git(consumer, 'add', '-A')
+    _git(consumer, 'commit', '-qm', 'synthetic index')
+    if missing_worktree:
+        (consumer / 'selected').rename(consumer / 'elsewhere')
+    original = sync._drift_git_run
+    def inspect_output(*args, **kwargs):
+        result = original(*args, **kwargs)
+        assert b'.WIKI-VIVA-PROTECTED' not in result.output
+        return result
+    monkeypatch.setattr(sync, '_drift_git_run', inspect_output)
+    report = sync.inspect_drift(consumer)
+    assert report['status'] == 'drift'
+    assert report['drift'][0]['index']['kind'] == 'missing'
+
+
+@requires_safe_drift
+@pytest.mark.parametrize('name', ['consumer ', 'consumer\n'])
+def test_drift_accepts_git_root_with_trailing_whitespace(tmp_path, name):
+    consumer = _repo(tmp_path / name)
+    sync = _manual_drift_lock(consumer, {'synthetic.txt': b'original'})
+    assert sync.inspect_drift(consumer)['status'] == 'clean'
+
+
+def test_drift_rejects_overlapping_or_nul_selections_before_git():
+    sync = _sync_module()
+    for paths in (['parent', 'parent/child'], ['normal', 'bad\0path']):
+        with pytest.raises(sync.SyncError):
+            sync._validate_drift_selection(paths)
+
+
+@requires_safe_drift
+def test_drift_exact_pathspec_accepts_literal_special_names(tmp_path):
+    consumer = _repo(tmp_path / 'consumer')
+    entries = {'synthetic-[:]*?.txt': b'one', 'nested/other.txt': b'two'}
+    sync = _manual_drift_lock(consumer, entries)
+    report = sync.inspect_drift(consumer)
+    assert report['status'] == 'clean' and report['managed_total'] == 2
