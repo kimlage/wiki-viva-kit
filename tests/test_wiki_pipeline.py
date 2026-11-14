@@ -286,3 +286,85 @@ def test_approved_pipeline_reads_current_policy_and_committed_perspective_before
     revoked = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', revoked)
     for revision in (current, revoked):
         with pytest.raises(ValueError): prepare(tmp_path, binding, **{**args, 'approved_revision': revision})
+
+
+def test_legacy_local_source_change_before_persistence_blocks_all_outputs(tmp_path, monkeypatch):
+    import wiki_core.ingest.pipeline as pipeline
+
+    source = tmp_path / 'synthetic.md'
+    source.write_text('# Synthetic\n' + ('original synthetic content ' * 80))
+    original = pipeline.build_context_request
+
+    def change_during_preparation(*args, **kwargs):
+        request = original(*args, **kwargs)
+        source.write_text('# Synthetic\nchanged before persistence')
+        return request
+
+    monkeypatch.setattr(pipeline, 'build_context_request', change_during_preparation)
+    result = pipeline.run(str(source), 'system', tmp_path, WikiConfig(), record_score=False)
+    assert result.blocked and not result.written
+    assert result.context_error_code == 'source_changed_before_persistence'
+    assert result.request_path is None and result.manifest_path is None
+    assert not (tmp_path / 'data/derived/wiki').exists()
+
+
+def test_legacy_source_removed_during_preparation_preserves_prior_capture(tmp_path, monkeypatch):
+    import wiki_core.ingest.pipeline as pipeline
+
+    source = tmp_path / 'synthetic.md'
+    source.write_text('# Synthetic\n' + ('original synthetic content ' * 80))
+    config = WikiConfig()
+    first = pipeline.run(str(source), 'system', tmp_path, config, record_score=False)
+    assert first.written and not first.blocked
+    derived = tmp_path / 'data/derived/wiki'
+    prior = {p.relative_to(derived): p.read_bytes() for p in derived.rglob('*') if p.is_file()}
+    original = pipeline.build_context_request
+
+    def remove_during_preparation(*args, **kwargs):
+        request = original(*args, **kwargs)
+        source.unlink()
+        return request
+
+    monkeypatch.setattr(pipeline, 'build_context_request', remove_during_preparation)
+    result = pipeline.run(str(source), 'system', tmp_path, config, record_score=False)
+    assert result.blocked and not result.written
+    assert result.context_error_code == 'source_changed_before_persistence'
+    assert {p.relative_to(derived): p.read_bytes() for p in derived.rglob('*') if p.is_file()} == prior
+
+
+def test_legacy_source_replaced_by_fifo_does_not_block(tmp_path, monkeypatch):
+    import os
+    import pytest
+    import wiki_core.ingest.pipeline as pipeline
+
+    if not hasattr(os, 'mkfifo') or not hasattr(os, 'O_NONBLOCK'):
+        pytest.skip('FIFO or nonblocking open unavailable')
+    source = tmp_path / 'synthetic.md'
+    source.write_text('# Synthetic\n' + ('original synthetic content ' * 80))
+    original = pipeline.build_context_request
+
+    def replace_during_preparation(*args, **kwargs):
+        request = original(*args, **kwargs)
+        source.unlink()
+        os.mkfifo(source)
+        return request
+
+    monkeypatch.setattr(pipeline, 'build_context_request', replace_during_preparation)
+    result = pipeline.run(str(source), 'system', tmp_path, WikiConfig(), record_score=False)
+    assert result.blocked and not result.written
+    assert result.context_error_code == 'source_changed_before_persistence'
+    assert result.request_path is None and result.manifest_path is None
+    assert not (tmp_path / 'data/derived/wiki').exists()
+
+
+def test_legacy_ingestion_without_nonblocking_open_warns_and_remains_available(tmp_path, monkeypatch):
+    import os
+    import wiki_core.ingest.pipeline as pipeline
+
+    source = tmp_path / 'synthetic.md'
+    source.write_text('# Synthetic\n' + ('original synthetic content ' * 80))
+    monkeypatch.delattr(os, 'O_NONBLOCK', raising=False)
+    result = pipeline.run(str(source), 'system', tmp_path, WikiConfig(), record_score=False)
+    assert not result.blocked and result.written
+    assert result.request_path and (tmp_path / result.request_path).is_file()
+    assert 'Local source recheck unavailable: nonblocking open is not supported.' in result.warnings

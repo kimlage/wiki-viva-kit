@@ -28,6 +28,11 @@ Without approved-context flags, the existing working-tree adapter remains
 explicitly labelled compatibility. Previously retained envelopes are preserved;
 their availability depends on current authorization. New requests bind the explicit limits as well as the delivered interpretation
 context. Compatibility is not evidence of approved policy or source freshness.
+For a local file ingested without a folder, platforms providing nonblocking open
+recheck its digest before persistence and refuse changed or unavailable inputs.
+Where that facility is unavailable, the compatibility route remains available
+and its result warns that this recheck was skipped. This check is not an atomic
+snapshot: changes during earlier processing or after the check may go unnoticed.
 
 For a local folder entry, start in the nested directory or select it explicitly
 with `--folder FOLDER`; paths are relative to the wiki root. The request includes

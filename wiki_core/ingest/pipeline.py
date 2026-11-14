@@ -116,6 +116,34 @@ def _blocked_preparation(context, config, exc, *, write_uncertain: bool = False)
         context_error_code=report["error_code"], partial_effects='unknown' if write_uncertain else None)
 
 
+
+def _compatibility_source_digest(path: Path) -> str:
+    """Hash a selected regular file without blocking on a replacement FIFO."""
+    import hashlib
+    import os
+    import stat
+
+    if not hasattr(os, 'O_NONBLOCK'):
+        raise OSError('nonblocking file access unavailable')
+    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, 'O_CLOEXEC', 0))
+    try:
+        before = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode):
+            raise OSError('source is not a regular file')
+        digest = hashlib.sha256()
+        while chunk := os.read(fd, 1024 * 1024):
+            digest.update(chunk)
+        after = os.fstat(fd)
+        named = path.stat()
+        identity = lambda row: (row.st_dev, row.st_ino, row.st_mode, row.st_size,
+                                row.st_mtime_ns, row.st_ctime_ns)
+        if identity(before) != identity(after) or identity(after) != identity(named):
+            raise OSError('source changed while rechecking')
+        return digest.hexdigest()
+    finally:
+        os.close(fd)
+
+
 def run(
     source: str,
     context: str,
@@ -403,6 +431,24 @@ def run(
             report = preparation_blocker(exc, source_id, config.owner_label)
             blockers.append(report['blocker']); context_error_code = report['error_code']
             pending = chunk_count; request = None; blocked = True
+    compatibility_recheck_unavailable = False
+    if write and entry_folder is None and not blocked and source_bytes is not None and manifest.get('exists'):
+        # Compatibility ingestion has no selected-folder revalidation above.
+        # Preserve the existing route on platforms without nonblocking open,
+        # but report that the additional check could not be performed.
+        import os
+        if not hasattr(os, 'O_NONBLOCK'):
+            compatibility_recheck_unavailable = True
+        else:
+            try:
+                if _compatibility_source_digest(source_path) != manifest.get('hash_sha256'):
+                    raise OSError('source changed')
+            except OSError:
+                report = preparation_blocker(ContextRequestBlocked('source_changed_before_persistence',
+                    'The local source changed or became unavailable before persistence; prepare it again.'),
+                    source_id, config.owner_label)
+                blockers.append(report['blocker']); context_error_code = report['error_code']
+                pending = chunk_count; request = None; blocked = True
     persist = write and not blocked
 
     try:
@@ -535,6 +581,9 @@ def run(
             updated_at=stamp[:10],
         )
         stream_cursor_written = True
+
+    if compatibility_recheck_unavailable and persist:
+        warnings = [*warnings, 'Local source recheck unavailable: nonblocking open is not supported.']
 
     return IngestResult(
         source_id=source_id,
