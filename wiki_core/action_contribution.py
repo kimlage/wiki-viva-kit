@@ -272,8 +272,24 @@ def _require_supported_commit_hook_policy(root: Path) -> None:
         raise ContributionError("git_commit_hook_policy_unavailable") from exc
     if result.returncode not in (0, 1) or len(result.stdout) > 4096:
         raise ContributionError("git_commit_hook_policy_unavailable")
-    if result.returncode == 0 and os.fsdecode(result.stdout).strip() != os.devnull:
+    if result.returncode == 0 and os.fsdecode(result.stdout).removesuffix("\n") != os.devnull:
         raise ContributionError("git_commit_hook_policy_unsupported")
+
+
+def _require_supported_clone_template_policy(root: Path) -> None:
+    """Do not silently discard an explicitly configured clone template."""
+    from wiki_core.git_env import local_git_executable
+    if "GIT_TEMPLATE_DIR" in os.environ:
+        raise ContributionError("git_clone_template_policy_unsupported")
+    try:
+        result = subprocess.run([local_git_executable(), "config", "--path", "--get", "init.templateDir"],
+                                cwd=root, env=_transport_git_environment(root), capture_output=True, timeout=120)
+    except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+        raise ContributionError("git_clone_template_policy_unavailable") from exc
+    if result.returncode not in (0, 1) or len(result.stdout) > 4096:
+        raise ContributionError("git_clone_template_policy_unavailable")
+    if result.returncode == 0:
+        raise ContributionError("git_clone_template_policy_unsupported")
 
 
 def _blob(root: Path, revision: str, path: str) -> str:
@@ -739,6 +755,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
     policy = _blob(root, base, "wiki.config.yaml")
     if (root / "wiki.config.yaml").read_text() != policy:
         raise ContributionError("uncommitted_policy")
+    _require_supported_clone_template_policy(root)
     signing_policy = _commit_signing_policy(root)
     if dry_run:
         return {"status": "ready_to_prepare", "material_sha256": material,

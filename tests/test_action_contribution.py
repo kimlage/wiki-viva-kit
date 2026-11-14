@@ -567,6 +567,35 @@ def test_prepare_refuses_configured_hook_policy_instead_of_skipping_it(tmp_path,
     assert port._candidate(root, result['branch']) is None
 
 
+def test_prepare_does_not_treat_spaced_hook_path_as_devnull(tmp_path, monkeypatch):
+    _, request = fixture(tmp_path)
+    monkeypatch.setenv('GIT_CONFIG_COUNT', '1')
+    monkeypatch.setenv('GIT_CONFIG_KEY_0', 'core.hooksPath')
+    monkeypatch.setenv('GIT_CONFIG_VALUE_0', ' ' + os.devnull + ' ')
+    result = call(tmp_path, 'prepare', request, review=review(request))
+    assert not result['ok'] and result['error'] == 'git_commit_hook_policy_unsupported'
+    assert port._candidate(tmp_path, result['branch']) is None
+
+
+@pytest.mark.parametrize('source', ['global', 'environment'])
+def test_prepare_refuses_configured_clone_template(tmp_path, monkeypatch, source):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    _, request = fixture(root)
+    template = tmp_path / 'template'
+    (template / 'hooks').mkdir(parents=True)
+    if source == 'global':
+        config = tmp_path / 'gitconfig'
+        config.write_text('[init]\n\ttemplateDir = ' + str(template) + '\n')
+        monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(config))
+        monkeypatch.delenv('GIT_TEMPLATE_DIR', raising=False)
+    else:
+        monkeypatch.setenv('GIT_TEMPLATE_DIR', str(template))
+    result = call(root, 'prepare', request, review=review(request))
+    assert not result['ok'] and result['error'] == 'git_clone_template_policy_unsupported'
+    assert port._candidate(root, result['branch']) is None
+
+
 @pytest.mark.skipif(os.name == 'nt' or shutil.which('ssh-keygen') is None, reason='requires POSIX SSH signing fixture')
 @pytest.mark.parametrize('source', ['global', 'local', 'injected'])
 def test_prepare_preserves_required_ssh_signing(tmp_path, monkeypatch, source):
