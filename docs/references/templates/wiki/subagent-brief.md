@@ -98,7 +98,8 @@ the destination repository and target branch in `Proposal`, the independent
 review and findings/resolution link in `Review`, and each gate and result in
 `Gates` using comma-separated `name=passed|failed|pending|waiting` entries.
 The `Review` value includes the full head SHA. List pending approvals and wait events explicitly; use `none` only
-when there are none. `Responsible-Thread` names the executor thread, and the
+when there are none; a failed, pending or waiting gate must have a named
+pending item. `Responsible-Thread` names the executor thread, and the
 integrator recipient is identified after these fields.
 
 ```text

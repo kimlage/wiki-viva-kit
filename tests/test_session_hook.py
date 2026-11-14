@@ -148,3 +148,9 @@ def test_missing_attempt_state_never_continues(monkeypatch, tmp_path):
     for event in ({'hook_event_name': 'Stop'}, {'hook_event_name': 'Stop', 'stop_hook_active': 'false'},
                   {'hook_event_name': 'SubagentStop', 'agent_type': 'executor', 'last_assistant_message': 'incomplete'}):
         assert 'decision' not in hook.handle(event, tmp_path, 'enforce', 'running', {'executor'}, 10)
+
+
+def test_failed_gate_cannot_have_no_pending_items():
+    msg = f'Proposal: PR 1\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review {HEAD}\nGates: tests=failed\nPending: none\nResponsible-Thread: thread:sample'
+    assert not hook.complete_handoff(msg)
+    assert hook.complete_handoff(msg.replace('Pending: none', 'Pending: repair failed tests'))

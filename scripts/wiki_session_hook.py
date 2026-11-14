@@ -103,6 +103,8 @@ def complete_handoff(message: Any) -> bool:
     gates = [gate.strip() for gate in fields['gates'].split(',')]
     if not gates or any(not re.fullmatch(r'[A-Za-z0-9_./-]+=(?:passed|failed|pending|waiting)', gate, re.I) for gate in gates):
         return False
+    if fields['pending'].lower() == 'none' and any(gate.rsplit('=', 1)[-1].lower() != 'passed' for gate in gates):
+        return False
     if not re.search(r'(?i)(?:thread:|t3-thread://|mcp:launch:)[^\s]+', fields['responsible-thread']):
         return False
     return True
