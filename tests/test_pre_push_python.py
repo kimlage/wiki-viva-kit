@@ -52,7 +52,8 @@ def test_windows_real_push_uses_selected_venv_for_python3(tmp_path):
                                '-c', 'commit.gpgsign=false', *args], cwd=cwd, check=True,
                               capture_output=True, text=True).stdout.strip()
     git(root, 'init', '-q')
-    (root / 'page.md').write_text('initial\n', encoding='utf-8')
+    git(root, 'config', 'core.autocrlf', 'false')
+    (root / 'page.md').write_bytes(b'initial\n')
     git(root, 'add', 'page.md')
     git(root, 'commit', '-qm', 'initial')
     remote = tmp_path / 'remote.git'
@@ -79,6 +80,9 @@ def test_windows_real_push_uses_selected_venv_for_python3(tmp_path):
     (root / 'wiki.config.yaml').write_text(json.dumps({'pre_push': {'quick_commands': [['python3', '-c', code]]}}), encoding='utf-8')
     git(root, 'add', 'wiki.config.yaml')
     git(root, 'commit', '-qm', 'consumer gate')
+    for name in ('page.md', 'wiki.config.yaml'):
+        committed = subprocess.check_output(['git', 'show', f'HEAD:{name}'], cwd=root)
+        assert committed == (root / name).read_bytes()
     subprocess.run([sys.executable, str(scripts / 'wiki_pre_push.py'), '--root', str(root), '--install'], check=True)
     result = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/main'], cwd=root,
                             capture_output=True, text=True, timeout=20)
