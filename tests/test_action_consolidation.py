@@ -89,15 +89,17 @@ def test_forged_editorial_receipt_cannot_hide_extra_body_changes(tmp_path):
     assert action_transition_diagnostics(before,_render_document(fm,body))[0].code == 'invalid_body_consolidation'
 
 
-@pytest.mark.parametrize('line_ending', ['crlf', 'mixed'])
+@pytest.mark.parametrize('line_ending', ['crlf', 'mixed', 'cr_only'])
 def test_consolidation_binds_crlf_sibling_bytes_and_preserves_surrounding_body(tmp_path, line_ending):
     p, canonical, records = fixture(tmp_path)
     for path in (p, canonical):
         raw = path.read_bytes()
         if line_ending == 'crlf':
             raw = raw.replace(b'\n', b'\r\n')
-        else:
+        elif line_ending == 'mixed':
             raw = raw.replace(b'\n\n', b'\r\n\n')
+        else:
+            raw = raw.replace(b'\n', b'\r')
         path.write_bytes(raw)
     source = canonical.read_bytes()
     before = p.read_bytes().decode('utf-8')
@@ -117,3 +119,12 @@ def test_consolidation_binds_crlf_sibling_bytes_and_preserves_surrounding_body(t
         recorded_at='2026-07-11T23:45:00-03:00', consolidations=records)
     assert canonical.read_bytes() == source
     assert action_transition_diagnostics(before, p.read_bytes().decode('utf-8')) == ()
+
+
+def test_crlf_consolidation_keeps_single_newline_inside_paragraph():
+    paragraph = ('First synthetic line with enough factual detail to exceed the required length.\r\n'
+                 'Second synthetic line remains part of the same paragraph for an exact replacement.')
+    body = '# Heading\r\n\r\n' + paragraph + '\r\n\r\nOther paragraph.\r\n'
+    record = {'paragraph': paragraph, 'canonical_ref': 'memories/actions/canonical.md',
+              'canonical_sha256': 'a' * 64, 'label': 'Canonical evidence'}
+    assert _consolidated_body(body, [record]) == body.replace(paragraph, '[Canonical evidence](canonical.md).')

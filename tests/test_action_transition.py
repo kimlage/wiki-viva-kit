@@ -1327,6 +1327,11 @@ def test_action_writer_cas_binds_exact_file_bytes(tmp_path, writer, newline):
     receipt_before = receipt.before_sha256 if writer == 'transition' else receipt['before_sha256']
     assert receipt_before == exact_sha
     assert action_transition_diagnostics(raw_before.decode('utf-8'), path.read_bytes().decode('utf-8')) == ()
+    from wiki_core.page_types import _action_history_shape_errors
+    fm, _ = transition_module._parse_document(path.read_bytes().decode('utf-8'))
+    entry = fm['action_state_history'][-1]
+    assert entry['schema_version'] == ('wiki_action_transition_receipt.v6' if newline == 'lf' else 'wiki_action_transition_receipt.v7')
+    assert _action_history_shape_errors('synthetic', fm, fm['action_state']) == []
 
 
 @pytest.mark.parametrize('newline', ['lf', 'crlf'])
@@ -1341,3 +1346,20 @@ def test_idempotent_action_returns_exact_unchanged_sha(tmp_path, newline):
     assert not receipt.changed and receipt.idempotent
     assert receipt.before_sha256 == receipt.after_sha256 == expected
     assert path.read_bytes() == original
+
+
+def test_mixed_legacy_and_eol_receipts_bind_body_across_checkout_conversion(tmp_path):
+    path = _write_action(tmp_path)
+    base = path.read_bytes().decode('utf-8')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': '# First synthetic body\n'}, recorded_at='2026-07-11T14:30:00Z')
+    path.write_bytes(path.read_bytes().replace(b'\n', b'\r\n'))
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': '# Second synthetic body\n'}, recorded_at='2026-07-11T14:30:01Z')
+    after = path.read_bytes().decode('utf-8')
+    fm, _ = transition_module._parse_document(after)
+    assert [entry['schema_version'] for entry in fm['action_state_history']] == [
+        'wiki_action_transition_receipt.v6', 'wiki_action_transition_receipt.v7']
+    assert action_transition_diagnostics(base, after) == ()
+    tampered = after.replace('# Second synthetic body', '# Different synthetic body')
+    assert action_transition_diagnostics(base, tampered)

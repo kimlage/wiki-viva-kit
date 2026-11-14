@@ -92,6 +92,18 @@ Body edits preserve the submitted text, including trailing blank lines. Exact
 body hashes decide whether a write is needed; the newline-normalized Git audit
 projection does not decide whether text was saved. Existing v5 receipts remain
 readable alongside the optional exact-byte witness in new body edits.
+When a captured preimage contains CR line endings, a v7 receipt records a
+logical `before_revision` and body revisions with CRLF and CR mapped to LF;
+`before_sha256` still binds the actual captured bytes and is the only accepted
+CAS value. This logical match supports a Git LF blob with a CRLF checkout; it
+is not a witness of the checkout's physical bytes. An operational comment is
+qualified as an exact append only when its actual preimage is available. Earlier
+receipt versions retain their existing revision rules; an older normalized
+comment preimage may no longer qualify as an exact physical append. Unchanged
+body bytes are preserved, while rewritten frontmatter uses LF; a document may therefore have
+mixed line endings. Exact editorial consolidation may still be refused if Git
+conversion prevents reconstruction of its physical preimage, and arbitrary Git
+filters or noncooperating concurrent writers are not covered by this contract.
 The API accepts a small `page_edit` allowlist, never a frontmatter patch. Other
 frontmatter values, prior history and dialogue are preserved structurally;
 YAML comments and formatting can change during the existing serialization.
