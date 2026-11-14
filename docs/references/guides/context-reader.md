@@ -359,9 +359,12 @@ The human reader's opt-in information assessment uses the current page's
 explicit operational requirements and the evidence already loaded for those
 requirements. It does not recursively authorize or open additional transitive
 requirements. If an already loaded prerequisite or its loaded evidence declares
-one, the reader reports that transitive requirements were not assessed and does
-not mark that direct requirement ready. This is a coverage limit, not a finding
-that the nested information is false or unavailable. Ordinary citations and
-navigation are not treated as operational requirements. The passive reader
-never grants permission; execution and the separate impact audit retain their
-own authority and coverage rules.
+a nonempty requirement list or a link with a valid, unambiguous operational role
+recognized by the Markdown parser, the reader reports that transitive requirements
+were not assessed and does not mark that direct requirement ready. This is a
+coverage limit, not a finding that nested information is false or unavailable.
+Ordinary citations and navigation are not treated as operational requirements;
+stale, conflicting or unrecognized role markers are not proof of an operational
+role and remain outside this detection. A role marker does not authenticate its
+author. The passive reader never grants permission; execution and the separate
+impact audit retain their own authority and coverage rules.

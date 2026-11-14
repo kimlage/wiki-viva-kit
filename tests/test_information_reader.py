@@ -187,7 +187,7 @@ def test_reader_marks_unassessed_transitive_requirements_without_opening_targets
     assert 'information_transitive_requirements_not_assessed' in result['requirements'][0]['blockers']
 
 
-@pytest.mark.parametrize('kind', ['empty', 'citation', 'navigation'])
+@pytest.mark.parametrize('kind', ['empty', 'citation', 'navigation', 'stale_role', 'conflicting_roles', 'fenced_role'])
 def test_reader_does_not_treat_empty_or_nonoperational_links_as_transitive_requirements(tmp_path, kind):
     from wiki_core.markdown_link_roles import declare_link_role
 
@@ -198,8 +198,17 @@ def test_reader_does_not_treat_empty_or_nonoperational_links_as_transitive_requi
         text = text.replace('---\nAn observed fact.', 'information_requirements: []\n---\nAn observed fact.')
     elif kind == 'citation':
         text += '\n[Context](other-synthetic.md)\n'
-    else:
+    elif kind == 'navigation':
         text += '\n' + declare_link_role('[Navigation](other-synthetic.md)', 'navigation') + '\n'
+    else:
+        link = '[Required](other-synthetic.md)'
+        marked = declare_link_role(link, 'operational_prerequisite')
+        if kind == 'stale_role':
+            text += '\n' + marked.replace('[Required]', '[Changed]') + '\n'
+        elif kind == 'conflicting_roles':
+            text += '\n' + marked + declare_link_role(link, 'navigation')[len(link):] + '\n'
+        else:
+            text += '\n```markdown\n' + marked + '\n```\n'
     claim.write_text(text)
     commit(tmp_path)
     result = build_page_content(tmp_path, config, 'action', snapshot(tmp_path, config), include_information=True)['information_use']
