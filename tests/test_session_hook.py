@@ -385,3 +385,16 @@ def test_signal_during_popen_waits_until_child_is_tracked(monkeypatch, tmp_path)
     while _process_running(seen[0]) and time.monotonic() < deadline:
         time.sleep(0.02)
     assert not _process_running(seen[0])
+
+
+def test_unicode_repository_path_with_ascii_locale(tmp_path):
+    import os
+    repo = tmp_path / 'revisão'
+    subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+    (repo / 'file.txt').write_text('synthetic')
+    env = dict(os.environ, LC_ALL='C', PYTHONUTF8='0')
+    result = subprocess.run([sys.executable, str(SCRIPT), '--timeout', '3'],
+                            input=json.dumps({'hook_event_name': 'Stop', 'cwd': str(repo)}),
+                            capture_output=True, text=True, encoding='utf-8', env=env, timeout=5)
+    assert result.returncode == 0
+    assert 'uncommitted_changes' in json.loads(result.stdout)['systemMessage']

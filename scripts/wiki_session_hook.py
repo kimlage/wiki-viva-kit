@@ -29,7 +29,7 @@ def check(root: Path, timeout: float) -> dict:
         return {'ok': False, 'status': 'waiting:integration_checker_unavailable'}
     try:
         p = subprocess.run([sys.executable, str(CHECKER), '--root', str(root), '--json'],
-                           capture_output=True, text=True, timeout=timeout)
+                           capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', timeout=timeout)
         result = json.loads(p.stdout)
         if p.returncode or not isinstance(result, dict):
             raise ValueError
@@ -41,7 +41,7 @@ def check(root: Path, timeout: float) -> dict:
 def _repository_root(path: Path) -> Path | None:
     try:
         p = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=path,
-                           capture_output=True, text=True, timeout=5)
+                           capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', timeout=5)
         return Path(p.stdout.strip()).resolve() if p.returncode == 0 and p.stdout.strip() else None
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -50,7 +50,7 @@ def _repository_root(path: Path) -> Path | None:
 def _worktree_dirty(root: Path) -> bool | None:
     try:
         p = subprocess.run(['git', '--no-optional-locks', 'status', '--porcelain', '--untracked-files=normal'],
-                           cwd=root, capture_output=True, text=True, timeout=5)
+                           cwd=root, capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', timeout=5)
         return bool(p.stdout) if p.returncode == 0 else None
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -60,12 +60,12 @@ def _branch_without_upstream(root: Path) -> bool | None:
     """Observe local tracking configuration, not whether a remote/PR exists."""
     try:
         branch = subprocess.run(['git', 'symbolic-ref', '--quiet', '--short', 'HEAD'], cwd=root,
-                                capture_output=True, text=True, timeout=5)
+                                capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', timeout=5)
         if branch.returncode or not branch.stdout.strip():
             return None
         ref = 'refs/heads/' + branch.stdout.strip()
         tracking = subprocess.run(['git', 'for-each-ref', '--format=%(refname) %(upstream)', ref],
-                                  cwd=root, capture_output=True, text=True, timeout=5)
+                                  cwd=root, capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', timeout=5)
         line = tracking.stdout.rstrip('\n')
         if tracking.returncode or not line.startswith(ref + ' '):
             return None
@@ -232,6 +232,8 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
     if timeout <= 0:
         return None
     deadline = time.monotonic() + timeout
+    # Reserve part of the same total budget for killing and reaping the group.
+    process_deadline = deadline - min(0.25, timeout / 4)
     job = kernel = proc = None
     threads: list[threading.Thread] = []
     output: list[str] = []
@@ -297,7 +299,7 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
             thread = threading.Thread(target=target, args=args, daemon=True)
             thread.start()
             threads.append(thread)
-        proc.wait(timeout=max(0, deadline - time.monotonic()))
+        proc.wait(timeout=max(0, process_deadline - time.monotonic()))
         success = proc.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         pass
@@ -316,11 +318,11 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
                 except OSError:
                     pass
             try:
-                proc.wait(timeout=0.2)
+                proc.wait(timeout=max(0, deadline - time.monotonic()))
             except (OSError, subprocess.TimeoutExpired):
                 pass
         for thread in threads:
-            thread.join(timeout=0.1)
+            thread.join(timeout=max(0, deadline - time.monotonic()))
     return ''.join(output) if success and not overflow[0] and not any(t.is_alive() for t in threads) else None
 
 
