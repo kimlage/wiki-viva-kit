@@ -235,10 +235,8 @@ def test_new_claim_requires_unique_yaml_without_requirements(project, path, kind
             preflight_folder_v2(project, policy, **kwargs)
 
 
-@pytest.mark.parametrize(('action', 'kind'), [
-    ('created', 'alias'), ('modified', 'cycle'), ('deleted', 'alias'),
-    ('created', 'plain'), ('modified', 'plain'), ('deleted', 'plain'),
-])
+@pytest.mark.parametrize('action', ['created', 'modified', 'deleted'])
+@pytest.mark.parametrize('kind', ['plain', 'alias', 'cycle'])
 def test_claim_changes_reject_yaml_aliases_and_cycles(project, action, kind):
     def claim(which):
         if which == 'alias':
