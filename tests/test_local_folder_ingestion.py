@@ -750,3 +750,28 @@ def test_context_emerging_during_ingestion_blocks_before_write(approved, monkeyp
     result = run(str(source), 'system', root, config, entry_folder='area/aux', record_score=False)
     assert result.blocked and not result.written
     assert not WikiPaths(root, config).derived_root.exists()
+
+
+def test_local_request_source_mismatch_blocks_before_capture_persistence(approved, monkeypatch):
+    from wiki_core.ingest import pipeline
+    from wiki_core.paths import WikiPaths
+
+    root, source, _, _ = approved
+    (root / 'area').mkdir()
+    (root / 'area/AGENTS.md').write_text('Guidance')
+    (root / 'area/index.md').write_text('Index')
+    config = load_config(root)
+    builder = pipeline.build_context_request
+
+    def inconsistent(*args, **kwargs):
+        request = builder(*args, **kwargs)
+        request['source_id'] = 'synthetic-other-source'
+        request['folder_request_id'] = context_pass.local_request_identity(request)
+        return request
+
+    monkeypatch.setattr(pipeline, 'build_context_request', inconsistent)
+    result = run(str(source), 'system', root, config, entry_folder='area', record_score=False)
+    assert result.blocked and not result.written
+    assert result.request_path is None
+    assert result.context_error_code == 'local_request_source_mismatch'
+    assert not WikiPaths(root, config).derived_root.exists()
