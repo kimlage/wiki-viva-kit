@@ -425,6 +425,46 @@ def test_c1_refuses_consumer_root_changed_after_plan(tmp_path: Path) -> None:
     assert not (consumer / 'kit.lock').exists()
 
 
+def test_c1_refuses_new_repository_at_same_consumer_path(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    sync = _sync_module()
+    plan = sync.build_plan(kit, consumer, manifest, [])
+    consumer.rename(tmp_path / 'earlier-consumer')
+    _repo(consumer)
+    before = _git(consumer, 'status', '--porcelain')
+    with pytest.raises(sync.SyncError, match='consumer root changed after B0'):
+        sync._copy_c1(kit, consumer, plan)
+    assert not (consumer / 'portable').exists()
+    assert not (consumer / 'generate.py').exists()
+    assert not (consumer / 'kit.lock').exists()
+    assert _git(consumer, 'status', '--porcelain') == before
+
+
+def test_b0_refuses_consumer_root_replacement_during_inspection(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    sync = _sync_module()
+    original = sync._consumer_state
+    def replace_after_observation(root, files):
+        state = original(root, files)
+        consumer.rename(tmp_path / 'earlier-consumer')
+        _repo(consumer)
+        return state
+    monkeypatch.setattr(sync, '_consumer_state', replace_after_observation)
+    with pytest.raises(sync.SyncError, match='consumer root changed during B0'):
+        sync.build_plan(kit, consumer, manifest, [])
+    assert not (consumer / 'kit.lock').exists()
+
+
+def test_consumer_root_identity_unavailable_fails_closed(tmp_path: Path, monkeypatch) -> None:
+    sync = _sync_module()
+    consumer = tmp_path / 'consumer'
+    def unavailable(_self):
+        raise OSError('synthetic unavailable identity')
+    monkeypatch.setattr(Path, 'stat', unavailable)
+    with pytest.raises(sync.SyncError, match='consumer root identity unavailable'):
+        sync._consumer_root_identity(consumer)
+
+
 @pytest.mark.parametrize('nested_repo', [False, True])
 def test_consumer_subdirectory_is_not_a_git_root(tmp_path: Path, nested_repo: bool) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
