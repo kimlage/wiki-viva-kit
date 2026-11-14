@@ -246,8 +246,13 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
             explicit.add(repo_id(match.group(1), '/'.join(parts[:-1]), parts[-1]))
     hosted = re.compile(r"(?<![\w/@.-])(?:https?://)?([^/\s]+)/([^/\s]+)/([^/\s#]+)#([0-9]+)(?![A-Za-z0-9_])", re.I)
     for match in hosted.finditer(text):
-        if match.group(1).lower() in {host, 'github.com', 'gitlab.com', 'bitbucket.org'} and match.group(4) == str(number):
-            explicit.add(repo_id(*match.group(1, 2, 3)))
+        if match.group(4) == str(number):
+            if match.group(1).lower() in {host, 'github.com', 'gitlab.com', 'bitbucket.org'}:
+                explicit.add(repo_id(*match.group(1, 2, 3)))
+            elif '.' in match.group(1):
+                # A fragment on an unknown host could be a Git reference or
+                # a document anchor; do not infer its repository.
+                ambiguous_path = True
     qualified = re.compile(r"(?<![\w/.:@-])([\w.-]+)/([\w.-]+)#([0-9]+)(?![A-Za-z0-9_])", re.I)
     for match in qualified.finditer(text):
         if match.group(3) == str(number):
@@ -281,7 +286,7 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
     # A bare repository and number on one line, or an explicit Repo: label
     # elsewhere in the action, make the short number repository-qualified.
     contextual: set[tuple[str, str, str]] = set()
-    root_urls = re.compile(r"(?<![\w/@.-])(?:https?://)?([^/\s]+)/([^/\s]+)/([\w.-]+)/?(?=$|[?#\s)\]},;])", re.I)
+    root_urls = re.compile(r"(?<![\w/@.-])(?:https?://)?([^/\s]+)/([^/\s]+)/([\w.-]+)/?(?=$|[?#\s)>\]},;])", re.I)
     ssh_urls = re.compile(r"(?<![\w/@.-])git@([\w.-]+):([\w.-]+)/([\w.-]+)(?=$|[?#\s)\]},;])", re.I)
     def repository_url(match: re.Match, source: str) -> bool:
         link_host = match.group(1).lower()
@@ -565,10 +570,11 @@ def inspect(root: Path, number: int | None = None) -> dict:
                 residue = bool(own(pr) and branch and branch != default and head and
                                (branch, head) not in open_refs and
                                (remote.get(branch) == head or local_heads.get(branch) == head))
-                residue |= bool(head and any(w.get("head") == head and
-                                (w.get("branch") is None or
-                                 (w.get("branch") == branch and branch != default and
-                                  (branch, head) not in open_refs)) for w in worktrees))
+                detached = bool(head and any(w.get("head") == head and w.get("branch") is None
+                                             for w in worktrees))
+                residue |= bool(own(pr) and head and any(w.get("head") == head and
+                                w.get("branch") == branch and branch != default and
+                                (branch, head) not in open_refs for w in worktrees))
                 uncertain_reuse = bool(number is not None and (branch_present or residue))
                 if number is not None:
                     # A filtered view cannot tell whether another open PR uses
@@ -588,6 +594,8 @@ def inspect(root: Path, number: int | None = None) -> dict:
                     observation["status"] = "waiting:head_repository"
                 elif uncertain_reuse:
                     observation["status"] = "waiting:verify_branch_reuse"
+                elif detached:
+                    observation["status"] = "waiting:verify_detached_worktree"
             if pr.get("state") == "MERGED" and own(pr) and pr.get("headRefName") in closed_heads & present:
                 observation["status"] = ("waiting:verify_branch_reuse" if number is not None
                                          else "fix:merged_branch_or_worktree_remaining")

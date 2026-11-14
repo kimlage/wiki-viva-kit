@@ -367,7 +367,7 @@ def test_short_number_collision_does_not_associate_a_different_repository():
     assert check._action_reference('https://git.example/group/repo/-/merge_requests/502 and PR #502', 502, 'github.com/owner/repo') is False
     assert check._action_reference('https://gitlab.com/elsewhere/project#502 and PR #502', 502, 'github.com/owner/repo') is False
     assert check._action_reference('https://bitbucket.org/elsewhere/project/pull-requests/502 and PR #502', 502, 'github.com/owner/repo') is False
-    assert check._action_reference('See https://docs.example/guide/details#502 and PR #502', 502, 'github.com/owner/repo') is True
+    assert check._action_reference('See https://docs.example/guide/details#502 and PR #502', 502, 'github.com/owner/repo') is None
     assert check._action_reference('PR #502 (docs/README.md)', 502, 'github.com/owner/repo') is True
     assert check._action_reference('PR #502 (scripts/wiki_action.py)', 502, 'github.com/owner/repo') is True
     assert check._action_reference('PR #502 (docs/README)', 502, 'github.com/owner/repo') is None
@@ -380,6 +380,8 @@ def test_short_number_collision_does_not_associate_a_different_repository():
     assert check._action_reference('https://github.com/example/foreign\nPR #502', 502, 'github.com/example/local') is False
     assert check._action_reference('PR #502 https://github.com/example/foreign/', 502, 'github.com/example/local') is False
     assert check._action_reference('PR #502 em https://git.example/example/foreign', 502, 'github.com/example/local') is False
+    assert check._action_reference('PR #502 <https://github.com/other/repo/>', 502, 'github.com/example/local') is False
+    assert check._action_reference('PR #502 https://git.example/other/repo#502', 502, 'github.com/example/local') is None
     assert check._action_reference('https://github.com/example/foreign.git\nPR #502', 502, 'github.com/example/local') is False
     assert check._action_reference('github.com/example/foreign\nPR #502', 502, 'github.com/example/local') is False
     assert check._action_reference('example/foreign\nPR #502', 502, 'github.com/example/local') is False
@@ -569,6 +571,28 @@ def test_filtered_closed_pr_cannot_identify_same_head_branch_reuse(monkeypatch, 
     monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
     assert check.inspect(tmp_path)['proposals'][0]['status'] == 'done'
     assert check.inspect(tmp_path, 1)['proposals'][0]['status'] == 'waiting:verify_branch_reuse'
+
+
+@pytest.mark.parametrize('cross,branch,expected', [
+    (False, None, 'waiting:verify_detached_worktree'),
+    (True, 'wiki/fork', 'done'),
+])
+def test_closed_pr_worktree_requires_evidence_of_ownership(monkeypatch, tmp_path, cross, branch, expected):
+    closed = candidate() | {'state': 'CLOSED', 'headRefName': 'wiki/fork',
+                            'isCrossRepository': cross, 'comments': []}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: [closed])
+    def git(root, *args):
+        if '--symref' in args:
+            return f'ref: refs/heads/main\tHEAD\n{BASE}\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main'
+        return f'main\t{BASE}'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [{'path': '/wt', 'branch': branch, 'head': HEAD, 'dirty': False}])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    assert check.inspect(tmp_path)['proposals'][0]['status'] == expected
 
 
 @pytest.mark.parametrize('head', [HEAD, None])

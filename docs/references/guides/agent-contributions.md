@@ -283,8 +283,8 @@ The cutoff comes from the proposal's destination branch; if that historical
 branch was deleted, the current default-branch policy is used. An unreadable
 policy on an existing destination produces a named wait. A branch demonstrably
 reused by an open proposal is not treated as residue of the closed proposal.
-With `--pr`, a same-name branch whose head differs or is unavailable needs a
-reuse check because the filtered view does not include other proposals.
+With `--pr`, a remaining same-name branch needs a reuse check even when its head
+matches, because the filtered view does not include other proposals.
 Use `Disposition-Reason:`, `Motivo:` or `Reason for closure:`; an unrecognized
 comment leaves `waiting:verify_closure_reason`. An invalid cutoff or unavailable
 closure timestamp produces a named wait. An orphan branch or a
