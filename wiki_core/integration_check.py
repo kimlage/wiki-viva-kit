@@ -49,33 +49,26 @@ def _latest_reviews(pr: dict) -> list[dict]:
     return list(latest.values())
 
 
-def _comment_evidence(pr: dict, head: str) -> tuple[bool, bool, str | None]:
-    review = gates = False
+def _comment_evidence(pr: dict, head: str) -> tuple[bool, str | None]:
+    review = False
     thread = None
+    author = (pr.get("author") or {}).get("login")
     for item in pr.get("comments") or []:
         body = item.get("body", "")
-        if not isinstance(body, str):
+        if not isinstance(body, str) or _field(body, "Head") != head:
             continue
-        if _field(body, "Head") != head:
-            continue
-        sender = _field(body, "Executor")
-        reviewer = _field(body, "Reviewer")
-        decision = _field(body, "Review")
-        if (sender and reviewer and sender != reviewer and decision.lower() == "approved"
-                and _field(body, "Review-Evidence")):
+        commenter = (item.get("author") or {}).get("login")
+        # A comment cannot assert another agent's identity into existence.
+        if author and commenter and commenter != author and _field(body, "Review").lower() == "approved":
             review = True
-        if _field(body, "Local-Gates").lower() == "passed":
-            gates = True
         thread = _field(body, "Responsible-Thread") or thread
-    # GitHub native review has a separately authenticated principal.
-    author = (pr.get("author") or {}).get("login")
     for item in _latest_reviews(pr):
         reviewer = (item.get("author") or {}).get("login")
         if (author and reviewer and reviewer != author and item.get("state") == "APPROVED"
                 and (item.get("commit") or {}).get("oid") == head
                 and head in str(item.get("body") or "")):
             review = True
-    return review, gates, thread
+    return review, thread
 
 
 def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -> dict:
@@ -83,7 +76,7 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
     head = pr.get("headRefOid") or ""
     out = {"number": pr.get("number"), "url": pr.get("url"), "head": head,
            "base": pr.get("baseRefOid"), "status": "waiting:observation"}
-    review, gates, thread = _comment_evidence(pr, head)
+    review, thread = _comment_evidence(pr, head)
     if thread:
         out["responsible_thread"] = thread
     state = str(pr.get("state", "")).upper()
@@ -100,31 +93,32 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
         out["status"] = "waiting:policy_adapter"
     elif approval.get("contribution_validation", "github_checks") not in {"github_checks", "local_gates"} or not isinstance(approval.get("require_human_review", False), bool):
         out["status"] = "waiting:policy_adapter"
-    elif pr.get("baseRefName") != str(approval.get("default_branch") or "main"):
-        out["status"] = "fix:wrong_base"
     elif ancestry == "unknown":
         out["status"] = "waiting:local_git_objects"
     elif ancestry != "current":
         out["status"] = "fix:base_outdated"
     elif pr.get("mergeStateStatus") in {"DIRTY", "CONFLICTING"} or pr.get("reviewDecision") == "CHANGES_REQUESTED":
         out["status"] = "fix:conflict_or_changes_requested"
-    elif pr.get("isDraft"):
-        out["status"] = "waiting:ready_for_review"
-    elif not review:
-        out["status"] = "waiting:exact_head_review"
-    elif approval.get("contribution_validation", "github_checks") == "local_gates":
-        # The contribution contract reruns gates on the immutable head; a
-        # comment or receipt cannot replace that execution. This reader cannot
-        # run it, and explicitly does not treat a claim as a successful gate.
-        out["status"] = "waiting:local_gates_at_integration"
-    elif approval.get("contribution_validation", "github_checks") == "github_checks" and not pr.get("statusCheckRollup"):
-        out["status"] = "waiting:github_checks"
-    elif approval.get("contribution_validation", "github_checks") == "github_checks" and any((c.get("conclusion") or c.get("state")) not in {"SUCCESS"} for c in pr.get("statusCheckRollup") or []):
-        out["status"] = "waiting:github_checks"
-    elif approval.get("require_human_review", False) and not human_approved:
-        out["status"] = "waiting:human_review"
     else:
-        out["status"] = "integrable"
+        pending = []
+        if pr.get("isDraft"):
+            pending.append("ready_for_review")
+        if not review:
+            pending.append("exact_head_review")
+        if pr.get("mergeStateStatus") in {"BLOCKED", "UNKNOWN", None} or pr.get("reviewDecision") == "REVIEW_REQUIRED":
+            pending.append("github_mergeability")
+        checks = pr.get("statusCheckRollup") or []
+        if (approval.get("contribution_validation", "github_checks") == "github_checks" and not checks) or any((c.get("conclusion") or c.get("state")) != "SUCCESS" for c in checks):
+            pending.append("github_checks")
+        if approval.get("require_human_review", False) and not human_approved:
+            pending.append("human_review_identity")
+        if approval.get("contribution_validation", "github_checks") == "local_gates":
+            # The contribution contract reruns gates on the immutable head.
+            pending.append("local_gates_at_integration")
+        out["status"] = "waiting:" + pending[0] if pending else "integrable"
+        if pending:
+            out["pending"] = pending
+
     return out
 
 
@@ -141,18 +135,9 @@ def _ancestry(root: Path, base: str, head: str) -> str:
 
 
 def _human_review(root: Path, repo: str, pr: dict) -> bool:
-    head = pr.get("headRefOid")
-    author = (pr.get("author") or {}).get("login")
-    host = repo.split("/", 1)[0]
-    for review in _latest_reviews(pr):
-        login = (review.get("author") or {}).get("login")
-        if not login or login == author or review.get("state") != "APPROVED" or (review.get("commit") or {}).get("oid") != head:
-            continue
-        try:
-            if _gh(root, "api", "--hostname", host, "users/" + login).get("type") == "User":
-                return True
-        except (ContributionError, ValueError, AttributeError):
-            pass
+    # A GitHub account of type User may be shared with an automated agent. The
+    # provider does not attest who operated it, so this adapter cannot prove a
+    # human approval. A future adapter may supply a stronger observation.
     return False
 
 
@@ -165,10 +150,13 @@ def _worktrees(root: Path) -> list[dict]:
         if not path:
             continue
         branch = fields.get("branch", "").removeprefix("refs/heads/")
-        p = subprocess.run(["git", "--no-optional-locks", "status", "--porcelain", "--untracked-files=normal"],
-                           cwd=path, text=True, capture_output=True)
-        result.append({"path": path, "branch": branch or None,
-                       "dirty": bool(p.stdout) if p.returncode == 0 else None})
+        try:
+            p = subprocess.run(["git", "--no-optional-locks", "status", "--porcelain", "--untracked-files=normal"],
+                               cwd=path, text=True, capture_output=True)
+            dirty = bool(p.stdout) if p.returncode == 0 else None
+        except OSError:
+            dirty = None
+        result.append({"path": path, "branch": branch or None, "dirty": dirty})
     return result
 
 
@@ -190,15 +178,19 @@ def inspect(root: Path, number: int | None = None) -> dict:
         remote_lines = _git(root, "ls-remote", "--heads", "origin").splitlines()
         remote = {line.split("\t", 1)[1].removeprefix("refs/heads/"): line.split("\t", 1)[0] for line in remote_lines if "\t" in line}
         base = remote.get(default, "")
-        approval = policy(root, base) if SHA.fullmatch(base) else {}
-        if not approval:
-            return {"ok": False, "status": "waiting:destination_policy"}
         proposals = []
         for pr in prs:
-            if pr.get("baseRefName") == default and pr.get("baseRefOid") != base:
+            target_base = remote.get(str(pr.get("baseRefName") or ""), "")
+            approval = policy(root, target_base) if SHA.fullmatch(target_base) else {}
+            if not approval:
+                proposals.append({"number": pr.get("number"), "url": pr.get("url"),
+                                  "head": pr.get("headRefOid"), "base": pr.get("baseRefOid"),
+                                  "status": "waiting:destination_policy"})
+                continue
+            if pr.get("baseRefOid") != target_base:
                 ancestry = "unknown"
             else:
-                ancestry = _ancestry(root, str(pr.get("baseRefOid") or ""), str(pr.get("headRefOid") or ""))
+                ancestry = _ancestry(root, target_base, str(pr.get("headRefOid") or ""))
             proposals.append(evaluate(pr, approval, ancestry=ancestry,
                                       human_approved=_human_review(root, repo, pr) if approval.get("require_human_review") is True else False))
         local = _git(root, "for-each-ref", "--format=%(refname:short)", "refs/heads/").splitlines()

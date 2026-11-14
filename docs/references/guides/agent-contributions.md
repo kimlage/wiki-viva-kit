@@ -256,27 +256,20 @@ before an effect. A closed proposal requires an explicit reason comment using
 comment leaves `waiting:verify_closure_reason` for an operator to reconcile. An orphan branch or a
 worktree finding does not authorize deletion.
 
-The GitHub adapter accepts a native independent approval with the exact commit
-and full SHA in its body, or an explicitly attributed handoff comment. The
-handoff is a declaration, not runtime identity verification. To make it
-machine-readable, use separate lines on one comment:
+The GitHub adapter accepts an independent native approval on the exact commit
+with the full SHA in its body, or a comment by a different GitHub account from
+the proposal author with separate lines `Head: <full SHA>` and `Review:
+approved`. A comment claiming another reviewer under the author's own account
+cannot establish independence. `Responsible-Thread: <thread reference>` in an
+exact-head comment supplies the optional routing field. Shared-account agent
+reviews therefore need independent verification outside this adapter.
 
-```text
-Head: <full SHA>
-Executor: <executor session or actor>
-Reviewer: <different reviewer session or actor>
-Review: approved
-Review-Evidence: <review link or reference>
-Responsible-Thread: <thread reference>
-```
-
-The integrator must verify the evidence and the identities independently. When
-human approval is required, the adapter checks for a GitHub `APPROVED` review
-on that SHA by a different account whose GitHub user type is `User`; an account
-type alone cannot prove who operated a shared account. Confirm the applicable
-human authority before merging. GitHub check observations are tied to the
-proposal head. With `local_gates`, the command returns
-`waiting:local_gates_at_integration`: the existing contribution contract reruns
-gates on the immutable reviewed head, and a comment cannot replace that run.
-For a destination without a supported wiki/GitHub policy adapter, follow its
-own repository rules; this command cannot infer them from prose.
+With `require_human_review: true`, the GitHub adapter reports
+`waiting:human_review_identity`: GitHub's `User` account type cannot establish
+that a human operated a shared account. The integrator verifies the owner's
+approval under the destination policy. With `local_gates`, it also reports
+`local_gates_at_integration`: the existing contribution contract reruns gates
+on the immutable reviewed head, and a comment cannot replace that run. The JSON
+`pending` array retains all simultaneously observed waits. For a destination
+without a supported policy adapter, follow its own repository rules; this
+command cannot infer them from prose.

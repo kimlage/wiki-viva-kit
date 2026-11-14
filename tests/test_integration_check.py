@@ -15,7 +15,7 @@ def candidate():
             'headRefName': 'wiki/one', 'baseRefName': 'main', 'isDraft': False,
             'headRepositoryOwner': {'login': 'owner'}, 'mergeStateStatus': 'CLEAN',
             'statusCheckRollup': [{'conclusion': 'SUCCESS'}], 'reviewDecision': '',
-            'reviews': [], 'comments': [{'body': f'Head: {HEAD}\nExecutor: agent-a\nReviewer: agent-b\nReview: approved\nReview-Evidence: transcript-1\nResponsible-Thread: thread-1'}]}
+            'reviews': [], 'comments': [{'author': {'login': 'independent'}, 'body': f'Head: {HEAD}\nExecutor: agent-a\nReviewer: agent-b\nReview: approved\nReview-Evidence: transcript-1\nResponsible-Thread: thread-1'}]}
 
 
 def evaluate(pr=None, policy=None, ancestry='current', human=False):
@@ -27,11 +27,12 @@ def test_ready_and_exact_head_review():
     pr = candidate()
     pr['comments'][0]['body'] = pr['comments'][0]['body'].replace(HEAD, 'c' * 40)
     assert evaluate(pr)['status'] == 'waiting:exact_head_review'
-    pr['comments'][0]['body'] = pr['comments'][0]['body'].replace('c' * 40, HEAD).replace('Reviewer: agent-b', 'Reviewer: agent-a')
+    pr['comments'][0]['body'] = pr['comments'][0]['body'].replace('c' * 40, HEAD)
+    pr['comments'][0]['author'] = {'login': 'author'}
     assert evaluate(pr)['status'] == 'waiting:exact_head_review'
 
 
-@pytest.mark.parametrize('required,human,expected', [(True, False, 'waiting:human_review'),
+@pytest.mark.parametrize('required,human,expected', [(True, False, 'waiting:human_review_identity'),
                                                        (True, True, 'integrable'),
                                                        (False, False, 'integrable')])
 def test_human_policy(required, human, expected):
@@ -108,7 +109,7 @@ def test_human_review_checks_github_type_and_exact_commit(monkeypatch, tmp_path)
     pr = candidate()
     pr['reviews'] = [{'author': {'login': 'human'}, 'state': 'APPROVED', 'commit': {'oid': HEAD}}]
     monkeypatch.setattr(check, '_gh', lambda root, *args: {'type': 'User'})
-    assert check._human_review(tmp_path, 'github.com/owner/repo', pr)
+    assert not check._human_review(tmp_path, 'github.com/owner/repo', pr)
     pr['reviews'][0]['commit']['oid'] = BASE
     assert not check._human_review(tmp_path, 'github.com/owner/repo', pr)
 
@@ -121,3 +122,18 @@ def test_superseded_human_review_is_not_approval(monkeypatch, tmp_path):
     ]
     monkeypatch.setattr(check, '_gh', lambda root, *args: {'type': 'User'})
     assert not check._human_review(tmp_path, 'github.com/owner/repo', pr)
+
+
+def test_blocked_and_simultaneous_waits():
+    pr = candidate()
+    pr['mergeStateStatus'] = 'BLOCKED'
+    pr['reviewDecision'] = 'REVIEW_REQUIRED'
+    pr['comments'][0]['author'] = {'login': 'author'}
+    result = evaluate(pr, {'gate': 'github_pr', 'contribution_validation': 'local_gates', 'require_human_review': True})
+    assert result['status'] != 'integrable'
+    assert {'exact_head_review', 'github_mergeability', 'human_review_identity', 'local_gates_at_integration'} <= set(result['pending'])
+
+
+def test_missing_worktree_is_individual_wait(monkeypatch, tmp_path):
+    monkeypatch.setattr(check, '_git', lambda root, *args: 'worktree /definitely/missing/worktree\nbranch refs/heads/wiki/missing')
+    assert check._worktrees(tmp_path)[0]['dirty'] is None
