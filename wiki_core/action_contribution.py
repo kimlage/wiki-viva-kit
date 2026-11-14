@@ -7,7 +7,7 @@ policy; material/review input is never interpreted as human or CI approval.
 from __future__ import annotations
 
 import hashlib
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 import json
 import os
 import subprocess
@@ -35,6 +35,18 @@ class ContributionError(ValueError):
     def __init__(self, message: str, details: dict | None = None):
         super().__init__(message)
         self.details = details or {}
+
+
+@contextmanager
+def _possible_signer_effect():
+    """Include scratch teardown when reporting a possibly invoked signer."""
+    state = {"started": False}
+    try:
+        yield state
+    except Exception as exc:
+        if state["started"]:
+            raise ContributionError("git_signing_effect_unknown: reconcile before retry") from exc
+        raise
 
 
 def digest(value: Any) -> str:
@@ -796,7 +808,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
                 "branch": branch, "coverage": COVERAGE}
     # The proposal contains one body plus its required existing-log annotation. Disjoint
     # staged/unstaged/untracked files in the application's checkout stay there.
-    with tempfile.TemporaryDirectory(prefix="wiki-contribution-") as temporary:
+    with _possible_signer_effect() as signer_effect, tempfile.TemporaryDirectory(prefix="wiki-contribution-") as temporary:
         scratch = Path(temporary) / "proposal"
         _local_git_effect(root, "clone", "--shared", "--no-checkout", str(root), str(scratch), allow_file=True)
         _local_git_effect(scratch, "checkout", "--detach", base)
@@ -833,6 +845,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
             for key, value in _scratch_signing_settings(root, signing_policy[1]):
                 _local_git_effect(scratch, "config", "--add", key, value)
         signing_arg = ("-S",) if signing_policy[0] else ()
+        signer_effect["started"] = signing_policy[0]
         try:
             _local_git_effect(scratch, "commit", *signing_arg, "-m", "wiki: integrate reviewed action body " + material[:12])
             commit = _git(scratch, "rev-parse", "HEAD")
@@ -860,11 +873,11 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
             if signing_policy[0]:
                 raise ContributionError("git_signing_effect_unknown: reconcile before retry") from exc
             raise
-    return {"status": "prepared", "proposal_commit": commit, "branch": branch,
-            "material_sha256": material, "after_sha256": receipt["after_sha256"],
-            "receipt_id": receipt["receipt_id"], "gate_receipts": gates,
-            "idempotent": False, "coverage": COVERAGE,
-            "generated_paths": [log_ref]}
+        return {"status": "prepared", "proposal_commit": commit, "branch": branch,
+                "material_sha256": material, "after_sha256": receipt["after_sha256"],
+                "receipt_id": receipt["receipt_id"], "gate_receipts": gates,
+                "idempotent": False, "coverage": COVERAGE,
+                "generated_paths": [log_ref]}
 
 
 def _repository(root: Path) -> str:

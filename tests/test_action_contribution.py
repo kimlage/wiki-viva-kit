@@ -695,7 +695,8 @@ def test_prepare_refuses_signing_policy_change_after_commit(tmp_path, monkeypatc
 
 
 @pytest.mark.skipif(os.name == 'nt' or shutil.which('ssh-keygen') is None, reason='requires POSIX SSH signing fixture')
-def test_signed_prepare_reports_unknown_when_policy_changes_after_signer(tmp_path, monkeypatch):
+@pytest.mark.parametrize('failure', ['policy_change', 'runtime', 'cleanup'])
+def test_signed_prepare_reports_unknown_after_signer_may_have_run(tmp_path, monkeypatch, failure):
     root = tmp_path / 'selected'
     root.mkdir()
     _, request = fixture(root)
@@ -710,18 +711,40 @@ def test_signed_prepare_reports_unknown_when_policy_changes_after_signer(tmp_pat
     git(root, 'config', 'gpg.format', 'ssh')
     git(root, 'config', 'user.signingkey', str(key))
     git(root, 'config', 'gpg.ssh.program', str(signer))
-    original = port._local_git_effect
-    def commit_then_change(scratch, *args, **kwargs):
-        value = original(scratch, *args, **kwargs)
-        if args and args[0] == 'commit':
-            git(root, 'config', 'commit.gpgSign', 'false')
-        return value
-    monkeypatch.setattr(port, '_local_git_effect', commit_then_change)
+    if failure == 'policy_change':
+        original = port._local_git_effect
+        def commit_then_change(scratch, *args, **kwargs):
+            value = original(scratch, *args, **kwargs)
+            if args and args[0] == 'commit':
+                git(root, 'config', 'commit.gpgSign', 'false')
+            return value
+        monkeypatch.setattr(port, '_local_git_effect', commit_then_change)
+    elif failure == 'runtime':
+        original_git = port._git
+        def git_then_fail(scratch, *args):
+            if scratch != root and args == ('rev-parse', 'HEAD') and marker.exists():
+                raise RuntimeError('synthetic post-signer observation failure')
+            return original_git(scratch, *args)
+        monkeypatch.setattr(port, '_git', git_then_fail)
+    else:
+        original_temp = port.tempfile.TemporaryDirectory
+        class CleanupFailure:
+            def __init__(self, *args, **kwargs):
+                self.inner = original_temp(*args, **kwargs)
+                self.target = kwargs.get('prefix') == 'wiki-contribution-'
+            def __enter__(self):
+                return self.inner.__enter__()
+            def __exit__(self, kind, value, traceback):
+                result = self.inner.__exit__(kind, value, traceback)
+                if kind is None and self.target and marker.exists():
+                    raise ValueError('synthetic post-signer cleanup failure')
+                return result
+        monkeypatch.setattr(port.tempfile, 'TemporaryDirectory', CleanupFailure)
     result = call(root, 'prepare', request, review=review(request))
-    assert marker.exists()
+    assert marker.exists(), (result.get('status'), result.get('error'))
     assert result['status'] == 'unknown'
     assert result['error'] == 'git_signing_effect_unknown: reconcile before retry'
-    assert port._candidate(root, result['branch']) is None
+    assert (port._candidate(root, result['branch']) is not None) == (failure == 'cleanup')
 
 
 @pytest.mark.skipif(os.name == 'nt' or shutil.which('ssh-keygen') is None, reason='requires POSIX SSH signing fixture')
