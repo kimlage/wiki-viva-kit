@@ -223,7 +223,7 @@ def _parse_document(text: str) -> tuple[dict[str, Any], str]:
         raise ActionTransitionError("missing_frontmatter")
     try:
         loaded = yaml.safe_load(match.group(1))
-    except yaml.YAMLError as exc:
+    except (yaml.YAMLError, RecursionError) as exc:
         raise ActionTransitionError("invalid_frontmatter") from exc
     if not isinstance(loaded, dict):
         raise ActionTransitionError("invalid_frontmatter")
@@ -1288,6 +1288,61 @@ def _document_for_audit(text: str) -> tuple[dict[str, Any], str] | None:
         return None
 
 
+def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000) -> bool:
+    """Compare loaded values with bounded work; reject cycles and unsupported keys."""
+    scalar_key_types = {str, int, float, bool, bytes, type(None), date, datetime}
+    pending = [(False, before, after)]
+    active: set[tuple[int, int]] = set()
+    done: set[tuple[int, int]] = set()
+    visited = 0
+
+    def typed_key(value: Any) -> tuple[type, Any]:
+        if type(value) not in scalar_key_types or value != value:
+            raise ValueError("unsupported comparison key")
+        return type(value), value
+
+    while pending:
+        leaving, left, right = pending.pop()
+        pair = (id(left), id(right))
+        if leaving:
+            active.remove(pair)
+            done.add(pair)
+            continue
+        visited += 1
+        if visited > max_nodes or type(left) is not type(right):
+            return False
+        if isinstance(left, (dict, list, tuple, set, frozenset)):
+            if pair in active:
+                return False
+            if pair in done:
+                continue
+            if len(left) != len(right) or len(left) > max_nodes - visited:
+                return False
+            active.add(pair)
+            pending.append((True, left, right))
+            if isinstance(left, dict):
+                try:
+                    right_values = {typed_key(key): value for key, value in right.items()}
+                    for key, value in left.items():
+                        other = typed_key(key)
+                        if other not in right_values:
+                            return False
+                        pending.append((False, value, right_values[other]))
+                except (TypeError, ValueError):
+                    return False
+            elif isinstance(left, (set, frozenset)):
+                try:
+                    if {typed_key(value) for value in left} != {typed_key(value) for value in right}:
+                        return False
+                except (TypeError, ValueError):
+                    return False
+            else:
+                pending.extend((False, a, b) for a, b in zip(left, right))
+        elif type(left) not in scalar_key_types or left != right:
+            return False
+    return True
+
+
 def _comment_suffix_preserves_content(previous: dict, current: dict,
                                      previous_body: str, current_body: str) -> bool:
     """Shape check only; callers must also validate the native receipt chain.
@@ -1301,12 +1356,8 @@ def _comment_suffix_preserves_content(previous: dict, current: dict,
             or previous_body != current_body):
         return False
     ignored = {_HISTORY_FIELD, "action_dialogue"}
-    from wiki_core.information_relations import semantic_equal
-    try:
-        if not semantic_equal({k: v for k, v in previous.items() if k not in ignored},
-                              {k: v for k, v in current.items() if k not in ignored}):
-            return False
-    except (RecursionError, TypeError):
+    if not _comment_typed_equal({k: v for k, v in previous.items() if k not in ignored},
+                                {k: v for k, v in current.items() if k not in ignored}):
         return False
     old_events = previous.get("action_dialogue") or []
     new_events = current.get("action_dialogue") or []
@@ -1319,11 +1370,8 @@ def _comment_suffix_preserves_content(previous: dict, current: dict,
         return False
     if not isinstance(old_history, list) or not isinstance(new_history, list):
         return False
-    try:
-        if (not semantic_equal(new_history[:len(old_history)], old_history)
-                or not semantic_equal(new_events[:len(old_events)], old_events)):
-            return False
-    except (RecursionError, TypeError):
+    if (not _comment_typed_equal(new_history[:len(old_history)], old_history)
+            or not _comment_typed_equal(new_events[:len(old_events)], old_events)):
         return False
     events, receipts = new_events[len(old_events):], new_history[len(old_history):]
     if not events or len(events) != len(receipts):

@@ -1405,3 +1405,20 @@ def test_legacy_physical_crlf_body_chain_without_intermediate_witness_fails_clos
     after = path.read_bytes().decode('utf-8')
     assert action_transition_diagnostics(middle, after) == ()
     assert action_transition_diagnostics(base, after)[0].code == 'action_page_edit_mismatch'
+
+
+def test_comment_typed_comparison_bounds_shared_aliases_and_rejects_cycles():
+    left = {'value': 0}
+    right = {'value': 0}
+    for _ in range(35):
+        left = {'a': left, 'b': left}
+        right = {'a': right, 'b': right}
+    assert transition_module._comment_typed_equal(left, right)
+    cycle_left, cycle_right = {}, {}
+    cycle_left['self'] = cycle_left
+    cycle_right['self'] = cycle_right
+    assert not transition_module._comment_typed_equal(cycle_left, cycle_right)
+    assert not transition_module._comment_typed_equal({'nested': [True]}, {'nested': [1]})
+    assert not transition_module._comment_typed_equal({'a': 1, 'b': 2}, {'a': 1, 'b': 2}, max_nodes=2)
+    many = {str(i): i for i in range(6000)}
+    assert transition_module._comment_typed_equal(many, dict(reversed(list(many.items()))))

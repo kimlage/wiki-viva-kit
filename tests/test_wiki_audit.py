@@ -3129,6 +3129,7 @@ def test_logical_comment_rejects_typed_fact_and_payload_tampering(tmp_path, rece
     logical_before = path.read_text()
     if receipt_kind == 'v7':
         path.write_bytes(path.read_bytes().replace(b'\n', b'\r\n'))
+    physical_before = path.read_bytes().decode('utf-8')
     transition_action_page(tmp_path, path, 'open', expected_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         recorded_at='2026-07-11T15:00:00Z', dialogue_actor='operator',
         dialogue_event={'event_id': 'synthetic-tamper', 'kind': 'comment',
@@ -3149,3 +3150,10 @@ def test_logical_comment_rejects_typed_fact_and_payload_tampering(tmp_path, rece
     tampered = _render_document(fm, body)
     assert not audit._logical_comment_only(logical_before, tampered)
     assert operational_comment_receipt(logical_before, tampered) is None
+    assert operational_comment_receipt(physical_before, tampered) is None
+
+
+def test_logical_comment_rejects_deep_yaml_without_recursing_out():
+    audit = _load_wiki_audit()
+    text = '---\npage_type: action\nitems: ' + '[' * 600 + '0' + ']' * 600 + '\n---\nSynthetic body\n'
+    assert not audit._logical_comment_only(text, text)
