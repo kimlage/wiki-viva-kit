@@ -879,20 +879,26 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
                           validation_policy_sha256=_sha(_blob(root, commit, "wiki.config.yaml")),
                           remote_check_receipts=checks)
             result["gate_receipts"] = _local_integration_gates(root, commit)
-            # Local gates can take time. Refresh all overlapping bytes, policy,
-            # PR refusals and head identity; never merge on the pre-gate snapshot.
+            # Local gates can take time; revalidate overlapping bytes and policy.
             _integration_source_check(root, config, commit, path, entry, dry_run=False)
-            current_pr = _pr(root, pr["number"])
-            if current_pr.get("number") != pr.get("number"):
-                raise ContributionError("pr_identity_conflict")
-            waiting = _integration_pr_wait(root, config, current_pr, commit, validation_policy)
-            if waiting:
-                return {**result, "ok": True, **waiting}
-            result["remote_check_receipts"] = current_pr.get("statusCheckRollup") or []
-            if _candidate(root, branch) != commit:
-                raise ContributionError("proposal_head_changed_after_review")
+        # Both validation modes must refresh PR refusals and head identity
+        # immediately before the merge attempt. This narrows, not removes, the
+        # race between the observation and GitHub's effect.
+        current_pr = _pr(root, pr["number"])
+        identity_fields = ("number", "headRefOid", "headRefName", "baseRefName",
+                           "headRepository", "headRepositoryOwner", "isCrossRepository")
+        if any(current_pr.get(field) != pr.get(field) for field in identity_fields):
+            raise ContributionError("pr_identity_conflict")
+        waiting = _integration_pr_wait(root, config, current_pr, commit, validation_policy)
+        if waiting:
+            return {**result, "ok": True, **waiting}
+        refreshed_checks = current_pr.get("statusCheckRollup") or []
+        if validation_policy == "local_gates":
+            result["remote_check_receipts"] = refreshed_checks
         else:
-            result["gate_receipts"] = checks
+            result["gate_receipts"] = refreshed_checks
+        if _candidate(root, branch) != commit:
+            raise ContributionError("proposal_head_changed_after_review")
         # GitHub's match-head CAS guards the only canonical write. Reconcile
         # first on the next invocation after any transport failure/UNKNOWN.
         _run(root, "gh", "pr", "merge", str(pr["number"]), "--repo", _repository(root), "--merge", "--match-head-commit", commit)

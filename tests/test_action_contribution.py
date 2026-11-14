@@ -512,3 +512,45 @@ def test_contribution_reconciles_lf_git_blob_with_crlf_checkout(tmp_path, factua
     candidate = port._blob(tmp_path, out['proposal_commit'], ref)
     assert action_transition_diagnostics(blob, candidate) == ()
     assert p.read_bytes() == physical
+
+
+@pytest.mark.parametrize('change', ['failed', 'pending', 'draft', 'changes_requested', 'head', 'base', 'number', 'head_ref', 'repository', 'owner', 'cross_repo'])
+def test_github_checks_are_reobserved_before_merge_effect(tmp_path, monkeypatch, change):
+    _, request = fixture(tmp_path)
+    prepared = call(tmp_path, 'prepare', request, review=review(request))
+    commit = prepared['proposal_commit']
+    remote = tmp_path.parent / (tmp_path.name + '-remote.git')
+    subprocess.run(['git', 'init', '--bare', str(remote)], check=True, capture_output=True)
+    git(tmp_path, 'remote', 'add', 'origin', str(remote))
+    git(tmp_path, 'push', 'origin', 'main')
+    initial = {'number': 1, 'state': 'OPEN', 'headRefOid': commit, 'baseRefName': 'main',
+               'statusCheckRollup': [{'conclusion': 'SUCCESS'}]}
+    reconcile_pr_identity(initial, prepared)
+    later = copy.deepcopy(initial)
+    if change == 'failed': later['statusCheckRollup'] = [{'conclusion': 'FAILURE'}]
+    elif change == 'pending': later['statusCheckRollup'] = [{'state': 'PENDING'}]
+    elif change == 'draft': later['isDraft'] = True
+    elif change == 'changes_requested': later['reviewDecision'] = 'CHANGES_REQUESTED'
+    elif change == 'head': later['headRefOid'] = '0' * 40
+    elif change == 'base': later['baseRefName'] = 'other'
+    elif change == 'head_ref': later['headRefName'] = 'other'
+    elif change == 'repository': later['headRepository'] = {'name': 'other'}
+    elif change == 'owner': later['headRepositoryOwner'] = {'login': 'other'}
+    elif change == 'cross_repo': later['isCrossRepository'] = True
+    else: later['number'] = 2
+    observed = []
+    def read_pr(*_args):
+        observed.append(True)
+        return initial if len(observed) == 1 else later
+    monkeypatch.setattr(port, '_pr', read_pr)
+    monkeypatch.setattr(port, '_repository', lambda *_: 'example.test/synthetic/wiki')
+    real_run = port._run
+    def guarded_run(root, *argv, **kwargs):
+        if argv[:3] == ('gh', 'pr', 'merge'):
+            pytest.fail('merge reached after refreshed PR became ineligible')
+        return real_run(root, *argv, **kwargs)
+    monkeypatch.setattr(port, '_run', guarded_run)
+    result = call(tmp_path, 'integrate', request, pr=1, head_review=head_review(request, commit))
+    assert len(observed) == 2
+    assert not result.get('remote_merged', False)
+    assert result['status'] in {'waiting_ci_or_pr', 'waiting_pr_review', 'refused'}
