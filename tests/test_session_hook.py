@@ -49,7 +49,8 @@ def test_merged_worktree_blocks(monkeypatch, tmp_path):
 
 def test_executor_handoff_and_non_executor(tmp_path):
     event = {'hook_event_name': 'SubagentStop', 'agent_type': 'executor', 'last_assistant_message': 'incomplete', 'stop_hook_active': False}
-    assert hook.handle(event, tmp_path, 'observe', 'running', {'executor'}, 10)['decision'] == 'block'
+    result = hook.handle(event, tmp_path, 'observe', 'running', {'executor'}, 10)
+    assert 'decision' not in result and 'proposal' in result['systemMessage']
     assert 'decision' not in hook.handle(event | {'stop_hook_active': True}, tmp_path, 'observe', 'running', {'executor'}, 10)
     assert hook.handle(event | {'agent_type': 'reviewer'}, tmp_path, 'enforce', 'running', {'executor'}, 10) == {}
     handoff = f'Proposal: PR 1 repo=owner/repo target=main\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review {HEAD}\nGates: pytest=passed\nPending: none\nResponsible-Thread: thread:sample'
@@ -168,3 +169,15 @@ def test_handoff_requires_destination_repository_and_branch():
     assert not hook.complete_handoff(msg)
     assert not hook.complete_handoff(msg.replace('Proposal: PR 1', 'Proposal: PR 1 repo=owner/repo'))
     assert hook.complete_handoff(msg.replace('Proposal: PR 1', 'Proposal: PR 1 repo=owner/repo target=main'))
+
+
+def test_subagent_stop_always_observes_and_names_missing_fields(tmp_path):
+    message = f'Proposal: PR 1 repo=owner/repo target=main\nHead: {HEAD}'
+    for state in ('running', 'stop', 'unknown'):
+        for mode in ('observe', 'enforce'):
+            out = hook.handle({'hook_event_name': 'SubagentStop', 'agent_type': 'executor',
+                               'stop_hook_active': False, 'last_assistant_message': message},
+                              tmp_path, mode, state, {'executor'}, 10)
+            assert 'decision' not in out
+            assert 'base' in out['systemMessage'] and 'review' in out['systemMessage']
+            assert 'proposal' not in out['systemMessage'] and 'head' not in out['systemMessage']

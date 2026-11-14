@@ -78,41 +78,50 @@ def mechanical_findings(observation: dict, root: Path, branch: str | None) -> li
     return sorted(findings)
 
 
-def complete_handoff(message: Any) -> bool:
+def handoff_problems(message: Any) -> list[str]:
     if not isinstance(message, str) or len(message) > MAX_INPUT:
-        return False
+        return list(FIELDS)
     fields: dict[str, str] = {}
     for line in message.splitlines():
         match = re.match(r'^\s*(proposal|head|base|review|gates|pending|responsible-thread)\s*:\s*(\S.*)$', line, re.I)
         if match:
             fields[match.group(1).lower()] = match.group(2).strip()
-    if any(not fields.get(name) for name in FIELDS):
-        return False
-    if not all(re.fullmatch(r'(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})', fields[name]) and set(fields[name]) != {'0'} for name in ('head', 'base')):
-        return False
+    problems = {name for name in FIELDS if not fields.get(name)}
+    for name in ('head', 'base'):
+        value = fields.get(name, '')
+        if value and (not re.fullmatch(r'(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})', value) or set(value) == {'0'}):
+            problems.add(name)
     placeholders = {'unknown', 'none', 'n/a', 'na', 'tbd', 'pending', 'missing', 'unavailable', '-'}
-    if any(fields[name].lower() in placeholders for name in ('proposal', 'review', 'gates', 'responsible-thread')):
-        return False
-    if fields['pending'].lower() in {'unknown', 'tbd', 'missing', 'unavailable', '-'}:
-        return False
-    proposal = fields['proposal']
+    for name in ('proposal', 'review', 'gates', 'responsible-thread'):
+        if fields.get(name, '').lower() in placeholders:
+            problems.add(name)
+    if fields.get('pending', '').lower() in {'unknown', 'tbd', 'missing', 'unavailable', '-'}:
+        problems.add('pending')
+    proposal = fields.get('proposal', '')
     url = re.search(r'(?i)https?://[^/\s]+/[^/\s]+/[^/\s]+/\S+', proposal)
     numbered = re.search(r'(?i)\b(?:pr|proposal)\s*#?\s*\d+\b', proposal)
     repository = re.search(r'(?i)\brepo=[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\b', proposal)
     target = re.search(r'(?i)\btarget=[A-Za-z0-9_./-]+', proposal)
-    if not target or not (url or (numbered and repository)):
-        return False
-    if (not re.search(r'(?i)(?:https?://|t3-thread://|review:)[^\s]+', fields['review'])
-            or fields['head'].lower() not in fields['review'].lower()):
-        return False
-    gates = [gate.strip() for gate in fields['gates'].split(',')]
-    if not gates or any(not re.fullmatch(r'[A-Za-z0-9_./-]+=(?:passed|failed|pending|waiting)', gate, re.I) for gate in gates):
-        return False
-    if fields['pending'].lower() == 'none' and any(gate.rsplit('=', 1)[-1].lower() != 'passed' for gate in gates):
-        return False
-    if not re.search(r'(?i)(?:thread:|t3-thread://|mcp:launch:)[^\s]+', fields['responsible-thread']):
-        return False
-    return True
+    if proposal and (not target or not (url or (numbered and repository))):
+        problems.add('proposal')
+    review = fields.get('review', '')
+    if review and (not re.search(r'(?i)(?:https?://|t3-thread://|review:)[^\s]+', review)
+                   or not fields.get('head') or fields['head'].lower() not in review.lower()):
+        problems.add('review')
+    gates_value = fields.get('gates', '')
+    gates = [gate.strip() for gate in gates_value.split(',')] if gates_value else []
+    if gates and any(not re.fullmatch(r'[A-Za-z0-9_./-]+=(?:passed|failed|pending|waiting)', gate, re.I) for gate in gates):
+        problems.add('gates')
+    if fields.get('pending', '').lower() == 'none' and any(gate.rsplit('=', 1)[-1].lower() != 'passed' for gate in gates):
+        problems.add('pending')
+    thread = fields.get('responsible-thread', '')
+    if thread and not re.search(r'(?i)(?:thread:|t3-thread://|mcp:launch:)[^\s]+', thread):
+        problems.add('responsible-thread')
+    return [name for name in FIELDS if name in problems]
+
+
+def complete_handoff(message: Any) -> bool:
+    return not handoff_problems(message)
 
 
 def _stop_state(path: Path | None, session_id: Any) -> str:
@@ -156,12 +165,12 @@ def handle(event: dict, root: Path, mode: str, stop_state: str,
             summary = 'Integration observation unavailable; run wiki_integration_check.py when available.'
         return {'hookSpecificOutput': {'hookEventName': 'SessionStart', 'additionalContext': summary}}
     if name == 'SubagentStop':
-        if event.get('agent_type') not in executor_types or complete_handoff(message):
+        if event.get('agent_type') not in executor_types:
             return {}
-        warning = 'Executor handoff incomplete: include proposal, head, base, review, gates, pending and responsible-thread.'
-        if not stopped() and not continued:
-            return {'decision': 'block', 'reason': warning}
-        return {'systemMessage': warning + ' Automatic continuation is held or already attempted.'}
+        problems = handoff_problems(message)
+        if not problems:
+            return {}
+        return {'systemMessage': 'Executor handoff missing or invalid fields: ' + ', '.join(problems) + '.'}
     if name == 'Stop':
         observation = check(root, timeout)
         findings = mechanical_findings(observation, root, _current_branch(root))
