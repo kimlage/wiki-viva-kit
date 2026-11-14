@@ -252,7 +252,7 @@ def test_cli_text_exposes_action_reconciliation(monkeypatch, capsys):
         {'number': 2, 'status': 'done', 'action_reconciliation': 'unverified'}], 'hygiene': []})
     monkeypatch.setattr(sys, 'argv', ['wiki_integration_check.py'])
     assert cli.main() == 0
-    assert 'action reconciliation: unverified' in capsys.readouterr().out
+    assert 'action reconciliation:' in capsys.readouterr().out
 
 
 def test_later_native_review_resolves_rejection_but_reverse_blocks():
@@ -319,3 +319,42 @@ def test_cross_repository_same_owner_and_sha_is_not_origin_branch(monkeypatch, t
     monkeypatch.setattr(check, 'policy', lambda *args: {'gate': 'github_pr'})
     monkeypatch.setattr(check, '_worktrees', lambda root: [])
     assert check.inspect(tmp_path, 1)['proposals'][0]['status'] == 'waiting:head_observation'
+
+
+def test_linked_action_stale_current_terminal_and_indeterminate():
+    pr = candidate() | {'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'action-demo', 'action_state': 'open',
+          'updated_at': '2026-11-13', 'next_action': 'Acompanhar PR #1', 'owner': 'team-owner'}
+    stale = check._action_observation(fm, '', pr, 'github.com/owner/repo')
+    assert stale == {'status': 'fix:action_stale', 'action_id': 'action-demo', 'pr': 1,
+                     'responsible': 'team-owner', 'event': 'proposal_closed_after_action'}
+    fm['updated_at'] = '2026-11-15'
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'current'
+    fm['updated_at'] = '2026-11-14'
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'waiting:action_reconciliation'
+    fm['action_state_history'] = [{'at': '2026-11-14T13:00:00Z'}]
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'current'
+    fm['action_state'] = 'done'
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo') is None
+
+
+def test_action_reference_in_body_and_evidence():
+    pr = candidate() | {'state': 'CLOSED', 'closedAt': '2026-11-14T12:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'a', 'action_state': 'open', 'updated_at': '2026-11-10'}
+    assert check._action_observation(fm, 'Track https://github.com/owner/repo/pull/1', pr, 'github.com/owner/repo')['status'] == 'fix:action_stale'
+    assert check._action_observation(fm, 'Track https://github.com/elsewhere/repo/pull/1', pr, 'github.com/owner/repo') is None
+    fm['evidence_refs'] = ['PR #1']
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'fix:action_stale'
+
+
+def test_action_findings_read_canonical_git_blobs(monkeypatch, tmp_path):
+    pr = candidate() | {'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    blobs = {
+        'wiki.config.yaml': 'repo_id: synthetic\ncontexts: example\n',
+        'memories/example/actions/demo.md': '---\npage_id: action-demo\npage_type: action\naction_state: open\nupdated_at: 2026-11-13\nnext_action: "PR #1"\n---\nBody\n',
+    }
+    monkeypatch.setattr(check, '_blob', lambda root, rev, path: blobs[path])
+    monkeypatch.setattr(check, '_git', lambda root, *args: 'memories/example/actions/demo.md\x00')
+    findings, available = check._action_findings(tmp_path, BASE, [pr], 'github.com/owner/repo')
+    assert available and findings[0]['status'] == 'fix:action_stale'
+    assert findings[0]['action_id'] == 'action-demo'

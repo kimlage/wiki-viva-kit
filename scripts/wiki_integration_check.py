@@ -25,13 +25,13 @@ def main() -> int:
         for item in result['proposals']:
             print(f"PR {item['number']}: {item['status']}" + (f" ({item['responsible_thread']})" if item.get('responsible_thread') else ''))
             if item.get('action_reconciliation'):
-                print('  action reconciliation: ' + item['action_reconciliation'])
+                print('  action reconciliation: ' + json.dumps(item['action_reconciliation'], ensure_ascii=False))
             if item.get('pending'):
                 print('  pending: ' + ', '.join(item['pending']))
             if item.get('required_at_integration'):
                 print('  required at integration: ' + ', '.join(item['required_at_integration']))
         for item in result['hygiene']:
-            print(f"{item['status']}: {item.get('branch') or item.get('path')}")
+            print(f"{item['status']}: {item.get('action_id') or item.get('branch') or item.get('path')}" + (f" PR {item['pr']}" if item.get('pr') else ''))
     return 0 if result['ok'] else 1
 
 

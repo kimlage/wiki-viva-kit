@@ -6,7 +6,7 @@ runtime identity. Only an explicit, exact-head handoff can supply local evidence
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import date, datetime
 import re
 import subprocess
 from pathlib import Path
@@ -16,11 +16,15 @@ import yaml
 
 from wiki_core.action_contribution import ContributionError, _blob, _gh, _git, _repository
 from wiki_core.action_transition import ActionTransitionError, _assert_no_secrets
+from wiki_core.action_state import NON_TERMINAL_ACTION_STATES, TERMINAL_ACTION_STATES
+from wiki_core.config import config_from_mapping
+from wiki_core.frontmatter import parse_frontmatter
+from wiki_core.paths import WikiPaths
 
 SHA = re.compile(r"^[0-9a-f]{40,64}$")
 FIELDS = ("number,url,state,author,headRefName,headRefOid,headRepositoryOwner,isCrossRepository,"
           "baseRefName,baseRefOid,mergeCommit,isDraft,reviewDecision,statusCheckRollup,"
-          "reviews,comments,mergeStateStatus,closedAt")
+          "reviews,comments,mergeStateStatus,closedAt,mergedAt")
 
 
 def _field(body: str, key: str) -> str:
@@ -179,6 +183,83 @@ def _human_review(root: Path, repo: str, pr: dict) -> bool:
     return False
 
 
+def _action_reference(text: str, number: int, repository: str) -> bool:
+    """A local PR number or a URL explicitly belonging to this repository."""
+    host, owner, repo = repository.split("/", 2)
+    url = rf"https?://{re.escape(host)}/{re.escape(owner)}/{re.escape(repo)}/pull/{number}(?=[^0-9]|$)"
+    local = rf"(?i)(?:\bPR\s*#?\s*|(?<![\w/])#){number}(?![0-9])"
+    return bool(re.search(url, text, re.IGNORECASE) or re.search(local, text))
+
+
+def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str) -> dict | None:
+    if frontmatter.get("page_type") != "action":
+        return None
+    action_id = str(frontmatter.get("page_id") or "")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,160}", action_id):
+        return None
+    try:
+        _assert_no_secrets(action_id)
+    except ActionTransitionError:
+        return None
+    number = pr.get("number")
+    if not isinstance(number, int):
+        return None
+    cited = "\n".join((str(frontmatter.get("next_action") or ""),
+                        str(frontmatter.get("evidence_refs") or ""), body))
+    if not _action_reference(cited, number, repository):
+        return None
+    state = frontmatter.get("action_state")
+    if state in TERMINAL_ACTION_STATES:
+        return None
+    responsible = str(frontmatter.get("owner_ref") or frontmatter.get("owner") or "action_owner")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", responsible):
+        responsible = "action_owner"
+    try:
+        _assert_no_secrets(responsible)
+    except ActionTransitionError:
+        responsible = "action_owner"
+    result = {"action_id": action_id, "pr": number, "responsible": responsible}
+    event = _event_time(pr.get("mergedAt") if pr.get("state") == "MERGED" else pr.get("closedAt"))
+    if state not in NON_TERMINAL_ACTION_STATES or event is None:
+        return {**result, "status": "waiting:action_reconciliation", "event": "action_state_or_closure_time_unavailable"}
+    updated = frontmatter.get("updated_at")
+    updated_str = str(updated or "")
+    updated_time = _event_time(updated_str)
+    try:
+        updated_date = date.fromisoformat(updated_str) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", updated_str) else None
+    except ValueError:
+        updated_date = None
+    history = frontmatter.get("action_state_history") or []
+    receipt_times = [_event_time(x.get("at") or x.get("recorded_at")) for x in history if isinstance(x, dict)] if isinstance(history, list) else []
+    receipt_times = [x for x in receipt_times if x is not None]
+    if (updated_time and updated_time >= event) or any(x >= event for x in receipt_times) or (updated_date and updated_date > event.date()):
+        return {**result, "status": "current", "event": "action_updated_after_proposal"}
+    if updated_time and updated_time < event or updated_date and updated_date < event.date():
+        return {**result, "status": "fix:action_stale", "event": "proposal_closed_after_action"}
+    return {**result, "status": "waiting:action_reconciliation", "event": "action_update_time_ambiguous"}
+
+
+def _action_findings(root: Path, base: str, prs: list[dict], repository: str) -> tuple[list[dict], bool]:
+    """Read canonical action blobs from the observed target commit; never checkout."""
+    try:
+        config = config_from_mapping(yaml.safe_load(_blob(root, base, "wiki.config.yaml")))
+        paths = WikiPaths(root, config)
+        names = _git(root, "ls-tree", "-r", "--name-only", "-z", base).split("\0")
+        terminal = [p for p in prs if p.get("state") in {"MERGED", "CLOSED"}]
+        findings = []
+        for name in names:
+            if not name.endswith(".md") or paths.collection_root(root / name, "actions_dirname") is None:
+                continue
+            fm, body = parse_frontmatter(_blob(root, base, name))
+            for pr in terminal:
+                observation = _action_observation(fm, body, pr, repository)
+                if observation is not None:
+                    findings.append(observation)
+        return findings, True
+    except (OSError, ValueError, TypeError, ContributionError, yaml.YAMLError):
+        return [], False
+
+
 def _worktrees(root: Path) -> list[dict]:
     records = _git(root, "worktree", "list", "--porcelain").split("\n\n")
     result = []
@@ -268,6 +349,14 @@ def inspect(root: Path, number: int | None = None) -> dict:
             for branch in remote:
                 if branch != default and branch not in open_heads:
                     hygiene.append({"status": "fix:merged_branch_remaining" if branch in closed_heads else "fix:remote_branch_without_pr", "branch": branch})
+        action_findings, action_available = _action_findings(root, base, prs, repo)
+        for observation in proposals:
+            if observation.get("action_reconciliation") == "unverified":
+                related = [f for f in action_findings if f["pr"] == observation["number"]]
+                observation["action_reconciliation"] = (related if related else [{
+                    "status": "waiting:action_reconciliation", "event": "action_association_unavailable" if action_available else "action_source_unavailable",
+                    "responsible": "integrator"}])
+        hygiene.extend(f for f in action_findings if f["status"] == "fix:action_stale")
         for wt in worktrees:
             if wt["dirty"] is None:
                 hygiene.append({"status": "waiting:worktree_status", **wt})
