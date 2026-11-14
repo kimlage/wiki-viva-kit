@@ -584,3 +584,85 @@ def test_result_recording_rejects_changed_instruction_then_allows_restored(appro
     assert cli.main() == 0
     capsys.readouterr()
     assert all((cache_dir / f"{row['cache_key']}.json").is_file() for row in request['chunks'])
+
+
+def test_local_packet_published_only_after_complete_write(tmp_path, monkeypatch):
+    import os
+    consolidate = module('wiki_consolidate')
+    target = tmp_path / 'packet.json'
+    original_link = os.link
+
+    def inspect_publication(source, destination, **kwargs):
+        assert not target.exists()
+        assert Path(source).read_text(encoding='utf-8') == '{"complete": true}\n'
+        return original_link(source, destination, **kwargs)
+
+    monkeypatch.setattr(os, 'link', inspect_publication)
+    consolidate._publish_local_packet_once(target, '{"complete": true}\n')
+    assert target.read_text(encoding='utf-8') == '{"complete": true}\n'
+    assert sorted(p.name for p in tmp_path.iterdir()) == ['packet.json']
+
+
+def test_local_packet_failure_and_competing_writer_are_preserved(tmp_path, monkeypatch):
+    import os
+    consolidate = module('wiki_consolidate')
+    target = tmp_path / 'packet.json'
+    original_fsync = os.fsync
+    monkeypatch.setattr(os, 'fsync', lambda _fd: (_ for _ in ()).throw(OSError('synthetic failure')))
+    with pytest.raises(OSError, match='synthetic failure'):
+        consolidate._publish_local_packet_once(target, 'partial candidate')
+    assert list(tmp_path.iterdir()) == []
+    monkeypatch.setattr(os, 'fsync', original_fsync)
+    original_link = os.link
+
+    def competing_writer(source, destination, **kwargs):
+        target.write_text('other writer')
+        return original_link(source, destination, **kwargs)
+
+    monkeypatch.setattr(os, 'link', competing_writer)
+    with pytest.raises(FileExistsError):
+        consolidate._publish_local_packet_once(target, 'new candidate')
+    assert target.read_text() == 'other writer'
+    assert sorted(p.name for p in tmp_path.iterdir()) == ['packet.json']
+
+
+@pytest.mark.parametrize('same_packet', [False, True])
+def test_local_packet_competitor_is_checked_before_event(approved, monkeypatch, tmp_path, capsys, same_packet):
+    import datetime
+    import os
+    root, source, _, _ = approved
+    config = load_config(root)
+    paths = WikiPaths(root, config)
+    (root / 'area').mkdir()
+    (root / 'area/index.md').write_text('index')
+    (root / 'area/AGENTS.md').write_text('guidance')
+    produced = run(str(source), 'system', root, config, entry_folder='area', record_score=False)
+    request = json.loads((root / produced.request_path).read_text())
+    cli, consolidate = module('wiki_llm_context_pass'), module('wiki_consolidate')
+    monkeypatch.setattr(consolidate, 'ROOT', root)
+    monkeypatch.chdir(root)
+    payload = tmp_path / 'results.json'
+    payload.write_text(json.dumps(list({row['cache_key']: result_for(request, row) for row in request['chunks']}.values())))
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+        '--context', 'system', '--folder', 'area', '--record-result', str(payload)])
+    assert cli.main() == 0
+    capsys.readouterr()
+    paths.ingest_events_dir.mkdir(parents=True, exist_ok=True)
+    original_link = os.link
+    captured = {}
+
+    def competing_writer(candidate, destination, **kwargs):
+        captured['target'] = Path(destination)
+        content = Path(candidate).read_text() if same_packet else 'different existing packet'
+        captured['content'] = content
+        captured['target'].write_text(content)
+        return original_link(candidate, destination, **kwargs)
+
+    monkeypatch.setattr(os, 'link', competing_writer)
+    result = consolidate.consolidate_one(produced.source_id, emit_event=True, packet=True, source_page=None,
+        source_ref='source-test', context='system', date=datetime.date(2026, 11, 4), force=False,
+        request_path=produced.request_path)
+    assert result == (0 if same_packet else 1)
+    assert captured['target'].read_text() == captured['content']
+    assert len(list(paths.ingest_events_dir.glob('*.md'))) == (1 if same_packet else 0)
+    assert not list(paths.extraction_events.glob('.wiki-packet-*.tmp'))
