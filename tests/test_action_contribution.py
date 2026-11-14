@@ -5,6 +5,7 @@ import copy
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -524,23 +525,68 @@ def test_prepare_preserves_global_identity_without_inherited_repo(tmp_path, monk
     assert author.strip() == b'Synthetic Global <global@example.test>'
 
 
+@pytest.mark.skipif(os.name == 'nt' or shutil.which('ssh-keygen') is None, reason='requires POSIX SSH signing fixture')
 @pytest.mark.parametrize('source', ['global', 'local', 'injected'])
-def test_prepare_refuses_required_signing_instead_of_silent_unsigned_commit(tmp_path, monkeypatch, source):
-    _, request = fixture(tmp_path)
+def test_prepare_preserves_required_ssh_signing(tmp_path, monkeypatch, source):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    _, request = fixture(root)
+    key = tmp_path / 'synthetic-signing-key'
+    subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)], check=True)
+    settings = [('commit.gpgSign', 'true'), ('gpg.format', 'ssh'), ('user.signingkey', str(key))]
     if source == 'global':
         global_config = tmp_path.parent / (tmp_path.name + '-gitconfig')
-        global_config.write_text('[commit]\n\tgpgSign = true\n')
+        global_config.write_text('[commit]\n\tgpgSign = true\n[gpg]\n\tformat = ssh\n[user]\n\tsigningkey = ' + str(key) + '\n')
         monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(global_config))
     elif source == 'local':
-        git(tmp_path, 'config', 'commit.gpgSign', 'true')
+        for name, value in settings:
+            git(root, 'config', name, value)
     else:
-        monkeypatch.setenv('GIT_CONFIG_COUNT', '1')
-        monkeypatch.setenv('GIT_CONFIG_KEY_0', 'commit.gpgSign')
-        monkeypatch.setenv('GIT_CONFIG_VALUE_0', 'true')
+        monkeypatch.setenv('GIT_CONFIG_COUNT', str(len(settings)))
+        for index, (name, value) in enumerate(settings):
+            monkeypatch.setenv(f'GIT_CONFIG_KEY_{index}', name)
+            monkeypatch.setenv(f'GIT_CONFIG_VALUE_{index}', value)
+    result = call(root, 'prepare', request, review=review(request))
+    assert result['ok'] and result['status'] == 'prepared', result
+    allowed = tmp_path / 'allowed-signers'
+    allowed.write_text('operator@example.test ' + key.with_suffix('.pub').read_text())
+    verify = subprocess.run(['git', '-c', 'gpg.format=ssh', '-c', f'gpg.ssh.allowedSignersFile={allowed}',
+                             'verify-commit', result['proposal_commit']], cwd=root, capture_output=True)
+    assert verify.returncode == 0, verify.stderr.decode(errors='replace')
+
+
+@pytest.mark.skipif(os.name == 'nt' or shutil.which('false') is None, reason='requires POSIX failing signer')
+def test_prepare_does_not_install_ref_when_required_signer_fails(tmp_path):
+    _, request = fixture(tmp_path)
+    git(tmp_path, 'config', 'commit.gpgSign', 'true')
+    git(tmp_path, 'config', 'gpg.format', 'ssh')
+    git(tmp_path, 'config', 'gpg.ssh.program', shutil.which('false'))
+    git(tmp_path, 'config', 'user.signingkey', 'synthetic-invalid-key')
     result = call(tmp_path, 'prepare', request, review=review(request))
     assert not result['ok']
-    assert result['error'] == 'git_commit_signing_policy_unsupported'
     assert port._candidate(tmp_path, result['branch']) is None
+
+
+def test_prepare_refuses_signing_policy_change_before_commit(tmp_path, monkeypatch):
+    _, request = fixture(tmp_path)
+    original = port._gates
+    def gates_then_change(*args, **kwargs):
+        receipts = original(*args, **kwargs)
+        git(tmp_path, 'config', 'commit.gpgSign', 'true')
+        return receipts
+    monkeypatch.setattr(port, '_gates', gates_then_change)
+    result = call(tmp_path, 'prepare', request, review=review(request))
+    assert result['error'] == 'git_commit_signing_policy_changed'
+    assert port._candidate(tmp_path, result['branch']) is None
+
+
+def test_selected_local_unsigned_policy_overrides_global_signing(tmp_path, monkeypatch):
+    fixture(tmp_path)
+    git(tmp_path, 'config', 'commit.gpgSign', 'false')
+    global_config = tmp_path.parent / (tmp_path.name + '-gitconfig')
+    global_config.write_text('[commit]\n\tgpgSign = true\n')
+    monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(global_config))
+    assert port._commit_signing_policy(tmp_path) == (False, ())
 
 
 def test_transport_uses_selected_repo_despite_inherited_git_directory(tmp_path, monkeypatch):
