@@ -729,10 +729,11 @@ def _transition_action_page_locked(
         raise ActionTransitionError("invalid_target_state", next_state=target)
     path, page_ref = _contained_action_path(root, page)
     try:
-        before_text = path.read_text(encoding="utf-8")
+        before_bytes = path.read_bytes()
+        before_text = before_bytes.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
     except OSError as exc:
         raise ActionTransitionError("action_read_failed") from exc
-    before_sha256 = _sha256_text(before_text)
+    before_sha256 = hashlib.sha256(before_bytes).hexdigest()
     expected = str(expected_sha256 or "").strip()
     if expected:
         if not _SHA256_RE.fullmatch(expected):
@@ -1195,8 +1196,9 @@ def integrate_action_body(
         raise ActionTransitionError("action_writes_unsupported_on_windows")
     path, ref = _contained_action_path(root, page)
     with _TRANSITION_LOCK, _action_file_lock(root, ref):
-        before = path.read_text(encoding="utf-8")
-        if _sha256_text(before) != expected_sha256:
+        before_bytes = path.read_bytes()
+        before = before_bytes.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+        if hashlib.sha256(before_bytes).hexdigest() != expected_sha256:
             raise ActionTransitionError("stale_action_revision")
         fm, old_body = _parse_document(before)
         state = resolve_action_state(fm, legacy_state=legacy_action_state_from_body(old_body))
