@@ -232,7 +232,7 @@ def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
     for status, path in changes:
         if status!='D':
             try: proposed_file=guarded_context_read(proposal,policy,path); text=proposed_file['text']
-            except ValueError as exc: raise IntegrationError('unsupported or unsafe proposed file') from exc
+            except ValueError: raise IntegrationError('unsupported or unsafe proposed file') from None
             if any(x.category=='secret' for x in scan_text(text)): raise IntegrationError('secret detected in proposal')
             if folder_mode and Path(path).name in ('index.md', 'README.md'):
                 folder = str(Path(path).parent).replace('\\', '/')
@@ -245,7 +245,10 @@ def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
                         and bool(guarded_context_read(base_reader,policy,path)['text'].strip()) != bool(text.strip())):
                     raise IntegrationError('context boundary change requires separate policy review')
             if path.endswith('.md'):
-                prior=guarded_context_read(base_reader,policy,path)['frontmatter'] if path in base_reader.paths else {}
+                try:
+                    prior=guarded_context_read(base_reader,policy,path)['frontmatter'] if path in base_reader.paths else {}
+                except ValueError:
+                    raise IntegrationError('unsupported or unsafe base file') from None
                 raw_before=prior.get('information_requirements',[])
                 raw_after=proposed_file['frontmatter'].get('information_requirements',[])
                 has_query=isinstance(raw_after,list) and any(isinstance(r,dict) and 'query' in r for r in raw_after)
