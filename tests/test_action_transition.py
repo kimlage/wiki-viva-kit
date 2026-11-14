@@ -1457,3 +1457,9 @@ def test_comment_typed_comparison_handles_colliding_integer_keys():
     assert transition_module._comment_typed_equal(left, right)
     right[modulus] = -1
     assert not transition_module._comment_typed_equal(left, right)
+
+
+def test_comment_typed_comparison_handles_large_integer_without_decimal_conversion():
+    value = 2 ** 16000 + 123
+    assert transition_module._comment_typed_equal({'value': value, value: 'x'}, {'value': value, value: 'x'})
+    assert not transition_module._comment_typed_equal({'value': value}, {'value': -value})

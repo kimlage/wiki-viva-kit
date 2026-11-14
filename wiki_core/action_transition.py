@@ -1307,9 +1307,13 @@ def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000) -
         if value_type is date:
             return value_type, value.isoformat()
         if value_type is int:
-            # Hash randomized strings rather than attacker-selected integer
-            # hashes, while retaining exact type and value.
-            return value_type, str(value)
+            # Hash randomized byte strings rather than attacker-selected
+            # integer hashes, without a decimal conversion size limit.
+            magnitude = abs(value)
+            size = max(1, (magnitude.bit_length() + 7) // 8)
+            if size > 1_000_000:
+                raise ValueError("integer comparison key too large")
+            return value_type, value < 0, magnitude.to_bytes(size, "big")
         if value_type is float:
             import struct
             return value_type, struct.pack("!d", value)
