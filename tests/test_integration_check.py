@@ -389,3 +389,77 @@ def test_explicit_proposal_number_in_body(body):
     pr = candidate() | {'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
     fm = {'page_type': 'action', 'page_id': 'a', 'action_state': 'open', 'updated_at': '2026-11-10'}
     assert check._action_observation(fm, body, pr, 'github.com/owner/repo')['status'] == 'fix:action_stale'
+
+
+def test_ci_failure_is_reported_for_each_open_pr_not_only_ready(monkeypatch, tmp_path):
+    failed = candidate() | {'number': 10, 'isDraft': True, 'comments': [],
+                            'statusCheckRollup': [{'__typename': 'CheckRun', 'name': 'audit-and-test',
+                                                   'status': 'COMPLETED', 'conclusion': 'FAILURE'}]}
+    green = candidate() | {'number': 11, 'headRefName': 'wiki/green',
+                           'statusCheckRollup': [{'__typename': 'CheckRun', 'name': 'tests',
+                                                  'status': 'COMPLETED', 'conclusion': 'SUCCESS'}]}
+    pending = candidate() | {'number': 12, 'headRefName': 'wiki/pending',
+                             'statusCheckRollup': [{'__typename': 'CheckRun', 'name': 'build',
+                                                    'status': 'IN_PROGRESS', 'conclusion': None}]}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: [failed, green, pending])
+    def git(root, *args):
+        if '--symref' in args:
+            return 'ref: refs/heads/main\tHEAD\n' + BASE + '\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main\n{HEAD}\trefs/heads/wiki/one\n{HEAD}\trefs/heads/wiki/green\n{HEAD}\trefs/heads/wiki/pending'
+        return 'main'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {'gate': 'github_pr'})
+    monkeypatch.setattr(check, '_ancestry', lambda *args: 'current')
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    proposals = check.inspect(tmp_path)['proposals']
+    assert proposals[0]['status'] == 'fix:ci_failed'
+    assert proposals[0]['ci_failed_checks'] == ['audit-and-test']
+    assert proposals[1]['status'] != 'fix:ci_failed'
+    assert proposals[2]['status'] != 'fix:ci_failed'
+
+
+def test_completed_ci_failures_and_status_contexts():
+    pr = candidate() | {'statusCheckRollup': [
+        {'__typename': 'CheckRun', 'name': 'tests', 'status': 'COMPLETED', 'conclusion': 'FAILURE'},
+        {'__typename': 'StatusContext', 'context': 'external-ci', 'state': 'ERROR'},
+        {'__typename': 'CheckRun', 'name': 'running', 'status': 'IN_PROGRESS', 'conclusion': None},
+        {'__typename': 'CheckRun', 'name': 'successful', 'status': 'COMPLETED', 'conclusion': 'SUCCESS'},
+    ]}
+    result = evaluate(pr, ancestry='unknown')
+    assert result['status'] == 'fix:ci_failed'
+    assert result['ci_failed_checks'] == ['tests', 'external-ci']
+    assert result['head'] == HEAD
+
+
+def test_ci_failure_names_are_printed(monkeypatch, capsys):
+    import importlib
+    import sys
+    scripts = str(Path(__file__).resolve().parents[1] / 'scripts')
+    monkeypatch.syspath_prepend(scripts)
+    cli = importlib.import_module('wiki_integration_check')
+    monkeypatch.setattr(cli, 'inspect', lambda *args: {'ok': True, 'proposals': [
+        {'number': 2, 'status': 'fix:ci_failed', 'ci_failed_checks': ['audit-and-test']}], 'hygiene': []})
+    monkeypatch.setattr(sys, 'argv', ['wiki_integration_check.py'])
+    assert cli.main() == 0
+    assert 'failed checks: audit-and-test' in capsys.readouterr().out
+
+
+def test_failed_check_for_superseded_head_requires_reconciliation(monkeypatch, tmp_path):
+    pr = candidate() | {'statusCheckRollup': [{'__typename': 'CheckRun', 'name': 'tests',
+                                              'status': 'COMPLETED', 'conclusion': 'FAILURE'}]}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: [pr])
+    def git(root, *args):
+        if '--symref' in args:
+            return 'ref: refs/heads/main\tHEAD\n' + BASE + '\tHEAD'
+        if '--heads' in args:
+            return BASE + '\trefs/heads/main\n' + 'c' * 40 + '\trefs/heads/wiki/one'
+        return 'main'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {'gate': 'github_pr'})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    assert check.inspect(tmp_path)['proposals'][0]['status'] == 'waiting:head_observation'

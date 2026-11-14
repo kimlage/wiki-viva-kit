@@ -104,6 +104,34 @@ def _comment_evidence(pr: dict, head: str) -> tuple[bool, bool, bool, str | None
     return "approved" in latest, blocked, uncertain, thread
 
 
+def _failed_ci_checks(pr: dict) -> list[str]:
+    """Completed failures from the provider rollup associated with this PR head."""
+    failures = []
+    for item in pr.get("statusCheckRollup") or []:
+        if not isinstance(item, dict):
+            continue
+        status = str(item.get("status") or "").upper()
+        conclusion = str(item.get("conclusion") or "").upper()
+        state = str(item.get("state") or "").upper()
+        is_failure = (status == "COMPLETED" and conclusion in {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"})
+        is_failure |= (item.get("__typename") == "StatusContext" and state in {"FAILURE", "ERROR"})
+        if not is_failure:
+            continue
+        name = item.get("name") or item.get("context")
+        if (not isinstance(name, str) or not name.strip() or len(name) > 160
+                or any(ord(char) < 32 or ord(char) == 127 for char in name)):
+            name = "check_name_unavailable"
+        else:
+            name = name.strip()
+            try:
+                _assert_no_secrets(name)
+            except ActionTransitionError:
+                name = "check_name_unavailable"
+        if name not in failures:
+            failures.append(name)
+    return failures
+
+
 def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -> dict:
     """Evaluate supplied observations; never execute commands or mutate state."""
     head = pr.get("headRefOid") or ""
@@ -121,7 +149,14 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
             out["status"] = ("done" if any(re.search(r"(?im)^(?:Disposition-Reason|Motivo(?: do descarte)?|Reason for (?:closure|discard))\s*:\s*\S", b) for b in reasons)
                              else "waiting:verify_closure_reason" if reasons else "fix:closure_reason_missing")
         return out
-    if state != "OPEN" or not SHA.fullmatch(head) or not SHA.fullmatch(str(pr.get("baseRefOid") or "")):
+    if state != "OPEN" or not SHA.fullmatch(head):
+        return out
+    failed_checks = _failed_ci_checks(pr)
+    if failed_checks:
+        out["status"] = "fix:ci_failed"
+        out["ci_failed_checks"] = failed_checks
+        return out
+    if not SHA.fullmatch(str(pr.get("baseRefOid") or "")):
         return out
     if approval.get("gate", "github_pr") != "github_pr":
         out["status"] = "waiting:policy_adapter"
@@ -333,6 +368,16 @@ def inspect(root: Path, number: int | None = None) -> dict:
             approval = policy(root, target_base) if SHA.fullmatch(target_base) else None
             if pr.get("state") in {"MERGED", "CLOSED"}:
                 proposals.append(evaluate(pr, {}, ancestry="unknown", human_approved=False))
+                continue
+            # A completed CI failure must be visible for every open proposal,
+            # including drafts or those waiting on base, policy or review.
+            if pr.get("state") == "OPEN" and _failed_ci_checks(pr):
+                if own(pr) and remote.get(str(pr.get("headRefName") or "")) != pr.get("headRefOid"):
+                    proposals.append({"number": pr.get("number"), "url": pr.get("url"),
+                                      "head": pr.get("headRefOid"), "base": pr.get("baseRefOid"),
+                                      "status": "waiting:head_observation"})
+                else:
+                    proposals.append(evaluate(pr, {}, ancestry="unknown", human_approved=False))
                 continue
             if approval is None:
                 proposals.append({"number": pr.get("number"), "url": pr.get("url"),

@@ -97,7 +97,11 @@ Use these exact field names for the optional session-hook shape check. Include
 the destination repository and target branch in `Proposal`, the independent
 review and findings/resolution link in `Review`, and each gate and result in
 `Gates` using comma-separated `name=passed|failed|pending|waiting` entries.
-The `Review` value includes the full head SHA. List pending approvals and wait events explicitly; use `none` only
+The `Review` value includes the full head SHA. Where the destination has CI,
+the executor checks the CI result for this head before handing off, and records
+its state and evidence in `CI`. If CI is pending, mark the handoff
+`awaiting CI` and retain that event in `Pending`; never present it as ready.
+List pending approvals and wait events explicitly; use `none` only
 when there are none; a failed, pending or waiting gate must have a named
 pending item. `Responsible-Thread` names the executor thread, and the
 integrator recipient is identified after these fields.
@@ -108,13 +112,15 @@ Head: <full final head SHA>
 Base: <full base SHA>
 Review: <independent review reference and full head SHA>
 Gates: <gate=passed, gate=pending>
+CI: <head SHA, state and evidence; or not applicable>
 Pending: <items and wait events, or none>
 Responsible-Thread: <executor thread reference>
 ```
 
 Integrator recipient: <destination integrator>
 
-The integrator checks destination policy and does not infer approval from this
+The optional hook checks only its listed fields and does not verify the `CI`
+field. The integrator checks destination policy and does not infer approval from this
 handoff. Update it if the head or base changes.
 
 ## Blocker and bounded recovery
