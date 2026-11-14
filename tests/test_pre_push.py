@@ -350,6 +350,11 @@ def test_consumer_gate_rejects_mismatched_or_uninitialized_submodule(tmp_path):
     git(root / 'library', 'checkout', '-q', good)
     result = hook(root, '0' * 40, head)
     assert result.returncode != 0
+    # Even with ignore=all, a staged gitlink must not hide a different tree.
+    git(root, 'add', 'library')
+    result = hook(root, '0' * 40, head)
+    assert result.returncode != 0 and 'check failed' in result.stderr
+    git(root, 'reset', '-q', 'HEAD', '--', 'library')
     git(root, 'submodule', 'deinit', '-f', '--', 'library')
     result = hook(root, '0' * 40, head)
     assert result.returncode != 0

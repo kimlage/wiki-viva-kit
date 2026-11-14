@@ -124,7 +124,8 @@ def verify_worktree(root: Path, expected: str, deadline: float) -> None:
     entries = git(root, deadline, 'ls-files', '-v', '-z').split(b'\x00')
     if any(entry and (entry[:1].islower() or entry[:1] == b'S') for entry in entries):
         raise Blocked('index flags can hide changes from consumer checks')
-    git(root, deadline, 'diff', '--cached', '--quiet', 'HEAD', '--')
+    git(root, deadline, 'diff', '--cached', '--quiet', '--no-ext-diff', '--no-textconv',
+        '--ignore-submodules=none', 'HEAD', '--')
     object_format = git(root, deadline, 'rev-parse', '--show-object-format').decode().strip()
     if object_format not in {'sha1', 'sha256'}:
         raise Blocked('unsupported object format')
