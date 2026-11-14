@@ -43,3 +43,23 @@ def test_long_merge_alias_chain_fails_with_controlled_error():
     rows.append('<<: *m1099')
     with pytest.raises(RequirementYamlError, match='ambiguous information requirements'):
         check_requirement_yaml('---\n' + '\n'.join(rows) + '\n---\n')
+
+
+@pytest.mark.parametrize('block,proposed', [
+    ('information_requirements: []\ninformation_requirements: []', []),
+    ('information_requirements: [{target: one}]\ninformation_requirements: [{target: one}]', [{'target': 'one'}]),
+])
+def test_identical_direct_duplicates_can_be_repaired_without_changing_value(block, proposed):
+    check_requirement_yaml('---\n' + block + '\n---\n', repair_value=proposed)
+
+
+@pytest.mark.parametrize('block,proposed', [
+    ('information_requirements: []\ninformation_requirements: [{target: one}]', []),
+    ('information_requirements: [{query: {filters: {value: true}}}]\ninformation_requirements: [{query: {filters: {value: 1}}}]', [{'query': {'filters': {'value': True}}}]),
+    ('information_requirements: [{target: one, target: two}]\ninformation_requirements: [{target: two}]', [{'target': 'two'}]),
+    ('other: &x []\ncopy: *x\ninformation_requirements: []\ninformation_requirements: []', []),
+    ('information_requirements: []\ninformation_requirements: []', [{'target': 'one'}]),
+])
+def test_uncertain_or_changed_duplicate_repair_is_refused(block, proposed):
+    with pytest.raises(RequirementYamlError, match='ambiguous information requirements'):
+        check_requirement_yaml('---\n' + block + '\n---\n', repair_value=proposed)

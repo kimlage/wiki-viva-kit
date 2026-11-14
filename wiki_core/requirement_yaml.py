@@ -1,6 +1,7 @@
 """Check requirement-key ambiguity in already authorized Markdown text."""
 from __future__ import annotations
 
+import json
 import yaml
 
 from wiki_core.frontmatter import FRONTMATTER_RE
@@ -10,7 +11,10 @@ class RequirementYamlError(ValueError):
     pass
 
 
-def check_requirement_yaml(text: str) -> None:
+NO_REPAIR_VALUE = object()
+
+
+def check_requirement_yaml(text: str, *, repair_value=NO_REPAIR_VALUE) -> None:
     """Refuse ambiguous requirement mappings; do not grant or read anything.
 
     A bounded event pass precedes composition. Aliases outside the protected
@@ -25,6 +29,7 @@ def check_requirement_yaml(text: str) -> None:
         raise RequirementYamlError('requirement frontmatter unavailable')
     try:
         depth = events = 0
+        has_alias = False
         for event in yaml.parse(raw, Loader=yaml.SafeLoader):
             events += 1
             if events > 100_000:
@@ -35,6 +40,8 @@ def check_requirement_yaml(text: str) -> None:
                     raise RequirementYamlError('requirement frontmatter unavailable')
             elif isinstance(event, (yaml.MappingEndEvent, yaml.SequenceEndEvent)):
                 depth -= 1
+            elif isinstance(event, yaml.AliasEvent):
+                has_alias = True
         root = yaml.compose(raw, Loader=yaml.SafeLoader)
     except (yaml.YAMLError, RecursionError, UnicodeError, ValueError) as exc:
         raise RequirementYamlError('requirement frontmatter unavailable') from None
@@ -71,12 +78,10 @@ def check_requirement_yaml(text: str) -> None:
 
     protected = [value for key, value in pairs(root, set())
                  if key.tag == 'tag:yaml.org,2002:str' and key.value == 'information_requirements']
-    if len(protected) > 1:
-        raise RequirementYamlError('ambiguous information requirements')
     if not protected:
         return
 
-    def visit(node, active):
+    def visit(node, active, *, no_merge=False):
         consume()
         if id(node) in active or len(active) >= 128:
             raise RequirementYamlError('ambiguous information requirements')
@@ -86,15 +91,37 @@ def check_requirement_yaml(text: str) -> None:
         try:
             if isinstance(node, yaml.SequenceNode):
                 for item in node.value:
-                    visit(item, active)
+                    visit(item, active, no_merge=no_merge)
             elif isinstance(node, yaml.MappingNode):
+                if no_merge and any(key.tag == 'tag:yaml.org,2002:merge' for key, _ in node.value):
+                    raise RequirementYamlError('ambiguous information requirements')
                 keys = set()
                 for key, value in pairs(node, set()):
                     if key.tag != 'tag:yaml.org,2002:str' or key.value in keys:
                         raise RequirementYamlError('ambiguous information requirements')
                     keys.add(key.value)
-                    visit(value, active)
+                    visit(value, active, no_merge=no_merge)
         finally:
             active.remove(id(node))
 
+    if len(protected) > 1:
+        # Only a narrowly proved repair is admitted: no aliases/merges in the
+        # base and every independently decoded list exactly equals the single
+        # unambiguous list in the proposal, with JSON scalar types preserved.
+        if (repair_value is NO_REPAIR_VALUE or not isinstance(repair_value, list) or has_alias
+                or any(key.tag == 'tag:yaml.org,2002:merge' for key, _ in root.value)):
+            raise RequirementYamlError('ambiguous information requirements')
+        try:
+            canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True,
+                                                 separators=(',', ':'), allow_nan=False)
+            expected = canonical(repair_value)
+            for node in protected:
+                if not isinstance(node, yaml.SequenceNode):
+                    raise RequirementYamlError('ambiguous information requirements')
+                visit(node, set(), no_merge=True)
+                if canonical(yaml.safe_load(yaml.serialize(node, Dumper=yaml.SafeDumper))) != expected:
+                    raise RequirementYamlError('ambiguous information requirements')
+        except (yaml.YAMLError, RecursionError, TypeError, ValueError):
+            raise RequirementYamlError('ambiguous information requirements') from None
+        return
     visit(protected[0], set())
