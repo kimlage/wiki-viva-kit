@@ -2999,3 +2999,64 @@ def test_action_receipt_audit_checks_lf_blob_with_crlf_checkout(tmp_path, monkey
     errors = []
     audit.audit_action_state_transitions(errors)
     assert errors == []
+
+
+def test_invalid_utf8_action_cannot_be_qualified_as_exact_comment(tmp_path, monkeypatch):
+    import hashlib
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import transition_action_page
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path)
+    path.write_bytes(path.read_bytes().replace(b'Body is preserved', 'Body \ufffd is preserved'.encode()))
+    original = path.read_bytes()
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic UTF-8 action')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=hashlib.sha256(original).hexdigest(),
+        recorded_at='2026-07-11T15:00:00Z', dialogue_actor='operator',
+        dialogue_event={'event_id': 'synthetic-comment-utf8', 'kind': 'comment',
+                        'coordinator': 'research', 'text': 'Synthetic comment received.'})
+    path.write_bytes(path.read_bytes().replace('\ufffd'.encode(), b'\xff'))
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    rel = path.relative_to(tmp_path).as_posix()
+    assert not audit._link_or_metadata_only_change(rel)
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert any('[invalid_action_utf8]' in error for error in errors)
+
+
+def test_eol_receipt_audits_after_git_normalizes_submitted_body(tmp_path, monkeypatch):
+    import hashlib
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import transition_action_page
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path)
+    rel = path.relative_to(tmp_path).as_posix()
+    (tmp_path / '.gitattributes').write_text('memories/actions/*.md text eol=lf\n')
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic action base')
+    git('checkout', '-b', 'wiki/synthetic-eol')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        page_edit={'body': '# Edited body\r\nSynthetic second line.\r\n'}, recorded_at='2026-07-11T15:00:00Z')
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert errors == []
+    git('add', rel)
+    staged = git('show', ':' + rel)
+    assert b'\r\n' not in staged
+    git('commit', '-m', 'Synthetic edited action')
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert errors == []

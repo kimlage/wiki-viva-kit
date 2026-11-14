@@ -128,3 +128,19 @@ def test_crlf_consolidation_keeps_single_newline_inside_paragraph():
     record = {'paragraph': paragraph, 'canonical_ref': 'memories/actions/canonical.md',
               'canonical_sha256': 'a' * 64, 'label': 'Canonical evidence'}
     assert _consolidated_body(body, [record]) == body.replace(paragraph, '[Canonical evidence](canonical.md).')
+
+
+def test_eol_receipt_consolidation_audits_logical_checkout_conversion(tmp_path):
+    p, _, records = fixture(tmp_path)
+    git_base = p.read_bytes().decode('utf-8')
+    p.write_bytes(p.read_bytes().replace(b'\n', b'\r\n'))
+    physical = p.read_bytes().decode('utf-8')
+    _, body = _parse_document(physical)
+    result = _consolidated_body(body, records)
+    integrate_action_body(tmp_path, p, result, expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'logical-consolidation', 'material_sha256': 'a' * 64},
+        recorded_at='2026-07-11T23:45:00-03:00', consolidations=records)
+    after = p.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(physical, after) == ()
+    assert action_transition_diagnostics(git_base, after) == ()
+    assert action_transition_diagnostics(git_base, after + '\nA new factual assertion.\n')

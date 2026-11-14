@@ -655,7 +655,10 @@ def _link_or_metadata_only_change(rel: str) -> bool:
     previous = _text_at_audit_base(rel)
     if previous is None:
         return False
-    current_text = _audit_read_bytes(current).decode("utf-8", errors="replace")
+    try:
+        current_text = _audit_read_bytes(current).decode("utf-8")
+    except UnicodeDecodeError:
+        return False
     # Reuse the writer's exact state/body/policy-preserving comment contract.
     # Physical changes remain visible to integrity, authorization and CAS.
     from wiki_core.action_transition import operational_comment_receipt
@@ -831,7 +834,11 @@ def audit_action_state_transitions(errors: list[str]) -> None:
                     "[action_page_deleted]"
                 )
             continue
-        current_text = _audit_read_bytes(current_path).decode("utf-8", errors="replace")
+        try:
+            current_text = _audit_read_bytes(current_path).decode("utf-8")
+        except UnicodeDecodeError:
+            errors.append(f"{rel}: action is not valid UTF-8 [invalid_action_utf8]")
+            continue
         current_values, _body = canonical_parse_frontmatter(current_text)
         current_is_action = str(current_values.get("page_type") or "") == "action"
         previous_text = base_by_path.get(rel)
@@ -2330,10 +2337,12 @@ def audit_impact(errors: list[str], config: WikiConfig) -> None:
             previous = _text_at_audit_base(affected)
             current = ROOT / affected
             # Receiving a comment cannot discharge an incoming factual impact.
-            if (previous is None or not current.is_file()
-                    or operational_comment_receipt(
-                        previous, _audit_read_bytes(current).decode("utf-8", errors="replace")
-                    ) is None):
+            try:
+                current_text = _audit_read_bytes(current).decode("utf-8") if current.is_file() else None
+            except UnicodeDecodeError:
+                current_text = None
+            if (previous is None or current_text is None
+                    or operational_comment_receipt(previous, current_text) is None):
                 continue
         if _impact_ack_added(config, affected):
             continue

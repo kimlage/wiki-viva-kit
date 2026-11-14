@@ -1363,3 +1363,20 @@ def test_mixed_legacy_and_eol_receipts_bind_body_across_checkout_conversion(tmp_
     assert action_transition_diagnostics(base, after) == ()
     tampered = after.replace('# Second synthetic body', '# Different synthetic body')
     assert action_transition_diagnostics(base, tampered)
+
+
+@pytest.mark.parametrize('first_body,second_body', [
+    ('# First\r\nBody\r\n', '# Second\nBody\n'),
+    ('# First\nBody\n', '# Second\r\nBody\r\n'),
+])
+def test_new_content_receipts_bind_mixed_line_ending_chains(tmp_path, first_body, second_body):
+    path = _write_action(tmp_path)
+    base = path.read_bytes().decode('utf-8')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': first_body}, recorded_at='2026-07-11T14:30:00Z')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': second_body}, recorded_at='2026-07-11T14:30:01Z')
+    after = path.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(base, after) == ()
+    assert action_transition_diagnostics(base, after.replace('\r\n', '\n')) == ()
+    assert action_transition_diagnostics(base, after.replace('# Second', '# Forged'))

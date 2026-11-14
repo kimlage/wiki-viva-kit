@@ -195,9 +195,13 @@ def _revision_sha256(text: str) -> str:
     return _sha256_text(text.rstrip("\r\n"))
 
 
+def _logical_eol(text: str) -> str:
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def _logical_revision_sha256(text: str) -> str:
     """Bind textual content across Git line-ending conversion; never use for CAS."""
-    return _revision_sha256(text.replace("\r\n", "\n").replace("\r", "\n"))
+    return _revision_sha256(_logical_eol(text))
 
 
 def _receipt_id(entry: Mapping[str, Any]) -> str:
@@ -837,6 +841,7 @@ def _transition_action_page_locked(
         if current in {"done", "cancelled"}:
             raise ActionTransitionError("terminal_page_read_only")
         edited_body = edit.pop("body", body)
+        logical_eol = logical_eol or "\r" in edited_body
         updated.update(edit)
         if edit.get("owner_kind") == "unassigned":
             updated.pop("owner_ref", None)
@@ -1245,7 +1250,7 @@ def integrate_action_body(
             metadata["consolidations"] = consolidations
         metadata["before_body_sha256"] = _sha256_text(old_body)
         metadata["after_body_sha256"] = _sha256_text(body)
-        logical_eol = "\r" in before
+        logical_eol = "\r" in before or "\r" in body
         revision = _logical_revision_sha256 if logical_eol else _revision_sha256
         metadata["before_body_revision"] = revision(old_body)
         metadata["after_body_revision"] = revision(body)
@@ -1689,13 +1694,19 @@ def action_transition_diagnostics(
         # separate approved change, not hidden in an editorial date exception.
         if any(e.get("kind") != "body_consolidation" for e in content_events):
             return (ActionTransitionDiagnostic("consolidation_mixed_body_changes", "review factual and editorial body changes separately"),)
-        rebuilt = previous_body
+        logical_eol = all(e.get("schema_version") == _EOL_RECEIPT_VERSION for e in content_events)
+        rebuilt = _logical_eol(previous_body) if logical_eol else previous_body
         try:
             for event in content_events:
-                rebuilt = _consolidated_body(rebuilt, (event.get("contribution") or {}).get("consolidations"))
+                records = (event.get("contribution") or {}).get("consolidations")
+                if logical_eol and isinstance(records, list):
+                    records = [{**row, "paragraph": _logical_eol(row["paragraph"])}
+                               if isinstance(row, dict) and isinstance(row.get("paragraph"), str) else row
+                               for row in records]
+                rebuilt = _consolidated_body(rebuilt, records)
         except ActionTransitionError:
             return (ActionTransitionDiagnostic("invalid_body_consolidation", "editorial receipt must bind exact paragraph replacements"),)
-        if rebuilt != current_body:
+        if rebuilt != (_logical_eol(current_body) if logical_eol else current_body):
             return (ActionTransitionDiagnostic("invalid_body_consolidation", "editorial receipt does not preserve the remaining body"),)
     if content_events:
         logical_eol = any(e.get("schema_version") == _EOL_RECEIPT_VERSION for e in content_events)
