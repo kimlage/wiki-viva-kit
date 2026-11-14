@@ -80,6 +80,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepare deployment inputs |
 | [wiki_integration_check.py](../../../scripts/wiki_integration_check.py) | Observe integration readiness and Git lifecycle hygiene without writes |
 | [wiki_session_hook.py](../../../scripts/wiki_session_hook.py) | Adapt optional session hooks to integration observations |
+| [wiki_pre_push.py](../../../scripts/wiki_pre_push.py) | Install and run optional local pre-push checks |
 | [wiki_contribution.py](../../../scripts/wiki_contribution.py) | Prepare, review and reconcile provider-neutral action-body contributions under consumer Git policy |
 | [wiki_coordination.py](../../../scripts/wiki_coordination.py) | Prepare an approved folder task packet or protected source stage, read the caller-trust index or record exact-path dialogue; profile reads return migration; no model call |
 | [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Run the localhost operator API |
