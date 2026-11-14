@@ -229,7 +229,9 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
     target = repo_id(host, owner, repo)
     explicit: set[tuple[str, str, str]] = set()
     file_suffixes = ('.md', '.py', '.yaml', '.yml', '.json', '.toml', '.txt', '.sh', '.ts', '.tsx')
-    path_roots = {'docs', 'memories', 'memorias', 'scripts', 'tests', 'src', 'data', 'apps', 'packs'}
+    path_roots = {'docs', 'memories', 'memorias', 'scripts', 'tests', 'src', 'data', 'apps', 'packs',
+                  'tools', 'bin', 'examples', 'assets', 'lib', 'include', 'config', 'resources',
+                  'build', 'templates', 'frontend', 'backend', 'server', 'client', 'acoes', 'decisoes'}
     ambiguous_path = False
     urls = re.compile(r"(?<![\w/@.-])(?:https?://)?([^/\s]+)/([^/\s]+)/([^/\s]+)/(pull|pull-requests|issues)/([0-9]+)(?![A-Za-z0-9_])", re.I)
     for match in urls.finditer(text):
@@ -246,7 +248,7 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
     for match in hosted.finditer(text):
         if match.group(1).lower() in {host, 'github.com', 'gitlab.com', 'bitbucket.org'} and match.group(4) == str(number):
             explicit.add(repo_id(*match.group(1, 2, 3)))
-    qualified = re.compile(r"(?<![\w/.-])([\w.-]+)/([\w.-]+)#([0-9]+)(?![A-Za-z0-9_])", re.I)
+    qualified = re.compile(r"(?<![\w/.:@-])([\w.-]+)/([\w.-]+)#([0-9]+)(?![A-Za-z0-9_])", re.I)
     for match in qualified.finditer(text):
         if match.group(3) == str(number):
             if match.group(1).lower() in path_roots:
@@ -255,7 +257,7 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
                 continue
             explicit.add(repo_id(host, match.group(1), match.group(2)))
     # Also bind forms such as "repo=owner/repo PR #502" and the reverse.
-    repo_name = (r"(?<![\w/.-])(?:(?:repo(?:sitory)?|reposit[oó]rio)[ \t]*[:=]?[ \t]*)?"
+    repo_name = (r"(?<![\w/.:@-])(?:(?:repo(?:sitory)?|reposit[oó]rio)[ \t]*[:=]?[ \t]*)?"
                  r"(?:([\w.-]+\.[A-Za-z]{2,})/)?([\w.-]+)/([\w.-]+)")
     pr_number = rf"(?:(?:PR|pull[ \t]+request|proposta)[ \t]*[:=]?[ \t]*#?[ \t]*|#){number}(?![A-Za-z0-9_])"
     def add_separate(match: re.Match, destination: set[tuple[str, str, str]]) -> None:
@@ -280,6 +282,7 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
     # elsewhere in the action, make the short number repository-qualified.
     contextual: set[tuple[str, str, str]] = set()
     root_urls = re.compile(r"(?<![\w/@.-])(?:https?://)?([^/\s]+)/([^/\s]+)/([\w.-]+)(?=$|[?#\s)\]},;])", re.I)
+    ssh_urls = re.compile(r"(?<![\w/@.-])git@([\w.-]+):([\w.-]+)/([\w.-]+)(?=$|[?#\s)\]},;])", re.I)
     number_pattern = re.compile(r"(?i)(?:\b(?:PR|pull[ \t]+request|proposta)[ \t]*[:=]?[ \t]*#?[ \t]*|(?<![\w/])#)([0-9]+)(?![A-Za-z0-9_])")
     for line in text.splitlines():
         for segment in line.split(';'):
@@ -289,7 +292,8 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
             names = list(re.finditer(repo_name, segment, re.I))
             links = [match for match in root_urls.finditer(segment)
                      if match.group(1).lower() in {host, 'github.com', 'gitlab.com', 'bitbucket.org'}]
-            if len(numbers) > 1 and (names or links):
+            ssh_links = list(ssh_urls.finditer(segment))
+            if len(numbers) > 1 and (names or links or ssh_links):
                 ambiguous_path = True
                 continue
             for match in names:
@@ -297,6 +301,8 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
             for match in links:
                 if match.group(1).lower() in {host, 'github.com', 'gitlab.com', 'bitbucket.org'}:
                     contextual.add(repo_id(*match.group(1, 2, 3)))
+            for match in ssh_links:
+                contextual.add(repo_id(*match.group(1, 2, 3)))
     label = (r"(?i)\b(?:repo(?:sitory)?|reposit[oó]rio)[ \t]*[:=][ \t]*"
              r"(?:(?:https?://|git@)?([\w.-]+\.[A-Za-z]{2,})(?::|/))?([\w.-]+)/([\w.-]+)")
     all_labels = list(re.finditer(label, text))
@@ -310,6 +316,8 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
         for match in root_urls.finditer(text):
             if match.group(1).lower() in {host, 'github.com', 'gitlab.com', 'bitbucket.org'}:
                 hints.add(repo_id(*match.group(1, 2, 3)))
+        for match in ssh_urls.finditer(text):
+            hints.add(repo_id(*match.group(1, 2, 3)))
         contextual.update(hints)
     if len(all_labels) == 1 and all_numbers == {str(number)}:
         add_separate(all_labels[0], contextual)

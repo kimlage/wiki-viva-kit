@@ -53,6 +53,16 @@ flowchart TD
   [AGENTS.md](../../../AGENTS.md)) and
   [wiki-privacy-publication](../../wiki-privacy-publication/SKILL.md).
 
+When material crosses its intended privacy boundary, remove the exposed content
+from history and retained surfaces under the owner's control, not only the current
+files. Preserve legitimate work and coordinate affected refs, checkouts and
+their owners. Request provider removal where retained pull-request refs, cached
+views or other provider-controlled copies require it. Track the incident without
+reproducing the data in public records; verify old object accessibility and
+derived surfaces. Do not claim complete removal while copies remain accessible
+or a provider response is pending. Clones and external retention may be outside
+the owner's control; record those limits and follow-up responsibilities.
+
 ## The gate state machine (proposals)
 
 Proposals move through explicit states; transitions are recorded in

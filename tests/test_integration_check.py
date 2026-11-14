@@ -381,6 +381,9 @@ def test_short_number_collision_does_not_associate_a_different_repository():
     assert check._action_reference('https://github.com/example/foreign.git\nPR #502', 502, 'github.com/example/local') is False
     assert check._action_reference('github.com/example/foreign\nPR #502', 502, 'github.com/example/local') is False
     assert check._action_reference('example/foreign\nPR #502', 502, 'github.com/example/local') is False
+    assert check._action_reference('git@gitlab.com:example/repo.git PR #502', 502, 'github.com/example/repo') is False
+    assert check._action_reference('git@gitlab.com:example/repo.git\nPR #502', 502, 'github.com/example/repo') is False
+    assert check._action_reference('git@github.com:example/repo.git PR #502', 502, 'github.com/example/repo') is True
     assert check._action_reference('https://github.com/example-org/public-kit.git PR #502', 502, 'github.com/example-org/private-wiki') is False
     assert check._action_reference('repo=example-org/public-kit.git PR #502', 502, 'github.com/example-org/public-kit') is True
     assert check._action_reference('PR: 502', 502, 'github.com/owner/repo') is True
@@ -394,6 +397,11 @@ def test_ambiguous_extensionless_path_produces_a_named_wait():
     result = check._action_observation(fm, 'PR #502 (docs/README)', pr, 'github.com/owner/repo')
     assert result['status'] == 'waiting:action_reconciliation'
     assert result['event'] == 'repository_reference_ambiguous'
+
+
+@pytest.mark.parametrize('path', ['tools/README', 'bin/check', 'examples/demo', 'assets/icons'])
+def test_other_common_extensionless_paths_are_indeterminate(path):
+    assert check._action_reference(f'PR #502 ({path})', 502, 'github.com/example/repo') is None
 
 
 @pytest.mark.parametrize('field', ['next_action', 'body', 'evidence_refs'])
