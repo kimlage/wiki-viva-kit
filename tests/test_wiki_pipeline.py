@@ -306,3 +306,27 @@ def test_legacy_local_source_change_before_persistence_blocks_all_outputs(tmp_pa
     assert result.context_error_code == 'source_changed_before_persistence'
     assert result.request_path is None and result.manifest_path is None
     assert not (tmp_path / 'data/derived/wiki').exists()
+
+
+def test_legacy_source_removed_during_preparation_preserves_prior_capture(tmp_path, monkeypatch):
+    import wiki_core.ingest.pipeline as pipeline
+
+    source = tmp_path / 'synthetic.md'
+    source.write_text('# Synthetic\n' + ('original synthetic content ' * 80))
+    config = WikiConfig()
+    first = pipeline.run(str(source), 'system', tmp_path, config, record_score=False)
+    assert first.written and not first.blocked
+    derived = tmp_path / 'data/derived/wiki'
+    prior = {p.relative_to(derived): p.read_bytes() for p in derived.rglob('*') if p.is_file()}
+    original = pipeline.build_context_request
+
+    def remove_during_preparation(*args, **kwargs):
+        request = original(*args, **kwargs)
+        source.unlink()
+        return request
+
+    monkeypatch.setattr(pipeline, 'build_context_request', remove_during_preparation)
+    result = pipeline.run(str(source), 'system', tmp_path, config, record_score=False)
+    assert result.blocked and not result.written
+    assert result.context_error_code == 'source_changed_before_persistence'
+    assert {p.relative_to(derived): p.read_bytes() for p in derived.rglob('*') if p.is_file()} == prior
