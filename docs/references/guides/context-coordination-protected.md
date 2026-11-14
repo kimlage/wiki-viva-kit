@@ -498,8 +498,10 @@ Neither a caller-provided list nor a digest proves completeness or approval.
 `scan_selected(...)` reconstructs the inventory and selection, requires the
 trusted host's live `admit(selection)` callback before selected object sizes
 or bodies, rechecks admission and refs, and reports only a bounded secrets
-count for explicitly selected UTF-8 text. It rechecks the inventory afterward
-and reports partial coverage on handled errors. Abrupt termination may produce
+count for explicitly selected UTF-8 text. NUL, invalid UTF-8, LFS pointers and
+C0/C1 control characters other than tab, LF and CR result in partial coverage;
+accepted text is not proof that every secret was detected. It rechecks the
+inventory afterward and reports partial coverage on handled errors. Abrupt termination may produce
 no result; the host must record that outcome as uncertain. The host
 must prevent concurrent writers, including mutations by the admission callback,
 and independently qualify historical grants,

@@ -675,3 +675,56 @@ def test_callback_mutation_before_final_readback_reports_partial(repo):
     assert output['state'] == 'partial'
     assert output['scanned_count'] == 2
     assert output['global_audit'] == 'not_performed'
+
+
+@pytest.mark.parametrize('content', [b'invalid \xff text', b'contains\x00nul', b'contains\x01control',
+                                     'contains\u0085control'.encode('utf-8'),
+                                     b'version https://git-lfs.github.com/spec/v1\n'])
+def test_selected_nontext_worktree_reports_partial_without_scanning(repo, monkeypatch, content):
+    root, _, _, _ = repo
+    (root / 'new.txt').write_bytes(content)
+    inv = run(repo)
+    requested = [{'kind': 'worktree', 'path': 'new.txt'}]
+    selection = r1.select(inv, requested)
+    from wiki_core.detectors import secrets
+    original = secrets.scan_secrets
+    seen = []
+    monkeypatch.setattr(secrets, 'scan_secrets', lambda text: (seen.append(text), original(text))[1])
+    output = scan(repo, requested, inv, selection, lambda _: True)
+    assert content.decode('utf-8', errors='replace') not in seen
+    assert output['state'] == 'partial'
+    assert output['scanned_count'] == 0
+    assert output['required_count'] == 1
+    assert output['global_audit'] == 'not_performed'
+    assert content.decode('utf-8', errors='replace') not in str(output)
+
+
+def test_selected_unicode_text_with_line_controls_is_scanned(repo):
+    root, _, _, _ = repo
+    (root / 'new.txt').write_bytes('texto sintético\tcom linhas\r\ne acentos\n'.encode('utf-8'))
+    inv = run(repo)
+    requested = [{'kind': 'worktree', 'path': 'new.txt'}]
+    selection = r1.select(inv, requested)
+    output = scan(repo, requested, inv, selection, lambda _: True)
+    assert output['state'] == 'completed'
+    assert output['scanned_count'] == 1
+    assert output['global_audit'] == 'not_performed'
+
+
+def test_selected_commit_message_with_control_reports_partial(repo, monkeypatch):
+    root, base, middle, _ = repo
+    git(root, 'commit', '--allow-empty', '-qm', 'synthetic\x01message')
+    head = git(root, 'rev-parse', 'HEAD')
+    revised = (root, base, middle, head)
+    inv = run(revised)
+    requested = [{'kind': 'message', 'revision': head}]
+    selection = r1.select(inv, requested)
+    from wiki_core.detectors import secrets
+    original = secrets.scan_secrets
+    seen = []
+    monkeypatch.setattr(secrets, 'scan_secrets', lambda text: (seen.append(text), original(text))[1])
+    output = scan(revised, requested, inv, selection, lambda _: True)
+    assert not any('synthetic\x01message' in text for text in seen)
+    assert output['state'] == 'partial'
+    assert output['scanned_count'] == 0
+    assert output['global_audit'] == 'not_performed'

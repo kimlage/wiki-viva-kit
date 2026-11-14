@@ -562,7 +562,10 @@ def scan_selected(root: Path, binding: CoordinationBinding, *, context_id: str,
                     raise PolicyError('selected message unavailable')
             if raw.startswith(b'version https://git-lfs.github.com/spec/v1'):
                 raise PolicyError('selected content unavailable')
-            findings += len(scan_secrets(raw.decode('utf-8')))
+            text = raw.decode('utf-8')
+            if any((ord(char) < 32 and char not in '\t\n\r') or 127 <= ord(char) <= 159 for char in text):
+                raise PolicyError('selected content unavailable')
+            findings += len(scan_secrets(text))
             completed += 1
         if not admitted():
             raise PolicyError('selection admission changed')
