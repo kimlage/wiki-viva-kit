@@ -110,11 +110,16 @@ def check_requirement_yaml(text: str, *, repair_value=NO_REPAIR_VALUE) -> None:
                         if isinstance(key, yaml.ScalarNode) and key.tag == 'tag:yaml.org,2002:str'
                         and key.value == 'information_requirements']
 
+    visited = set()
     def visit(node, active, *, no_merge=False):
         consume()
         if id(node) in active or len(active) >= 128:
             raise RequirementYamlError('ambiguous information requirements')
+        cache_key = (id(node), no_merge)
+        if cache_key in visited:
+            return
         if isinstance(node, yaml.ScalarNode):
+            visited.add(cache_key)
             return
         active.add(id(node))
         try:
@@ -124,15 +129,13 @@ def check_requirement_yaml(text: str, *, repair_value=NO_REPAIR_VALUE) -> None:
             elif isinstance(node, yaml.MappingNode):
                 if no_merge and any(key.tag == 'tag:yaml.org,2002:merge' for key, _ in node.value):
                     raise RequirementYamlError('ambiguous information requirements')
-                effective = {}
                 for key, value in pairs(node, set()):
                     if key.tag != 'tag:yaml.org,2002:str':
                         raise RequirementYamlError('ambiguous information requirements')
-                    effective[key.value] = value
-                for value in effective.values():
                     visit(value, active, no_merge=no_merge)
         finally:
             active.remove(id(node))
+        visited.add(cache_key)
 
     if len(direct_protected) > 1:
         # Only a narrowly proved repair is admitted: no aliases/merges in the
@@ -149,6 +152,8 @@ def check_requirement_yaml(text: str, *, repair_value=NO_REPAIR_VALUE) -> None:
                 visit(node, set(), no_merge=True)
                 if _canonical_bounded(yaml.safe_load(yaml.serialize(node, Dumper=yaml.SafeDumper))) != expected:
                     raise RequirementYamlError('ambiguous information requirements')
+        except RequirementYamlError:
+            raise
         except (yaml.YAMLError, RecursionError, TypeError, ValueError):
             raise RequirementYamlError('ambiguous information requirements') from None
         return
@@ -158,11 +163,22 @@ def check_requirement_yaml(text: str, *, repair_value=NO_REPAIR_VALUE) -> None:
         # Different top-level declarations could hide a complete requirement
         # list even when YAML merge precedence has a deterministic winner.
         try:
-            canonical = []
+            canonical = {}
+            expected = None
+            total = 0
             for node in protected:
                 visit(node, set())
-                canonical.append(_canonical_bounded(yaml.safe_load(yaml.serialize(node, Dumper=yaml.SafeDumper))))
-            if any(value != canonical[-1] for value in canonical):
-                raise RequirementYamlError('ambiguous information requirements')
+                if id(node) not in canonical:
+                    value = _canonical_bounded(yaml.safe_load(yaml.serialize(node, Dumper=yaml.SafeDumper)))
+                    total += len(value.encode('utf-8'))
+                    if total > 2_000_000:
+                        raise RequirementYamlError('requirement frontmatter unavailable')
+                    canonical[id(node)] = value
+                if expected is None:
+                    expected = canonical[id(node)]
+                elif canonical[id(node)] != expected:
+                    raise RequirementYamlError('ambiguous information requirements')
+        except RequirementYamlError:
+            raise
         except (yaml.YAMLError, RecursionError, TypeError, ValueError):
             raise RequirementYamlError('ambiguous information requirements') from None

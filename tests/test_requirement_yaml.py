@@ -10,6 +10,7 @@ from wiki_core.requirement_yaml import RequirementYamlError, check_requirement_y
     'information_requirements: []\n!!str information_requirements: [{target: one}]',
     'information_requirements: [{target: one, target: two}]',
     'information_requirements: [{query: {filters: {amount: true, amount: 1}}}]',
+    'defaults: &d {query: {filters: {x: 1, x: 2}}}\ninformation_requirements: [{<<: *d, query: {filters: {x: 3}}}]',
     'defaults: &d {information_requirements: [{target: one}]}\n<<: *d\ninformation_requirements: []',
     'defaults: &d {target: one, target: two}\ninformation_requirements: [{<<: *d, target: three}]',
     'information_requirements: &r [*r]',
@@ -83,3 +84,25 @@ def test_repair_canonicalization_bounds_expanded_aliases():
     with pytest.raises(RequirementYamlError, match='ambiguous information requirements'):
         check_requirement_yaml('---\ninformation_requirements: []\ninformation_requirements: []\n---\n',
                                repair_value=[shared] * 400)
+
+
+def test_shared_merged_requirements_are_canonicalized_once(monkeypatch):
+    from wiki_core import requirement_yaml
+    calls = []
+    original = requirement_yaml._canonical_bounded
+    def observe(value):
+        calls.append(value)
+        return original(value)
+    monkeypatch.setattr(requirement_yaml, '_canonical_bounded', observe)
+    block = 'defaults: &d {information_requirements: []}\n<<: [' + ', '.join(['*d'] * 64) + ']'
+    check_requirement_yaml('---\n' + block + '\n---\n')
+    assert len(calls) == 1
+
+
+def test_distinct_merged_requirement_expansions_have_aggregate_limit():
+    scalar = 'x' * 10_000
+    rows = ['shared: &s ' + scalar]
+    rows += [f'd{i}: &d{i} {{information_requirements: [*s]}}' for i in range(220)]
+    rows.append('<<: [' + ', '.join(f'*d{i}' for i in range(220)) + ']')
+    with pytest.raises(RequirementYamlError, match='frontmatter unavailable'):
+        check_requirement_yaml('---\n' + '\n'.join(rows) + '\n---\n')
