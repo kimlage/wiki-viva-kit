@@ -155,6 +155,9 @@ def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id:
     if not paths.extraction_events.exists():
         return requests
     if local_request is not None:
+        if source_id is not None and (not isinstance(local_request, dict)
+                                      or local_request.get('source_id') != source_id):
+            return requests
         from wiki_core.llm.context_pass import local_request_path, load_local_request
         path = local_request_path(paths, local_request)
         data = load_local_request(paths, path)
