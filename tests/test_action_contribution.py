@@ -615,6 +615,25 @@ def test_prepare_uses_repo_relative_ssh_key_and_program(tmp_path):
     assert verify.returncode == 0, verify.stderr.decode(errors='replace')
 
 
+@pytest.mark.skipif(os.name == 'nt' or shutil.which('ssh-keygen') is None, reason='requires POSIX SSH signing fixture')
+def test_prepare_refuses_unproven_signer_resolution_from_relative_path(tmp_path, monkeypatch):
+    _, request = fixture(tmp_path)
+    key = tmp_path / '.git' / 'synthetic-signing-key'
+    subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)], check=True)
+    wrapper = tmp_path / '.git' / 'synthetic-signer'
+    wrapper.write_text('#!/bin/sh\nexec "' + shutil.which('ssh-keygen') + '" "$@"\n')
+    wrapper.chmod(0o755)
+    git(tmp_path, 'config', 'commit.gpgSign', 'true')
+    git(tmp_path, 'config', 'gpg.format', 'ssh')
+    git(tmp_path, 'config', 'user.signingkey', str(key))
+    git(tmp_path, 'config', 'gpg.ssh.program', 'synthetic-signer')
+    monkeypatch.setenv('PATH', '.git' + os.pathsep + os.environ.get('PATH', ''))
+    result = call(tmp_path, 'prepare', request, review=review(request))
+    assert not result['ok']
+    assert result['error'] == 'git_signer_path_selection_unsupported'
+    assert port._candidate(tmp_path, result['branch']) is None
+
+
 def test_selected_local_unsigned_policy_overrides_global_signing(tmp_path, monkeypatch):
     fixture(tmp_path)
     git(tmp_path, 'config', 'commit.gpgSign', 'false')

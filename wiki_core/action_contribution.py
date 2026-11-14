@@ -199,6 +199,10 @@ def _scratch_signing_settings(root: Path, settings: tuple[tuple[str, str], ...])
         path = Path(value)
         if (key_file or signer_file) and not path.is_absolute() and (root / path).is_file():
             value = str((root / path).resolve())
+        elif lowered in {"gpg.program", "gpg.openpgp.program", "gpg.ssh.program", "gpg.x509.program"} and "/" not in value and "\\" not in value:
+            # A bare signer can resolve differently after changing cwd or Git's
+            # PATH/exec-path; refuse rather than choose a different program.
+            raise ContributionError("git_signer_path_selection_unsupported")
         result.append((key, value))
     return tuple(result)
 
