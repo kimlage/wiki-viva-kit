@@ -3117,15 +3117,17 @@ def test_logical_comment_does_not_discharge_factual_impact_without_physical_witn
 
 
 @pytest.mark.parametrize('receipt_kind', ['v4', 'v7'])
-@pytest.mark.parametrize('mutation', ['bool_to_int', 'int_to_float', 'nested_bool', 'payload'])
+@pytest.mark.parametrize('mutation', ['bool_to_int', 'int_to_float', 'nested_bool', 'datetime_offset', 'negative_zero', 'payload'])
 def test_logical_comment_rejects_typed_fact_and_payload_tampering(tmp_path, receipt_kind, mutation):
     import hashlib
+    from datetime import datetime, timedelta, timezone
     from tests.test_action_transition import _write_action
     from wiki_core.action_transition import (_parse_document, _receipt_id, _render_document,
         operational_comment_receipt, transition_action_page)
 
     audit = _load_wiki_audit()
-    path = _write_action(tmp_path, extra={'approved': True, 'count': 1, 'nested': {'flag': True}})
+    path = _write_action(tmp_path, extra={'approved': True, 'count': 1, 'nested': {'flag': True},
+        'expected_at': datetime(2026, 11, 14, 0, 30, tzinfo=timezone.utc), 'signed_zero': -0.0})
     logical_before = path.read_text()
     if receipt_kind == 'v7':
         path.write_bytes(path.read_bytes().replace(b'\n', b'\r\n'))
@@ -3143,6 +3145,10 @@ def test_logical_comment_rejects_typed_fact_and_payload_tampering(tmp_path, rece
         fm['count'] = 1.0
     elif mutation == 'nested_bool':
         fm['nested']['flag'] = 1
+    elif mutation == 'datetime_offset':
+        fm['expected_at'] = datetime(2026, 11, 13, 21, 30, tzinfo=timezone(timedelta(hours=-3)))
+    elif mutation == 'negative_zero':
+        fm['signed_zero'] = 0.0
     else:
         entry = fm['action_state_history'][-1]
         entry['payload_sha256'] = '0' * 64

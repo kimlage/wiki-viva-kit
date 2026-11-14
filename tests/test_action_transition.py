@@ -1434,3 +1434,14 @@ def test_comment_typed_comparison_limits_scheduled_work_before_expansion():
     child_right = WatchedList([0] * 80)
     assert not transition_module._comment_typed_equal([child_left] * 80, [child_right] * 80, max_nodes=100)
     assert expanded == []
+
+
+def test_comment_typed_comparison_preserves_local_offsets_and_float_sign():
+    from datetime import datetime, timedelta, timezone
+    utc = datetime(2026, 11, 14, 0, 30, tzinfo=timezone.utc)
+    local = datetime(2026, 11, 13, 21, 30, tzinfo=timezone(timedelta(hours=-3)))
+    assert utc == local  # Same instant, but different authored local date and offset.
+    assert not transition_module._comment_typed_equal({'at': utc}, {'at': local})
+    assert not transition_module._comment_typed_equal({utc: 'x'}, {local: 'x'})
+    assert not transition_module._comment_typed_equal({'value': -0.0}, {'value': 0.0})
+    assert not transition_module._comment_typed_equal({-0.0: 'x'}, {0.0: 'x'})

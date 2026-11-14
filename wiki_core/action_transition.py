@@ -1296,10 +1296,20 @@ def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000) -
     done: set[tuple[int, int]] = set()
     visited = 0
 
-    def typed_key(value: Any) -> tuple[type, Any]:
-        if type(value) not in scalar_key_types or value != value:
+    def typed_key(value: Any) -> tuple:
+        value_type = type(value)
+        if value_type not in scalar_key_types or value != value:
             raise ValueError("unsupported comparison key")
-        return type(value), value
+        # Python equates aware datetimes at the same instant even when their
+        # local date/offset differs, and equates negative and positive zero.
+        if value_type is datetime:
+            return value_type, value.isoformat(), value.fold
+        if value_type is date:
+            return value_type, value.isoformat()
+        if value_type is float:
+            import struct
+            return value_type, struct.pack("!d", value)
+        return value_type, value
 
     while pending:
         leaving, left, right = pending.pop()
@@ -1341,8 +1351,12 @@ def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000) -
                     return False
             else:
                 pending.extend((False, a, b) for a, b in zip(left, right))
-        elif type(left) not in scalar_key_types or left != right:
-            return False
+        else:
+            try:
+                if typed_key(left) != typed_key(right):
+                    return False
+            except (TypeError, ValueError):
+                return False
     return True
 
 
