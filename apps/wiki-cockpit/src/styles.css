@@ -183,6 +183,10 @@
 }
 .sourceRegistrySearch input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: #dceaf1; font: inherit; font-size: 12px; }
 .sourceRegistryFilters { display: flex; flex-wrap: wrap; gap: 5px; }
+.sourceRegistryFilters button { cursor: pointer; }
+.sourceRegistryFilters button[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
+.sourceRegistryFilters button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.sourceRegistryFilters button:disabled { opacity: 0.55; cursor: not-allowed; }
 .sourcePendingShortcut {
   width: 100%;
   min-width: 0;
