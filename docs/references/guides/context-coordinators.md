@@ -432,10 +432,12 @@ provider event as JSON on stdin. It uses the read-only integration checker and
 returns JSON to the host; it does not post, merge, clean, persist a queue or
 change action state. `SessionStart` queries the checker and injects a short count
 summary. `Stop` uses local Git only in both modes; it does not query GitHub.
-It defaults to `--mode observe` and warns only. In `--mode enforce`, a verified
-uncommitted current worktree may cause one continuation. An offline Stop cannot
-verify whether a branch lacks a PR or whether a PR was merged; inspect those
-findings through SessionStart or the integration checker. A provider
+It defaults to `--mode observe` and warns only. In `--mode enforce`, verified
+uncommitted changes or a local branch without an upstream may cause one
+continuation. Missing upstream is only a local tracking fact: it does not prove
+that a remote branch or PR is absent. Stop reports PR state as unknown and does
+not enforce the former branch-without-PR or merged-PR-residue checks; inspect
+those through SessionStart or the integration checker. A provider
 `stop_hook_active` event ends the attempt; no generic continuation is requested.
 
 `SubagentStop` checks only the explicitly selected executor agent types. Its
@@ -467,7 +469,9 @@ The `--executor-type` option can be repeated; absent it, only `executor`
 qualifies. `--timeout` bounds the entire event, including input and subprocesses,
 to five seconds by default; it accepts values greater than zero up to 60 seconds.
 On timeout the hook terminates its worker process group and returns a short
-warning with exit status zero. These are opt-in behavior
+warning with exit status zero. Catchable termination and interruption also clean
+up the worker group. Forced termination that the OS does not deliver to the
+hook (for example SIGKILL on Unix) cannot run this cleanup. These are opt-in behavior
 and do not grant authority or replace the destination policy.
 
 Codex discovers project hooks in `.codex/hooks.json` (and requires trust for

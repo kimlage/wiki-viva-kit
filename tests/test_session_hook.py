@@ -232,3 +232,107 @@ def test_event_deadline_covers_unfinished_stdin():
         proc.stdin.close()
         proc.stdout.close()
         proc.stderr.close()
+
+
+def _write_synthetic_checker(tmp_path):
+    import shutil
+    script = tmp_path / 'wiki_session_hook.py'
+    shutil.copy(SCRIPT, script)
+    checker = tmp_path / 'wiki_integration_check.py'
+    checker.write_text('import os, pathlib, subprocess, sys, time\n'
+                       'child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])\n'
+                       'pathlib.Path(os.environ["SYNTHETIC_PID_PATH"]).write_text(str(child.pid))\n'
+                       'time.sleep(60)\n')
+    return script
+
+
+def test_session_start_full_path_times_out_and_kills_grandchild(tmp_path):
+    import os
+    import time
+    repo = tmp_path / 'repo'
+    subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+    script = _write_synthetic_checker(tmp_path)
+    pidfile = tmp_path / 'session-child.pid'
+    env = dict(os.environ, SYNTHETIC_PID_PATH=str(pidfile))
+    started = time.monotonic()
+    result = subprocess.run([sys.executable, str(script), '--timeout', '1'],
+                            input=json.dumps({'hook_event_name': 'SessionStart', 'cwd': str(repo)}),
+                            capture_output=True, text=True, env=env, timeout=4)
+    assert result.returncode == 0 and time.monotonic() - started < 3
+    assert 'timed out' in json.loads(result.stdout)['systemMessage']
+    assert pidfile.exists()
+    pid = int(pidfile.read_text())
+    deadline = time.monotonic() + 2
+    while _process_running(pid) and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert not _process_running(pid)
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='Windows TerminateProcess cannot be caught by Python')
+def test_sigterm_cleans_up_session_start_tree(tmp_path):
+    import os
+    import signal
+    import time
+    repo = tmp_path / 'repo'
+    subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+    script = _write_synthetic_checker(tmp_path)
+    pidfile = tmp_path / 'signal-child.pid'
+    env = dict(os.environ, SYNTHETIC_PID_PATH=str(pidfile))
+    proc = subprocess.Popen([sys.executable, str(script), '--timeout', '10'],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, env=env)
+    try:
+        proc.stdin.write(json.dumps({'hook_event_name': 'SessionStart', 'cwd': str(repo)}))
+        proc.stdin.close()
+        deadline = time.monotonic() + 5
+        while not pidfile.exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert pidfile.exists()
+        pid = int(pidfile.read_text())
+        os.kill(proc.pid, signal.SIGTERM)
+        assert proc.wait(timeout=3) == 128 + signal.SIGTERM
+        deadline = time.monotonic() + 2
+        while _process_running(pid) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert not _process_running(pid)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=3)
+        proc.stdout.close()
+        proc.stderr.close()
+
+
+def test_full_stdin_pipe_does_not_bypass_timeout(tmp_path):
+    import time
+    sleeper = tmp_path / 'never_read.py'
+    sleeper.write_text('import time\ntime.sleep(60)\n')
+    started = time.monotonic()
+    assert hook._run_group([sys.executable, str(sleeper)], 'x' * 1_000_000, 0.5) is None
+    assert time.monotonic() - started < 2.5
+
+
+def test_remote_branch_without_tracking_does_not_imply_missing_pr(monkeypatch, tmp_path):
+    bare = tmp_path / 'remote.git'
+    repo = tmp_path / 'repo'
+    subprocess.run(['git', 'init', '--bare', '-q', str(bare)], check=True)
+    subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+    subprocess.run(['git', 'checkout', '-qb', 'wiki/synthetic'], cwd=repo, check=True)
+    (repo / 'file.txt').write_text('synthetic')
+    subprocess.run(['git', 'add', 'file.txt'], cwd=repo, check=True)
+    subprocess.run(['git', '-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.test',
+                    '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=no-hooks',
+                    'commit', '-qm', 'synthetic'], cwd=repo, check=True)
+    subprocess.run(['git', 'remote', 'add', 'origin', str(bare)], cwd=repo, check=True)
+    subprocess.run(['git', 'push', '-q', 'origin', 'HEAD:refs/heads/wiki/synthetic'], cwd=repo, check=True)
+    assert subprocess.run(['git', 'ls-remote', '--exit-code', '--heads', 'origin', 'wiki/synthetic'],
+                          cwd=repo, capture_output=True).returncode == 0
+    assert hook._branch_without_upstream(repo) is True
+    monkeypatch.setattr(hook, 'check', lambda *args: pytest.fail('Stop must not query GitHub'))
+    event = {'hook_event_name': 'Stop', 'stop_hook_active': False}
+    for mode in ('observe', 'enforce'):
+        result = hook.handle(event, repo, mode, 'running', {'executor'}, 5)
+        message = result.get('reason') or result['systemMessage']
+        assert 'local_branch_without_upstream' in message
+        assert 'PR state unknown offline' in message
+        assert 'without_proposal' not in message and 'without_pr' not in message

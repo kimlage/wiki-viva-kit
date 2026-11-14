@@ -56,6 +56,24 @@ def _worktree_dirty(root: Path) -> bool | None:
         return None
 
 
+def _branch_without_upstream(root: Path) -> bool | None:
+    """Observe local tracking configuration, not whether a remote/PR exists."""
+    try:
+        branch = subprocess.run(['git', 'symbolic-ref', '--quiet', '--short', 'HEAD'], cwd=root,
+                                capture_output=True, text=True, timeout=5)
+        if branch.returncode or not branch.stdout.strip():
+            return None
+        ref = 'refs/heads/' + branch.stdout.strip()
+        tracking = subprocess.run(['git', 'for-each-ref', '--format=%(refname) %(upstream)', ref],
+                                  cwd=root, capture_output=True, text=True, timeout=5)
+        line = tracking.stdout.rstrip('\n')
+        if tracking.returncode or not line.startswith(ref + ' '):
+            return None
+        return not bool(line[len(ref) + 1:].strip())
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
 def handoff_problems(message: Any) -> list[str]:
     if not isinstance(message, str) or len(message) > MAX_INPUT:
         return list(FIELDS)
@@ -150,15 +168,20 @@ def handle(event: dict, root: Path, mode: str, stop_state: str,
             return {}
         return {'systemMessage': 'Executor handoff missing or invalid fields: ' + ', '.join(problems) + '.'}
     if name == 'Stop':
-        # Stop is offline in both modes. Git can verify this worktree's changes;
-        # PR association and merged-PR residues need fresh provider evidence and
-        # are not inferred from local branch names or stale tracking refs.
+        # Only local facts: tracking configuration does not establish PR state.
         dirty = _worktree_dirty(root)
-        if dirty is None:
-            return {'systemMessage': 'Local Git observation unavailable.'}
-        if not dirty:
-            return {}
-        reason = 'Mechanical integration findings: uncommitted_changes.'
+        without_upstream = _branch_without_upstream(root)
+        findings = []
+        if dirty is True:
+            findings.append('uncommitted_changes')
+        if without_upstream is True:
+            findings.append('local_branch_without_upstream')
+        remote_note = 'PR state unknown offline; see SessionStart or wiki_integration_check.py.'
+        if not findings:
+            if dirty is None or without_upstream is None:
+                return {'systemMessage': 'Local Git observation incomplete. ' + remote_note}
+            return {'systemMessage': remote_note}
+        reason = 'Local Git findings: ' + ', '.join(findings) + '. ' + remote_note
         if mode == 'enforce' and not stopped() and not continued:
             return {'decision': 'block', 'reason': reason + ' Resolve the specific finding or report its blocker.'}
         return {'systemMessage': reason}
@@ -210,6 +233,34 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
         return None
     deadline = time.monotonic() + timeout
     job = kernel = proc = None
+    threads: list[threading.Thread] = []
+    output: list[str] = []
+    overflow = [False]
+    success = False
+
+    def write_input() -> None:
+        try:
+            proc.stdin.write(payload)
+            proc.stdin.close()
+        except (OSError, ValueError):
+            pass
+
+    def drain(stream, keep: bool) -> None:
+        size = 0
+        try:
+            while True:
+                chunk = stream.read(4096)
+                if not chunk:
+                    break
+                if keep:
+                    size += len(chunk)
+                    if size <= MAX_INPUT:
+                        output.append(chunk)
+                    else:
+                        overflow[0] = True
+        except (OSError, ValueError, UnicodeError):
+            overflow[0] = True
+
     try:
         if os.name == 'nt':
             kernel, job = _windows_job()
@@ -222,14 +273,19 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
             proc.wait()
             return None
         # The worker reads stdin before starting any subprocess. On Windows the
-        # job assignment above therefore precedes all worker descendants.
-        output, _ = proc.communicate(payload, timeout=max(0, deadline - time.monotonic()))
-        return output if proc.returncode == 0 else None
+        # job assignment above therefore precedes all worker descendants. Pipe
+        # I/O uses daemon threads so a full stdin pipe cannot bypass the timer.
+        for target, args in ((write_input, ()), (drain, (proc.stdout, True)), (drain, (proc.stderr, False))):
+            thread = threading.Thread(target=target, args=args, daemon=True)
+            thread.start()
+            threads.append(thread)
+        proc.wait(timeout=max(0, deadline - time.monotonic()))
+        success = proc.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
-        return None
+        pass
     finally:
         if job is not None:
-            kernel.CloseHandle(job)  # kills all members, also on normal exit
+            kernel.CloseHandle(job)
         elif proc is not None and os.name != 'nt':
             try:
                 os.killpg(proc.pid, signal.SIGKILL)
@@ -242,9 +298,12 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
                 except OSError:
                     pass
             try:
-                proc.communicate(timeout=0.2)
-            except (OSError, ValueError, subprocess.TimeoutExpired):
+                proc.wait(timeout=0.2)
+            except (OSError, subprocess.TimeoutExpired):
                 pass
+        for thread in threads:
+            thread.join(timeout=0.1)
+    return ''.join(output) if success and not overflow[0] and not any(t.is_alive() for t in threads) else None
 
 
 def _read_input(timeout: float) -> str | None:
@@ -298,5 +357,12 @@ def main() -> int:
     return 0
 
 
+def _terminate(signum: int, _frame: Any) -> None:
+    # Python otherwise exits on SIGTERM without unwinding the worker cleanup.
+    raise SystemExit(128 + signum)
+
+
 if __name__ == '__main__':
+    signal.signal(signal.SIGTERM, _terminate)
+    signal.signal(signal.SIGINT, _terminate)
     raise SystemExit(main())
