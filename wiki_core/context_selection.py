@@ -11,7 +11,8 @@ from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import yaml
-from .context_policy import PolicyError, UniqueLoader, safe_path, within, historical_policy, revision
+from .context_policy import (PolicyError, UniqueLoader, safe_path, within, historical_policy, revision,
+                             _exact_read_path, _read_scope_covers)
 from .detectors import contains_secret_structure
 from .frontmatter import FRONTMATTER_RE
 from .repository_reader import canonical_path
@@ -96,7 +97,11 @@ def authority_digest(policy, context_id, entry):
     authority = {'context_id':context_id,'owner':c['owner'],'root':c['root'],
         'scope_owner':policy.owner_of(scope) if scope!='.' else next(x['id'] for x in policy.contexts.values() if x['root']=='.'),
         'anchor_owner':policy.owner_of(target),'anchor_read':policy.permits(context_id,'read',target),
-        'read':clipped(effective['read']),'deny':clipped(effective['deny']['read']), 'excluded_context_roots':excluded}
+        # Exact reads do not authorize enumeration. When the query is admitted,
+        # a prefix already covers its scope; the separately checked anchor_read
+        # captures authority for the anchor outside that scope.
+        'read':clipped([x for x in effective['read'] if _exact_read_path(x) is None]),
+        'deny':clipped(effective['deny']['read']), 'excluded_context_roots':excluded}
     if getattr(policy, 'format_version', None) == 'folder':
         authority['authority_format'] = 'folder'
     return digest(authority)
@@ -248,7 +253,7 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None, _candid
     root = policy.contexts[context_id]['root']
     if (not within(scope, root) or (scope != '.' and policy.owner_of(scope) != context_id)
             or policy.owner_of(target) != context_id or not policy.permits(context_id, 'read', target)
-            or not any(within(scope, x) for x in policy.effective[context_id]['read'])
+            or not any(_read_scope_covers(x, scope) for x in policy.effective[context_id]['read'])
             or any(within(scope, x) for x in policy.effective[context_id]['deny']['read'])):
         raise PolicyError('query scope not authorized')
     scanned = 0

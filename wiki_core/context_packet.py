@@ -5,7 +5,7 @@ import json
 import copy
 import datetime as dt
 from pathlib import Path, PurePosixPath
-from .context_policy import PolicyError, capability_status, safe_path, within, valid_adapter_report, policy_stage_cache
+from .context_policy import PolicyError, capability_status, safe_path, within, valid_adapter_report, policy_stage_cache, _exact_read_path
 from .repository_reader import RepositoryReader
 from .detectors import contains_secret_structure
 from .context_selection import select_query, digest
@@ -64,12 +64,16 @@ def _context_view(policy, context_id):
     def owned_intersections(scopes):
         values = []
         for scope in scopes:
-            if within(scope, root): value = scope
+            exact = _exact_read_path(scope)
+            if exact is not None:
+                if not within(exact, root) or policy.owner_of(exact) != context_id: continue
+                value = scope
+            elif within(scope, root): value = scope
             elif within(root, scope): value = root
             else: continue
             # Paths owned by another context are not disclosed merely by a
             # broad ancestor ceiling; the owner/connection rule handles them.
-            if value != '.' and policy.owner_of(value) != context_id: continue
+            if exact is None and value != '.' and policy.owner_of(value) != context_id: continue
             if value not in values: values.append(value)
         return sorted(values)
     imports = []

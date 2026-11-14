@@ -1,8 +1,8 @@
 """Revision-bound, narrow context policy; Git and YAML do not enforce a sandbox.
 
-Each context is declared once in a context.yaml at its root. Scope values are
-literal repository-relative paths (or self[/...]); no glob semantics. The
-configured trusted ref must be maintained by an independent approval process.
+Scope values are literal repository-relative prefixes (or self[/...]); read
+scopes may explicitly name one exact path as file[...]. There are no glob
+semantics. The trusted ref requires an independent approval process.
 """
 from __future__ import annotations
 import datetime as dt
@@ -53,6 +53,24 @@ def safe_path(value, *, allow_root=False):
 
 def within(path, scope): return scope == '.' or path == scope or path.startswith(scope + '/')
 
+def _exact_read_path(scope):
+    """Return the path encoded by an already-validated exact-read scope."""
+    if isinstance(scope, str) and scope.startswith('file[') and scope.endswith(']'):
+        return scope[5:-1]
+    return None
+
+def _read_scope_matches(path, scope):
+    exact = _exact_read_path(scope)
+    return path == exact if exact is not None else within(path, scope)
+
+def _read_scope_covers(parent, child):
+    exact_child = _exact_read_path(child)
+    if exact_child is not None:
+        return _read_scope_matches(exact_child, parent)
+    if _exact_read_path(parent) is not None:
+        return False
+    return within(child, parent)
+
 def is_context_instruction(path):
     """A potential native instruction boundary, whether added, removed or edited.
 
@@ -94,7 +112,12 @@ def _list(v, name):
     if not isinstance(v,list) or any(not isinstance(x,str) or not x for x in v) or len(v)!=len(set(v)): raise PolicyError('invalid '+name)
     return v
 
-def _scope(v, root):
+def _scope(v, root, *, allow_exact=False):
+    if allow_exact and v.startswith('file[') and v.endswith(']'):
+        # Brackets are rejected by legacy path parsing, so an older policy
+        # engine refuses this form instead of interpreting it as a prefix.
+        path = safe_path(_scope(v[5:-1], root))
+        return 'file[' + path + ']'
     if v=='self': return root
     if v.startswith('self/'): return safe_path((root+'/' if root!='.' else '')+v[5:])
     return safe_path(v,allow_root=True)
@@ -167,10 +190,10 @@ class ContextPolicy:
         for key in ('read','write','capabilities','publication'):
             raw=c['policy'].get(key)
             if raw is None: result[key]=list(base[key]); continue
-            vals=[_scope(v,c['root']) for v in raw] if key in ('read','write') else list(raw)
+            vals=[_scope(v,c['root'],allow_exact=(key=='read')) for v in raw] if key in ('read','write') else list(raw)
             if base:
                 for v in vals:
-                    if not any(within(v,p) if key in ('read','write') else v==p for p in base[key]): raise PolicyError('child widens '+key)
+                    if not any((_read_scope_covers(p, v) if key=='read' else within(v,p)) if key in ('read','write') else v==p for p in base[key]): raise PolicyError('child widens '+key)
             result[key]=vals
         result['deny']={}
         for key in ('read','write','capabilities','publication'):
@@ -200,7 +223,7 @@ class ContextPolicy:
         path=safe_path(path)
         if action not in ('read','write'): raise PolicyError('invalid action')
         p=self.effective[cid]
-        return any(within(path,x) for x in p[action]) and not any(within(path,x) for x in p['deny'][action])
+        return any((_read_scope_matches(path,x) if action=='read' else within(path,x)) for x in p[action]) and not any(within(path,x) for x in p['deny'][action])
 
     def permits_effect(self, cid, category, effect):
         if category not in ('capabilities','publication') or not isinstance(effect, str) or not effect:
