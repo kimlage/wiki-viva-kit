@@ -439,8 +439,11 @@ attempt; no generic continuation is requested.
 
 `SubagentStop` checks only the explicitly selected executor agent types. Its
 final handoff uses separate `Proposal`, `Head`, `Base`, `Review`, `Gates`,
-`Pending` and `Responsible-Thread` lines; head and base are full SHAs. An
-incomplete executor handoff may cause one focused continuation. This is a shape
+`Pending` and `Responsible-Thread` lines; head and base are nonzero full SHAs,
+the proposal is a URL or numbered PR, review is a reference, gates name a
+command and result, and the thread has a runtime reference. Pending may say
+`none`; placeholders do not count as evidence. An incomplete executor handoff
+may cause one focused continuation. This is a shape
 check, not proof of review, gates or delivery. Claude's `SubagentHandback` may
 carry the report separately from `last_assistant_message`; when the host does
 not supply the report in that field, this adapter cannot verify that handback.
@@ -470,9 +473,9 @@ Codex `.codex/hooks.json`:
 ```json
 {
   "hooks": {
-    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py", "timeout": 45}]}],
-    "Stop": [{"hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py --mode observe --stop-state-file /path/to/runtime-state", "timeout": 45}]}],
-    "SubagentStop": [{"matcher": "^executor$", "hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py --executor-type executor --stop-state-file /path/to/runtime-state", "timeout": 45}]}]
+    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/wiki_session_hook.py\"", "timeout": 45}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/wiki_session_hook.py\" --mode observe --stop-state-file /path/to/runtime-state", "timeout": 45}]}],
+    "SubagentStop": [{"matcher": "^executor$", "hooks": [{"type": "command", "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/wiki_session_hook.py\" --executor-type executor --stop-state-file /path/to/runtime-state", "timeout": 45}]}]
   }
 }
 ```
@@ -482,9 +485,9 @@ Claude Code `.claude/settings.json`:
 ```json
 {
   "hooks": {
-    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py", "timeout": 45}]}],
-    "Stop": [{"hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py --mode observe --stop-state-file /path/to/runtime-state", "timeout": 45}]}],
-    "SubagentStop": [{"matcher": "^executor$", "hooks": [{"type": "command", "command": "python3 scripts/wiki_session_hook.py --executor-type executor --stop-state-file /path/to/runtime-state", "timeout": 45}]}]
+    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PROJECT_DIR}/scripts/wiki_session_hook.py\"", "timeout": 45}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PROJECT_DIR}/scripts/wiki_session_hook.py\" --mode observe --stop-state-file /path/to/runtime-state", "timeout": 45}]}],
+    "SubagentStop": [{"matcher": "^executor$", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PROJECT_DIR}/scripts/wiki_session_hook.py\" --executor-type executor --stop-state-file /path/to/runtime-state", "timeout": 45}]}]
   }
 }
 ```

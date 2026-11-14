@@ -33,6 +33,15 @@ def check(root: Path, timeout: int) -> dict:
         return {'ok': False, 'status': 'waiting:integration_observation_unavailable'}
 
 
+def _repository_root(path: Path) -> Path | None:
+    try:
+        p = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=path,
+                           capture_output=True, text=True, timeout=5)
+        return Path(p.stdout.strip()).resolve() if p.returncode == 0 and p.stdout.strip() else None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
 def _current_branch(root: Path) -> str | None:
     try:
         p = subprocess.run(['git', 'symbolic-ref', '--quiet', '--short', 'HEAD'], cwd=root,
@@ -69,7 +78,20 @@ def complete_handoff(message: Any) -> bool:
             fields[match.group(1).lower()] = match.group(2).strip()
     if any(not fields.get(name) for name in FIELDS):
         return False
-    if not all(re.fullmatch(r'[0-9a-fA-F]{40,64}', fields[name]) for name in ('head', 'base')):
+    if not all(re.fullmatch(r'[0-9a-fA-F]{40,64}', fields[name]) and set(fields[name]) != {'0'} for name in ('head', 'base')):
+        return False
+    placeholders = {'unknown', 'none', 'n/a', 'na', 'tbd', 'pending', 'missing', 'unavailable', '-'}
+    if any(fields[name].lower() in placeholders for name in ('proposal', 'review', 'gates', 'responsible-thread')):
+        return False
+    if fields['pending'].lower() in {'unknown', 'tbd', 'missing', 'unavailable', '-'}:
+        return False
+    if not re.search(r'(?i)\b(?:pr|proposal)\s*#?\s*\d+\b|https?://\S+', fields['proposal']):
+        return False
+    if not re.search(r'(?i)(?:https?://|t3-thread://|review:)[^\s]+', fields['review']):
+        return False
+    if not re.search(r'(?i)\b(?:passed|failed|pending|waiting|passed|passou|falhou)\b', fields['gates']) or len(fields['gates'].split()) < 2:
+        return False
+    if not re.search(r'(?i)(?:thread:|t3-thread://|mcp:launch:)[^\s]+', fields['responsible-thread']):
         return False
     return True
 
@@ -91,8 +113,10 @@ def handle(event: dict, root: Path, mode: str, stop_state: str,
            executor_types: set[str], timeout: int) -> dict:
     name = event.get('hook_event_name')
     message = event.get('last_assistant_message')
-    stopped = (stop_state != 'running' or event.get('stop_requested') is True
-               or (isinstance(message, str) and bool(re.search(r'\bSTOP\b', message, re.I))))
+    def stopped() -> bool:
+        current = stop_state() if callable(stop_state) else stop_state
+        return (current != 'running' or event.get('stop_requested') is True
+                or (isinstance(message, str) and bool(re.search(r'\bSTOP\b', message, re.I))))
     continued = event.get('stop_hook_active') is True
     if name == 'SessionStart':
         observation = check(root, timeout)
@@ -109,7 +133,7 @@ def handle(event: dict, root: Path, mode: str, stop_state: str,
         if event.get('agent_type') not in executor_types or complete_handoff(message):
             return {}
         warning = 'Executor handoff incomplete: include proposal, head, base, review, gates, pending and responsible-thread.'
-        if not stopped and not continued:
+        if not stopped() and not continued:
             return {'decision': 'block', 'reason': warning}
         return {'systemMessage': warning + ' Automatic continuation is held or already attempted.'}
     if name == 'Stop':
@@ -120,7 +144,7 @@ def handle(event: dict, root: Path, mode: str, stop_state: str,
         if not findings:
             return {}
         reason = 'Mechanical integration findings: ' + ', '.join(findings) + '.'
-        if mode == 'enforce' and not stopped and not continued:
+        if mode == 'enforce' and not stopped() and not continued:
             return {'decision': 'block', 'reason': reason + ' Resolve the specific finding or report its blocker.'}
         return {'systemMessage': reason}
     return {}
@@ -141,9 +165,12 @@ def main() -> int:
         event = json.loads(raw) if len(raw) <= MAX_INPUT else None
         if not isinstance(event, dict):
             raise ValueError
-        root = (args.root or Path(event.get('cwd') or '.')).resolve()
-        output = handle(event, root, args.mode, _stop_state(args.stop_state_file),
-                        set(args.executor_type or ['executor']), args.timeout)
+        root = _repository_root((args.root or Path(event.get('cwd') or '.')).resolve())
+        if root is None:
+            output = {'systemMessage': 'Repository root unavailable; no continuation was requested.'}
+        else:
+            output = handle(event, root, args.mode, lambda: _stop_state(args.stop_state_file),
+                            set(args.executor_type or ['executor']), args.timeout)
     except (ValueError, OSError, TypeError):
         output = {'systemMessage': 'Hook input unavailable; no continuation was requested.'}
     print(json.dumps(output, ensure_ascii=False))

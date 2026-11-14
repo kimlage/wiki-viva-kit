@@ -52,7 +52,7 @@ def test_executor_handoff_and_non_executor(tmp_path):
     assert hook.handle(event, tmp_path, 'observe', 'running', {'executor'}, 10)['decision'] == 'block'
     assert 'decision' not in hook.handle(event | {'stop_hook_active': True}, tmp_path, 'observe', 'running', {'executor'}, 10)
     assert hook.handle(event | {'agent_type': 'reviewer'}, tmp_path, 'enforce', 'running', {'executor'}, 10) == {}
-    handoff = f'Proposal: PR 1\nHead: {HEAD}\nBase: {BASE}\nReview: review link\nGates: passed\nPending: none\nResponsible-Thread: thread 1'
+    handoff = f'Proposal: PR 1\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review\nGates: pytest passed\nPending: none\nResponsible-Thread: thread:sample'
     assert hook.handle(event | {'last_assistant_message': handoff}, tmp_path, 'observe', 'running', {'executor'}, 10) == {}
 
 
@@ -69,3 +69,29 @@ def test_protocol_json_for_both_hosts(tmp_path):
         event = {'hook_event_name': 'SubagentStop', 'agent_type': 'executor', 'cwd': str(tmp_path), 'last_assistant_message': 'incomplete', 'provider': provider}
         proc = subprocess.run([sys.executable, str(SCRIPT), '--stop-state-file', str(state)], input=json.dumps(event), capture_output=True, text=True)
         assert proc.returncode == 0 and 'decision' not in json.loads(proc.stdout)
+
+
+def test_subdirectory_resolves_actual_repository_root(tmp_path):
+    subprocess.run(['git', 'init', '-q', str(tmp_path)], check=True)
+    nested = tmp_path / 'nested'
+    nested.mkdir()
+    assert hook._repository_root(nested) == tmp_path.resolve()
+    observation = {'ok': True, 'hygiene': [{'status': 'fix:dirty_worktree', 'path': str(tmp_path.resolve())}]}
+    assert hook.mechanical_findings(observation, hook._repository_root(nested), 'wiki/work') == ['uncommitted_changes']
+
+
+def test_stop_state_is_rechecked_after_observation(monkeypatch, tmp_path):
+    state = tmp_path / 'stop-state'
+    state.write_text('running')
+    def delayed_check(*args):
+        state.write_text('stop')
+        return {'ok': True, 'hygiene': [{'status': 'fix:dirty_worktree', 'path': str(tmp_path)}]}
+    monkeypatch.setattr(hook, 'check', delayed_check)
+    monkeypatch.setattr(hook, '_current_branch', lambda root: 'wiki/work')
+    result = hook.handle({'hook_event_name': 'Stop'}, tmp_path, 'enforce', lambda: hook._stop_state(state), {'executor'}, 10)
+    assert 'decision' not in result
+
+
+def test_placeholder_handoff_is_incomplete():
+    message = f'Proposal: none\nHead: {"0" * 40}\nBase: {"0" * 40}\nReview: unknown\nGates: unknown\nPending: unknown\nResponsible-Thread: unknown'
+    assert not hook.complete_handoff(message)
