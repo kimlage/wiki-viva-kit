@@ -43,7 +43,9 @@ def test_human_policy(required, human, expected):
 def test_local_gates_need_execution_not_a_comment():
     pr = candidate()
     pr['comments'][0]['body'] += '\nLocal-Gates: passed'
-    assert evaluate(pr, {'gate': 'github_pr', 'contribution_validation': 'local_gates'})['status'] == 'waiting:local_gates_at_integration'
+    result = evaluate(pr, {'gate': 'github_pr', 'contribution_validation': 'local_gates'})
+    assert result['status'] == 'integrable'
+    assert result['required_at_integration'] == ['run_local_gates_on_exact_head']
 
 
 def test_blockers_and_unknown_adapter():
@@ -131,9 +133,36 @@ def test_blocked_and_simultaneous_waits():
     pr['comments'][0]['author'] = {'login': 'author'}
     result = evaluate(pr, {'gate': 'github_pr', 'contribution_validation': 'local_gates', 'require_human_review': True})
     assert result['status'] != 'integrable'
-    assert {'exact_head_review', 'github_mergeability', 'human_review_identity', 'local_gates_at_integration'} <= set(result['pending'])
+    assert {'exact_head_review', 'github_mergeability', 'human_review_identity'} <= set(result['pending'])
+    assert result['required_at_integration'] == ['run_local_gates_on_exact_head']
 
 
 def test_missing_worktree_is_individual_wait(monkeypatch, tmp_path):
     monkeypatch.setattr(check, '_git', lambda root, *args: 'worktree /definitely/missing/worktree\nbranch refs/heads/wiki/missing')
     assert check._worktrees(tmp_path)[0]['dirty'] is None
+
+
+def test_empty_remote_head_is_named_wait(monkeypatch, tmp_path):
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: [])
+    monkeypatch.setattr(check, '_git', lambda root, *args: '')
+    assert check.inspect(tmp_path) == {'ok': False, 'status': 'waiting:default_branch'}
+
+
+def test_closed_and_merged_hygiene_survive_missing_target_policy(monkeypatch, tmp_path):
+    pr = candidate() | {'state': 'MERGED', 'headRefName': 'wiki/merged', 'baseRefName': 'deleted'}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: pr)
+    def git(root, *args):
+        if args[:3] == ('ls-remote', '--symref', 'origin'):
+            return 'ref: refs/heads/main\tHEAD\n' + BASE + '\tHEAD'
+        if args == ('ls-remote', '--heads', 'origin'):
+            return f'{BASE}\trefs/heads/main\n{HEAD}\trefs/heads/wiki/merged'
+        return 'main\nwiki/merged'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    assert check.inspect(tmp_path, 2)['proposals'][0]['status'] == 'waiting:verify_branch_reuse'
+    pr['state'] = 'CLOSED'
+    pr['comments'] = []
+    assert check.inspect(tmp_path, 2)['proposals'][0]['status'] == 'fix:closure_reason_missing'

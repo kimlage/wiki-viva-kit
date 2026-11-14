@@ -113,8 +113,8 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
         if approval.get("require_human_review", False) and not human_approved:
             pending.append("human_review_identity")
         if approval.get("contribution_validation", "github_checks") == "local_gates":
-            # The contribution contract reruns gates on the immutable head.
-            pending.append("local_gates_at_integration")
+            # Integration must run these; they have not been observed passing.
+            out["required_at_integration"] = ["run_local_gates_on_exact_head"]
         out["status"] = "waiting:" + pending[0] if pending else "integrable"
         if pending:
             out["pending"] = pending
@@ -171,7 +171,10 @@ def inspect(root: Path, number: int | None = None) -> dict:
                 return {"ok": False, "status": "waiting:proposal_inventory_truncated"}
         else:
             prs = [_gh(root, "pr", "view", str(number), "--repo", repo, "--json", FIELDS)]
-        default_line = _git(root, "ls-remote", "--symref", "origin", "HEAD").splitlines()[0]
+        default_lines = _git(root, "ls-remote", "--symref", "origin", "HEAD").splitlines()
+        if not default_lines:
+            return {"ok": False, "status": "waiting:default_branch"}
+        default_line = default_lines[0]
         if not default_line.startswith("ref: refs/heads/") or not default_line.endswith("\tHEAD"):
             return {"ok": False, "status": "waiting:default_branch"}
         default = default_line.removeprefix("ref: refs/heads/").removesuffix("\tHEAD")
@@ -182,6 +185,9 @@ def inspect(root: Path, number: int | None = None) -> dict:
         for pr in prs:
             target_base = remote.get(str(pr.get("baseRefName") or ""), "")
             approval = policy(root, target_base) if SHA.fullmatch(target_base) else {}
+            if pr.get("state") in {"MERGED", "CLOSED"}:
+                proposals.append(evaluate(pr, {}, ancestry="unknown", human_approved=False))
+                continue
             if not approval:
                 proposals.append({"number": pr.get("number"), "url": pr.get("url"),
                                   "head": pr.get("headRefOid"), "base": pr.get("baseRefOid"),
@@ -202,7 +208,8 @@ def inspect(root: Path, number: int | None = None) -> dict:
         present = set(local) | set(remote) | {w["branch"] for w in worktrees}
         for pr, observation in zip(prs, proposals):
             if pr.get("state") == "MERGED" and own(pr) and pr.get("headRefName") in closed_heads & present:
-                observation["status"] = "fix:merged_branch_or_worktree_remaining"
+                observation["status"] = ("waiting:verify_branch_reuse" if number is not None
+                                         else "fix:merged_branch_or_worktree_remaining")
         # A filtered PR view cannot establish global inventory safely.
         hygiene = []
         if number is None:
@@ -218,7 +225,8 @@ def inspect(root: Path, number: int | None = None) -> dict:
             elif wt["dirty"]:
                 hygiene.append({"status": "fix:dirty_worktree", **wt})
             elif wt["branch"] in closed_heads:
-                hygiene.append({"status": "fix:merged_worktree_remaining", **wt})
+                hygiene.append({"status": "waiting:verify_branch_reuse" if number is not None
+                                else "fix:merged_worktree_remaining", **wt})
             elif number is None and wt["branch"] != default and wt["branch"] not in open_heads:
                 hygiene.append({"status": "fix:worktree_without_pr", **wt})
         return {"ok": True, "repository": repo, "base": base, "proposals": proposals, "hygiene": hygiene}

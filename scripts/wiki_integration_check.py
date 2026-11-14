@@ -24,6 +24,10 @@ def main() -> int:
     else:
         for item in result['proposals']:
             print(f"PR {item['number']}: {item['status']}" + (f" ({item['responsible_thread']})" if item.get('responsible_thread') else ''))
+            if item.get('pending'):
+                print('  pending: ' + ', '.join(item['pending']))
+            if item.get('required_at_integration'):
+                print('  required at integration: ' + ', '.join(item['required_at_integration']))
         for item in result['hygiene']:
             print(f"{item['status']}: {item.get('branch') or item.get('path')}")
     return 0 if result['ok'] else 1

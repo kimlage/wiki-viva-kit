@@ -267,9 +267,10 @@ reviews therefore need independent verification outside this adapter.
 With `require_human_review: true`, the GitHub adapter reports
 `waiting:human_review_identity`: GitHub's `User` account type cannot establish
 that a human operated a shared account. The integrator verifies the owner's
-approval under the destination policy. With `local_gates`, it also reports
-`local_gates_at_integration`: the existing contribution contract reruns gates
-on the immutable reviewed head, and a comment cannot replace that run. The JSON
-`pending` array retains all simultaneously observed waits. For a destination
+approval under the destination policy. With `local_gates`, the command may report `integrable` when the integration
+operation is the next executable step; `required_at_integration` explicitly
+requires running local gates on the exact head. It does not claim they passed:
+the existing contribution contract reruns them, and a comment cannot replace
+that run. The JSON `pending` array retains all simultaneously observed waits. For a destination
 without a supported policy adapter, follow its own repository rules; this
 command cannot infer them from prose.
