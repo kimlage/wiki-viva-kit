@@ -785,6 +785,13 @@ def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
     branch = str(config.approval.get("default_branch") or "main")
     remote_head = _canonical_observation(root, branch, dry_run=dry_run)
     _git(root, "merge-base", "--is-ancestor", merge, remote_head)
+    log_ref = WikiPaths(root, config).log_page.relative_to(root).as_posix()
+    modes = {ref: _tree_file_mode(root, candidate, ref) for ref in (path, log_ref)}
+    if any(mode not in {"100644", "100755"} or _tree_file_mode(root, merge, ref) != mode
+           for ref, mode in modes.items()):
+        raise ContributionError("merged_file_mode_mismatch")
+    current_modes_match = all(_tree_file_mode(root, remote_head, ref) == mode
+                              for ref, mode in modes.items())
     expected = _blob(root, candidate, path)
     entry, merged_text = _entry(root, merge, path, request, material, approved=remote_head)
     if merged_text != expected:
@@ -795,9 +802,8 @@ def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
     target, _ = _contained_action_path(root, path)
     # Git may check out the same canonical text with CRLF. This is a logical
     # adoption comparison; the readback digest below remains the Git blob's.
-    local = (p.returncode == 0 and _logical_eol(target.read_bytes().decode("utf-8")) == _logical_eol(current_text)
+    local = (current_modes_match and p.returncode == 0 and _logical_eol(target.read_bytes().decode("utf-8")) == _logical_eol(current_text)
              and current_text == expected)
-    log_ref = WikiPaths(root, config).log_page.relative_to(root).as_posix()
     expected_log = _blob(root, candidate, log_ref)
     merged_log, current_log = _blob(root, merge, log_ref), _blob(root, remote_head, log_ref)
     if merged_log != expected_log:
@@ -809,7 +815,9 @@ def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
     return {"status": "adopted_in_checkout" if local else "waiting_worktree_adoption",
             "remote_merged": True, "source_commit": merge, "canonical_head": remote_head,
             "canonical_body_adopted": local, "readback_sha256": _sha(current_text),
-            "merged_sha256": _sha(merged_text), "canonical_matches_material": current_text == expected,
+            "merged_sha256": _sha(merged_text),
+            "canonical_matches_material": current_text == expected and current_modes_match,
+            "canonical_modes_match": current_modes_match,
             "worktree_adopted": local, "served_adoption_verified": False,
             "generated_paths": _generated_paths(root, candidate),
             "coverage": COVERAGE + "; Git source and selected checkout only",

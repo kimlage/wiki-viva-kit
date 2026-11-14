@@ -430,6 +430,51 @@ def test_canonical_mode_change_requires_reconciliation(tmp_path, monkeypatch, ta
 
 
 @pytest.mark.parametrize('target', ['action', 'log'])
+def test_merge_readback_refuses_mode_inherited_from_advanced_base(tmp_path, monkeypatch, target):
+    _, request = fixture(tmp_path)
+    prepared = call(tmp_path, 'prepare', request, review=review(request))
+    assert prepared['ok'], prepared
+    candidate = prepared['proposal_commit']
+    action = request['files'][0]['path']
+    ref = action if target == 'action' else 'memories/system/log.md'
+    parent = git(tmp_path, 'rev-parse', candidate + '^')
+    git(tmp_path, 'read-tree', parent)
+    blob = git(tmp_path, 'rev-parse', f'{parent}:{ref}')
+    git(tmp_path, 'update-index', '--add', '--cacheinfo', f'100755,{blob},{ref}')
+    advanced = git(tmp_path, 'commit-tree', git(tmp_path, 'write-tree'), '-p', parent,
+                   '-m', 'synthetic advanced mode')
+    git(tmp_path, 'read-tree', candidate)
+    blob = git(tmp_path, 'rev-parse', f'{candidate}:{ref}')
+    git(tmp_path, 'update-index', '--add', '--cacheinfo', f'100755,{blob},{ref}')
+    merged = git(tmp_path, 'commit-tree', git(tmp_path, 'write-tree'), '-p', advanced, '-p', candidate,
+                 '-m', 'synthetic merge mode')
+    monkeypatch.setattr(port, '_canonical_observation', lambda *_args, **_kw: merged)
+    with pytest.raises(port.ContributionError, match='merged_file_mode_mismatch'):
+        port._canonical_readback(tmp_path, load_config(tmp_path), {'mergeCommit': {'oid': merged}},
+                                 action, candidate, request, port.digest(request), dry_run=True)
+
+
+@pytest.mark.parametrize('target', ['action', 'log'])
+def test_readback_does_not_claim_current_adoption_after_mode_change(tmp_path, monkeypatch, target):
+    _, request = fixture(tmp_path)
+    prepared = call(tmp_path, 'prepare', request, review=review(request))
+    assert prepared['ok'], prepared
+    candidate = prepared['proposal_commit']
+    action = request['files'][0]['path']
+    ref = action if target == 'action' else 'memories/system/log.md'
+    git(tmp_path, 'read-tree', candidate)
+    blob = git(tmp_path, 'rev-parse', f'{candidate}:{ref}')
+    git(tmp_path, 'update-index', '--add', '--cacheinfo', f'100755,{blob},{ref}')
+    current = git(tmp_path, 'commit-tree', git(tmp_path, 'write-tree'), '-p', candidate,
+                  '-m', 'synthetic later mode')
+    monkeypatch.setattr(port, '_canonical_observation', lambda *_args, **_kw: current)
+    result = port._canonical_readback(tmp_path, load_config(tmp_path), {'mergeCommit': {'oid': candidate}},
+                                      action, candidate, request, port.digest(request), dry_run=True)
+    assert result['remote_merged'] and not result['canonical_modes_match']
+    assert not result['canonical_matches_material'] and not result['canonical_body_adopted']
+
+
+@pytest.mark.parametrize('target', ['action', 'log'])
 def test_candidate_refuses_a_symlink_already_in_parent_tree(tmp_path, target):
     _, request = fixture(tmp_path)
     prepared = call(tmp_path, 'prepare', request, review=review(request))
