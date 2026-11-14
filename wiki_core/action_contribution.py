@@ -766,7 +766,10 @@ def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
     p = subprocess.run(["git", "merge-base", "--is-ancestor", merge, "HEAD"], cwd=root,
                        capture_output=True)
     target, _ = _contained_action_path(root, path)
-    local = p.returncode == 0 and target.read_bytes().decode("utf-8") == current_text and current_text == expected
+    # Git may check out the same canonical text with CRLF. This is a logical
+    # adoption comparison; the readback digest below remains the Git blob's.
+    local = (p.returncode == 0 and _logical_eol(target.read_bytes().decode("utf-8")) == _logical_eol(current_text)
+             and current_text == expected)
     log_ref = WikiPaths(root, config).log_page.relative_to(root).as_posix()
     expected_log = _blob(root, candidate, log_ref)
     merged_log, current_log = _blob(root, merge, log_ref), _blob(root, remote_head, log_ref)

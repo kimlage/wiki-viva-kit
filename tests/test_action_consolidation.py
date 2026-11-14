@@ -172,3 +172,34 @@ def test_legacy_then_eol_consolidation_survives_checkout_conversion(tmp_path):
     assert action_transition_diagnostics(middle, after) == ()
     assert action_transition_diagnostics(base, after) == ()
     assert action_transition_diagnostics(base, after + '\nA new factual assertion.\n')
+
+
+def test_eol_then_legacy_consolidation_survives_audit_chain(tmp_path):
+    p, canonical, records = fixture(tmp_path)
+    first = ('First synthetic line documents a reviewed historical observation.\r\n'
+             'Second synthetic line retains the context and scope of that observation without claiming fresh verification.')
+    other = ('A second synthetic paragraph records separate reviewed evidence, '
+             'preserving its historical origin while avoiding any claim of current execution. '
+             'The remaining context still requires its own verification.')
+    for path in (p, canonical):
+        raw = path.read_bytes().replace(PARAGRAPH.encode(), first.encode())
+        path.write_bytes(raw + b'\n' + other.encode() + b'\n')
+    records[0].update(paragraph=first, canonical_sha256=hashlib.sha256(canonical.read_bytes()).hexdigest())
+    base = p.read_bytes().decode('utf-8')
+    _, body = _parse_document(base)
+    integrate_action_body(tmp_path, p, _consolidated_body(body, records),
+        expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'eol-first', 'material_sha256': 'a' * 64},
+        recorded_at='2026-07-11T23:45:00-03:00', consolidations=records)
+    middle = p.read_bytes().decode('utf-8')
+    assert '\r' not in middle
+    _, body = _parse_document(middle)
+    second = [dict(records[0], paragraph=other)]
+    integrate_action_body(tmp_path, p, _consolidated_body(body, second),
+        expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'legacy-second', 'material_sha256': 'b' * 64},
+        recorded_at='2026-07-11T23:46:00-03:00', consolidations=second)
+    after = p.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(middle, after) == ()
+    assert action_transition_diagnostics(base, after) == ()
+    assert action_transition_diagnostics(base, after + '\nA new factual assertion.\n')

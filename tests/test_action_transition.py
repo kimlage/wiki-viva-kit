@@ -1380,3 +1380,28 @@ def test_new_content_receipts_bind_mixed_line_ending_chains(tmp_path, first_body
     assert action_transition_diagnostics(base, after) == ()
     assert action_transition_diagnostics(base, after.replace('\r\n', '\n')) == ()
     assert action_transition_diagnostics(base, after.replace('# Second', '# Forged'))
+
+
+def test_legacy_physical_crlf_body_chain_without_intermediate_witness_fails_closed(tmp_path):
+    path = _write_action(tmp_path)
+    base = path.read_bytes().decode('utf-8')
+    base_fm, base_body = transition_module._parse_document(base)
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': '# Historical first\r\nBody\r\n'}, recorded_at='2026-07-11T14:30:00Z')
+    fm, body = transition_module._parse_document(path.read_bytes().decode('utf-8'))
+    entry = fm['action_state_history'][-1]
+    # Historical v6 receipts recorded physical body projections; reconstruct
+    # that valid fixture without pretending a missing intermediate is stored.
+    entry['schema_version'] = 'wiki_action_transition_receipt.v6'
+    entry['before_revision'] = transition_module._revision_sha256(base)
+    entry['page_edit']['before'] = transition_module._page_edit_projection(base_fm, base_body)
+    entry['page_edit']['after'] = transition_module._page_edit_projection(fm, body)
+    entry['receipt_id'] = transition_module._receipt_id(entry)
+    path.write_bytes(transition_module._render_document(fm, body).encode('utf-8'))
+    middle = path.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(base, middle) == ()
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': '# New synthetic body\n'}, recorded_at='2026-07-11T14:30:01Z')
+    after = path.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(middle, after) == ()
+    assert action_transition_diagnostics(base, after)[0].code == 'action_page_edit_mismatch'

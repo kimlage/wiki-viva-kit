@@ -107,8 +107,11 @@ checkout's original physical bytes from a converted Git blob. Legacy mixed
 receipt chains may still fail closed if their intermediate bytes are not
 available. A second routed comment also remains blocked when its prior physical
 preimage cannot be proved. Contribution gates still apply the repository's Git
-whitespace policy to submitted text. Arbitrary Git filters and noncooperating
-concurrent writers are not covered by this contract.
+whitespace policy to submitted text. Contribution readback reports checkout
+adoption when the action is equal after line-ending normalization; its readback
+hash identifies the canonical Git blob, not physical checkout bytes. Arbitrary
+Git filters and noncooperating concurrent writers are not covered by this
+contract.
 The API accepts a small `page_edit` allowlist, never a frontmatter patch. Other
 frontmatter values, prior history and dialogue are preserved structurally;
 YAML comments and formatting can change during the existing serialization.

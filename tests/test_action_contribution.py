@@ -235,8 +235,17 @@ def test_waits_for_real_ci_human_policy_and_unknown_is_read_only(tmp_path, monke
     assert call(tmp_path, "reconcile", request, pr=1)["status"] == "waiting_pr"
 
 
-def test_remote_merge_is_not_checkout_or_served_adoption(tmp_path, monkeypatch):
+@pytest.mark.parametrize('checkout_eol', ['lf', 'crlf'])
+def test_remote_merge_is_not_checkout_or_served_adoption(tmp_path, monkeypatch, checkout_eol):
     p, request = fixture(tmp_path)
+    if checkout_eol == 'crlf':
+        (tmp_path / '.gitattributes').write_text('memories/actions/*.md text eol=crlf\n')
+        git(tmp_path, 'add', '.gitattributes')
+        git(tmp_path, 'commit', '-m', 'Synthetic checkout conversion')
+        request['files'][0]['base_commit'] = git(tmp_path, 'rev-parse', 'HEAD')
+        p.unlink()
+        git(tmp_path, 'checkout', '--', request['files'][0]['path'])
+        assert b'\r\n' in p.read_bytes()
     out = call(tmp_path, "prepare", request, review=review(request))
     remote = tmp_path.parent / (tmp_path.name + "-remote.git")
     subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
@@ -256,6 +265,12 @@ def test_remote_merge_is_not_checkout_or_served_adoption(tmp_path, monkeypatch):
     assert second["canonical_body_adopted"] and second["canonical_matches_material"]
     assert second["served_adoption_verified"] is False
     assert "Reviewed historical evidence." in p.read_text()
+    if checkout_eol == 'crlf':
+        assert b'\r\n' in p.read_bytes()
+        p.write_bytes(p.read_bytes().replace(b'Reviewed historical evidence.', b'Different factual evidence.'))
+        third = call(tmp_path, "reconcile", request, pr=1)
+        assert third['canonical_matches_material'] and not third['worktree_adopted']
+        assert third['status'] == 'waiting_worktree_adoption'
 
 
 def test_unrelated_committed_branch_is_not_a_proposal_base(tmp_path):

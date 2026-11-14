@@ -1702,10 +1702,8 @@ def action_transition_diagnostics(
                     if not logical_eol:
                         rebuilt = _logical_eol(rebuilt)
                     logical_eol = True
-                elif logical_eol:
-                    return (ActionTransitionDiagnostic("invalid_body_consolidation", "mixed editorial receipt representations require separate review"),)
                 records = (event.get("contribution") or {}).get("consolidations")
-                if logical_eol and isinstance(records, list):
+                if event.get("schema_version") == _EOL_RECEIPT_VERSION and isinstance(records, list):
                     records = [{**row, "paragraph": _logical_eol(row["paragraph"])}
                                if isinstance(row, dict) and isinstance(row.get("paragraph"), str) else row
                                for row in records]
