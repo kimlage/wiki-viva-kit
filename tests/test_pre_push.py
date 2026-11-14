@@ -22,6 +22,8 @@ def repo(tmp_path):
     (root / 'page.md').write_text('initial\n')
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'initial')
+    (root / '.git' / 'info' / 'exclude').write_text('/scripts\n')
+    (root / 'scripts').symlink_to(SCRIPT.parent, target_is_directory=True)
     return root
 
 
@@ -117,6 +119,7 @@ def test_installed_hook_checks_the_invoking_worktree(tmp_path):
     subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--install'], check=True)
     other = tmp_path / 'other'
     git(root, 'worktree', 'add', '-qb', 'other', str(other))
+    (other / 'scripts').symlink_to(SCRIPT.parent, target_is_directory=True)
     config = {'pre_push': {'quick_commands': [[sys.executable, '-c', 'raise SystemExit(4)']]}}
     (other / 'wiki.config.yaml').write_text(json.dumps(config))
     git(other, 'add', 'wiki.config.yaml')
@@ -303,3 +306,94 @@ def test_index_flags_cannot_hide_different_gate_inputs(tmp_path, flag):
     git(root, 'update-index', flag, 'page.md')
     result = hook(root, base, head)
     assert result.returncode != 0 and 'index flags' in result.stderr
+
+
+def test_secret_in_filename_is_blocked_without_disclosure(tmp_path):
+    root = repo(tmp_path)
+    base = git(root, 'rev-parse', 'HEAD')
+    secret = 'sk-proj-' + 'i' * 48
+    (root / secret).write_text('harmless\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'add file')
+    result = hook(root, base, git(root, 'rev-parse', 'HEAD'))
+    assert result.returncode != 0 and 'secret detected' in result.stderr
+    assert secret not in result.stderr
+
+
+def test_consumer_gate_rejects_mismatched_or_uninitialized_submodule(tmp_path):
+    source = tmp_path / 'source'
+    source.mkdir()
+    git(source, 'init', '-q')
+    (source / 'page.md').write_text('BAD\n')
+    git(source, 'add', '.')
+    git(source, 'commit', '-qm', 'bad')
+    root = tmp_path / 'parent'
+    root.mkdir()
+    git(root, 'init', '-q')
+    git(root, '-c', 'protocol.file.allow=always', 'submodule', 'add', str(source), 'library')
+    config = {'pre_push': {'quick_commands': [[sys.executable, '-c',
+              'from pathlib import Path; assert Path("library/page.md").read_text() == "GOOD\\n"']]}}
+    (root / 'wiki.config.yaml').write_text(json.dumps(config))
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'parent')
+    head = git(root, 'rev-parse', 'HEAD')
+    git(root, 'config', 'submodule.library.ignore', 'all')
+    good = commit(source, 'GOOD\n')
+    git(root / 'library', '-c', 'protocol.file.allow=always', 'fetch', 'origin')
+    git(root / 'library', 'checkout', '-q', good)
+    result = hook(root, '0' * 40, head)
+    assert result.returncode != 0
+    git(root, 'submodule', 'deinit', '-f', '--', 'library')
+    result = hook(root, '0' * 40, head)
+    assert result.returncode != 0
+
+
+def test_clean_filter_cannot_hide_bytes_from_a_consumer_gate(tmp_path):
+    root = repo(tmp_path)
+    base = git(root, 'rev-parse', 'HEAD')
+    git(root, 'config', 'filter.demo.clean', 'sed s/GOOD/BAD/g')
+    (root / '.gitattributes').write_text('page.md filter=demo\n')
+    (root / 'page.md').write_text('BAD\n')
+    config = {'pre_push': {'quick_commands': [[sys.executable, '-c',
+              'from pathlib import Path; assert Path("page.md").read_text() == "GOOD\\n"']]}}
+    (root / 'wiki.config.yaml').write_text(json.dumps(config))
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'configured filter')
+    head = git(root, 'rev-parse', 'HEAD')
+    (root / 'page.md').write_text('GOOD\n')
+    result = hook(root, base, head)
+    assert result.returncode != 0 and 'content differs' in result.stderr
+
+
+def test_installed_hook_survives_removal_of_installing_worktree(tmp_path):
+    root = repo(tmp_path)
+    remote = tmp_path / 'remote.git'
+    subprocess.run(['git', 'init', '--bare', '-q', str(remote)], check=True)
+    git(root, 'remote', 'add', 'origin', str(remote))
+    other = tmp_path / 'temporary'
+    git(root, 'worktree', 'add', '-qb', 'temporary', str(other))
+    (other / 'scripts').symlink_to(SCRIPT.parent, target_is_directory=True)
+    subprocess.run([sys.executable, str(SCRIPT), '--root', str(other), '--install'], check=True)
+    (other / 'scripts').unlink()
+    git(root, 'worktree', 'remove', str(other))
+    push = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/main'], cwd=root,
+                          capture_output=True, text=True, timeout=12)
+    assert push.returncode == 0, push.stderr
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='symlink setup requires Unix permissions')
+def test_consumer_check_rejects_tracked_directory_replaced_by_symlink(tmp_path):
+    root = repo(tmp_path)
+    base = git(root, 'rev-parse', 'HEAD')
+    directory = root / 'docs'
+    directory.mkdir()
+    (directory / 'page').write_text('synthetic\n')
+    (root / 'wiki.config.yaml').write_text(json.dumps({'pre_push': {'quick_commands': [[sys.executable, '-c', 'pass']]}}))
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'configure')
+    head = git(root, 'rev-parse', 'HEAD')
+    outside = tmp_path / 'outside'
+    directory.rename(outside)
+    directory.symlink_to(outside, target_is_directory=True)
+    result = hook(root, base, head)
+    assert result.returncode != 0 and 'symlink' in result.stderr

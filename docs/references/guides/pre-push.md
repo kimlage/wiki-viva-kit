@@ -8,13 +8,14 @@ python3 scripts/wiki_pre_push.py --root . --install
 
 The installer configures `core.hooksPath` locally and refuses to replace an
 existing hook or configured hook path. If hooks already exist, integrate this
-script manually in that hook; do not silently discard them. Keep the script and
-its Python dependencies available at the installed path. The default budget is
+script manually in that hook; do not silently discard them. The installed hook
+uses the script and dependencies in the invoking worktree. A worktree without
+the script cannot push until it is updated. The default budget is
 10 seconds; timeout, failed checks, and incomplete object reads block the push.
 
 For each non-deleted ref, the hook checks whitespace in the pushed tree range
-and runs the kit's secret detector on introduced blobs, commit messages and tag
-objects, including blobs later removed before the tip. For a new ref the hook
+and runs the kit's secret detector on introduced blobs, path names, commit
+messages and tag objects, including blobs later removed before the tip. For a new ref the hook
 performs one bounded `git ls-remote` query against the actual push URL for its
 current `main` and
 uses it as a baseline only if present locally and ancestral; otherwise it scans
@@ -39,7 +40,9 @@ the shared budget. Configuration comes from each pushed commit, not from an
 uncommitted or untracked file. These commands run from the working tree, so configured commands
 require every pushed tip to be the checked-out HEAD and tracked files to match
 HEAD. The hook blocks if index flags such as `assume-unchanged` or
-`skip-worktree` could hide changes. These checks do not establish the state of
+`skip-worktree` could hide changes, or if submodules are uninitialized or
+different from the committed state. It compares raw tracked bytes to Git blobs,
+so Git filters or line-ending conversions that change bytes cause a block. These checks do not establish the state of
 untracked files. A repo without this
 configuration runs the generic checks alone. Deleting a ref has no content to
 check. The consumer is responsible for declaring any queue freshness gate.

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import shlex
+import stat
 import subprocess
 import sys
 import tempfile
@@ -64,7 +66,7 @@ def scan_objects(root: Path, deadline: float, new: str, old: str | None) -> None
         fields = record.split()
         if len(fields) != 3:
             raise Blocked('object inventory incomplete')
-        if fields[1] in {b'blob', b'commit', b'tag'}:
+        if fields[1] in {b'blob', b'commit', b'tag', b'tree'}:
             size += int(fields[2])
             objects_to_scan.append((fields[0], fields[1]))
     if size > 50_000_000:
@@ -81,7 +83,19 @@ def scan_objects(root: Path, deadline: float, new: str, old: str | None) -> None
         if len(content) != length or not payload.startswith(b'\n'):
             raise Blocked('object read incomplete')
         payload = payload[1:]
-        if scan_secrets(content.decode('utf-8', errors='replace')):
+        if kind == b'tree':
+            # Git tree records contain raw object IDs after each NUL-terminated
+            # mode/name. Scan names separately without displaying them.
+            object_bytes = len(expected) // 2
+            while content:
+                entry, separator, remaining = content.partition(b'\0')
+                mode, space, name = entry.partition(b' ')
+                if not separator or not mode or not space or not name or len(remaining) < object_bytes:
+                    raise Blocked('object read incomplete')
+                if scan_secrets(name.decode('utf-8', errors='replace')):
+                    raise Blocked('secret detected in pushed history')
+                content = remaining[object_bytes:]
+        elif scan_secrets(content.decode('utf-8', errors='replace')):
             raise Blocked('secret detected in pushed history')
         if time.monotonic() >= deadline:
             raise Blocked('time budget exceeded')
@@ -102,6 +116,65 @@ def quick_commands(root: Path, commit: str, deadline: float) -> list[list[str]]:
         return commands
     except (OSError, ValueError, AttributeError, yaml.YAMLError):
         raise Blocked('invalid pre_push.quick_commands configuration') from None
+
+
+def verify_worktree(root: Path, expected: str, deadline: float) -> None:
+    """Compare raw worktree bytes, including submodules, with the pushed tree."""
+    head = git(root, deadline, 'rev-parse', '--verify', 'HEAD^{commit}').decode().strip()
+    if head != expected:
+        raise Blocked('consumer checks require the pushed HEAD to be checked out')
+    entries = git(root, deadline, 'ls-files', '-v', '-z').split(b'\x00')
+    if any(entry and (entry[:1].islower() or entry[:1] == b'S') for entry in entries):
+        raise Blocked('index flags can hide changes from consumer checks')
+    git(root, deadline, 'diff', '--cached', '--quiet', 'HEAD', '--')
+    object_format = git(root, deadline, 'rev-parse', '--show-object-format').decode().strip()
+    if object_format not in {'sha1', 'sha256'}:
+        raise Blocked('unsupported object format')
+    checked_dirs: set[Path] = set()
+    for entry in git(root, deadline, 'ls-files', '--stage', '-z').split(b'\x00'):
+        if not entry:
+            continue
+        metadata, separator, relative = entry.partition(b'\t')
+        fields = metadata.split()
+        if not separator or len(fields) != 3 or fields[2] != b'0':
+            raise Blocked('index unavailable or unmerged')
+        mode, expected_oid, _ = fields
+        relpath = Path(os.fsdecode(relative))
+        if relpath.is_absolute() or '..' in relpath.parts:
+            raise Blocked('tracked path outside repository')
+        path = root / relpath
+        parent = root
+        for part in relpath.parts[:-1]:
+            parent = parent / part
+            if parent not in checked_dirs:
+                if parent.is_symlink():
+                    raise Blocked('tracked path crosses a symlink')
+                checked_dirs.add(parent)
+        if mode == b'160000':
+            if path.is_symlink():
+                raise Blocked('submodule path is a symlink')
+            top = os.fsdecode(git(path, deadline, 'rev-parse', '--show-toplevel').strip())
+            if Path(top).resolve() != path.resolve():
+                raise Blocked('submodule state unavailable or differs from HEAD')
+            verify_worktree(path, expected_oid.decode('ascii'), deadline)
+            continue
+        info = path.lstat()
+        if mode == b'120000' and stat.S_ISLNK(info.st_mode):
+            data = os.fsencode(os.readlink(path))
+            digest = hashlib.new(object_format, b'blob ' + str(len(data)).encode() + b'\0' + data)
+        elif mode in {b'100644', b'100755'} and stat.S_ISREG(info.st_mode):
+            if os.name != 'nt' and bool(info.st_mode & 0o111) != (mode == b'100755'):
+                raise Blocked('tracked file mode differs from commit')
+            digest = hashlib.new(object_format, b'blob ' + str(info.st_size).encode() + b'\0')
+            with path.open('rb') as stream:
+                for chunk in iter(lambda: stream.read(1_048_576), b''):
+                    digest.update(chunk)
+                    if time.monotonic() >= deadline:
+                        raise Blocked('time budget exceeded')
+        else:
+            raise Blocked('tracked file type differs from commit')
+        if digest.hexdigest().encode() != expected_oid:
+            raise Blocked('tracked file content differs from commit')
 
 
 def check(root: Path, updates: str, deadline: float, push_url: str | None) -> None:
@@ -145,13 +218,9 @@ def check(root: Path, updates: str, deadline: float, push_url: str | None) -> No
     if changes:
         commands = [command for _, new, _ in changes for command in quick_commands(root, new, deadline)]
         if commands:
-            head = git(root, deadline, 'rev-parse', '--verify', 'HEAD^{commit}').decode().strip()
-            if any(new != head for _, new, _ in changes):
+            if len({new for _, new, _ in changes}) != 1:
                 raise Blocked('consumer checks require the pushed HEAD to be checked out')
-            entries = git(root, deadline, 'ls-files', '-v', '-z').split(b'\x00')
-            if any(entry and (entry[:1].islower() or entry[:1] == b'S') for entry in entries):
-                raise Blocked('index flags can hide changes from consumer checks')
-            git(root, deadline, 'diff', '--quiet', 'HEAD', '--')
+            verify_worktree(root, changes[0][1], deadline)
         for command in commands:
             run(root, command, deadline)
 
@@ -165,13 +234,16 @@ def install(root: Path) -> None:
     existing = hooks.is_dir() and any(not path.name.endswith('.sample') for path in hooks.iterdir())
     if configured.returncode == 0 or existing:
         raise Blocked('existing hooks configuration requires manual integration')
+    if not (root / 'scripts' / 'wiki_pre_push.py').is_file():
+        raise Blocked('pre-push script must exist in the repository worktree')
     hookdir = common / 'wiki-viva-hooks'
     hookdir.mkdir(exist_ok=True)
     hook = hookdir / 'pre-push'
     if hook.exists():
         raise Blocked('pre-push hook already exists')
-    hook.write_text('#!/bin/sh\nexec ' + shlex.quote(sys.executable) + ' '
-                    + shlex.quote(str(Path(__file__).resolve())) + ' --root . "$@"\n', encoding='utf-8')
+    hook.write_text('#!/bin/sh\nroot=$(git rev-parse --show-toplevel) || exit 1\n'
+                    'exec ' + shlex.quote(sys.executable)
+                    + ' "$root/scripts/wiki_pre_push.py" --root "$root" "$@"\n', encoding='utf-8')
     hook.chmod(0o755)
     run(root, ['git', 'config', '--local', 'core.hooksPath', str(hookdir)], deadline)
     print('pre-push installed for this repository')
@@ -181,6 +253,9 @@ def main() -> int:
     # Replacement refs and grafts can hide history while Git pushes originals.
     os.environ['GIT_NO_REPLACE_OBJECTS'] = '1'
     os.environ['GIT_GRAFT_FILE'] = os.devnull
+    for key in ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR',
+                'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_PREFIX'):
+        os.environ.pop(key, None)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=ROOT)
     parser.add_argument('--install', action='store_true')
