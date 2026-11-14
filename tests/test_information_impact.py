@@ -68,7 +68,7 @@ def test_only_superseded_inactive_legacy_history_can_be_retired():
         assert affected_dynamic_queries(new, old, {'consumer.md','AGENTS.md'}, set(), _retirement_approved=True), mutation
 
 
-def test_retired_historical_query_does_not_exempt_distinct_current_query():
+def test_authority_change_revalidates_distinct_current_query_after_retirement():
     from copy import deepcopy
 
     historical = {
@@ -87,7 +87,7 @@ def test_retired_historical_query_does_not_exempt_distinct_current_query():
     candidate['nodes']['consumer.md']['status'] = 'superseded'
     candidate['documents']['consumer.md'] = 'New'
     candidate['edges'][0]['requirement']['temporal'] = 'current'
-    # Approval is simulated here: this test does not read an approved Git base.
+    # The authority path is marked changed and approval is simulated; no Git base is read.
     result = evaluate_information_impact(candidate, base, {'consumer.md', 'AGENTS.md'},
                                          today=TODAY, _retirement_approved=True)
     assert any(row['path'] == 'consumer.md' and row['reason'] == 'legacy_query_retired'
