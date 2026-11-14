@@ -195,14 +195,20 @@ def _scratch_signing_settings(root: Path, settings: tuple[tuple[str, str], ...])
                 "openpgp": ("gpg.openpgp.program", "gpg.program")}
     if signing_format not in programs or not any(key.casefold() in programs[signing_format] for key, _ in settings):
         raise ContributionError("git_signer_path_selection_unsupported")
-    if signing_format == "ssh" and not any(key.casefold() == "user.signingkey" and value for key, value in settings):
+    signing_key = next((value for key, value in reversed(settings)
+                        if key.casefold() == "user.signingkey"), "")
+    if signing_format == "ssh" and not signing_key:
         raise ContributionError("git_ssh_default_signing_key_unsupported")
     result = []
     for key, value in settings:
+        if not value:
+            raise ContributionError("git_signing_config_value_unsupported")
         lowered = key.casefold()
         key_file = signing_format == "ssh" and lowered == "user.signingkey" and not value.startswith("key::")
         signer_file = lowered in {"gpg.program", "gpg.openpgp.program", "gpg.ssh.program", "gpg.x509.program"} and "/" in value
         path = Path(value)
+        if key_file and not path.is_absolute() and not (root / path).is_file():
+            raise ContributionError("git_signing_key_path_unsupported")
         if (key_file or signer_file) and not path.is_absolute() and (root / path).is_file():
             value = str((root / path).resolve())
         elif lowered in {"gpg.program", "gpg.openpgp.program", "gpg.ssh.program", "gpg.x509.program"} and not path.is_absolute():

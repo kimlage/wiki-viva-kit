@@ -562,9 +562,10 @@ def test_prepare_does_not_install_ref_when_required_signer_fails(tmp_path):
     git(tmp_path, 'config', 'commit.gpgSign', 'true')
     git(tmp_path, 'config', 'gpg.format', 'ssh')
     git(tmp_path, 'config', 'gpg.ssh.program', shutil.which('false'))
-    git(tmp_path, 'config', 'user.signingkey', 'synthetic-invalid-key')
+    git(tmp_path, 'config', 'user.signingkey', '/synthetic/missing-key')
     result = call(tmp_path, 'prepare', request, review=review(request))
     assert not result['ok']
+    assert result['error'] == 'command_failed:git'
     assert port._candidate(tmp_path, result['branch']) is None
 
 
@@ -644,6 +645,15 @@ def test_signer_selection_refuses_defaults_and_ambiguous_paths(tmp_path):
     with pytest.raises(port.ContributionError, match='git_ssh_default_signing_key_unsupported'):
         port._scratch_signing_settings(tmp_path, (('gpg.format', 'ssh'), ('gpg.ssh.program', '/synthetic/signer'),
                                                    ('gpg.ssh.defaultkeycommand', './synthetic-command')))
+    with pytest.raises(port.ContributionError, match='git_ssh_default_signing_key_unsupported'):
+        port._scratch_signing_settings(tmp_path, (('gpg.format', 'ssh'), ('gpg.ssh.program', '/synthetic/signer'),
+                                                   ('user.signingkey', 'key::old'), ('user.signingkey', '')))
+    with pytest.raises(port.ContributionError, match='git_signing_key_path_unsupported'):
+        port._scratch_signing_settings(tmp_path, (('gpg.format', 'ssh'), ('gpg.ssh.program', '/synthetic/signer'),
+                                                   ('user.signingkey', 'missing-relative-key')))
+    with pytest.raises(port.ContributionError, match='git_signing_config_value_unsupported'):
+        port._scratch_signing_settings(tmp_path, (('gpg.format', 'ssh'), ('gpg.ssh.program', '/synthetic/signer'),
+                                                   ('user.signingkey', 'key::literal'), ('gpg.mintrustlevel', '')))
 
 
 def test_selected_local_unsigned_policy_overrides_global_signing(tmp_path, monkeypatch):
