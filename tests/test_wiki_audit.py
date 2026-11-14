@@ -3163,3 +3163,10 @@ def test_logical_comment_rejects_deep_yaml_without_recursing_out():
     audit = _load_wiki_audit()
     text = '---\npage_type: action\nitems: ' + '[' * 600 + '0' + ']' * 600 + '\n---\nSynthetic body\n'
     assert not audit._logical_comment_only(text, text)
+
+
+@pytest.mark.parametrize('invalid_date', ['2026-02-30', '2026-11-14T00:30:00+99:99'])
+def test_logical_comment_rejects_invalid_yaml_dates_without_raising(invalid_date):
+    audit = _load_wiki_audit()
+    text = f'---\npage_type: action\nobserved_at: {invalid_date}\n---\nSynthetic body\n'
+    assert not audit._logical_comment_only(text, text)

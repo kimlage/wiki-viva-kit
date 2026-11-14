@@ -223,7 +223,7 @@ def _parse_document(text: str) -> tuple[dict[str, Any], str]:
         raise ActionTransitionError("missing_frontmatter")
     try:
         loaded = yaml.safe_load(match.group(1))
-    except (yaml.YAMLError, RecursionError) as exc:
+    except (yaml.YAMLError, RecursionError, ValueError, OverflowError) as exc:
         raise ActionTransitionError("invalid_frontmatter") from exc
     if not isinstance(loaded, dict):
         raise ActionTransitionError("invalid_frontmatter")
