@@ -252,20 +252,28 @@ def _git_identity(root: Path, field: str) -> str:
     from wiki_core.git_env import local_git_executable
     if field not in {"user.name", "user.email"}:
         raise ContributionError("invalid_git_identity_field")
-    env = _local_process_environment(root)
-    for key in ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_NOSYSTEM"):
-        if key in os.environ:
-            env[key] = os.environ[key]
-        else:
-            env.pop(key, None)
     try:
         result = subprocess.run([local_git_executable(), "--no-lazy-fetch", "config", "--get", field],
-                                cwd=root, env=env, capture_output=True, timeout=120)
+                                cwd=root, env=_transport_git_environment(root), capture_output=True, timeout=120)
     except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
         raise ContributionError("git_identity_unavailable") from exc
     if result.returncode:
         raise ContributionError("git_identity_unavailable")
     return os.fsdecode(result.stdout).strip()
+
+
+def _require_supported_commit_hook_policy(root: Path) -> None:
+    """Do not silently suppress an explicitly configured hook directory."""
+    from wiki_core.git_env import local_git_executable
+    try:
+        result = subprocess.run([local_git_executable(), "config", "--path", "--get", "core.hooksPath"],
+                                cwd=root, env=_transport_git_environment(root), capture_output=True, timeout=120)
+    except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+        raise ContributionError("git_commit_hook_policy_unavailable") from exc
+    if result.returncode not in (0, 1) or len(result.stdout) > 4096:
+        raise ContributionError("git_commit_hook_policy_unavailable")
+    if result.returncode == 0 and os.fsdecode(result.stdout).strip() != os.devnull:
+        raise ContributionError("git_commit_hook_policy_unsupported")
 
 
 def _blob(root: Path, revision: str, path: str) -> str:
@@ -769,6 +777,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         _local_git_effect(scratch, "add", "--", *allowed)
         if _commit_signing_policy(root) != signing_policy:
             raise ContributionError("git_commit_signing_policy_changed")
+        _require_supported_commit_hook_policy(scratch)
         if signing_policy[0]:
             for key, value in _scratch_signing_settings(root, signing_policy[1]):
                 _local_git_effect(scratch, "config", "--add", key, value)

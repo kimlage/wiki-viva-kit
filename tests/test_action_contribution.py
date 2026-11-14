@@ -526,6 +526,47 @@ def test_prepare_preserves_global_identity_without_inherited_repo(tmp_path, monk
     assert author.strip() == b'Synthetic Global <global@example.test>'
 
 
+def test_prepare_preserves_injected_identity_without_inherited_repo(tmp_path, monkeypatch):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    _, request = fixture(root)
+    other = tmp_path / 'other'
+    other.mkdir()
+    git(other, 'init', '-q')
+    for key in ('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL'):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv('GIT_DIR', str(other / '.git'))
+    monkeypatch.setenv('GIT_CONFIG_COUNT', '2')
+    monkeypatch.setenv('GIT_CONFIG_KEY_0', 'user.name')
+    monkeypatch.setenv('GIT_CONFIG_VALUE_0', 'Synthetic Injected')
+    monkeypatch.setenv('GIT_CONFIG_KEY_1', 'user.email')
+    monkeypatch.setenv('GIT_CONFIG_VALUE_1', 'injected@example.test')
+    result = call(root, 'prepare', request, review=review(request))
+    assert result['ok'] and result['status'] == 'prepared', result
+    identity = port._local_git_bytes(root, 'show', '-s', '--format=%an <%ae>|%cn <%ce>', result['proposal_commit'])
+    assert identity.strip() == b'Synthetic Injected <injected@example.test>|Synthetic Injected <injected@example.test>'
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='synthetic hook uses POSIX shell')
+def test_prepare_refuses_configured_hook_policy_instead_of_skipping_it(tmp_path, monkeypatch):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    _, request = fixture(root)
+    hooks = tmp_path / 'hooks'
+    hooks.mkdir()
+    marker = tmp_path / 'hook-ran'
+    hook = hooks / 'pre-commit'
+    hook.write_text('#!/bin/sh\nprintf ran > ' + shlex.quote(str(marker)) + '\nexit 1\n')
+    hook.chmod(0o755)
+    config = tmp_path / 'gitconfig'
+    config.write_text('[core]\n\thooksPath = ' + str(hooks) + '\n')
+    monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(config))
+    result = call(root, 'prepare', request, review=review(request))
+    assert not result['ok'] and result['error'] == 'git_commit_hook_policy_unsupported'
+    assert not marker.exists()
+    assert port._candidate(root, result['branch']) is None
+
+
 @pytest.mark.skipif(os.name == 'nt' or shutil.which('ssh-keygen') is None, reason='requires POSIX SSH signing fixture')
 @pytest.mark.parametrize('source', ['global', 'local', 'injected'])
 def test_prepare_preserves_required_ssh_signing(tmp_path, monkeypatch, source):
