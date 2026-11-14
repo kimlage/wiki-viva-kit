@@ -150,7 +150,7 @@ def test_coordination_transition_failure_reports_uncertain_state(tmp_path, monke
     monkeypatch.setattr(module, 'transition_dialogue_action', failure)
     with pytest.raises(ValueError) as internal:
         module.main()
-    assert SENTINEL not in str(internal.value) and 'inspect action state before retry' in str(internal.value)
+    assert type(internal.value) is ValueError and SENTINEL in str(internal.value)
     with pytest.raises(SystemExit) as error:
         module._run_cli()
     assert error.value.code == 1
@@ -241,3 +241,26 @@ def test_cyclic_root_errors_do_not_expose_selected_path(tmp_path, script, args):
                             input='{}', text=True, capture_output=True, env=env)
     assert result.returncode != 0 and 'Traceback' not in result.stderr
     assert SENTINEL not in result.stdout + result.stderr
+
+
+def test_coordination_direct_caller_keeps_structured_transition_error(tmp_path, monkeypatch, capsys):
+    from wiki_core.action_transition import ActionTransitionError
+    monkeypatch.syspath_prepend(str(ROOT / 'scripts'))
+    module = _module('wiki_coordination')
+    event = tmp_path / 'event.json'
+    event.write_text('{"coordinator":"synthetic"}')
+    args = ['--root', str(tmp_path), '--profile', 'synthetic', '--action-id', 'a', '--action-path', 'a.md',
+            '--expected-sha256', 'a' * 64, '--event-file', str(event)]
+    monkeypatch.setattr(sys, 'argv', ['wiki_coordination.py', *args])
+    original = ActionTransitionError(code='synthetic_stale', current_state='pending')
+    def fail(*_a, **_k):
+        raise original
+    monkeypatch.setattr(module, 'transition_dialogue_action', fail)
+    with pytest.raises(ActionTransitionError) as error:
+        module.main()
+    assert error.value is original and error.value.to_dict()['error_code'] == 'synthetic_stale'
+    with pytest.raises(SystemExit) as cli_error:
+        module._run_cli()
+    assert cli_error.value.code == 1
+    captured = capsys.readouterr()
+    assert 'synthetic_stale' not in captured.err and 'inspect action state before retry' in captured.err

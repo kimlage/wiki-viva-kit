@@ -20,18 +20,6 @@ from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordi
 
 
 
-class _ActionValueFailure(ValueError):
-    pass
-
-
-class _ActionOSFailure(OSError):
-    pass
-
-
-class _ActionFailure(RuntimeError):
-    pass
-
-
 def _read_dialogue_event(path: Path):
     """Read one bounded event; reject special files before reading on POSIX."""
     flags = os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0) | getattr(os, 'O_BINARY', 0)
@@ -206,18 +194,9 @@ def main() -> None:
             parser.error("event input unavailable")
         if not isinstance(event, dict) or event.get("coordinator") != args.profile:
             parser.error("event coordinator must equal selected profile")
-        try:
-            result = transition_dialogue_action(
-                root, args.action_path, args.action_id, event,
-                expected_sha256=args.expected_sha256, as_operator=args.as_operator).to_dict()
-        except ValueError:
-            # Preserve the callable's ValueError contract without leaking input.
-            raise _ActionValueFailure('action transition failed; inspect action state before retry') from None
-        except OSError:
-            raise _ActionOSFailure('action transition failed; inspect action state before retry') from None
-        except Exception:
-            # The call may have partially changed state; do not imply rollback.
-            raise _ActionFailure('action transition failed; inspect action state before retry') from None
+        result = transition_dialogue_action(
+            root, args.action_path, args.action_id, event,
+            expected_sha256=args.expected_sha256, as_operator=args.as_operator).to_dict()
 
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
@@ -225,8 +204,10 @@ def main() -> None:
 def _run_cli() -> None:
     try:
         main()
-    except (_ActionValueFailure, _ActionOSFailure, _ActionFailure):
-        print('action transition failed; inspect action state before retry', file=sys.stderr)
+    except Exception:
+        # Direct callers retain original exception types and details. The CLI
+        # reports no exception text and does not imply rollback after a write.
+        print('coordination failed; if a transition was attempted, inspect action state before retry', file=sys.stderr)
         raise SystemExit(1)
 
 
