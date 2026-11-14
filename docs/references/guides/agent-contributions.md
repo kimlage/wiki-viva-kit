@@ -235,3 +235,48 @@ Tests distinguish synthetic adapter reports and mocked GitHub CI from real
 local Git/CLI execution. Neither proves a model or provider was called. Public
 fixtures contain only fictional content; personal configuration and material
 remain in each private consumer.
+
+## Read-only integration observation
+
+Run `python3 scripts/wiki_integration_check.py --root /path/to/repo [--pr N] [--json]`
+to observe GitHub proposal readiness and local branch/worktree hygiene. Without
+`--pr`, the command inventories proposals, local and remote branches and
+worktrees. A filtered observation does not claim that the global branch inventory
+is complete. It reads destination policy from the retained object for the live
+default branch and does not fetch, run gates, change refs, post, merge or clean
+anything. Missing local objects, provider access, policy or a supported adapter
+produce a named wait rather than a readiness claim. The GitHub adapter refuses an
+inventory at its 1,000-proposal bound instead of presenting a truncated result.
+
+Each proposal reports `integrable`, `waiting:<event>`, `fix:<finding>` or
+`done`; hygiene findings are separate. This is an advisory snapshot, not an
+approval or authorization. Recheck current head, base, policy and observations
+before an effect. A closed proposal requires an explicit reason comment using
+`Disposition-Reason:`, `Motivo:` or `Reason for closure:`; an unrecognized
+comment leaves `waiting:verify_closure_reason` for an operator to reconcile. An orphan branch or a
+worktree finding does not authorize deletion.
+
+The GitHub adapter accepts a native independent approval with the exact commit
+and full SHA in its body, or an explicitly attributed handoff comment. The
+handoff is a declaration, not runtime identity verification. To make it
+machine-readable, use separate lines on one comment:
+
+```text
+Head: <full SHA>
+Executor: <executor session or actor>
+Reviewer: <different reviewer session or actor>
+Review: approved
+Review-Evidence: <review link or reference>
+Responsible-Thread: <thread reference>
+```
+
+The integrator must verify the evidence and the identities independently. When
+human approval is required, the adapter checks for a GitHub `APPROVED` review
+on that SHA by a different account whose GitHub user type is `User`; an account
+type alone cannot prove who operated a shared account. Confirm the applicable
+human authority before merging. GitHub check observations are tied to the
+proposal head. With `local_gates`, the command returns
+`waiting:local_gates_at_integration`: the existing contribution contract reruns
+gates on the immutable reviewed head, and a comment cannot replace that run.
+For a destination without a supported wiki/GitHub policy adapter, follow its
+own repository rules; this command cannot infer them from prose.
