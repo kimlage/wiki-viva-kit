@@ -149,7 +149,7 @@ def test_reader_custom_cycle_remains_a_cycle(tmp_path):
     assert 'information_evidence_closed_claim_cycle' in result['requirements'][0]['blockers']
 
 
-@pytest.mark.parametrize('kind', ['frontmatter_missing', 'body_missing', 'body_existing', 'body_reference', 'malformed', 'historical'])
+@pytest.mark.parametrize('kind', ['frontmatter_missing', 'body_missing', 'body_existing', 'body_reference', 'body_external', 'body_fragment', 'malformed', 'historical'])
 def test_reader_marks_unassessed_transitive_requirements_without_opening_targets(tmp_path, monkeypatch, kind):
     import wiki_core.web.content as content
     from wiki_core.markdown_link_roles import declare_link_role
@@ -163,7 +163,8 @@ def test_reader_marks_unassessed_transitive_requirements_without_opening_targets
     elif kind == 'malformed':
         text = text.replace('---\nAn observed fact.', 'information_requirements: invalid\n---\nAn observed fact.')
     else:
-        link = '[Required][other]' if kind == 'body_reference' else '[Required](other-synthetic.md)'
+        link = {'body_reference': '[Required][other]', 'body_external': '[Required](https://example.invalid/source)',
+                'body_fragment': '[Required](#section)'}.get(kind, '[Required](other-synthetic.md)')
         text += '\n' + declare_link_role(link, 'operational_prerequisite') + '\n'
         if kind == 'body_reference':
             text += '\n[other]: other-synthetic.md\n'

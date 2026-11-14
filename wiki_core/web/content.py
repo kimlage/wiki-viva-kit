@@ -330,7 +330,7 @@ def _reader_information(root, config, path, values, body, snapshot):
     # This passive graph contains only the consumer's direct requirements and
     # the evidence already read for them. Do not read nested targets here or
     # present those unassessed requirements as a successful full assessment.
-    from wiki_core.information_relations import _body_occurrences
+    from wiki_core.markdown_link_roles import parse_role_markdown
     def has_unassessed_requirements(start):
         pending = [start]
         visited = {path}
@@ -344,8 +344,8 @@ def _reader_information(root, config, path, values, body, snapshot):
             if not isinstance(declared, list) or declared:
                 return True
             try:
-                if any(edge['type'] == 'operational_prerequisite'
-                       for edge in _body_occurrences(root, current, graph['documents'][current], set())):
+                _, roles = parse_role_markdown(graph['documents'][current])
+                if any(role.get('role') == 'operational_prerequisite' for role in roles.values()):
                     return True
             except (ValueError, TypeError, RecursionError):
                 return True
