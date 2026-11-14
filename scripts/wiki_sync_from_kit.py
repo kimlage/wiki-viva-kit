@@ -17,7 +17,9 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
 import shlex
+import stat
 import subprocess
 import sys
 import tempfile
@@ -26,9 +28,18 @@ from typing import Any
 
 import yaml
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from wiki_core.git_env import local_git_environment, local_git_executable
+from wiki_core.git_safety import GitSafetyError, sanitized_git_argv
+from wiki_core.process_safety import ProcessSafetyError, run_bounded_process
+from wiki_core.traversal import is_protected_artifact
+
 
 DEFAULT_MANIFEST = Path("docs/references/upgrades/sync-manifest.yaml")
 LOCK_NAME = "kit.lock"
+DRIFT_GIT_TIMEOUT_SECONDS = 30
+DRIFT_MAX_MANAGED_PATHS = 8192
+DRIFT_MAX_PATH_BYTES = 4096
 
 
 class SyncError(RuntimeError):
@@ -199,6 +210,310 @@ def _consumer_state(consumer: Path, paths: dict[str, dict[str, Any]]) -> dict[st
         else:
             state[rel] = {"kind": "missing"}
     return state
+
+
+
+
+def _drift_check_consumer_path(consumer: Path, rel: str) -> None:
+    """Check physical aliases of reserved siblings without reading bodies."""
+    _check_consumer_path(consumer, rel)
+    current = consumer
+    for part in rel.split("/"):
+        current = current / part
+        try:
+            chosen = current.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise SyncError("unsafe or unreadable consumer path") from exc
+        for reserved in (current.parent / ".git", current.parent / ".wiki-viva-protected"):
+            try:
+                boundary = reserved.lstat()
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                raise SyncError("unsafe or unreadable consumer path") from exc
+            if (chosen.st_dev, chosen.st_ino) == (boundary.st_dev, boundary.st_ino):
+                raise SyncError("consumer path aliases a reserved component")
+
+
+def _drift_reject_reserved_alias(parent_fd: int, selected_fd: int) -> None:
+    """Refuse a selected inode that aliases a reserved sibling before reading."""
+    selected = os.fstat(selected_fd)
+    for name in ('.git', '.wiki-viva-protected'):
+        try:
+            reserved = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            continue
+        if (selected.st_dev, selected.st_ino) == (reserved.st_dev, reserved.st_ino):
+            raise SyncError('consumer path aliases a reserved component')
+
+
+def _drift_worktree_file(consumer: Path, rel: str, *, payload: bool = False) -> tuple[dict[str, Any], bytes | None]:
+    """Read a regular file through a no-follow directory chain, or refuse."""
+    if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_NONBLOCK")
+            or not hasattr(os, "O_DIRECTORY") or os.open not in os.supports_dir_fd
+            or os.stat not in os.supports_dir_fd or os.stat not in os.supports_follow_symlinks
+            or os.access not in os.supports_dir_fd or os.access not in os.supports_follow_symlinks):
+        raise SyncError("drift inspection requires no-follow directory-relative reads")
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    if is_protected_artifact(consumer) or is_protected_artifact(Path(rel)):
+        raise SyncError("protected selection requires bound dispatch")
+    _validate_drift_selection([rel])
+    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | getattr(os, "O_CLOEXEC", 0)
+    opened: list[int] = []
+    try:
+        parent = os.open(consumer, directory_flags)
+        opened.append(parent)
+        parts = rel.split("/")
+        for part in parts[:-1]:
+            try:
+                selected = os.open(part, directory_flags, dir_fd=parent)
+            except FileNotFoundError:
+                return {"kind": "missing"}, None
+            opened.append(selected)
+            _drift_reject_reserved_alias(parent, selected)
+            parent = selected
+            try:
+                os.stat(".git", dir_fd=parent, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise SyncError("consumer path crosses a nested repository")
+        try:
+            fd = os.open(parts[-1], flags, dir_fd=parent)
+        except FileNotFoundError:
+            return {"kind": "missing"}, None
+        opened.append(fd)
+        _drift_reject_reserved_alias(parent, fd)
+        before = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode):
+            return {"kind": "other"}, None
+        if before.st_nlink != 1:
+            raise SyncError("drift inspection refuses hard-linked files")
+        digest = hashlib.sha256()
+        chunks: list[bytes] = []
+        total = 0
+        limit = 8 * 1024 * 1024 if payload else 128 * 1024 * 1024
+        if before.st_size > limit:
+            raise SyncError("drift inspection file exceeds size limit")
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > limit:
+                raise SyncError("drift inspection file exceeds size limit")
+            digest.update(chunk)
+            if payload:
+                chunks.append(chunk)
+        after = os.fstat(fd)
+        identity = lambda s: (s.st_dev, s.st_ino, s.st_mode, s.st_size, s.st_mtime_ns, s.st_ctime_ns, s.st_nlink)
+        executable = os.access(parts[-1], os.X_OK, dir_fd=parent, follow_symlinks=False)
+        named = os.stat(parts[-1], dir_fd=parent, follow_symlinks=False)
+        if identity(before) != identity(after) or identity(after) != identity(named):
+            raise SyncError("managed file changed during drift inspection")
+        return {"kind": "file", "sha256": digest.hexdigest(), "size": total,
+                "mode": "100755" if executable else "100644"}, b"".join(chunks) if payload else None
+    except OSError as exc:
+        raise SyncError("unsafe or unreadable drift inspection path") from exc
+    finally:
+        for fd in reversed(opened):
+            os.close(fd)
+
+
+def _drift_git_env() -> dict[str, str]:
+    try:
+        return local_git_environment()
+    except GitSafetyError as exc:
+        raise SyncError("safe Git authority unavailable") from exc
+
+
+def _drift_git_prefix() -> list[str]:
+    try:
+        return sanitized_git_argv(["--no-lazy-fetch"], executable=local_git_executable())
+    except GitSafetyError as exc:
+        raise SyncError("safe Git authority unavailable") from exc
+
+
+
+def _drift_git_run(argv: list[str], consumer: Path, *, output_limit: int,
+                   input_bytes: bytes | None = None):
+    """Bound Git output and execution; never include Git output in errors."""
+    try:
+        return run_bounded_process(argv, cwd=consumer, env=_drift_git_env(),
+            timeout=DRIFT_GIT_TIMEOUT_SECONDS, output_limit=output_limit,
+            input_bytes=input_bytes, stderr=subprocess.DEVNULL)
+    except (OSError, ProcessSafetyError, ValueError) as exc:
+        raise SyncError("drift Git command unavailable or exceeded limits") from exc
+
+
+
+def _validate_drift_selection(paths: list[str]) -> None:
+    """Reject reserved, invalid and overlapping paths before Git enumeration."""
+    if len(paths) > DRIFT_MAX_MANAGED_PATHS:
+        raise SyncError("drift selection exceeds path limit")
+    selected = set()
+    for rel in paths:
+        try:
+            if (not isinstance(rel, str) or not rel or "\\" in rel or "\0" in rel
+                    or Path(rel).is_absolute() or any(part in ("", ".", "..") or part.casefold() == ".git" for part in rel.split("/"))
+                    or len(os.fsencode(rel)) > DRIFT_MAX_PATH_BYTES or is_protected_artifact(Path(rel))):
+                raise SyncError("unsafe or protected drift selection")
+        except UnicodeError as exc:
+            raise SyncError("unsafe or protected drift selection") from exc
+        if rel in selected:
+            raise SyncError("duplicate drift selection")
+        selected.add(rel)
+    for rel in selected:
+        parts = rel.split("/")
+        if any("/".join(parts[:i]) in selected for i in range(1, len(parts))):
+            raise SyncError("overlapping drift selection")
+
+
+def _drift_index_metadata(consumer: Path, paths: list[str]) -> dict[str, tuple[str, str]]:
+    """Read only selected index entries; refuse unmerged/non-regular records."""
+    _validate_drift_selection(paths)
+    entries: dict[str, tuple[str, str]] = {}
+    for start in range(0, len(paths), 32):
+        selected = paths[start:start + 32]
+        # A literal Git pathspec also matches descendants of a directory.
+        # Exclude those descendants so only exact selected files are emitted.
+        include = [f":(top,literal){rel}" for rel in selected]
+        exclude = [f":(top,exclude,literal){rel}/" for rel in selected]
+        result = _drift_git_run([*_drift_git_prefix(), "ls-files", "--stage", "--debug", "-z", "--", *include, *exclude],
+                                consumer, output_limit=2 * 1024 * 1024)
+        if result.returncode:
+            raise SyncError("consumer index unavailable")
+        debug = re.compile(rb"  ctime: -?\d+:-?\d+\n  mtime: -?\d+:-?\d+\n"
+                           rb"  dev: -?\d+\tino: -?\d+\n  uid: -?\d+\tgid: -?\d+\n"
+                           rb"  size: -?\d+\tflags: ([0-9a-fA-F]+)\n")
+        offset = 0
+        while offset < len(result.output):
+            try:
+                end = result.output.index(b"\0", offset)
+                metadata, name = result.output[offset:end].split(b"\t", 1)
+                details = debug.match(result.output, end + 1)
+                if details is None:
+                    raise ValueError("unsupported index metadata")
+                flags = int(details.group(1), 16)
+                mode, oid, stage = metadata.decode("ascii").split()
+                rel = name.decode("utf-8")
+                if (rel not in selected or rel in entries or stage != "0" or mode not in {"100644", "100755"}
+                        or flags & 0x20000000 or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", oid)):
+                    raise ValueError("invalid index entry")
+                offset = details.end()
+            except (UnicodeError, ValueError) as exc:
+                raise SyncError("consumer index has unsafe, unmerged or intent-to-add entry") from exc
+            entries[rel] = (mode, oid)
+    return entries
+
+
+def _drift_index_states(consumer: Path, paths: list[str]) -> dict[str, dict[str, Any]]:
+    """Hash immutable selected blobs, with a bounded batch and stable index."""
+    import io
+    metadata = _drift_index_metadata(consumer, paths)
+    oids = sorted({oid for _, oid in metadata.values()})
+    request = "".join(oid + "\n" for oid in oids).encode("ascii")
+    check = _drift_git_run([*_drift_git_prefix(), "cat-file", "--batch-check"], consumer,
+                           input_bytes=request, output_limit=2 * 1024 * 1024)
+    if check.returncode:
+        raise SyncError("consumer index blob metadata unavailable")
+    lines = check.output.splitlines()
+    total = 0
+    if len(lines) != len(oids):
+        raise SyncError("consumer index blob metadata incomplete")
+    for expected, line in zip(oids, lines):
+        fields = line.split()
+        if len(fields) != 3 or fields[0].decode("ascii", "replace") != expected or fields[1] != b"blob" or not fields[2].isdigit():
+            raise SyncError("consumer index blob metadata invalid")
+        total += int(fields[2])
+    if total > 128 * 1024 * 1024:
+        raise SyncError("consumer index blobs exceed inspection limit")
+    batch = _drift_git_run([*_drift_git_prefix(), "cat-file", "--batch"], consumer,
+                           input_bytes=request, output_limit=128 * 1024 * 1024 + 2 * 1024 * 1024)
+    if batch.returncode:
+        raise SyncError("consumer index blobs unavailable")
+    stream = io.BytesIO(batch.output)
+    hashes: dict[str, str] = {}
+    for expected in oids:
+        fields = stream.readline().split()
+        if len(fields) != 3 or fields[0].decode("ascii", "replace") != expected or fields[1] != b"blob" or not fields[2].isdigit():
+            raise SyncError("consumer index blobs invalid")
+        size = int(fields[2])
+        data = stream.read(size)
+        if len(data) != size or stream.read(1) != b"\n":
+            raise SyncError("consumer index blobs incomplete")
+        hashes[expected] = _sha256_bytes(data)
+    if stream.read(1) or metadata != _drift_index_metadata(consumer, paths):
+        raise SyncError("consumer index changed during drift inspection")
+    return {rel: ({"kind": "file", "mode": metadata[rel][0], "sha256": hashes[metadata[rel][1]]}
+                  if rel in metadata else {"kind": "missing"}) for rel in paths}
+
+
+def inspect_drift(consumer: Path) -> dict[str, Any]:
+    """Compare worktree and index with the local lock without changing them."""
+    if is_protected_artifact(consumer):
+        raise SyncError("protected selection requires bound dispatch")
+    top = _drift_git_run([*_drift_git_prefix(), "rev-parse", "--show-toplevel"], consumer, output_limit=16384)
+    try:
+        if not top.output.endswith(b"\n"):
+            raise ValueError('missing Git line terminator')
+        top_path = Path(os.fsdecode(top.output[:-1])).resolve()
+    except (ValueError, OSError):
+        raise SyncError("consumer path must be its Git root and Git must support --no-lazy-fetch") from None
+    if top.returncode or top_path != consumer.resolve():
+        raise SyncError("consumer path must be its Git root and Git must support --no-lazy-fetch")
+    _, lock_bytes = _drift_worktree_file(consumer, LOCK_NAME, payload=True)
+    if lock_bytes is None:
+        raise SyncError("kit.lock is required for drift inspection")
+    try:
+        lock = yaml.safe_load(lock_bytes)
+    except yaml.YAMLError as exc:
+        raise SyncError("kit.lock is invalid") from exc
+    if not isinstance(lock, dict) or lock.get("schema_version") != "wiki_viva_kit_lock.v1":
+        raise SyncError("kit.lock has an unsupported schema_version")
+    for field, pattern in (("source_sha", r"[0-9a-f]{40}|[0-9a-f]{64}"),
+                           ("manifest_sha256", r"[0-9a-f]{64}"),
+                           ("portable_tree_sha256", r"[0-9a-f]{64}")):
+        if not isinstance(lock.get(field), str) or not re.fullmatch(pattern, lock[field]):
+            raise SyncError("kit.lock has incomplete provenance metadata")
+    managed = lock.get("managed_files")
+    if not isinstance(managed, dict) or not managed:
+        raise SyncError("kit.lock managed_files must be a non-empty mapping")
+    # Reject the whole selection before resolving or enumerating any managed path.
+    _validate_drift_selection(list(managed))
+    for rel, expected in managed.items():
+        _drift_check_consumer_path(consumer, rel)
+        if (not isinstance(expected, dict)
+                or not isinstance(expected.get("sha256"), str)
+                or not re.fullmatch(r"[0-9a-f]{64}", expected["sha256"])
+                or expected.get("mode") not in {"100644", "100755"}):
+            raise SyncError("kit.lock contains invalid managed file metadata")
+    paths = sorted(managed)
+    tree = [{"path": rel, "sha256": managed[rel]["sha256"], "mode": managed[rel]["mode"]} for rel in paths]
+    if _canonical_sha256(tree) != lock["portable_tree_sha256"]:
+        raise SyncError("kit.lock managed file digest mismatch")
+    index_states = _drift_index_states(consumer, paths)
+    drift = []
+    total_worktree_bytes = 0
+    for rel in paths:
+        expected = {key: managed[rel][key] for key in ("sha256", "mode")}
+        worktree, _ = _drift_worktree_file(consumer, rel)
+        total_worktree_bytes += int(worktree.get("size", 0))
+        if total_worktree_bytes > 512 * 1024 * 1024:
+            raise SyncError("consumer worktree exceeds inspection limit")
+        index = index_states[rel]
+        if any(state.get("kind") != "file" or any(state.get(key) != value for key, value in expected.items())
+               for state in (worktree, index)):
+            drift.append({"path": rel, "expected": expected, "worktree": worktree, "index": index})
+    _, final_lock = _drift_worktree_file(consumer, LOCK_NAME, payload=True)
+    if final_lock != lock_bytes:
+        raise SyncError("kit.lock changed during drift inspection")
+    if index_states != _drift_index_states(consumer, paths):
+        raise SyncError("consumer index changed during drift inspection")
+    return {"schema_version": "wiki_viva_sync_drift.v1", "status": "drift" if drift else "clean",
+            "source_sha": lock.get("source_sha"), "managed_total": len(managed), "drift": drift}
 
 
 def _git_dirty(root: Path) -> list[str]:
@@ -394,6 +709,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--consumer", type=Path, required=True)
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--dry-run", action="store_true", help="print B0 without mutation")
+    parser.add_argument("--inspect-drift", action="store_true", help="report all lock drift without mutation")
     parser.add_argument("--json", action="store_true", help="emit the plan as JSON")
     parser.add_argument("--allow-dirty", action="store_true", help="allow apply in a dirty consumer")
     parser.add_argument("--c3-command", action="append", default=[], type=_parse_command)
@@ -403,6 +719,20 @@ def main(argv: list[str] | None = None) -> int:
     consumer = args.consumer.resolve()
     manifest_path = (args.manifest.resolve() if args.manifest else kit / DEFAULT_MANIFEST)
     try:
+        if args.inspect_drift:
+            if args.c3_command:
+                raise SyncError("drift inspection cannot run C3 commands")
+            if not consumer.is_dir():
+                raise SyncError("--consumer must be an existing directory")
+            report = inspect_drift(consumer)
+            if args.json:
+                print(json.dumps(report, indent=2, sort_keys=True).replace('\x7f', r'\u007f'))
+            else:
+                print(f"Drift: {report['status']} ({len(report['drift'])} of {report['managed_total']} managed files)")
+                for item in report["drift"]:
+                    safe_path = json.dumps(item['path'], ensure_ascii=True).replace('\x7f', r'\u007f')
+                    print(f"  {safe_path}: worktree={item['worktree']['kind']} index={item['index']['kind']}")
+            return 1 if report["drift"] else 0
         if not (kit / ".git").exists() and _run(["git", "rev-parse", "--is-inside-work-tree"], cwd=kit).stdout.strip() != "true":
             raise SyncError("--kit must be a Git worktree")
         if not consumer.is_dir():

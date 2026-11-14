@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -13,6 +15,13 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/wiki_sync_from_kit.py"
+requires_safe_drift = pytest.mark.skipif(
+    os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_NONBLOCK")
+    or not hasattr(os, "O_DIRECTORY") or os.open not in os.supports_dir_fd
+    or os.stat not in os.supports_dir_fd or os.stat not in os.supports_follow_symlinks
+    or os.access not in os.supports_dir_fd or os.access not in os.supports_follow_symlinks,
+    reason="drift inspection requires POSIX no-follow and directory-relative reads",
+)
 
 
 def _git(root: Path, *args: str) -> str:
@@ -446,6 +455,281 @@ def test_modified_previously_managed_file_is_not_pruned(tmp_path: Path) -> None:
     assert (consumer / 'portable/tool.txt').read_text() == 'local work in progress'
 
 
+@requires_safe_drift
+def test_read_only_drift_inventory_reports_all_managed_changes_without_touching_wip(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    clean = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert clean.returncode == 0 and json.loads(clean.stdout)["drift"] == []
+    (consumer / "generate.py").write_text("# committed synthetic drift\n")
+    _git(consumer, "add", "generate.py")
+    _git(consumer, "commit", "-qm", "committed drift")
+    (consumer / "generate.py").write_text("# staged synthetic drift\n")
+    _git(consumer, "add", "generate.py")
+    (consumer / "generate.py").write_text("# unstaged synthetic drift\n")
+    (consumer / "portable/tool.txt").unlink()
+    (consumer / "untracked.txt").write_text("synthetic work in progress\n")
+    before_status = _git(consumer, "status", "--porcelain=v1")
+    before_lock = (consumer / "kit.lock").read_bytes()
+    before_index = _git(consumer, "write-tree")
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 1, result.stderr
+    report = json.loads(result.stdout)
+    assert report["status"] == "drift"
+    assert [(row["path"], row["worktree"]["kind"]) for row in report["drift"]] == [
+        ("generate.py", "file"), ("portable/tool.txt", "missing")
+    ]
+    assert all(row["expected"]["sha256"] for row in report["drift"])
+    assert _git(consumer, "status", "--porcelain=v1") == before_status
+    assert _git(consumer, "write-tree") == before_index
+    assert (consumer / "kit.lock").read_bytes() == before_lock
+    assert (consumer / "generate.py").read_text() == "# unstaged synthetic drift\n"
+    assert (consumer / "untracked.txt").read_text() == "synthetic work in progress\n"
+    assert not (consumer / "portable/tool.txt").exists()
+
+
+@requires_safe_drift
+def test_drift_inventory_detects_staged_change_when_worktree_matches_lock(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    target = consumer / "portable/tool.txt"
+    original = target.read_bytes()
+    target.write_text("staged synthetic change\n")
+    _git(consumer, "add", "portable/tool.txt")
+    target.write_bytes(original)
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 1, result.stderr
+    row = next(row for row in json.loads(result.stdout)["drift"] if row["path"] == "portable/tool.txt")
+    assert row["worktree"]["sha256"] == row["expected"]["sha256"]
+    assert row["index"]["sha256"] != row["expected"]["sha256"]
+    assert target.read_bytes() == original
+
+
+@requires_safe_drift
+def test_drift_inspection_ignores_hostile_git_environment_and_fsmonitor(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    alternate_index = tmp_path / "old-index"
+    shutil.copyfile(consumer / ".git/index", alternate_index)
+    target = consumer / "portable/tool.txt"
+    original = target.read_bytes()
+    target.write_text("staged synthetic change\n")
+    _git(consumer, "add", "portable/tool.txt")
+    target.write_bytes(original)
+    marker = tmp_path / "fsmonitor-ran"
+    hook = tmp_path / "synthetic-fsmonitor"
+    hook.write_text(f'#!/bin/sh\nprintf invoked > {shlex.quote(str(marker))}\n')
+    hook.chmod(0o755)
+    _git(consumer, "config", "core.fsmonitor", str(hook))
+    monkeypatch.setenv("GIT_INDEX_FILE", str(alternate_index))
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "core.fsmonitor")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", str(hook))
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 1, result.stderr
+    row = next(row for row in json.loads(result.stdout)["drift"] if row["path"] == "portable/tool.txt")
+    assert row["index"]["sha256"] != row["expected"]["sha256"]
+    assert row["worktree"]["sha256"] == row["expected"]["sha256"]
+    assert not marker.exists()
+    assert target.read_bytes() == original
+
+
+@requires_safe_drift
+def test_drift_inspection_refuses_large_worktree_file_without_changing_it(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    target = consumer / "portable/tool.txt"
+    with target.open("wb") as handle:
+        handle.truncate(128 * 1024 * 1024 + 1)
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2 and "size limit" in result.stderr
+    assert target.stat().st_size == 128 * 1024 * 1024 + 1
+
+
+@requires_safe_drift
+def test_drift_inspection_refuses_parent_symlink_swap(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "tool.txt").write_text("outside synthetic sentinel\n")
+    sync = _sync_module()
+    original = sync._check_consumer_path
+
+    def swap(root, rel):
+        original(root, rel)
+        if rel == "portable/tool.txt":
+            (consumer / "portable").rename(consumer / "preserved")
+            (consumer / "portable").symlink_to(outside, target_is_directory=True)
+
+    monkeypatch.setattr(sync, "_check_consumer_path", swap)
+    with pytest.raises(sync.SyncError, match="unsafe or unreadable"):
+        sync.inspect_drift(consumer)
+    assert (outside / "tool.txt").read_text() == "outside synthetic sentinel\n"
+    assert (consumer / "preserved/tool.txt").read_text() == "v1\n"
+
+
+@pytest.mark.parametrize("relative", ["portable/tool.txt", "kit.lock"])
+@requires_safe_drift
+def test_drift_inspection_refuses_external_hardlink(tmp_path: Path, relative: str) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside synthetic sentinel\n")
+    target = consumer / relative
+    target.unlink()
+    os.link(outside, target)
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2 and "hard-linked" in result.stderr
+    assert result.stdout == ""
+    assert outside.read_text() == "outside synthetic sentinel\n"
+
+
+@requires_safe_drift
+def test_drift_inventory_refuses_missing_lock_and_symlink_without_mutation(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    missing = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert missing.returncode == 2 and "kit.lock" in missing.stderr
+    assert _run(kit, consumer, manifest).returncode == 0
+    target = consumer / "portable/tool.txt"
+    target.unlink()
+    target.symlink_to(consumer / "generate.py")
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2 and "symlink" in result.stderr
+    assert target.is_symlink()
+
+
+@requires_safe_drift
+def test_drift_inventory_refuses_c3_and_invalid_lock_metadata(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    command = _run(kit, consumer, manifest, "--inspect-drift", "--c3-command", "python3 generate.py")
+    assert command.returncode == 2 and "cannot run C3" in command.stderr
+    lock_path = consumer / "kit.lock"
+    lock = yaml.safe_load(lock_path.read_text())
+    lock["managed_files"]["portable/tool.txt"]["sha256"] = "invalid"
+    lock_path.write_text(yaml.safe_dump(lock))
+    before = lock_path.read_bytes()
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2 and "invalid managed file metadata" in result.stderr
+    assert lock_path.read_bytes() == before
+    lock_path.write_text("schema_version: wiki_viva_kit_lock.v1\nmanaged_files: {}\n")
+    incomplete = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert incomplete.returncode == 2 and "incomplete provenance" in incomplete.stderr
+
+
+@requires_safe_drift
+def test_drift_inventory_refuses_lock_with_inconsistent_tree_digest(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    lock_path = consumer / "kit.lock"
+    lock = yaml.safe_load(lock_path.read_text())
+    lock["managed_files"]["portable/tool.txt"]["sha256"] = "0" * 64
+    lock_path.write_text(yaml.safe_dump(lock))
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2 and "digest mismatch" in result.stderr
+
+
+@requires_safe_drift
+def test_drift_inventory_refuses_unmerged_index(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    oid = _git(consumer, "rev-parse", "HEAD:portable/tool.txt")
+    entry = f"0 {'0' * 40}\tportable/tool.txt\n100644 {oid} 1\tportable/tool.txt\n100644 {oid} 2\tportable/tool.txt\n"
+    result = subprocess.run(["git", "update-index", "--index-info"], cwd=consumer,
+                            input=entry, text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    inspected = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert inspected.returncode == 2 and "unmerged" in inspected.stderr
+    assert (consumer / "portable/tool.txt").read_text() == "v1\n"
+
+
+@requires_safe_drift
+@pytest.mark.parametrize("mode", [0o641, 0o650, 0o644, 0o755])
+def test_drift_inspection_uses_same_execute_mode_as_b0(tmp_path: Path, mode: int) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    target = consumer / "portable/tool.txt"
+    target.chmod(mode)
+    b0 = _run(kit, consumer, manifest, "--dry-run", "--json")
+    inspected = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    expected_drift = os.access(target, os.X_OK)
+    assert (b0.returncode != 0) == expected_drift
+    assert (inspected.returncode == 1) == expected_drift
+
+
+def test_drift_inspection_fails_closed_without_safe_directory_reads(tmp_path: Path, monkeypatch) -> None:
+    sync = _sync_module()
+    monkeypatch.setattr(sync.os, "supports_dir_fd", set())
+    with pytest.raises(sync.SyncError, match="requires no-follow directory-relative reads"):
+        sync._drift_worktree_file(tmp_path, "kit.lock")
+
+
+@requires_safe_drift
+def test_drift_inspection_never_lazy_fetches_missing_index_blob(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    remote = tmp_path / "promisor.git"
+    subprocess.run(["git", "clone", "--bare", "--no-hardlinks", str(consumer), str(remote)],
+                   check=True, capture_output=True)
+    _git(consumer, "config", "remote.origin.url", str(remote))
+    _git(consumer, "config", "remote.origin.promisor", "true")
+    _git(consumer, "config", "remote.origin.partialclonefilter", "blob:none")
+    oid = _git(consumer, "rev-parse", "HEAD:portable/tool.txt")
+    missing_blob = consumer / ".git/objects" / oid[:2] / oid[2:]
+    assert missing_blob.is_file()
+    missing_blob.unlink()
+    objects = consumer / ".git/objects"
+    before = {p.relative_to(objects).as_posix() for p in objects.rglob("*") if p.is_file()}
+    trace = tmp_path / "synthetic-git-trace"
+    monkeypatch.setenv("GIT_TRACE", str(trace))
+    result = _run(kit, consumer, manifest, "--inspect-drift", "--json")
+    assert result.returncode == 2
+    assert {p.relative_to(objects).as_posix() for p in objects.rglob("*") if p.is_file()} == before
+    assert not missing_blob.exists()
+    assert not trace.exists()  # inherited Git tracing is removed, not written
+
+
+@requires_safe_drift
+def test_drift_inspection_refuses_git_without_no_lazy_fetch(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "synthetic adoption")
+    real_git = shutil.which("git")
+    assert real_git
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    wrapper = bindir / "git"
+    wrapper.write_text('#!/bin/sh\nfor arg in "$@"; do if [ "$arg" = "--no-lazy-fetch" ]; then exit 129; fi; done\n'
+                       f'exec {shlex.quote(real_git)} "$@"\n')
+    wrapper.chmod(0o755)
+    lock_before = (consumer / "kit.lock").read_bytes()
+    sync = _sync_module()
+    monkeypatch.setattr(sync, "local_git_executable", lambda: str(wrapper))
+    with pytest.raises(sync.SyncError, match="Git must support --no-lazy-fetch"):
+        sync.inspect_drift(consumer)
+    assert (consumer / "kit.lock").read_bytes() == lock_before
+
+
 def test_unmanaged_ignored_collision_is_preserved_or_identical_noop(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     (consumer / '.gitignore').write_text('portable/\n')
@@ -595,3 +879,176 @@ def test_actual_nested_git_repo_is_untouched_by_b0_and_allow_dirty_apply(tmp_pat
         assert _git(nested, 'status', '--porcelain') == nested_status
         assert not (nested / 'tool.txt').exists()
         assert not (consumer / 'kit.lock').exists()
+
+
+def _manual_drift_lock(consumer: Path, entries: dict[str, bytes]):
+    """Build a synthetic lock/index directly, without invoking sync."""
+    import hashlib
+    sync = _sync_module()
+    managed = {}
+    for rel, data in entries.items():
+        path = consumer / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        managed[rel] = {'sha256': hashlib.sha256(data).hexdigest(), 'mode': '100644'}
+    tree = [{'path': rel, **managed[rel]} for rel in sorted(managed)]
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'source_sha': 'a' * 40,
+            'manifest_sha256': 'b' * 64, 'portable_tree_sha256': sync._canonical_sha256(tree),
+            'managed_files': managed}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    _git(consumer, 'add', '-A')
+    _git(consumer, 'commit', '-qm', 'synthetic lock and files')
+    return sync
+
+
+@requires_safe_drift
+def test_drift_rejects_protected_selection_before_managed_metadata_or_body(tmp_path, monkeypatch):
+    consumer = _repo(tmp_path / 'consumer')
+    protected = 'data/.WIKI-VIVA-PROTECTED/secret.txt'
+    sync = _manual_drift_lock(consumer, {'a-normal.txt': b'normal', protected: b'synthetic'})
+    monkeypatch.setattr(sync, '_check_consumer_path', lambda *_: pytest.fail('managed path resolved'))
+    monkeypatch.setattr(sync, '_drift_index_states', lambda *_: pytest.fail('index selection opened'))
+    original = sync._drift_worktree_file
+    def only_lock(root, rel, **kwargs):
+        if rel != 'kit.lock':
+            pytest.fail('managed body opened')
+        return original(root, rel, **kwargs)
+    monkeypatch.setattr(sync, '_drift_worktree_file', only_lock)
+    with pytest.raises(sync.SyncError, match='protected drift selection'):
+        sync.inspect_drift(consumer)
+
+
+@requires_safe_drift
+def test_drift_human_output_escapes_terminal_control(tmp_path, monkeypatch, capsys):
+    consumer = _repo(tmp_path / 'consumer')
+    rel = 'synthetic-\x1b[31m-\x7f.txt'
+    sync = _manual_drift_lock(consumer, {rel: b'original'})
+    (consumer / rel).write_bytes(b'changed')
+    monkeypatch.setattr(sys, 'argv', [str(SCRIPT), '--kit', str(consumer), '--consumer', str(consumer), '--inspect-drift'])
+    assert sync.main() == 1
+    output = capsys.readouterr().out
+    assert '\x1b' not in output and '\x7f' not in output
+    assert '\\u001b' in output and '\\u007f' in output
+    monkeypatch.setattr(sys, 'argv', [str(SCRIPT), '--kit', str(consumer), '--consumer', str(consumer), '--inspect-drift', '--json'])
+    assert sync.main() == 1
+    output = capsys.readouterr().out
+    assert '\x1b' not in output and '\x7f' not in output
+    assert json.loads(output)['drift'][0]['path'] == rel
+
+
+@requires_safe_drift
+def test_drift_git_output_and_duration_are_bounded(tmp_path, monkeypatch):
+    sync = _sync_module()
+    with pytest.raises(sync.SyncError, match='exceeded limits'):
+        sync._drift_git_run([sys.executable, '-c', 'print("x" * 10000)'], tmp_path, output_limit=64)
+    monkeypatch.setattr(sync, 'DRIFT_GIT_TIMEOUT_SECONDS', 0.2)
+    with pytest.raises(sync.SyncError, match='exceeded limits'):
+        sync._drift_git_run([sys.executable, '-c', 'import time; time.sleep(3)'], tmp_path, output_limit=64)
+
+
+def test_drift_fails_closed_without_nonblocking_open(tmp_path, monkeypatch):
+    sync = _sync_module()
+    monkeypatch.delattr(sync.os, 'O_NONBLOCK', raising=False)
+    with pytest.raises(sync.SyncError, match='requires no-follow directory-relative reads'):
+        sync._drift_worktree_file(tmp_path, 'kit.lock')
+
+
+@requires_safe_drift
+@pytest.mark.parametrize('missing_worktree', [False, True])
+def test_drift_index_never_emits_descendants_of_selected_directory(tmp_path, monkeypatch, missing_worktree):
+    import hashlib
+    consumer = _repo(tmp_path / 'consumer')
+    sync = _sync_module()
+    nested = consumer / 'selected/.WIKI-VIVA-PROTECTED/synthetic.txt'
+    nested.parent.mkdir(parents=True)
+    nested.write_bytes(b'synthetic protected body')
+    expected = {'sha256': hashlib.sha256(b'expected file').hexdigest(), 'mode': '100644'}
+    tree = [{'path': 'selected', **expected}]
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'source_sha': 'a' * 40,
+            'manifest_sha256': 'b' * 64, 'portable_tree_sha256': sync._canonical_sha256(tree),
+            'managed_files': {'selected': expected}}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    _git(consumer, 'add', '-A')
+    _git(consumer, 'commit', '-qm', 'synthetic index')
+    if missing_worktree:
+        (consumer / 'selected').rename(consumer / 'elsewhere')
+    original = sync._drift_git_run
+    def inspect_output(*args, **kwargs):
+        result = original(*args, **kwargs)
+        assert b'.WIKI-VIVA-PROTECTED' not in result.output
+        return result
+    monkeypatch.setattr(sync, '_drift_git_run', inspect_output)
+    report = sync.inspect_drift(consumer)
+    assert report['status'] == 'drift'
+    assert report['drift'][0]['index']['kind'] == 'missing'
+
+
+@requires_safe_drift
+@pytest.mark.parametrize('name', ['consumer ', 'consumer\n'])
+def test_drift_accepts_git_root_with_trailing_whitespace(tmp_path, name):
+    consumer = _repo(tmp_path / name)
+    sync = _manual_drift_lock(consumer, {'synthetic.txt': b'original'})
+    assert sync.inspect_drift(consumer)['status'] == 'clean'
+
+
+def test_drift_rejects_overlapping_or_nul_selections_before_git():
+    sync = _sync_module()
+    for paths in (['parent', 'parent/child'], ['normal', 'bad\0path']):
+        with pytest.raises(sync.SyncError):
+            sync._validate_drift_selection(paths)
+
+
+@requires_safe_drift
+def test_drift_exact_pathspec_accepts_literal_special_names(tmp_path):
+    consumer = _repo(tmp_path / 'consumer')
+    entries = {'synthetic-[:]*?.txt': b'one', 'nested/other.txt': b'two'}
+    sync = _manual_drift_lock(consumer, entries)
+    report = sync.inspect_drift(consumer)
+    assert report['status'] == 'clean' and report['managed_total'] == 2
+
+
+@requires_safe_drift
+def test_drift_rejects_case_variant_git_metadata_before_selection(tmp_path, monkeypatch):
+    consumer = _repo(tmp_path / 'consumer')
+    sync = _sync_module()
+    expected = {'sha256': 'c' * 64, 'mode': '100644'}
+    tree = [{'path': '.GIT/config', **expected}]
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'source_sha': 'a' * 40,
+            'manifest_sha256': 'b' * 64, 'portable_tree_sha256': sync._canonical_sha256(tree),
+            'managed_files': {'.GIT/config': expected}}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    monkeypatch.setattr(sync, '_check_consumer_path', lambda *_: pytest.fail('managed metadata inspected'))
+    monkeypatch.setattr(sync, '_drift_index_states', lambda *_: pytest.fail('index selection opened'))
+    with pytest.raises(sync.SyncError, match='unsafe or protected drift selection'):
+        sync.inspect_drift(consumer)
+
+
+@requires_safe_drift
+def test_drift_rejects_physical_alias_of_reserved_component(tmp_path):
+    consumer = _repo(tmp_path / 'consumer')
+    sync = _sync_module()
+    reserved = consumer / '.wiki-viva-protected'
+    reserved.write_bytes(b'synthetic reserved')
+    alias = consumer / 'synthetic-alias'
+    os.link(reserved, alias)
+    with pytest.raises(sync.SyncError, match='aliases a reserved component'):
+        sync._drift_check_consumer_path(consumer, 'synthetic-alias')
+    with pytest.raises(sync.SyncError, match='aliases a reserved component'):
+        sync._drift_worktree_file(consumer, 'synthetic-alias')
+
+
+@requires_safe_drift
+def test_drift_rejects_intent_to_add_even_when_bytes_match(tmp_path):
+    import hashlib
+    consumer = _repo(tmp_path / 'consumer')
+    sync = _sync_module()
+    (consumer / 'empty.txt').write_bytes(b'')
+    _git(consumer, 'add', '-N', 'empty.txt')
+    expected = {'sha256': hashlib.sha256(b'').hexdigest(), 'mode': '100644'}
+    tree = [{'path': 'empty.txt', **expected}]
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'source_sha': 'a' * 40,
+            'manifest_sha256': 'b' * 64, 'portable_tree_sha256': sync._canonical_sha256(tree),
+            'managed_files': {'empty.txt': expected}}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    with pytest.raises(sync.SyncError, match='intent-to-add'):
+        sync.inspect_drift(consumer)

@@ -206,6 +206,9 @@ python3 scripts/wiki_sync_from_kit.py \
 `--dry-run` is B0 and never mutates. Apply performs C1 kit-owned sync, C2
 generators, explicit C3 and writes `kit.lock`. It is idempotent and does not
 copy consumer memory/configuration or private evidence.
+`--inspect-drift --json` separately inventories managed-file drift without
+writing; see the [downstream upgrade guide](../docs/references/guides/wiki-viva-v8-downstream-upgrade.md#inspect-managed-drift)
+for preservation and recovery limits.
 
 The old lane/capsule/attestation runner and migration receipts are retired and
 removed. Frozen `upgrade-package.yaml` is historical documentation only.

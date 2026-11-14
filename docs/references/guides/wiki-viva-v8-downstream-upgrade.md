@@ -54,6 +54,51 @@ Review the conceptual diff. A first adoption does not delete unknown consumer
 files. Later adoptions may remove only paths listed as managed in the prior
 `kit.lock` and no longer present in the kit contract.
 
+### Inspect managed drift
+
+If B0 reports a changed managed file, inspect all lock-managed paths before
+deciding how to recover:
+
+```sh
+python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
+  --consumer /path/to/consumer --inspect-drift --json
+```
+
+The command is read-only. It reports each differing or missing managed path,
+the lock's expected hash and mode, and the worktree and Git index kind, hash
+and mode where available. Untracked or deleted index entries are reported as
+missing; unmerged, intent-to-add, unsupported index metadata or unsafe entries
+abort the report. Exit 0 means both views
+match the lock, 1 means drift, and 2 means inspection was refused or could not
+complete. The inspection requires POSIX nonblocking, directory-relative
+no-follow reads; unsupported platforms fail closed. It refuses reserved
+`.wiki-viva-protected` and `.git` components case-insensitively and checks
+existing physical aliases before reading. These checks do not replace host
+filesystem isolation or eliminate races. It inspects only paths named in the
+lock, not every consumer file; Git itself loads index metadata to answer a query.
+The selection is limited to 8,192 paths of at most 4,096 encoded bytes each;
+overlapping file/directory selections are refused. Git index results exclude
+unselected descendants. Git operations have time and output limits, and
+exceeding a limit refuses the report. These limits do not bound every possible
+filesystem delay. It is not
+an atomic snapshot against an actively changing worktree: stop writers and
+rerun before making a decision. Git must support `--no-lazy-fetch`; missing
+index blobs cause refusal rather than a network fetch or repair of the object
+store. Human-readable paths are escaped; output can still reveal private path
+names and hashes, so keep it within the consumer's boundary.
+This legacy inspection does not qualify context denies or ownership; use it
+only when the operator has authority to read the entire lock selection. It is
+not a protected context audit or evidence that such an audit passed.
+
+The lock contains hashes, not the original bytes, and is not itself proof that
+a candidate recovery revision is correct. Preserve staged, unstaged and
+untracked work in the consumer's PR, identify a trusted retained copy for each path and
+verify its hash and executable mode against the lock before any restoration.
+A Git patch alone may omit untracked files or differences already committed.
+Review the recovery in the consumer's own PR; rerun inspection and B0 after
+the owner has resolved drift. This command never exports, restores or deletes
+files, runs generators, or alters the index or lock.
+
 ## 3. Create the consumer PR boundary
 
 Start from current consumer `main`, create one focused branch and ensure the
