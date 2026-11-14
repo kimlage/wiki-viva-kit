@@ -8,10 +8,12 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
 from _common import ROOT
+from wiki_session_hook import _run_group
 from wiki_core.detectors import scan_text
 
 
@@ -24,13 +26,16 @@ def run(root: Path, args: list[str], deadline: float, *, data: bytes | None = No
     if remaining <= 0:
         raise Blocked('time budget exceeded')
     try:
-        p = subprocess.run(args, cwd=root, input=data, stdout=subprocess.PIPE,
-                           stderr=subprocess.DEVNULL, timeout=remaining)
+        with tempfile.TemporaryFile() as output:
+            p = subprocess.run(args, cwd=root, input=data, stdout=output,
+                               stderr=subprocess.DEVNULL, timeout=remaining)
+            output.seek(0)
+            result = output.read()
     except (OSError, subprocess.TimeoutExpired):
         raise Blocked('command unavailable or timed out') from None
     if p.returncode:
         raise Blocked('check failed')
-    return p.stdout
+    return result
 
 
 def git(root: Path, deadline: float, *args: str, data: bytes | None = None) -> bytes:
@@ -145,7 +150,9 @@ def install(root: Path) -> None:
     common = Path(os.fsdecode(git(root, deadline, 'rev-parse', '--path-format=absolute', '--git-common-dir').strip()))
     configured = subprocess.run(['git', 'config', '--get', 'core.hooksPath'], cwd=root,
                                 capture_output=True, text=True)
-    if configured.returncode == 0 or (common / 'hooks' / 'pre-push').exists():
+    hooks = common / 'hooks'
+    existing = hooks.is_dir() and any(not path.name.endswith('.sample') for path in hooks.iterdir())
+    if configured.returncode == 0 or existing:
         raise Blocked('existing hooks configuration requires manual integration')
     hookdir = common / 'wiki-viva-hooks'
     hookdir.mkdir(exist_ok=True)
@@ -153,8 +160,7 @@ def install(root: Path) -> None:
     if hook.exists():
         raise Blocked('pre-push hook already exists')
     hook.write_text('#!/bin/sh\nexec ' + shlex.quote(sys.executable) + ' '
-                    + shlex.quote(str(Path(__file__).resolve())) + ' --root '
-                    + shlex.quote(str(root)) + ' "$@"\n', encoding='utf-8')
+                    + shlex.quote(str(Path(__file__).resolve())) + ' --root . "$@"\n', encoding='utf-8')
     hook.chmod(0o755)
     run(root, ['git', 'config', '--local', 'core.hooksPath', str(hookdir)], deadline)
     print('pre-push installed for this repository')
@@ -165,22 +171,42 @@ def main() -> int:
     parser.add_argument('--root', type=Path, default=ROOT)
     parser.add_argument('--install', action='store_true')
     parser.add_argument('--timeout', type=float, default=10)
+    parser.add_argument('--_worker', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('remote', nargs='?')
     parser.add_argument('url', nargs='?')
     args = parser.parse_args()
     if not 0 < args.timeout <= 60:
         parser.error('--timeout must be greater than zero and at most 60')
+    if not args.install and not args._worker:
+        payload = sys.stdin.read()
+        result = _run_group([sys.executable, str(Path(__file__).resolve()), *sys.argv[1:], '--_worker'],
+                            payload, args.timeout)
+        if result is None:
+            print('pre-push blocked: time budget exceeded or worker unavailable', file=sys.stderr)
+            return 1
+        if result.startswith('FAIL:'):
+            print('pre-push blocked: ' + result.removeprefix('FAIL:').strip(), file=sys.stderr)
+            return 1
+        if result.strip() != 'OK':
+            print('pre-push blocked: invalid worker result', file=sys.stderr)
+            return 1
+        return 0
     try:
         if args.install:
             install(args.root.resolve())
         else:
             check(args.root.resolve(), sys.stdin.read(), time.monotonic() + args.timeout, args.remote)
     except Blocked as error:
-        print(f'pre-push blocked: {error}', file=sys.stderr)
-        return 1
+        print(f'FAIL:{error}' if args._worker else f'pre-push blocked: {error}',
+              file=sys.stdout if args._worker else sys.stderr)
+        return 0 if args._worker else 1
     except (OSError, ValueError):
-        print('pre-push blocked: a quick check failed or could not complete', file=sys.stderr)
-        return 1
+        message = 'a quick check failed or could not complete'
+        print(f'FAIL:{message}' if args._worker else f'pre-push blocked: {message}',
+              file=sys.stdout if args._worker else sys.stderr)
+        return 0 if args._worker else 1
+    if args._worker:
+        print('OK')
     return 0
 
 

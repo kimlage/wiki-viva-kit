@@ -4,6 +4,7 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts/wiki_pre_push.py'
 
@@ -106,3 +107,66 @@ def test_failed_consumer_check_and_invalid_configuration_block(tmp_path):
     git(root, 'add', 'wiki.config.yaml')
     git(root, 'commit', '-qm', 'invalid')
     assert hook(root, base, git(root, 'rev-parse', 'HEAD')).returncode != 0
+
+
+def test_installed_hook_checks_the_invoking_worktree(tmp_path):
+    root = repo(tmp_path)
+    remote = tmp_path / 'remote.git'
+    subprocess.run(['git', 'init', '--bare', '-q', str(remote)], check=True)
+    git(root, 'remote', 'add', 'origin', str(remote))
+    subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--install'], check=True)
+    other = tmp_path / 'other'
+    git(root, 'worktree', 'add', '-qb', 'other', str(other))
+    config = {'pre_push': {'quick_commands': [[sys.executable, '-c', 'raise SystemExit(4)']]}}
+    (other / 'wiki.config.yaml').write_text(json.dumps(config))
+    git(other, 'add', 'wiki.config.yaml')
+    git(other, 'commit', '-qm', 'consumer failing check')
+    push = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/other'], cwd=other,
+                          capture_output=True, text=True, timeout=12)
+    assert push.returncode != 0 and 'pre-push blocked' in push.stderr
+
+
+def test_install_does_not_disable_an_existing_hook(tmp_path):
+    root = repo(tmp_path)
+    precommit = root / '.git' / 'hooks' / 'pre-commit'
+    precommit.write_text('#!/bin/sh\nexit 0\n')
+    precommit.chmod(0o755)
+    installed = subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--install'],
+                               capture_output=True, text=True)
+    assert installed.returncode != 0
+    assert precommit.exists()
+    assert subprocess.run(['git', 'config', '--get', 'core.hooksPath'], cwd=root).returncode != 0
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='the liveness check uses ps')
+def test_timeout_terminates_consumer_command_and_descendant(tmp_path):
+    root = repo(tmp_path)
+    base = git(root, 'rev-parse', 'HEAD')
+    pidfile = tmp_path / 'pid'
+    code = ('import pathlib,subprocess,sys,time; '
+            'child=subprocess.Popen([sys.executable,"-c","import time;time.sleep(60)"]); '
+            f'pathlib.Path({str(pidfile)!r}).write_text(str(child.pid)); time.sleep(60)')
+    (root / 'wiki.config.yaml').write_text(json.dumps({'pre_push': {'quick_commands': [[sys.executable, '-c', code]]}}))
+    git(root, 'add', 'wiki.config.yaml')
+    git(root, 'commit', '-qm', 'configure slow command')
+    head = git(root, 'rev-parse', 'HEAD')
+    update = f'refs/heads/topic {head} refs/heads/topic {base}\n'
+    started = time.monotonic()
+    result = subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--timeout', '1.5', 'origin', 'example'],
+                            input=update, capture_output=True, text=True, timeout=4)
+    assert result.returncode != 0 and time.monotonic() - started < 3
+    assert pidfile.exists()
+    pid = int(pidfile.read_text())
+    status = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True)
+    assert status.returncode != 0 or status.stdout.strip().startswith('Z')
+
+
+def test_timeout_bounds_secret_scan_itself(tmp_path):
+    root = repo(tmp_path)
+    base = git(root, 'rev-parse', 'HEAD')
+    head = commit(root, 'synthetic long text\n' * 500_000)
+    update = f'refs/heads/topic {head} refs/heads/topic {base}\n'
+    started = time.monotonic()
+    result = subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--timeout', '0.6', 'origin', 'example'],
+                            input=update, capture_output=True, text=True, timeout=4)
+    assert result.returncode != 0 and time.monotonic() - started < 2
