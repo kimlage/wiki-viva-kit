@@ -241,9 +241,13 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
     def write_input() -> None:
         try:
             proc.stdin.write(payload)
-            proc.stdin.close()
-        except (OSError, ValueError):
+        except (OSError, ValueError, UnicodeError):
             pass
+        finally:
+            try:
+                proc.stdin.close()
+            except (OSError, ValueError):
+                pass
 
     def drain(stream, keep: bool) -> None:
         size = 0
@@ -264,10 +268,24 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
     try:
         if os.name == 'nt':
             kernel, job = _windows_job()
-        proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, text=True,
-                                start_new_session=(os.name != 'nt'),
-                                creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0))
+        # Defer catchable termination until the newly created worker is stored;
+        # otherwise a signal inside Popen could leave an untracked child.
+        pending: list[int] = []
+        previous = {sig: signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGINT)}
+        def defer(signum: int, _frame: Any) -> None:
+            pending.append(signum)
+        for sig in previous:
+            signal.signal(sig, defer)
+        try:
+            proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, text=True, encoding='utf-8',
+                                    start_new_session=(os.name != 'nt'),
+                                    creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0))
+        finally:
+            for sig, handler in previous.items():
+                signal.signal(sig, handler)
+            if pending:
+                _terminate(pending[0], None)
         if job is not None and not kernel.AssignProcessToJobObject(job, int(proc._handle)):
             proc.kill()
             proc.wait()
@@ -311,8 +329,16 @@ def _read_input(timeout: float) -> str | None:
     result: queue.Queue = queue.Queue(maxsize=1)
     def read() -> None:
         try:
-            result.put(sys.stdin.read(MAX_INPUT + 1))
-        except (OSError, UnicodeError):
+            chunks: list[bytes] = []
+            size = 0
+            while size <= MAX_INPUT:
+                chunk = os.read(sys.stdin.fileno(), min(65536, MAX_INPUT + 1 - size))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                size += len(chunk)
+            result.put(b''.join(chunks).decode('utf-8'))
+        except (OSError, UnicodeError, ValueError):
             result.put(None)
     threading.Thread(target=read, daemon=True).start()
     try:
@@ -340,8 +366,8 @@ def main() -> int:
                   if raw is not None and len(raw) <= MAX_INPUT else None)
         print(output.strip() if output else json.dumps({'systemMessage': 'Hook timed out or unavailable; no continuation requested.'}))
         return 0
-    raw = sys.stdin.read(MAX_INPUT + 1)
     try:
+        raw = sys.stdin.buffer.read(MAX_INPUT + 1).decode('utf-8')
         event = json.loads(raw) if len(raw) <= MAX_INPUT else None
         if not isinstance(event, dict):
             raise ValueError
@@ -351,7 +377,7 @@ def main() -> int:
         else:
             output = handle(event, root, args.mode, lambda: _stop_state(args.stop_state_file, event.get('session_id')),
                             set(args.executor_type or ['executor']), args.timeout)
-    except (ValueError, OSError, TypeError):
+    except (ValueError, OSError, TypeError, UnicodeError):
         output = {'systemMessage': 'Hook input unavailable; no continuation was requested.'}
     print(json.dumps(output, ensure_ascii=False))
     return 0

@@ -336,3 +336,52 @@ def test_remote_branch_without_tracking_does_not_imply_missing_pr(monkeypatch, t
         assert 'local_branch_without_upstream' in message
         assert 'PR state unknown offline' in message
         assert 'without_proposal' not in message and 'without_pr' not in message
+
+
+def test_utf8_pipe_protocol_under_non_utf8_locale(tmp_path):
+    import os
+    child = tmp_path / 'utf8_echo.py'
+    child.write_text('import sys\nsys.stdin.buffer.read()\nprint("ok")\n', encoding='utf-8')
+    old_locale = os.environ.get('LC_ALL')
+    old_utf8 = os.environ.get('PYTHONUTF8')
+    os.environ['LC_ALL'] = 'C'
+    os.environ['PYTHONUTF8'] = '0'
+    try:
+        assert hook._run_group([sys.executable, str(child)], 'revisão 🐍', 2).strip() == 'ok'
+    finally:
+        if old_locale is None:
+            os.environ.pop('LC_ALL', None)
+        else:
+            os.environ['LC_ALL'] = old_locale
+        if old_utf8 is None:
+            os.environ.pop('PYTHONUTF8', None)
+        else:
+            os.environ['PYTHONUTF8'] = old_utf8
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='Windows termination does not dispatch Python signal handlers')
+def test_signal_during_popen_waits_until_child_is_tracked(monkeypatch, tmp_path):
+    import os
+    import signal
+    import time
+    original = subprocess.Popen
+    seen = []
+    def interrupted(*args, **kwargs):
+        proc = original(*args, **kwargs)
+        seen.append(proc.pid)
+        os.kill(os.getpid(), signal.SIGTERM)
+        return proc
+    monkeypatch.setattr(hook.subprocess, 'Popen', interrupted)
+    old = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGTERM, hook._terminate)
+    try:
+        with pytest.raises(SystemExit) as exc:
+            hook._run_group([sys.executable, '-c', 'import time; time.sleep(60)'], '', 2)
+        assert exc.value.code == 128 + signal.SIGTERM
+    finally:
+        signal.signal(signal.SIGTERM, old)
+    monkeypatch.setattr(hook.subprocess, 'Popen', original)
+    deadline = time.monotonic() + 2
+    while _process_running(seen[0]) and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert not _process_running(seen[0])

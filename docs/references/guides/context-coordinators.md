@@ -471,7 +471,9 @@ to five seconds by default; it accepts values greater than zero up to 60 seconds
 On timeout the hook terminates its worker process group and returns a short
 warning with exit status zero. Catchable termination and interruption also clean
 up the worker group. Forced termination that the OS does not deliver to the
-hook (for example SIGKILL on Unix) cannot run this cleanup. These are opt-in behavior
+hook (for example SIGKILL on Unix) cannot run this cleanup. On Unix, a child
+that deliberately creates a separate session can leave the process group and is
+outside this group-based cleanup. These are opt-in behavior
 and do not grant authority or replace the destination policy.
 
 Codex discovers project hooks in `.codex/hooks.json` (and requires trust for
