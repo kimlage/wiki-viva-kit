@@ -440,8 +440,9 @@ attempt; no generic continuation is requested.
 `SubagentStop` checks only the explicitly selected executor agent types. Its
 final handoff uses separate `Proposal`, `Head`, `Base`, `Review`, `Gates`,
 `Pending` and `Responsible-Thread` lines; head and base are nonzero full SHAs,
-the proposal is a URL or numbered PR, review is a reference, gates name a
-command and result, and the thread has a runtime reference. Pending may say
+the proposal is a URL or numbered PR, review is a reference citing the head SHA,
+gates use `name=passed|failed|pending|waiting`, and the thread has a runtime
+reference. Pending may say
 `none`; placeholders do not count as evidence. An incomplete executor handoff
 may cause one focused continuation. This is a shape
 check, not proof of review, gates or delivery. Claude's `SubagentHandback` may

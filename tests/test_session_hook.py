@@ -52,7 +52,7 @@ def test_executor_handoff_and_non_executor(tmp_path):
     assert hook.handle(event, tmp_path, 'observe', 'running', {'executor'}, 10)['decision'] == 'block'
     assert 'decision' not in hook.handle(event | {'stop_hook_active': True}, tmp_path, 'observe', 'running', {'executor'}, 10)
     assert hook.handle(event | {'agent_type': 'reviewer'}, tmp_path, 'enforce', 'running', {'executor'}, 10) == {}
-    handoff = f'Proposal: PR 1\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review\nGates: pytest passed\nPending: none\nResponsible-Thread: thread:sample'
+    handoff = f'Proposal: PR 1\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review {HEAD}\nGates: pytest=passed\nPending: none\nResponsible-Thread: thread:sample'
     assert hook.handle(event | {'last_assistant_message': handoff}, tmp_path, 'observe', 'running', {'executor'}, 10) == {}
 
 
@@ -103,10 +103,22 @@ def test_hook_accepts_filled_canonical_brief():
     replacements = {
         '<PR URL or number, destination repository and target branch>': 'PR #123 to main',
         '<full final head SHA>': HEAD, '<full base SHA>': BASE,
-        '<independent exact-head review reference>': 'https://example.test/review',
-        '<commands and results>': 'pytest passed', '<items and wait events, or none>': 'none',
+        '<independent review reference and full head SHA>': 'https://example.test/review ' + HEAD,
+        '<gate=passed, gate=pending>': 'pytest=passed', '<items and wait events, or none>': 'none',
         '<executor thread reference>': 'thread:sample',
     }
     for old, new in replacements.items():
         brief = brief.replace(old, new)
     assert hook.complete_handoff(brief)
+
+
+def test_handoff_rejects_unnamed_gates_and_unbound_review():
+    message = f'Proposal: PR 1\nHead: {HEAD}\nBase: {BASE}\nReview: https://example.test/review {HEAD}\nGates: not passed\nPending: none\nResponsible-Thread: thread:sample'
+    assert not hook.complete_handoff(message)
+    assert not hook.complete_handoff(message.replace('Gates: not passed', 'Gates: tests=passed').replace('review ' + HEAD, 'review'))
+
+
+def test_handoff_rejects_partial_sha():
+    short = 'a' * 41
+    message = f'Proposal: PR 1\nHead: {short}\nBase: {BASE}\nReview: https://example.test/review {short}\nGates: pytest=passed\nPending: none\nResponsible-Thread: thread:sample'
+    assert not hook.complete_handoff(message)

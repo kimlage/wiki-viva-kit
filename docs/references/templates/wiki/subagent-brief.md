@@ -96,7 +96,8 @@ this brief does not change runtime admission or those flags.
 Use these exact field names for the optional session-hook shape check. Include
 the destination repository and target branch in `Proposal`, the independent
 review and findings/resolution link in `Review`, and each gate and result in
-`Gates`. List pending approvals and wait events explicitly; use `none` only
+`Gates` using comma-separated `name=passed|failed|pending|waiting` entries.
+The `Review` value includes the full head SHA. List pending approvals and wait events explicitly; use `none` only
 when there are none. `Responsible-Thread` names the executor thread, and the
 integrator recipient is identified after these fields.
 
@@ -104,8 +105,8 @@ integrator recipient is identified after these fields.
 Proposal: <PR URL or number, destination repository and target branch>
 Head: <full final head SHA>
 Base: <full base SHA>
-Review: <independent exact-head review reference>
-Gates: <commands and results>
+Review: <independent review reference and full head SHA>
+Gates: <gate=passed, gate=pending>
 Pending: <items and wait events, or none>
 Responsible-Thread: <executor thread reference>
 ```

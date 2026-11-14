@@ -78,7 +78,7 @@ def complete_handoff(message: Any) -> bool:
             fields[match.group(1).lower()] = match.group(2).strip()
     if any(not fields.get(name) for name in FIELDS):
         return False
-    if not all(re.fullmatch(r'[0-9a-fA-F]{40,64}', fields[name]) and set(fields[name]) != {'0'} for name in ('head', 'base')):
+    if not all(re.fullmatch(r'(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})', fields[name]) and set(fields[name]) != {'0'} for name in ('head', 'base')):
         return False
     placeholders = {'unknown', 'none', 'n/a', 'na', 'tbd', 'pending', 'missing', 'unavailable', '-'}
     if any(fields[name].lower() in placeholders for name in ('proposal', 'review', 'gates', 'responsible-thread')):
@@ -87,9 +87,11 @@ def complete_handoff(message: Any) -> bool:
         return False
     if not re.search(r'(?i)\b(?:pr|proposal)\s*#?\s*\d+\b|https?://\S+', fields['proposal']):
         return False
-    if not re.search(r'(?i)(?:https?://|t3-thread://|review:)[^\s]+', fields['review']):
+    if (not re.search(r'(?i)(?:https?://|t3-thread://|review:)[^\s]+', fields['review'])
+            or fields['head'].lower() not in fields['review'].lower()):
         return False
-    if not re.search(r'(?i)\b(?:passed|failed|pending|waiting|passed|passou|falhou)\b', fields['gates']) or len(fields['gates'].split()) < 2:
+    gates = [gate.strip() for gate in fields['gates'].split(',')]
+    if not gates or any(not re.fullmatch(r'[A-Za-z0-9_./-]+=(?:passed|failed|pending|waiting)', gate, re.I) for gate in gates):
         return False
     if not re.search(r'(?i)(?:thread:|t3-thread://|mcp:launch:)[^\s]+', fields['responsible-thread']):
         return False
