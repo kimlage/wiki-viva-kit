@@ -62,11 +62,14 @@ def test_blockers_and_unknown_adapter():
 def test_closed_requires_identifiable_reason():
     pr = candidate()
     pr['state'] = 'CLOSED'
-    assert evaluate(pr)['status'] == 'waiting:verify_closure_reason'
-    pr['comments'] = []
-    assert evaluate(pr)['status'] == 'fix:closure_reason_missing'
-    pr['comments'].append({'body': 'Disposition-Reason: superseded by integrated proposal.'})
     assert evaluate(pr)['status'] == 'done'
+    def scoped():
+        return check.evaluate(pr, {}, ancestry='unknown', human_approved=False, closure_reason_required=True)
+    assert scoped()['status'] == 'waiting:verify_closure_reason'
+    pr['comments'] = []
+    assert scoped()['status'] == 'fix:closure_reason_missing'
+    pr['comments'].append({'body': 'Disposition-Reason: superseded by integrated proposal.'})
+    assert scoped()['status'] == 'done'
 
 
 def test_inventory_and_cleanup_observations_are_read_only(monkeypatch, tmp_path):
@@ -84,8 +87,8 @@ def test_inventory_and_cleanup_observations_are_read_only(monkeypatch, tmp_path)
             return 'ref: refs/heads/main\tHEAD\n' + BASE + '\tHEAD'
         if args == ('ls-remote', '--heads', 'origin'):
             return f'{BASE}\trefs/heads/main\n{HEAD}\trefs/heads/wiki/one\n{HEAD}\trefs/heads/wiki/remote\n{HEAD}\trefs/heads/wiki/merged'
-        assert args[:2] == ('for-each-ref', '--format=%(refname:short)')
-        return 'main\nwiki/one\nwiki/local\nwiki/merged'
+        assert args[:2] == ('for-each-ref', '--format=%(refname:short)%09%(objectname)')
+        return f'main\t{BASE}\nwiki/one\t{HEAD}\nwiki/local\t{HEAD}\nwiki/merged\t{HEAD}'
     monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
     monkeypatch.setattr(check, '_gh', gh)
     monkeypatch.setattr(check, '_git', git)
@@ -98,7 +101,7 @@ def test_inventory_and_cleanup_observations_are_read_only(monkeypatch, tmp_path)
     result = check.inspect(tmp_path)
     assert result['ok']
     assert result['proposals'][1]['status'] == 'fix:merged_branch_or_worktree_remaining'
-    assert result['proposals'][2]['status'] == 'fix:closure_reason_missing'
+    assert result['proposals'][2]['status'] == 'done'
     findings = {(x['status'], x.get('branch')) for x in result['hygiene']}
     assert ('fix:local_branch_without_pr', 'wiki/local') in findings
     assert ('fix:remote_branch_without_pr', 'wiki/remote') in findings
@@ -165,7 +168,7 @@ def test_closed_and_merged_hygiene_survive_missing_target_policy(monkeypatch, tm
     assert check.inspect(tmp_path, 2)['proposals'][0]['status'] == 'waiting:verify_branch_reuse'
     pr['state'] = 'CLOSED'
     pr['comments'] = []
-    assert check.inspect(tmp_path, 2)['proposals'][0]['status'] == 'fix:closure_reason_missing'
+    assert check.inspect(tmp_path, 2)['proposals'][0]['status'] == 'waiting:verify_branch_reuse'
 
 
 def test_target_branch_must_match_destination_policy():
@@ -331,7 +334,7 @@ def test_linked_action_stale_current_terminal_and_indeterminate():
     fm['updated_at'] = '2026-11-16'
     assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'current'
     fm['updated_at'] = '2026-11-14'
-    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'waiting:action_reconciliation'
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'current'
     fm['action_state_history'] = [{'at': '2026-11-14T13:00:00Z'}]
     assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'current'
     fm['action_state'] = 'done'
@@ -345,6 +348,311 @@ def test_action_reference_in_body_and_evidence():
     assert check._action_observation(fm, 'Track https://github.com/elsewhere/repo/pull/1', pr, 'github.com/owner/repo') is None
     fm['evidence_refs'] = ['PR #1']
     assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'fix:action_stale'
+
+
+def test_short_number_collision_does_not_associate_a_different_repository():
+    pr = candidate() | {'number': 502, 'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'action-demo', 'action_state': 'open',
+          'updated_at': '2026-11-10', 'next_action': 'Acompanhar PR #502', 'evidence_refs': [502]}
+    body = 'Kit: https://github.com/example-org/public-kit/pull/502'
+    assert check._action_observation(fm, body, pr, 'github.com/example-org/private-wiki') is None
+    assert check._action_observation(fm, body, pr, 'github.com/example-org/public-kit')['status'] == 'fix:action_stale'
+    body += '\nPrivate: https://github.com/example-org/private-wiki/pull/502'
+    assert check._action_observation(fm, body, pr, 'github.com/example-org/private-wiki')['status'] == 'fix:action_stale'
+    assert check._action_reference('example-org/public-kit#502 and #502', 502, 'github.com/example-org/private-wiki') is False
+    assert check._action_reference('github.com/example-org/public-kit#502 and #502', 502, 'github.com/example-org/private-wiki') is False
+    assert check._action_reference('https://github.com/example-org/public-kit/issues/502 and PR #502', 502, 'github.com/example-org/private-wiki') is False
+    assert check._action_reference('https://git.example/elsewhere/repo/pull/502 and PR #502', 502, 'github.com/owner/repo') is False
+    assert check._action_reference('github.com/example-org/public-kit/pull/502 e PR #502', 502, 'github.com/example-org/private-wiki') is False
+    assert check._action_reference('https://git.example/group/repo/-/merge_requests/502 and PR #502', 502, 'github.com/owner/repo') is False
+    assert check._action_reference('https://gitlab.com/elsewhere/project#502 and PR #502', 502, 'github.com/owner/repo') is False
+    assert check._action_reference('https://bitbucket.org/elsewhere/project/pull-requests/502 and PR #502', 502, 'github.com/owner/repo') is False
+    assert check._action_reference('See https://docs.example/guide/details#502 and PR #502', 502, 'github.com/owner/repo') is None
+    assert check._action_reference('PR #502 (docs/README.md)', 502, 'github.com/owner/repo') is True
+    assert check._action_reference('PR #502 (scripts/wiki_action.py)', 502, 'github.com/owner/repo') is True
+    assert check._action_reference('PR #502 (docs/README)', 502, 'github.com/owner/repo') is None
+    assert check._action_reference('PR #502 (memories/actions)', 502, 'github.com/owner/repo') is None
+    assert check._action_reference('PR #502 (docs/README.md#502)', 502, 'github.com/owner/repo') is True
+    assert check._action_reference('PR #502 [doc](docs/README#502)', 502, 'github.com/owner/repo') is None
+    assert check._action_reference('PR #502\n\nRepo: other/repo\nPR: #503', 502, 'github.com/owner/repo') is True
+    assert check._action_reference('PR #502 local; repo=other/repo PR #503', 502, 'github.com/owner/repo') is True
+    assert check._action_reference('PR #502; PR #503 (other/repo)', 502, 'github.com/owner/repo') is True
+    assert check._action_reference('https://github.com/example/foreign\nPR #502', 502, 'github.com/example/local') is False
+    assert check._action_reference('PR #502 https://github.com/example/foreign/', 502, 'github.com/example/local') is False
+    assert check._action_reference('PR #502 em https://git.example/example/foreign', 502, 'github.com/example/local') is False
+    assert check._action_reference('PR #502 <https://github.com/other/repo/>', 502, 'github.com/example/local') is False
+    assert check._action_reference('PR #502 https://git.example/other/repo#502', 502, 'github.com/example/local') is None
+    assert check._action_reference('https://github.com/example/foreign.git\nPR #502', 502, 'github.com/example/local') is False
+    assert check._action_reference('github.com/example/foreign\nPR #502', 502, 'github.com/example/local') is False
+    assert check._action_reference('example/foreign\nPR #502', 502, 'github.com/example/local') is False
+    assert check._action_reference('git@gitlab.com:example/repo.git PR #502', 502, 'github.com/example/repo') is False
+    assert check._action_reference('git@gitlab.com:example/repo.git\nPR #502', 502, 'github.com/example/repo') is False
+    assert check._action_reference('git@github.com:example/repo.git PR #502', 502, 'github.com/example/repo') is True
+    assert check._action_reference('https://github.com/example-org/public-kit.git PR #502', 502, 'github.com/example-org/private-wiki') is False
+    assert check._action_reference('repo=example-org/public-kit.git PR #502', 502, 'github.com/example-org/public-kit') is True
+    assert check._action_reference('PR: 502', 502, 'github.com/owner/repo') is True
+    assert check._action_reference('#502', 502, 'github.com/example-org/private-wiki') is True
+    assert check._action_reference('PR #502suffix', 502, 'github.com/example-org/private-wiki') is False
+
+
+def test_ambiguous_extensionless_path_produces_a_named_wait():
+    pr = candidate() | {'number': 502, 'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'a', 'action_state': 'open', 'updated_at': '2026-11-10'}
+    result = check._action_observation(fm, 'PR #502 (docs/README)', pr, 'github.com/owner/repo')
+    assert result['status'] == 'waiting:action_reconciliation'
+    assert result['event'] == 'repository_reference_ambiguous'
+
+
+@pytest.mark.parametrize('path', ['tools/README', 'bin/check', 'examples/demo', 'assets/icons'])
+def test_other_common_extensionless_paths_are_indeterminate(path):
+    assert check._action_reference(f'PR #502 ({path})', 502, 'github.com/example/repo') is None
+
+
+@pytest.mark.parametrize('field', ['next_action', 'body', 'evidence_refs'])
+def test_plain_numeric_reference_respects_explicit_repository(field):
+    pr = candidate() | {'number': 502, 'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'a', 'action_state': 'open', 'updated_at': '2026-11-10'}
+    body = 'Repo: example-org/public-kit'
+    if field == 'body':
+        body = '502'
+        fm['evidence_refs'] = ['Repo: example-org/public-kit']
+    elif field == 'evidence_refs':
+        fm[field] = [502]
+    else:
+        fm[field] = '502'
+    assert check._action_observation(fm, body, pr, 'github.com/example-org/private-wiki') is None
+    assert check._action_observation(fm, body, pr, 'github.com/example-org/public-kit')['status'] == 'fix:action_stale'
+
+
+def test_plain_number_is_not_bound_to_different_explicit_pr_number():
+    pr = candidate() | {'number': 502, 'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'a', 'action_state': 'open', 'updated_at': '2026-11-10',
+          'next_action': '502'}
+    result = check._action_observation(fm, 'Repo: other/repo\nPR: #503', pr, 'github.com/owner/repo')
+    assert result['status'] == 'fix:action_stale'
+
+
+@pytest.mark.parametrize('citation', [
+    'repo=example-org/public-kit PR #502',
+    'repo=github.com/example-org/public-kit PR #502',
+    'example-org/public-kit PR #502',
+    'example-org/public-kit (#502)',
+    'example-org/public-kit #502',
+    'PR #502 (example-org/public-kit)',
+    'PR #502, repo: example-org/public-kit',
+    'PR #502 da public-kit (example-org/public-kit)',
+    'Repo: example-org/public-kit\nPR: #502',
+    'Repo: example-org/public-kit\nPR: 502',
+    'Repo: https://github.com/example-org/public-kit\nPR: #502',
+    'Repo: git@github.com:example-org/public-kit.git\nPR #502',
+    'Repo: example-org/public-kit\nPR: #503\nPR: #502',
+    'Repo: example-org/public-kit\n\nPR: #502',
+    'repo=example-org/public-kit PR: 502',
+    'PR #502 em example-org/public-kit',
+    'PR #502 do repo=example-org/public-kit',
+])
+@pytest.mark.parametrize('field', ['next_action', 'body', 'evidence_refs'])
+def test_separate_repository_and_number_are_bound(citation, field):
+    pr = candidate() | {'number': 502, 'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'a', 'action_state': 'open', 'updated_at': '2026-11-10'}
+    body = ''
+    if field == 'body':
+        body = citation
+    else:
+        fm[field] = [citation] if field == 'evidence_refs' else citation
+    assert check._action_observation(fm, body, pr, 'github.com/example-org/private-wiki') is None
+    assert check._action_observation(fm, body, pr, 'github.com/example-org/public-kit')['status'] == 'fix:action_stale'
+
+
+@pytest.mark.parametrize('state,timestamp', [('MERGED', 'mergedAt'), ('CLOSED', 'closedAt')])
+def test_date_only_action_same_or_later_date_is_current(state, timestamp):
+    pr = candidate() | {'state': state, timestamp: '2026-11-14T02:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'a', 'action_state': 'open', 'next_action': 'PR #1'}
+    for updated in ('2026-11-14', '2026-11-15'):
+        fm['updated_at'] = updated
+        assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'current'
+    fm['updated_at'] = '2026-11-13'
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'waiting:action_reconciliation'
+
+
+@pytest.mark.parametrize('cutoff,closed,residue,expected', [
+    (None, '2020-01-01T12:00:00Z', False, 'out_of_scope'),
+    ('2026-01-01', '2025-12-31T12:00:00Z', False, 'out_of_scope'),
+    ('2026-01-01', '2026-01-01T12:00:00Z', False, 'out_of_scope'),
+    ('2026-01-01', '2026-01-02T12:00:00Z', False, 'required'),
+    (None, '2020-01-01T12:00:00Z', True, 'required'),
+    ('invalid', '2026-01-02T12:00:00Z', False, 'waiting:closure_reason_policy'),
+    ('2026-01-01', None, False, 'waiting:closure_time'),
+])
+def test_closure_reason_cutoff_and_residue(cutoff, closed, residue, expected):
+    approval = {} if cutoff is None else {'closure_reason_after': cutoff}
+    assert check._closure_reason_scope({'closedAt': closed}, approval, residue=residue) == expected
+
+
+def test_closed_proposals_require_reason_only_in_scope(monkeypatch, tmp_path):
+    old = candidate() | {'number': 1, 'state': 'CLOSED', 'closedAt': '2020-01-01T12:00:00Z',
+                         'headRefName': 'old', 'comments': []}
+    residual = candidate() | {'number': 2, 'state': 'CLOSED', 'closedAt': '2020-01-01T12:00:00Z',
+                              'headRefName': 'retained', 'comments': [{'body': 'discussion'}]}
+    recent = candidate() | {'number': 3, 'state': 'CLOSED', 'closedAt': '2026-11-14T12:00:00Z',
+                            'headRefName': 'recent', 'comments': []}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: [old, residual, recent])
+    def git(root, *args):
+        if '--symref' in args:
+            return f'ref: refs/heads/main\tHEAD\n{BASE}\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main\n{HEAD}\trefs/heads/retained'
+        return 'main'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {'closure_reason_after': '2026-01-01'})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    proposals = check.inspect(tmp_path)['proposals']
+    assert [item['status'] for item in proposals] == ['done', 'waiting:verify_closure_reason', 'fix:closure_reason_missing']
+
+
+def test_closed_main_worktree_same_sha_is_not_residue_and_merged_is_not_closed_unmerged(monkeypatch, tmp_path):
+    closed = candidate() | {'state': 'CLOSED', 'headRefName': 'gone', 'comments': [],
+                            'closedAt': '2020-01-01T12:00:00Z'}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: closed)
+    def git(root, *args):
+        if '--symref' in args:
+            return f'ref: refs/heads/main\tHEAD\n{BASE}\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main'
+        return 'main'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [{'path': '/main', 'branch': 'main', 'head': HEAD, 'dirty': False}])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    assert check.inspect(tmp_path, 1)['proposals'][0]['status'] == 'done'
+    closed['mergedAt'] = '2020-01-01T12:00:00Z'
+    monkeypatch.setattr(check, '_worktrees', lambda root: [{'path': '/detached', 'branch': None, 'head': HEAD, 'dirty': False}])
+    assert check.inspect(tmp_path, 1)['proposals'][0]['status'] == 'done'
+
+
+def test_reused_branch_on_different_open_head_is_not_closed_pr_residue(monkeypatch, tmp_path):
+    new_head = 'c' * 40
+    closed = candidate() | {'state': 'CLOSED', 'headRefName': 'wiki/reused', 'comments': [{'body': 'old discussion'}]}
+    opened = candidate() | {'number': 2, 'headRefName': 'wiki/reused', 'headRefOid': new_head}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: [closed, opened])
+    def git(root, *args):
+        if '--symref' in args:
+            return f'ref: refs/heads/main\tHEAD\n{BASE}\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main\n{new_head}\trefs/heads/wiki/reused'
+        return f'main\t{BASE}\nwiki/reused\t{new_head}'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {})
+    monkeypatch.setattr(check, '_ancestry', lambda *args: 'current')
+    monkeypatch.setattr(check, '_worktrees', lambda root: [{'path': '/wt', 'branch': 'wiki/reused', 'head': new_head, 'dirty': False}])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    assert check.inspect(tmp_path)['proposals'][0]['status'] == 'done'
+
+
+def test_filtered_closed_pr_cannot_identify_same_head_branch_reuse(monkeypatch, tmp_path):
+    closed = candidate() | {'state': 'CLOSED', 'headRefName': 'wiki/reused', 'comments': []}
+    opened = candidate() | {'number': 2, 'headRefName': 'wiki/reused'}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: closed if 'view' in args else [closed, opened])
+    def git(root, *args):
+        if '--symref' in args:
+            return f'ref: refs/heads/main\tHEAD\n{BASE}\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main\n{HEAD}\trefs/heads/wiki/reused'
+        return f'main\t{BASE}\nwiki/reused\t{HEAD}'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {})
+    monkeypatch.setattr(check, '_ancestry', lambda *args: 'current')
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    assert check.inspect(tmp_path)['proposals'][0]['status'] == 'done'
+    assert check.inspect(tmp_path, 1)['proposals'][0]['status'] == 'waiting:verify_branch_reuse'
+
+
+@pytest.mark.parametrize('cross,branch,expected', [
+    (False, None, 'waiting:verify_detached_worktree'),
+    (True, 'wiki/fork', 'done'),
+])
+def test_closed_pr_worktree_requires_evidence_of_ownership(monkeypatch, tmp_path, cross, branch, expected):
+    closed = candidate() | {'state': 'CLOSED', 'headRefName': 'wiki/fork',
+                            'isCrossRepository': cross, 'comments': []}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: [closed])
+    def git(root, *args):
+        if '--symref' in args:
+            return f'ref: refs/heads/main\tHEAD\n{BASE}\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main'
+        return f'main\t{BASE}'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [{'path': '/wt', 'branch': branch, 'head': HEAD, 'dirty': False}])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    assert check.inspect(tmp_path)['proposals'][0]['status'] == expected
+
+
+@pytest.mark.parametrize('head', [HEAD, None])
+def test_closed_branch_changed_or_unobservable_needs_reconciliation(monkeypatch, tmp_path, head):
+    changed = 'c' * 40
+    closed = candidate() | {'state': 'CLOSED', 'headRefName': 'wiki/closed', 'headRefOid': head,
+                            'comments': [{'body': 'discussion'}]}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: closed if 'view' in args else [closed])
+    def git(root, *args):
+        if '--symref' in args:
+            return f'ref: refs/heads/main\tHEAD\n{BASE}\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main\n{changed}\trefs/heads/wiki/closed'
+        return f'main\t{BASE}\nwiki/closed\t{changed}'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    assert check.inspect(tmp_path)['proposals'][0]['status'] == 'waiting:verify_closure_reason'
+    assert check.inspect(tmp_path, 1)['proposals'][0]['status'] == 'waiting:verify_branch_reuse'
+
+
+def test_closed_branch_with_unknown_repository_owner_waits(monkeypatch, tmp_path):
+    closed = candidate() | {'state': 'CLOSED', 'headRefName': 'wiki/closed', 'headRepositoryOwner': None,
+                            'isCrossRepository': None, 'comments': []}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: [closed])
+    def git(root, *args):
+        if '--symref' in args:
+            return f'ref: refs/heads/main\tHEAD\n{BASE}\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main\n{HEAD}\trefs/heads/wiki/closed'
+        return f'main\t{BASE}\nwiki/closed\t{HEAD}'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    assert check.inspect(tmp_path)['proposals'][0]['status'] == 'waiting:head_repository'
+
+
+def test_closure_cutoff_uses_target_branch_policy(monkeypatch, tmp_path):
+    target = 'c' * 40
+    closed = candidate() | {'state': 'CLOSED', 'baseRefName': 'develop', 'headRefName': 'gone',
+                            'closedAt': '2026-11-14T12:00:00Z', 'comments': []}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: closed)
+    def git(root, *args):
+        if '--symref' in args:
+            return f'ref: refs/heads/main\tHEAD\n{BASE}\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main\n{target}\trefs/heads/develop'
+        return f'main\t{BASE}'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda root, sha: {'closure_reason_after': '2026-01-01'} if sha == target else {})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    assert check.inspect(tmp_path, 1)['proposals'][0]['status'] == 'fix:closure_reason_missing'
+    monkeypatch.setattr(check, 'policy', lambda root, sha: None if sha == target else {})
+    assert check.inspect(tmp_path, 1)['proposals'][0]['status'] == 'waiting:destination_policy'
 
 
 def test_action_findings_read_canonical_git_blobs(monkeypatch, tmp_path):
