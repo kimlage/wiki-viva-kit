@@ -427,3 +427,57 @@ def test_chained_url_rewrites_cannot_hide_secret_from_push_target(tmp_path):
                             capture_output=True, text=True, timeout=12)
     assert result.returncode != 0 and 'secret detected' in result.stderr
     assert secret not in result.stderr
+
+
+def test_secret_object_read_never_uses_temporary_files(tmp_path, monkeypatch, capsys):
+    import importlib.util
+    import tempfile
+    root = repo(tmp_path)
+    base = git(root, 'rev-parse', 'HEAD')
+    secret = 'sk-proj-' + 'k' * 48
+    head = commit(root, 'token=' + secret + '\n')
+    monkeypatch.syspath_prepend(str(SCRIPT.parent))
+    spec = importlib.util.spec_from_file_location('prepush_in_memory_test', SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setattr(tempfile, 'TemporaryFile', lambda *a, **k: pytest.fail('secret data must stay in memory'))
+    with pytest.raises(module.Blocked, match='secret detected'):
+        module.scan_objects(root, time.monotonic() + 10, head, base)
+    captured = capsys.readouterr()
+    assert secret not in captured.out + captured.err
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='SIGTERM and ps differ on Windows')
+def test_sigterm_cleans_up_consumer_command_group(tmp_path):
+    import signal
+    root = repo(tmp_path)
+    base = git(root, 'rev-parse', 'HEAD')
+    pidfile = tmp_path / 'pid'
+    code = ('import pathlib,subprocess,sys,time; '
+            'child=subprocess.Popen([sys.executable,"-c","import time;time.sleep(60)"]); '
+            f'pathlib.Path({str(pidfile)!r}).write_text(str(child.pid)); time.sleep(60)')
+    (root / 'wiki.config.yaml').write_text(json.dumps({'pre_push': {'quick_commands': [[sys.executable, '-c', code]]}}))
+    git(root, 'add', 'wiki.config.yaml')
+    git(root, 'commit', '-qm', 'slow consumer check')
+    head = git(root, 'rev-parse', 'HEAD')
+    update = f'refs/heads/topic {head} refs/heads/topic {base}\n'
+    proc = subprocess.Popen([sys.executable, str(SCRIPT), '--root', str(root), 'origin', 'example'],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        proc.stdin.write(update)
+        proc.stdin.close()
+        deadline = time.monotonic() + 5
+        while not pidfile.exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert pidfile.exists()
+        pid = int(pidfile.read_text())
+        os.kill(proc.pid, signal.SIGTERM)
+        assert proc.wait(timeout=3) == 128 + signal.SIGTERM
+        status = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True)
+        assert status.returncode != 0 or status.stdout.strip().startswith('Z')
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=3)
+        proc.stdout.close()
+        proc.stderr.close()

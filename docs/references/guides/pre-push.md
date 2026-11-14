@@ -14,6 +14,9 @@ the script cannot push until it is updated. It uses that worktree's `.venv`
 Python when present, otherwise `python3` from `PATH`; the selected interpreter
 must have the kit's dependencies. The default budget is
 10 seconds; timeout, failed checks, and incomplete object reads block the push.
+Timeout and catchable interruption terminate the worker group. A descendant that
+deliberately leaves that group, or a forced termination of the supervisor,
+requires containment by the host.
 
 For each non-deleted ref, the hook checks whitespace in the pushed tree range
 and runs the kit's secret detector on introduced blobs, path names, commit

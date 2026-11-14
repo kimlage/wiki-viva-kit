@@ -6,15 +6,15 @@ import argparse
 import hashlib
 import os
 import re
+import signal
 import stat
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 
 from _common import ROOT
-from wiki_session_hook import _run_group
+from wiki_session_hook import _run_group, _terminate
 from wiki_core.detectors.secrets import scan_secrets
 
 
@@ -27,16 +27,15 @@ def run(root: Path, args: list[str], deadline: float, *, data: bytes | None = No
     if remaining <= 0:
         raise Blocked('time budget exceeded')
     try:
-        with tempfile.TemporaryFile() as output:
-            p = subprocess.run(args, cwd=root, input=data, stdout=output,
-                               stderr=subprocess.DEVNULL, timeout=remaining)
-            output.seek(0)
-            result = output.read()
+        # Git object contents may contain credentials: retain them in memory
+        # only. The outer supervisor bounds and terminates the process group.
+        p = subprocess.run(args, cwd=root, input=data, stdout=subprocess.PIPE,
+                           stderr=subprocess.DEVNULL, timeout=remaining)
     except (OSError, subprocess.TimeoutExpired):
         raise Blocked('command unavailable or timed out') from None
     if p.returncode:
         raise Blocked('check failed')
-    return result
+    return p.stdout
 
 
 def git(root: Path, deadline: float, *args: str, data: bytes | None = None) -> bytes:
@@ -334,4 +333,6 @@ def main() -> int:
 
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGTERM, _terminate)
+    signal.signal(signal.SIGINT, _terminate)
     raise SystemExit(main())
