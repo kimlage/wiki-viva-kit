@@ -155,18 +155,26 @@ def _local_process_environment(root: Path, *, allow_file: bool = False) -> dict[
     return env
 
 
+def _require_supported_commit_signing(root: Path) -> None:
+    from wiki_core.git_env import local_git_executable
+    try:
+        signing = subprocess.run([local_git_executable(), "config", "--bool", "--get", "commit.gpgsign"],
+                                 cwd=root, env=_transport_git_environment(root), capture_output=True, timeout=120)
+    except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+        raise ContributionError("git_commit_signing_policy_unavailable") from exc
+    if signing.returncode not in (0, 1) or len(signing.stdout) > 32:
+        raise ContributionError("git_commit_signing_policy_unavailable")
+    if signing.returncode == 0 and signing.stdout.strip() != b"false":
+        raise ContributionError("git_commit_signing_policy_unsupported")
+
+
 def _local_git_effect(root: Path, *argv: str, allow_file: bool = False) -> str:
     """Run local scratch/ref operations, separate from remote transport."""
     from wiki_core.git_env import local_git_executable
     from wiki_core.git_safety import sanitized_git_argv
     try:
         if argv and argv[0] == "commit":
-            signing = subprocess.run([local_git_executable(), "config", "--bool", "--get", "commit.gpgsign"],
-                                     cwd=root, env=_transport_git_environment(root), capture_output=True, timeout=120)
-            if signing.returncode not in (0, 1) or len(signing.stdout) > 32:
-                raise ContributionError("git_commit_signing_policy_unavailable")
-            if signing.returncode == 0 and signing.stdout.strip() != b"false":
-                raise ContributionError("git_commit_signing_policy_unsupported")
+            _require_supported_commit_signing(root)
         command = sanitized_git_argv(argv, executable=local_git_executable(), allow_file_protocol=allow_file)
         command.insert(1, "--no-lazy-fetch")
         result = subprocess.run(command, cwd=root, env=_local_process_environment(root, allow_file=allow_file),
@@ -664,6 +672,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
     policy = _blob(root, base, "wiki.config.yaml")
     if (root / "wiki.config.yaml").read_text() != policy:
         raise ContributionError("uncommitted_policy")
+    _require_supported_commit_signing(root)
     if dry_run:
         return {"status": "ready_to_prepare", "material_sha256": material,
                 "branch": branch, "coverage": COVERAGE}

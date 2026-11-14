@@ -524,11 +524,19 @@ def test_prepare_preserves_global_identity_without_inherited_repo(tmp_path, monk
     assert author.strip() == b'Synthetic Global <global@example.test>'
 
 
-def test_prepare_refuses_required_signing_instead_of_silent_unsigned_commit(tmp_path, monkeypatch):
+@pytest.mark.parametrize('source', ['global', 'local', 'injected'])
+def test_prepare_refuses_required_signing_instead_of_silent_unsigned_commit(tmp_path, monkeypatch, source):
     _, request = fixture(tmp_path)
-    global_config = tmp_path.parent / (tmp_path.name + '-gitconfig')
-    global_config.write_text('[commit]\n\tgpgSign = true\n')
-    monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(global_config))
+    if source == 'global':
+        global_config = tmp_path.parent / (tmp_path.name + '-gitconfig')
+        global_config.write_text('[commit]\n\tgpgSign = true\n')
+        monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(global_config))
+    elif source == 'local':
+        git(tmp_path, 'config', 'commit.gpgSign', 'true')
+    else:
+        monkeypatch.setenv('GIT_CONFIG_COUNT', '1')
+        monkeypatch.setenv('GIT_CONFIG_KEY_0', 'commit.gpgSign')
+        monkeypatch.setenv('GIT_CONFIG_VALUE_0', 'true')
     result = call(tmp_path, 'prepare', request, review=review(request))
     assert not result['ok']
     assert result['error'] == 'git_commit_signing_policy_unsupported'
