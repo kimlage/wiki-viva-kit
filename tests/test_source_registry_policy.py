@@ -88,3 +88,45 @@ def test_collection_keeps_string_ids_through_yaml_serialization(tmp_path, monkey
     source(tmp_path, "memories/sources/one.md", "123")
     metadata = yaml.safe_load(reg.build_registry(paths, WikiConfig(), "2026-06-10").split("---", 2)[1])
     assert metadata["collection"]["members"] == ["123"]
+
+
+def test_registry_respects_exempt_source_and_keeps_overdue_control(tmp_path, monkeypatch):
+    reg, paths = registry(tmp_path, monkeypatch)
+    for name, exempt in (("Historical", True), ("Recurring", False)):
+        page = tmp_path / "memories" / "sources" / f"{name.lower()}.md"
+        page.parent.mkdir(parents=True, exist_ok=True)
+        fields = {
+            "page_id": f"source-{name.lower()}", "page_type": "source", "title": name,
+            "last_ingested_at": "2020-01-01", "stale_after_days": 45,
+            "stale_exempt": exempt, "refresh_policy": "archival" if exempt else "recurring",
+        }
+        page.write_text("---\n" + yaml.safe_dump(fields) + "---\n", encoding="utf-8")
+
+    rendered = reg.build_registry(paths, WikiConfig(), "2026-06-10")
+    historical = next(line for line in rendered.splitlines() if "[Historical]" in line)
+    recurring = next(line for line in rendered.splitlines() if "[Recurring]" in line)
+    assert "| — | not time-based | archival |" in historical
+    assert "| due | recurring (45d) |" in recurring
+    assert "stale_exempt" in historical and "stale_exempt" in recurring
+    assert rendered == reg.build_registry(paths, WikiConfig(), "2026-06-10")
+
+
+@pytest.mark.parametrize("existing, expected", [
+    ({"context": "team: research", "moc_parent": "memories/team/index.md"},
+     ("team: research", "memories/team/index.md")),
+    ({"context": "team", "moc_parent": "memories/team/index.md"},
+     ("team", "memories/team/index.md")),
+    ({"context": "team"}, ("team", "memories/index.md")),
+    (None, ("system", "memories/index.md")),
+])
+def test_registry_keeps_existing_context_and_parent(tmp_path, monkeypatch, existing, expected):
+    reg, paths = registry(tmp_path, monkeypatch)
+    if existing is not None:
+        paths.source_registry_page.parent.mkdir(parents=True, exist_ok=True)
+        paths.source_registry_page.write_text("---\n" + yaml.safe_dump(existing) + "---\n")
+    content = reg.build_registry(paths, WikiConfig(), "2026-06-10")
+    metadata = yaml.safe_load(content.split("---", 2)[1])
+    assert (metadata["context"], metadata["moc_parent"]) == expected
+    paths.source_registry_page.parent.mkdir(parents=True, exist_ok=True)
+    paths.source_registry_page.write_text(content)
+    assert reg.build_registry(paths, WikiConfig(), "2026-06-10") == content
