@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -403,6 +404,85 @@ def test_candidate_refuses_changed_git_mode_without_materializing_symlink(tmp_pa
     altered = git(tmp_path, 'commit-tree', tree, '-p', parent, '-m', 'synthetic altered mode')
     with pytest.raises(port.ContributionError, match='candidate_file_mode_changed'):
         port._entry(tmp_path, altered, action, request, port.digest(request))
+
+
+@pytest.mark.parametrize('target', ['action', 'log'])
+@pytest.mark.parametrize('mode', ['100755', '120000'])
+def test_canonical_mode_change_requires_reconciliation(tmp_path, monkeypatch, target, mode):
+    _, request = fixture(tmp_path)
+    prepared = call(tmp_path, 'prepare', request, review=review(request))
+    assert prepared['ok'], prepared
+    commit = prepared['proposal_commit']
+    action = request['files'][0]['path']
+    ref = action if target == 'action' else 'memories/system/log.md'
+    entry, _ = port._entry(tmp_path, commit, action, request, port.digest(request))
+    parent = git(tmp_path, 'rev-parse', commit + '^')
+    monkeypatch.setattr(port, '_canonical_observation', lambda *_args, **_kw: parent)
+    port._integration_source_check(tmp_path, load_config(tmp_path), commit, action, entry, dry_run=True)
+    blob = git(tmp_path, 'rev-parse', f'{parent}:{ref}')
+    git(tmp_path, 'read-tree', parent)
+    git(tmp_path, 'update-index', '--add', '--cacheinfo', f'{mode},{blob},{ref}')
+    tree = git(tmp_path, 'write-tree')
+    canonical = git(tmp_path, 'commit-tree', tree, '-p', parent, '-m', 'synthetic canonical mode')
+    monkeypatch.setattr(port, '_canonical_observation', lambda *_args, **_kw: canonical)
+    with pytest.raises(port.ContributionError, match='canonical_file_mode_changed'):
+        port._integration_source_check(tmp_path, load_config(tmp_path), commit, action, entry, dry_run=True)
+
+
+@pytest.mark.parametrize('target', ['action', 'log'])
+def test_candidate_refuses_a_symlink_already_in_parent_tree(tmp_path, target):
+    _, request = fixture(tmp_path)
+    prepared = call(tmp_path, 'prepare', request, review=review(request))
+    assert prepared['ok'], prepared
+    commit = prepared['proposal_commit']
+    action = request['files'][0]['path']
+    ref = action if target == 'action' else 'memories/system/log.md'
+    parent = git(tmp_path, 'rev-parse', commit + '^')
+    git(tmp_path, 'read-tree', parent)
+    blob = git(tmp_path, 'rev-parse', f'{parent}:{ref}')
+    git(tmp_path, 'update-index', '--add', '--cacheinfo', f'120000,{blob},{ref}')
+    forged_parent = git(tmp_path, 'commit-tree', git(tmp_path, 'write-tree'), '-p', parent,
+                        '-m', 'synthetic parent link')
+    git(tmp_path, 'read-tree', commit)
+    blob = git(tmp_path, 'rev-parse', f'{commit}:{ref}')
+    git(tmp_path, 'update-index', '--add', '--cacheinfo', f'120000,{blob},{ref}')
+    candidate = git(tmp_path, 'commit-tree', git(tmp_path, 'write-tree'), '-p', forged_parent,
+                    '-m', 'synthetic unchanged link mode')
+    with pytest.raises(port.ContributionError, match='candidate_file_mode_changed'):
+        port._entry(tmp_path, candidate, action, request, port.digest(request), approved=forged_parent)
+
+
+def test_candidate_preserves_existing_executable_regular_modes(tmp_path, monkeypatch):
+    action, request = fixture(tmp_path)
+    for ref in (request['files'][0]['path'], 'memories/system/log.md'):
+        if os.name != 'nt':
+            file = tmp_path / ref
+            file.chmod(file.stat().st_mode | 0o111)
+        git(tmp_path, 'update-index', '--chmod=+x', '--', ref)
+    git(tmp_path, 'commit', '-qm', 'synthetic executable regular files')
+    prepared = call(tmp_path, 'prepare', request, review=review(request))
+    assert prepared['ok'], prepared
+    commit = prepared['proposal_commit']
+    for ref in (request['files'][0]['path'], 'memories/system/log.md'):
+        assert port._tree_file_mode(tmp_path, commit + '^', ref) == '100755'
+        assert port._tree_file_mode(tmp_path, commit, ref) == '100755'
+    entry, _ = port._entry(tmp_path, commit, request['files'][0]['path'], request, port.digest(request))
+    parent = git(tmp_path, 'rev-parse', commit + '^')
+    monkeypatch.setattr(port, '_canonical_observation', lambda *_args, **_kw: parent)
+    port._integration_source_check(tmp_path, load_config(tmp_path), commit, request['files'][0]['path'],
+                                   entry, dry_run=True)
+
+
+@pytest.mark.parametrize('name', ['literal[1].md', 'line\nname.md', 'carriage\rname.md'])
+def test_git_tree_mode_uses_literal_bytes_despite_inherited_pathspec_setting(tmp_path, monkeypatch, name):
+    if os.name == 'nt' and ('\n' in name or '\r' in name):
+        pytest.skip('the host cannot create line breaks in file names')
+    fixture(tmp_path)
+    (tmp_path / name).write_text('Synthetic regular file\n')
+    git(tmp_path, 'add', '--all')
+    git(tmp_path, 'commit', '-qm', 'synthetic literal file name')
+    monkeypatch.setenv('GIT_LITERAL_PATHSPECS', '1')
+    assert port._tree_file_mode(tmp_path, 'HEAD', name) == '100644'
 
 
 def test_structured_review_keeps_nonblocking_findings_losslessly(tmp_path):

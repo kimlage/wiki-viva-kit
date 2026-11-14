@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 from contextlib import ExitStack
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -71,14 +72,18 @@ def _blob(root: Path, revision: str, path: str) -> str:
 
 def _tree_file_mode(root: Path, revision: str, path: str) -> str:
     """Read one literal Git tree entry, without treating a symlink as a file."""
-    row = _git(root, "ls-tree", "-z", revision, "--", ":(literal)" + path)
-    if not row.endswith("\0") or row.count("\0") != 1:
+    from wiki_core.git_env import local_git_tree
+    try:
+        row = local_git_tree(root, "--literal-pathspecs", "ls-tree", "-z", revision, "--", path)
+    except (ValueError, OSError) as exc:
+        raise ContributionError("candidate_file_mode_unavailable") from exc
+    if not row.endswith(b"\0") or row.count(b"\0") != 1:
         raise ContributionError("candidate_file_mode_unavailable")
-    header, sep, actual_path = row[:-1].partition("\t")
-    parts = header.split(" ")
-    if not sep or actual_path != path or len(parts) != 3 or parts[1] != "blob":
+    header, sep, actual_path = row[:-1].partition(b"\t")
+    parts = header.split(b" ")
+    if not sep or actual_path != os.fsencode(path) or len(parts) != 3 or parts[1] != b"blob":
         raise ContributionError("candidate_file_mode_unavailable")
-    return parts[0]
+    return parts[0].decode("ascii")
 
 
 def _string(value: Any, label: str, limit: int = 1000) -> str:
@@ -403,11 +408,16 @@ def _integration_source_check(root: Path, config: WikiConfig, commit: str, path:
     base_branch = str(config.approval.get("default_branch") or "main")
     canonical = _canonical_observation(root, base_branch, dry_run=dry_run)
     parent = _git(root, "rev-parse", commit + "^")
+    log_ref = WikiPaths(root, config).log_page.relative_to(root).as_posix()
+    for ref in (path, log_ref):
+        original_mode = _tree_file_mode(root, parent, ref)
+        if (original_mode not in {"100644", "100755"}
+                or _tree_file_mode(root, canonical, ref) != original_mode):
+            raise ContributionError("canonical_file_mode_changed: reconcile required")
     if _blob(root, canonical, "wiki.config.yaml") != _blob(root, commit, "wiki.config.yaml"):
         raise ContributionError("canonical_policy_changed: reconcile required")
     if _blob(root, canonical, path) != _blob(root, parent, path):
         raise ContributionError("canonical_action_changed: reconcile required")
-    log_ref = WikiPaths(root, config).log_page.relative_to(root).as_posix()
     if (_blob(root, canonical, log_ref) != _blob(root, parent, log_ref)
             or (root / log_ref).read_text() != _blob(root, parent, log_ref)):
         raise ContributionError("canonical_or_worktree_log_changed: reconcile required")
