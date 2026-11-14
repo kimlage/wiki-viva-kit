@@ -127,8 +127,8 @@ def test_prepare_custom_gate_observes_synthetic_global_git_config(tmp_path, monk
     git(root, 'commit', '-qm', 'synthetic configured gate')
     request['files'][0]['base_commit'] = git(root, 'rev-parse', 'HEAD')
     result = call(root, 'prepare', request, review=review(request))
+    assert result['ok'] is prepared, result
     assert marker.read_text() == policy
-    assert result['ok'] is prepared
     if prepared:
         assert result['status'] == 'prepared' and port._candidate(root, result['branch'])
     else:
