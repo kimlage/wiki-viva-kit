@@ -87,3 +87,33 @@ def test_forged_editorial_receipt_cannot_hide_extra_body_changes(tmp_path):
     event['payload_sha256'] = _sha256_text(json.dumps(event['contribution'],sort_keys=True,ensure_ascii=False,separators=(',',':')))
     event['receipt_id'] = _receipt_id(event)
     assert action_transition_diagnostics(before,_render_document(fm,body))[0].code == 'invalid_body_consolidation'
+
+
+@pytest.mark.parametrize('line_ending', ['crlf', 'mixed'])
+def test_consolidation_binds_crlf_sibling_bytes_and_preserves_surrounding_body(tmp_path, line_ending):
+    p, canonical, records = fixture(tmp_path)
+    for path in (p, canonical):
+        raw = path.read_bytes()
+        if line_ending == 'crlf':
+            raw = raw.replace(b'\n', b'\r\n')
+        else:
+            raw = raw.replace(b'\n\n', b'\r\n\n')
+        path.write_bytes(raw)
+    source = canonical.read_bytes()
+    before = p.read_bytes().decode('utf-8')
+    _, body = _parse_document(before)
+    records[0]['canonical_sha256'] = hashlib.sha256(source).hexdigest()
+    new_body = _consolidated_body(body, records)
+    assert new_body == body.replace(PARAGRAPH, '[Canonical prerequisite evidence](canonical.md).')
+    stale = [dict(records[0], canonical_sha256=hashlib.sha256(canonical.read_text().encode()).hexdigest())]
+    assert stale[0]['canonical_sha256'] != records[0]['canonical_sha256']
+    with pytest.raises(ActionTransitionError, match='consolidation_canonical_content_changed'):
+        integrate_action_body(tmp_path, p, new_body, expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+            contribution={'effect_key': 'stale', 'material_sha256': 'a' * 64},
+            recorded_at='2026-07-11T23:45:00-03:00', consolidations=stale)
+    assert p.read_bytes().decode('utf-8') == before
+    integrate_action_body(tmp_path, p, new_body, expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'crlf-consolidation', 'material_sha256': 'a' * 64},
+        recorded_at='2026-07-11T23:45:00-03:00', consolidations=records)
+    assert canonical.read_bytes() == source
+    assert action_transition_diagnostics(before, p.read_bytes().decode('utf-8')) == ()

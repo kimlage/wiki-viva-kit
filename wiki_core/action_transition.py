@@ -1157,7 +1157,7 @@ def _consolidated_body(body: str, records: Any) -> str:
             raise ActionTransitionError("invalid_body_consolidation")
         paragraph, ref, label = item["paragraph"], item["canonical_ref"], item["label"]
         if (not isinstance(paragraph, str) or not 120 <= len(paragraph) <= 16000
-                or paragraph not in [p.strip("\n") for p in re.split(r"\n\s*\n", body)] or body.count(paragraph) != 1
+                or paragraph not in [p.strip("\r\n") for p in re.split(r"\n\s*\n", body)] or body.count(paragraph) != 1
                 or any(line.lstrip().startswith(("#", "|", "```", "~~~")) for line in paragraph.splitlines())
                 or not isinstance(ref, str) or not re.fullmatch(r"[a-zA-Z0-9_/-]+\.md", ref)
                 or ".." in Path(ref).parts
@@ -1174,10 +1174,10 @@ def _verify_consolidation_sources(root: Path, path: Path, records: list[dict]) -
         target, _ = _contained_action_path(root, item["canonical_ref"])
         if target == path or target.parent != path.parent:
             raise ActionTransitionError("consolidation_requires_distinct_sibling_action")
-        raw = target.read_text(encoding="utf-8")
+        raw = target.read_bytes().decode("utf-8")
         fm, body = _parse_document(raw)
         if (_sha256_text(raw) != item["canonical_sha256"] or fm.get("page_type") != "action"
-                or item["paragraph"] not in [p.strip("\n") for p in re.split(r"\n\s*\n", body)]):
+                or item["paragraph"] not in [p.strip("\r\n") for p in re.split(r"\n\s*\n", body)]):
             raise ActionTransitionError("consolidation_canonical_content_changed")
 
 
