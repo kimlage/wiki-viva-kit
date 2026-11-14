@@ -63,6 +63,7 @@ def test_unknown_observation_never_blocks(monkeypatch, tmp_path):
 
 
 def test_protocol_json_for_both_hosts(tmp_path):
+    subprocess.run(['git', 'init', '-q', str(tmp_path)], check=True)
     state = tmp_path / 'state'
     state.write_text('stop')
     for provider in ('Codex', 'Claude'):
