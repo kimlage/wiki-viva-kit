@@ -27,6 +27,7 @@ from scripts._common import ROOT
 
 from wiki_core.traversal import require_wiki_boundaries
 from wiki_core.config import freshness_for, load_config
+from wiki_core.freshness import is_stale_exempt
 from wiki_core.paths import WikiPaths
 from wiki_core.source_recipe import extract_recipe_mapping
 
@@ -128,6 +129,25 @@ def read_frontmatter(path: Path) -> dict[str, object]:
         return {}
 
 
+def _read_registry_frontmatter(path: Path) -> dict[str, object]:
+    """Refuse to overwrite an existing registry whose identity cannot be read."""
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---\n"):
+        raise ValueError("source registry frontmatter is missing or invalid")
+    end = text.find("\n---\n", 4)
+    if end < 0 and text.endswith("\n---"):
+        end = len(text) - 4
+    if end < 0:
+        raise ValueError("source registry frontmatter is missing or invalid")
+    try:
+        values = yaml.safe_load(text[4:end])
+    except yaml.YAMLError:
+        raise ValueError("source registry frontmatter is invalid") from None
+    if not isinstance(values, dict):
+        raise ValueError("source registry frontmatter must be a mapping")
+    return values
+
+
 def _parse_date(value: object) -> dt.date | None:
     text = str(value or "").strip()
     if not text:
@@ -165,6 +185,9 @@ def _refresh_fields(
 ) -> dict[str, str]:
     last = _parse_date(fm.get("last_ingested_at") or fm.get("updated_at"))
     mode = _cell((schedule or {}).get("mode"))
+    if is_stale_exempt(fm.get("stale_exempt")):
+        return {"next_refresh": "", "refresh_status": strings["status_not_time_based"],
+                "refresh_policy": mode or _cell(fm.get("refresh_policy"))}
     schedule_cadence = _positive_int((schedule or {}).get("cadence_days"))
     if mode and mode != "recurring":
         return {"next_refresh": "", "refresh_status": strings["status_not_time_based"], "refresh_policy": mode}
@@ -292,6 +315,11 @@ def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
 
     rows = collect_sources(paths, updated_at)
     index_rel = paths.rel(paths.memory_root / "index.md")
+    existing = _read_registry_frontmatter(reg_path) if reg_path.exists() else {}
+    context = existing.get("context", config.default_context)
+    parent = existing.get("moc_parent", index_rel)
+    if not all(isinstance(value, str) and value.strip() for value in (context, parent)):
+        raise ValueError("source registry context and moc_parent must be non-empty strings")
     script_link = os.path.relpath(ROOT / "scripts" / "wiki_source_registry.py", reg_dir).replace(os.sep, "/")
 
     body: list[str] = [
@@ -299,14 +327,14 @@ def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
         "page_id: source-registry",
         "page_type: source_registry",
         f'title: "{s["title"]}"',
-        f"context: {config.default_context}",
+        *yaml.safe_dump({"context": context}, allow_unicode=True).rstrip().splitlines(),
         "visibility: private_self",
         f"updated_at: {updated_at}",
-        f"stale_after_days: {freshness_for(config.default_context, 'source_registry', config)}",
+        f"stale_after_days: {freshness_for(context, 'source_registry', config)}",
         "sources_policy: memoria_consolidada",
         "gate: github_pr",
         "sensitive_data_policy: private_sensitive_allowed",
-        f"moc_parent: {index_rel}",
+        *yaml.safe_dump({"moc_parent": parent}, allow_unicode=True).rstrip().splitlines(),
         *yaml.safe_dump({'projection_inputs':[
             *([{'paths':['wiki.config.yaml'],'fields':['body']}] if (ROOT/'wiki.config.yaml').is_file() else []),
             {'page_types':sorted(SOURCE_PAGE_TYPES),
@@ -339,7 +367,7 @@ def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
             config_link = declare_projection(f"[{s['config_label']}]({link_to(r['config'])})",consumes=['body']) if r["config"] else s["state_default"]
             source_link=declare_projection(f"[{_cell(r['title'])}]({link_to(r['rel'])})",consumes=[
                 'page_id','page_type','title','source_type','ingestion_state','last_ingested_at','updated_at',
-                'config_ref','next_refresh_at','refresh_cadence_days','stale_after_days','refresh_policy'])
+                'config_ref','next_refresh_at','refresh_cadence_days','stale_after_days','stale_exempt','refresh_policy'])
             body.append(
                 f"| {source_link} | `{_cell(r['type'])}` | {_cell(state)} | "
                 f"{_cell(updated)} | {_cell(next_refresh)} | {_cell(refresh_status)} | "
