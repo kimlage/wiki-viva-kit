@@ -809,16 +809,16 @@ def test_c1_replacement_preserves_ignored_hardlink(tmp_path: Path) -> None:
     assert not list(target.parent.glob('.wiki-sync-*'))
 
 
-def test_c1_cleans_temporary_file_when_replacement_fails(tmp_path: Path, monkeypatch) -> None:
+def test_c1_cleans_temporary_file_when_addition_fails(tmp_path: Path, monkeypatch) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     sync = _sync_module()
     plan = sync.build_plan(kit, consumer, manifest, [])
 
-    def fail_replace(source, target):
-        raise OSError('synthetic replacement failure')
+    def fail_link(source, target):
+        raise OSError('synthetic addition failure')
 
-    monkeypatch.setattr(sync.os, 'replace', fail_replace)
-    with pytest.raises(OSError, match='synthetic replacement failure'):
+    monkeypatch.setattr(sync.os, 'link', fail_link)
+    with pytest.raises(OSError, match='synthetic addition failure'):
         sync._copy_c1(kit, consumer, plan)
     assert not list(consumer.rglob('.wiki-sync-*'))
 
@@ -1052,3 +1052,80 @@ def test_drift_rejects_intent_to_add_even_when_bytes_match(tmp_path):
     (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
     with pytest.raises(sync.SyncError, match='intent-to-add'):
         sync.inspect_drift(consumer)
+
+
+@pytest.mark.parametrize('kind', ['file', 'symlink'])
+def test_c1_add_does_not_replace_destination_created_at_install(tmp_path: Path, monkeypatch, kind: str) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    sync = _sync_module()
+    plan = sync.build_plan(kit, consumer, manifest, [])
+    target = consumer / 'portable/tool.txt'
+    outside = consumer / 'independent.txt'
+    outside.write_text('independent synthetic data\n')
+    real_link = os.link
+    def race_link(source, destination):
+        if Path(destination) == target:
+            if kind == 'file':
+                target.write_text('concurrent synthetic data\n')
+            else:
+                target.symlink_to(outside)
+        return real_link(source, destination)
+    monkeypatch.setattr(sync.os, 'link', race_link)
+    with pytest.raises(sync.SyncError, match='consumer target changed before write'):
+        sync._copy_c1(kit, consumer, plan)
+    if kind == 'file':
+        assert target.read_text() == 'concurrent synthetic data\n'
+    else:
+        assert target.is_symlink() and outside.read_text() == 'independent synthetic data\n'
+    assert not list(consumer.rglob('.wiki-sync-*'))
+    assert not (consumer / 'kit.lock').exists()
+
+
+def test_c1_add_fails_closed_when_hardlinks_unavailable(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    sync = _sync_module()
+    plan = sync.build_plan(kit, consumer, manifest, [])
+    def fail_link(*_args):
+        raise OSError('synthetic hardlink unsupported')
+    def forbidden_replace(*_args):
+        pytest.fail('add must not fall back to replacement')
+    monkeypatch.setattr(sync.os, 'link', fail_link)
+    monkeypatch.setattr(sync.os, 'replace', forbidden_replace)
+    with pytest.raises(OSError, match='synthetic hardlink unsupported'):
+        sync._copy_c1(kit, consumer, plan)
+    assert not (consumer / 'portable/tool.txt').exists()
+    assert not list(consumer.rglob('.wiki-sync-*'))
+    assert not (consumer / 'kit.lock').exists()
+
+
+def test_c1_add_preserves_executable_mode_and_cleans_link(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    (kit / 'portable/tool.txt').chmod(0o755)
+    _git(kit, 'add', 'portable/tool.txt')
+    _git(kit, 'commit', '-qm', 'synthetic executable')
+    sync = _sync_module()
+    plan = sync.build_plan(kit, consumer, manifest, [])
+    sync._copy_c1(kit, consumer, plan)
+    target = consumer / 'portable/tool.txt'
+    assert target.read_text() == 'v1\n'
+    assert target.stat().st_mode & 0o777 == 0o755
+    assert target.stat().st_nlink == 1
+    assert not list(consumer.rglob('.wiki-sync-*'))
+
+
+def test_c1_change_still_cleans_temporary_when_replacement_fails(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    (kit / 'portable/tool.txt').write_text('v2\n')
+    _git(kit, 'add', 'portable/tool.txt')
+    _git(kit, 'commit', '-qm', 'synthetic change')
+    sync = _sync_module()
+    plan = sync.build_plan(kit, consumer, manifest, [])
+    assert 'portable/tool.txt' in plan['c1']['change']
+    def fail_replace(*_args):
+        raise OSError('synthetic replacement failure')
+    monkeypatch.setattr(sync.os, 'replace', fail_replace)
+    with pytest.raises(OSError, match='synthetic replacement failure'):
+        sync._copy_c1(kit, consumer, plan)
+    assert (consumer / 'portable/tool.txt').read_text() == 'v1\n'
+    assert not list(consumer.rglob('.wiki-sync-*'))

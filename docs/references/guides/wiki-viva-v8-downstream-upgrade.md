@@ -115,7 +115,10 @@ python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
 ```
 
 - **C1:** copies Git-tracked kit-owned regular files byte-for-byte and preserves
-  executable mode. Blocklisted paths win.
+  executable mode. Blocklisted paths win. A planned addition uses an exclusive
+  hard link and fails if its destination already exists or hard links are not
+  supported. Changes and removals still have concurrency windows; C1 is not a
+  transaction across paths. Stop other writers throughout apply.
 - **C2:** runs deterministic generator argv declared by `sync-manifest.yaml`.
 - **C3:** runs only commands supplied explicitly by the consumer operator.
   Adapters, configuration and domain content are consumer-owned.

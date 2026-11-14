@@ -638,6 +638,7 @@ def _copy_c1(kit: Path, consumer: Path, plan: dict[str, Any]) -> None:
         target = consumer / rel
         if target.is_symlink() or target.is_file():
             target.unlink()
+    additions = set(plan["c1"]["add"])
     for rel in plan["c1"]["add"] + plan["c1"]["change"]:
         _check_consumer_path(consumer, rel)
         target = consumer / rel
@@ -653,7 +654,15 @@ def _copy_c1(kit: Path, consumer: Path, plan: dict[str, Any]) -> None:
                 stream.flush()
             os.chmod(temp_name, 0o755 if files[rel]["mode"] == "100755" else 0o644)
             _check_consumer_path(consumer, rel)
-            os.replace(temp_name, target)
+            if rel in additions:
+                # An add must not replace a destination created after B0.
+                # The prepared temporary file and target share a directory.
+                try:
+                    os.link(temp_name, target)
+                except FileExistsError as exc:
+                    raise SyncError(f"consumer target changed before write: {rel}") from exc
+            else:
+                os.replace(temp_name, target)
         finally:
             if os.path.exists(temp_name):
                 os.unlink(temp_name)
