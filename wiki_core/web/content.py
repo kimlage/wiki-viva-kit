@@ -327,6 +327,41 @@ def _reader_information(root, config, path, values, body, snapshot):
     if head()!=original_head:
         qualified['errors'].append('snapshot_revision_mismatch')
     result=assess_information_use(qualified,path,now=now)
+    # This passive graph contains only the consumer's direct requirements and
+    # the evidence already read for them. Do not read nested targets here or
+    # present those unassessed requirements as a successful full assessment.
+    from wiki_core.markdown_link_roles import parse_role_markdown
+    def has_unassessed_requirements(start):
+        pending = [start]
+        visited = {path}
+        while pending:
+            current = pending.pop()
+            if current in visited or current not in graph['nodes']:
+                continue
+            visited.add(current)
+            metadata = graph['nodes'][current]
+            declared = metadata.get('information_requirements', [])
+            if not isinstance(declared, list) or declared:
+                return True
+            try:
+                _, roles = parse_role_markdown(graph['documents'][current])
+                if any(role.get('role') == 'operational_prerequisite' for role in roles.values()):
+                    return True
+            except (ValueError, TypeError, RecursionError):
+                return True
+            refs = metadata.get('evidence_refs', [])
+            if isinstance(refs, list):
+                for ref in refs:
+                    if isinstance(ref, str):
+                        matches = resolve(ref)
+                        if len(matches) == 1 and matches[0] in graph['nodes']:
+                            pending.append(matches[0])
+        return False
+    for row in result['requirements']:
+        if has_unassessed_requirements(row['target']):
+            row['blockers'] = sorted(set(row['blockers']) | {'information_transitive_requirements_not_assessed'})
+            row['ready'] = False
+            result['ready'] = False
     return {**result,'assessed_at':now.isoformat(),'permission_granted':False}
 
 

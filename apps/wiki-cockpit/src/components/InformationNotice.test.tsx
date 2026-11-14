@@ -58,3 +58,18 @@ it("shows expiry while the same reader remains open without fetching", () => {
   expect(screen.getByText("Information pending verification for this use.")).toBeTruthy();
   expect(fetch).not.toHaveBeenCalled();
 });
+
+it.each([
+  ["en", "Transitive requirements were not assessed in this view."],
+  ["pt-BR", "Requisitos transitivos não foram avaliados nesta visualização."],
+  ["es", "Los requisitos transitivos no se evaluaron en esta vista."]
+])("explains unassessed transitive requirements in %s without fetching", (language, label) => {
+  configureLanguage(language);
+  const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+  render(<InformationNotice frontmatter={{}} assessment={{ consumer: "action", ready: false,
+    assessed_at: "2026-10-30T12:00:00Z", permission_granted: false, relation_errors: [],
+    requirements: [{ target: "claim", fields: ["body"], temporal: "current", verified_at: "2026-10-30",
+      valid_until: null, blockers: ["information_transitive_requirements_not_assessed"], ready: false }] }} />);
+  expect(screen.getByText(label)).toBeTruthy();
+  expect(fetch).not.toHaveBeenCalled();
+});

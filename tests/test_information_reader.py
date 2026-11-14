@@ -1,6 +1,8 @@
 """The human reader explains the same scopes without acquiring source access."""
 import datetime as dt
 
+import pytest
+
 from tests.test_freshness_impact import commit
 from tests.test_source_review_jobs import fixture
 from wiki_core.web.content import build_page_content
@@ -145,3 +147,84 @@ def test_reader_custom_cycle_remains_a_cycle(tmp_path):
     result=build_page_content(tmp_path,config,'action',snapshot(tmp_path,config),include_information=True)['information_use']
     assert not result['ready']
     assert 'information_evidence_closed_claim_cycle' in result['requirements'][0]['blockers']
+
+
+@pytest.mark.parametrize('kind', ['frontmatter_missing', 'body_missing', 'body_existing', 'body_reference', 'body_external', 'body_fragment', 'malformed', 'historical'])
+def test_reader_marks_unassessed_transitive_requirements_without_opening_targets(tmp_path, monkeypatch, kind):
+    import wiki_core.web.content as content
+    from wiki_core.markdown_link_roles import declare_link_role
+
+    config, _, _ = fixture(tmp_path)
+    claim = tmp_path / 'memories/index.md'
+    text = claim.read_text().replace('verified_at: 2026-01-01', 'verified_at: 2026-10-30')
+    if kind in ('frontmatter_missing', 'historical'):
+        text = text.replace('---\nAn observed fact.',
+            'information_requirements:\n- target: missing-synthetic\n  fields: [body]\n  temporal: current\n  max_age_days: 1\n---\nAn observed fact.')
+    elif kind == 'malformed':
+        text = text.replace('---\nAn observed fact.', 'information_requirements: invalid\n---\nAn observed fact.')
+    else:
+        link = {'body_reference': '[Required][other]', 'body_external': '[Required](https://example.invalid/source)',
+                'body_fragment': '[Required](#section)'}.get(kind, '[Required](other-synthetic.md)')
+        text += '\n' + declare_link_role(link, 'operational_prerequisite') + '\n'
+        if kind == 'body_reference':
+            text += '\n[other]: other-synthetic.md\n'
+        if kind == 'body_existing':
+            (tmp_path / 'memories/other-synthetic.md').write_text('---\npage_id: other-synthetic\npage_type: note\n---\nSynthetic target.\n')
+    claim.write_text(text)
+    if kind == 'historical':
+        action = tmp_path / 'memories/action.md'
+        action.write_text(action.read_text().replace('temporal: current', 'temporal: historical'))
+    commit(tmp_path)
+    current = snapshot(tmp_path, config)
+    original = content.build_page_content
+    def bounded(root, cfg, ref, *args, **kwargs):
+        assert ref not in ('missing-synthetic', 'memories/missing-synthetic.md', 'memories/other-synthetic.md'), 'transitive target opened'
+        return original(root, cfg, ref, *args, **kwargs)
+    monkeypatch.setattr(content, 'build_page_content', bounded)
+    result = original(tmp_path, config, 'action', current, include_information=True)['information_use']
+    assert result['permission_granted'] is False and not result['ready']
+    assert result['relation_errors'] == []
+    assert 'information_transitive_requirements_not_assessed' in result['requirements'][0]['blockers']
+
+
+@pytest.mark.parametrize('kind', ['empty', 'citation', 'navigation', 'stale_role', 'conflicting_roles', 'fenced_role'])
+def test_reader_does_not_treat_empty_or_nonoperational_links_as_transitive_requirements(tmp_path, kind):
+    from wiki_core.markdown_link_roles import declare_link_role
+
+    config, _, _ = fixture(tmp_path)
+    claim = tmp_path / 'memories/index.md'
+    text = claim.read_text().replace('verified_at: 2026-01-01', 'verified_at: 2026-10-30')
+    if kind == 'empty':
+        text = text.replace('---\nAn observed fact.', 'information_requirements: []\n---\nAn observed fact.')
+    elif kind == 'citation':
+        text += '\n[Context](other-synthetic.md)\n'
+    elif kind == 'navigation':
+        text += '\n' + declare_link_role('[Navigation](other-synthetic.md)', 'navigation') + '\n'
+    else:
+        link = '[Required](other-synthetic.md)'
+        marked = declare_link_role(link, 'operational_prerequisite')
+        if kind == 'stale_role':
+            text += '\n' + marked.replace('[Required]', '[Changed]') + '\n'
+        elif kind == 'conflicting_roles':
+            text += '\n' + marked + declare_link_role(link, 'navigation')[len(link):] + '\n'
+        else:
+            text += '\n```markdown\n' + marked + '\n```\n'
+    claim.write_text(text)
+    commit(tmp_path)
+    result = build_page_content(tmp_path, config, 'action', snapshot(tmp_path, config), include_information=True)['information_use']
+    assert result['ready'] and result['permission_granted'] is False
+    assert 'information_transitive_requirements_not_assessed' not in result['requirements'][0]['blockers']
+
+
+def test_reader_detects_unassessed_requirements_in_loaded_evidence_chain(tmp_path):
+    config, _, _ = fixture(tmp_path)
+    claim = tmp_path / 'memories/index.md'
+    original = claim.read_text().replace('verified_at: 2026-01-01', 'verified_at: 2026-10-30')
+    intermediate = original.replace('page_id: claim', 'page_id: b').replace('---\nAn observed fact.',
+        'information_requirements:\n- target: missing-synthetic\n  fields: [body]\n  temporal: current\n  max_age_days: 1\n---\nAn observed fact.')
+    (tmp_path / 'memories/b.md').write_text(intermediate)
+    claim.write_text(original.replace('memories/evidence.md', 'b'))
+    commit(tmp_path)
+    result = build_page_content(tmp_path, config, 'action', snapshot(tmp_path, config), include_information=True)['information_use']
+    assert not result['ready'] and result['permission_granted'] is False
+    assert 'information_transitive_requirements_not_assessed' in result['requirements'][0]['blockers']
