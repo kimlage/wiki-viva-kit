@@ -431,8 +431,8 @@ and reader/service adoption in the project application already in use.
 ## Optional session hooks
 
 The repository may opt in to `scripts/wiki_session_hook.py`. It consumes one
-provider event as JSON on stdin. It uses the read-only integration checker and
-returns JSON to the host; it does not post, merge, clean, persist a queue or
+provider event as JSON on stdin. It returns observations as JSON to the host;
+it does not post, merge, clean, persist a queue or
 change action state. `SessionStart` injects a short, incomplete local observation:
 tracked Git changes and at most one GitHub query limited to 25 open PRs, counting
 drafts and PRs with completed failed checks, with a short query timeout.

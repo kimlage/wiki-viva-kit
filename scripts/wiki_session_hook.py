@@ -46,7 +46,7 @@ def check(root: Path, timeout: float) -> dict:
         env = dict(os.environ, GH_PROMPT_DISABLED='1')
         # The outer worker supervisor cleans up the whole process group on return.
         code, output = _bounded_output(['gh', 'pr', 'list', '--state', 'open', '--limit', '25',
-                                        '--json', 'number,isDraft,statusCheckRollup'], root, min(timeout, 0.8), env)
+                                        '--json', 'number,isDraft,statusCheckRollup'], root, min(timeout, 1.1), env)
         prs = json.loads(output) if code == 0 else None
         if not isinstance(prs, list) or any(not isinstance(pr, dict) for pr in prs):
             raise ValueError
