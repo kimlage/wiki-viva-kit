@@ -114,6 +114,62 @@ afterEach(() => {
 });
 
 describe("SourceDock operational workspace", () => {
+  it.each([
+    ["invalid recipe", { recipe_ok: false, pending_streams: 0 }],
+    ["no records", { streams: [], pending_streams: 0 }],
+    ["pending records", { pending_streams: 1 }]
+  ] as Array<[string, Partial<SourceEntity>]>)("marks %s for attention in the registry", (_name, overrides) => {
+    render(<SourceWorkspace bundle={bundleWith(sourceFixture(overrides))} sourceId="source-gmail" onNotice={noop} onClose={noop} />);
+    const registry = screen.getByRole("complementary", { name: "Sources (1)" });
+    expect(within(registry).getByText("attention 1")).toBeTruthy();
+    expect(within(registry).getByRole("img", { name: "Needs recipe or record attention" }).classList.contains("attention")).toBe(true);
+  });
+
+  it("keeps deliberately unselected records distinct from missing records", () => {
+    const fixture = sourceFixture();
+    const excluded = fixture.streams.map((stream) => ({ ...stream, selected: false, breached: false }));
+    render(<SourceWorkspace bundle={bundleWith(sourceFixture({ streams: excluded, pending_streams: 0 }))} sourceId="source-gmail" onNotice={noop} onClose={noop} />);
+    const registry = screen.getByRole("complementary", { name: "Sources (1)" });
+    expect(within(registry).getByText("attention 0")).toBeTruthy();
+    expect(within(registry).getByRole("img", { name: "No recipe or record alert" }).textContent).toBe("–");
+  });
+
+  it("counts mixed attention conditions once and retains the pending-only shortcut", () => {
+    const valid = sourceFixture({ source_id: "synthetic-valid", title: "Synthetic valid", pending_streams: 0 });
+    const invalid = sourceFixture({ source_id: "synthetic-invalid", title: "Synthetic invalid", recipe_ok: false, pending_streams: 0 });
+    const empty = sourceFixture({ source_id: "synthetic-empty", title: "Synthetic empty", streams: [], pending_streams: 0 });
+    const pending = sourceFixture({ source_id: "synthetic-pending", title: "Synthetic pending", pending_streams: 1 });
+    const bundle = bundleWith(null);
+    bundle.sourceEntities!.sources = [valid, invalid, empty, pending];
+    render(<SourceWorkspace bundle={bundle} sourceId="synthetic-valid" onNotice={noop} onClose={noop} />);
+    const registry = screen.getByRole("complementary", { name: "Sources (4)" });
+    expect(within(registry).getByText("attention 3")).toBeTruthy();
+    expect(within(registry).getAllByRole("img", { name: "Needs recipe or record attention" })).toHaveLength(3);
+    expect(within(registry).getByRole("img", { name: "No recipe or record alert" }).textContent).toBe("–");
+    expect(within(registry).getAllByText("!")).toHaveLength(3);
+    expect(within(registry).getByText("1 source(s) with pending records")).toBeTruthy();
+    const invalidButton = within(registry).getByRole("button", { name: /Synthetic invalid.*Needs recipe or record attention/ });
+    invalidButton.focus();
+    expect(document.activeElement).toBe(invalidButton);
+  });
+
+  it.each([
+    ["en", "Needs recipe or record attention"],
+    ["pt-BR", "Receita ou registros precisam de atenção"],
+    ["es", "La receta o los registros requieren atención"]
+  ])("exposes a localized attention status in %s", (language, label) => {
+    configureLanguage(language);
+    render(<SourceWorkspace bundle={bundleWith(sourceFixture({ recipe_ok: false, pending_streams: 0 }))} sourceId="source-gmail" onNotice={noop} onClose={noop} />);
+    expect(screen.getByRole("img", { name: label }).textContent).toBe("!");
+  });
+
+  it("does not raise a recipe or record alert when each is ready and none are pending", () => {
+    render(<SourceWorkspace bundle={bundleWith(sourceFixture({ pending_streams: 0 }))} sourceId="source-gmail" onNotice={noop} onClose={noop} />);
+    const registry = screen.getByRole("complementary", { name: "Sources (1)" });
+    expect(within(registry).getByText("attention 0")).toBeTruthy();
+    expect(within(registry).getByRole("img", { name: "No recipe or record alert" }).classList.contains("neutral")).toBe(true);
+  });
+
   it("groups streams for navigation and retains selection by exact stream id", () => {
     const source = sourceFixture();
     source.streams = [
