@@ -1,6 +1,6 @@
 import pytest
 
-from wiki_core.requirement_yaml import RequirementYamlError, check_requirement_yaml
+from wiki_core.requirement_yaml import RequirementYamlError, check_requirement_yaml, _canonical_bounded
 
 
 @pytest.mark.parametrize('block', [
@@ -63,3 +63,12 @@ def test_identical_direct_duplicates_can_be_repaired_without_changing_value(bloc
 def test_uncertain_or_changed_duplicate_repair_is_refused(block, proposed):
     with pytest.raises(RequirementYamlError, match='ambiguous information requirements'):
         check_requirement_yaml('---\n' + block + '\n---\n', repair_value=proposed)
+
+
+def test_repair_canonicalization_bounds_expanded_aliases():
+    shared = 'x' * 160_000
+    with pytest.raises(RequirementYamlError, match='ambiguous information requirements'):
+        _canonical_bounded([shared] * 400)
+    with pytest.raises(RequirementYamlError, match='ambiguous information requirements'):
+        check_requirement_yaml('---\ninformation_requirements: []\ninformation_requirements: []\n---\n',
+                               repair_value=[shared] * 400)

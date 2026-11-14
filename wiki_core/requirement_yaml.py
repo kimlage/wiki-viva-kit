@@ -14,6 +14,20 @@ class RequirementYamlError(ValueError):
 NO_REPAIR_VALUE = object()
 
 
+def _canonical_bounded(value) -> str:
+    """Bound expanded JSON before retaining it, including shared YAML aliases."""
+    encoder = json.JSONEncoder(ensure_ascii=False, sort_keys=True,
+                               separators=(',', ':'), allow_nan=False)
+    chunks = []
+    size = 0
+    for part in encoder.iterencode(value):
+        size += len(part.encode('utf-8'))
+        if size > 2_000_000 or len(chunks) >= 100_000:
+            raise RequirementYamlError('ambiguous information requirements')
+        chunks.append(part)
+    return ''.join(chunks)
+
+
 def check_requirement_yaml(text: str, *, repair_value=NO_REPAIR_VALUE) -> None:
     """Refuse ambiguous requirement mappings; do not grant or read anything.
 
@@ -112,14 +126,12 @@ def check_requirement_yaml(text: str, *, repair_value=NO_REPAIR_VALUE) -> None:
                 or any(key.tag == 'tag:yaml.org,2002:merge' for key, _ in root.value)):
             raise RequirementYamlError('ambiguous information requirements')
         try:
-            canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True,
-                                                 separators=(',', ':'), allow_nan=False)
-            expected = canonical(repair_value)
+            expected = _canonical_bounded(repair_value)
             for node in protected:
                 if not isinstance(node, yaml.SequenceNode):
                     raise RequirementYamlError('ambiguous information requirements')
                 visit(node, set(), no_merge=True)
-                if canonical(yaml.safe_load(yaml.serialize(node, Dumper=yaml.SafeDumper))) != expected:
+                if _canonical_bounded(yaml.safe_load(yaml.serialize(node, Dumper=yaml.SafeDumper))) != expected:
                     raise RequirementYamlError('ambiguous information requirements')
         except (yaml.YAMLError, RecursionError, TypeError, ValueError):
             raise RequirementYamlError('ambiguous information requirements') from None
