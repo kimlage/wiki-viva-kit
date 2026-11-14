@@ -166,16 +166,21 @@ def consolidate_one(
             source_page=source_page, source_ref=source_ref, event_dir=event_dir, root=ROOT,
             impact=dict(packet_data.get('impact') or {}) if packet_data else None)
     packet_text = json.dumps(packet_data, ensure_ascii=False, indent=2, sort_keys=True) + '\n' if packet else None
-    if request_id and packet and packet_file.exists():
-        if packet_file.read_text(encoding='utf-8') != packet_text:
-            print('ERROR: existing integration packet differs; preserved', file=sys.stderr)
-            return 1
     if packet:
         paths.extraction_events.mkdir(parents=True, exist_ok=True)
         require_wiki_boundaries(ROOT, files=(packet_file,))
         if request_id:
-            if not packet_file.exists():
-                _publish_local_packet_once(packet_file, packet_text)
+            try:
+                if not packet_file.exists():
+                    _publish_local_packet_once(packet_file, packet_text)
+            except FileExistsError:
+                # A competing writer won the exclusive install; inspect it
+                # before emitting an event that depends on this packet.
+                pass
+            require_wiki_boundaries(ROOT, files=(packet_file,))
+            if packet_file.read_text(encoding='utf-8') != packet_text:
+                print('ERROR: existing integration packet differs; preserved', file=sys.stderr)
+                return 1
         else:
             packet_file.write_text(packet_text, encoding='utf-8')
         print(packet_file.relative_to(ROOT).as_posix())
