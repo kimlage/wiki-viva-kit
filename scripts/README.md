@@ -1,5 +1,8 @@
 # Wiki command-line tools
 
+[`wiki_pre_push.py`](wiki_pre_push.py) provides opt-in local pre-push checks;
+see the [installation and consumer configuration guide](../docs/references/guides/pre-push.md).
+
 The tools provide deterministic orchestration; contextual reading is delegated
 to the operating agent. Effect scope is command-specific: local lookup and
 inspection differ from source refresh and artifact publication, which can
