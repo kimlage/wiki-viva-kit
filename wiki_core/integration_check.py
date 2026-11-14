@@ -6,6 +6,7 @@ runtime identity. Only an explicit, exact-head handoff can supply local evidence
 from __future__ import annotations
 
 import json
+from datetime import datetime
 import re
 import subprocess
 from pathlib import Path
@@ -57,36 +58,56 @@ def _latest_reviews(pr: dict) -> list[dict]:
     latest: dict[str, dict] = {}
     for review in pr.get("reviews") or []:
         login = (review.get("author") or {}).get("login")
-        if login:
-            latest[login] = review
+        if isinstance(login, str) and login:
+            latest[login.casefold()] = review
     return list(latest.values())
 
 
-def _comment_evidence(pr: dict, head: str) -> tuple[bool, bool, str | None]:
-    decisions: dict[str, str] = {}
+def _event_time(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        stamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return stamp if stamp.tzinfo is not None else None
+    except ValueError:
+        return None
+
+
+def _comment_evidence(pr: dict, head: str) -> tuple[bool, bool, bool, str | None]:
+    decisions: dict[str, list[tuple[datetime | None, str]]] = {}
     thread = None
-    author = (pr.get("author") or {}).get("login")
+    raw_author = (pr.get("author") or {}).get("login")
+    author = raw_author.casefold() if isinstance(raw_author, str) else None
     for item in pr.get("comments") or []:
         body = item.get("body", "")
         if not isinstance(body, str) or _field(body, "Head") != head:
             continue
-        commenter = (item.get("author") or {}).get("login")
+        raw_commenter = (item.get("author") or {}).get("login")
+        commenter = raw_commenter.casefold() if isinstance(raw_commenter, str) else None
         decision = _field(body, "Review").lower().replace(" ", "_")
         if author and commenter and commenter != author and decision in {"approved", "rejected", "changes_requested", "blocked"}:
-            decisions[commenter] = decision
+            decisions.setdefault(commenter, []).append((_event_time(item.get("createdAt")), decision))
         thread = _thread_ref(_field(body, "Responsible-Thread")) or thread
-    native_decisions: dict[str, str] = {}
     for item in _latest_reviews(pr):
-        reviewer = (item.get("author") or {}).get("login")
+        raw_reviewer = (item.get("author") or {}).get("login")
+        reviewer = raw_reviewer.casefold() if isinstance(raw_reviewer, str) else None
         if (author and reviewer and reviewer != author
                 and (item.get("commit") or {}).get("oid") == head
                 and head in str(item.get("body") or "")):
             decision = str(item.get("state") or "").lower()
             if decision in {"approved", "changes_requested"}:
-                native_decisions[reviewer] = decision
-    all_decisions = list(decisions.values()) + list(native_decisions.values())
-    blocked = any(x in {"rejected", "changes_requested", "blocked"} for x in all_decisions)
-    return "approved" in all_decisions, blocked, thread
+                decisions.setdefault(reviewer, []).append((_event_time(item.get("submittedAt")), decision))
+    latest = []
+    uncertain = False
+    for events in decisions.values():
+        if len({decision for _, decision in events}) == 1:
+            latest.append(events[0][1])
+        elif any(stamp is None for stamp, _ in events) or len({stamp for stamp, _ in events}) != len(events):
+            uncertain = True
+        else:
+            latest.append(max(events, key=lambda event: event[0])[1])
+    blocked = any(x in {"rejected", "changes_requested", "blocked"} for x in latest)
+    return "approved" in latest, blocked, uncertain, thread
 
 
 def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -> dict:
@@ -94,7 +115,7 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
     head = pr.get("headRefOid") or ""
     out = {"number": pr.get("number"), "url": pr.get("url"), "head": head,
            "base": pr.get("baseRefOid"), "status": "waiting:observation"}
-    review, review_blocked, thread = _comment_evidence(pr, head)
+    review, review_blocked, review_uncertain, thread = _comment_evidence(pr, head)
     if thread:
         out["responsible_thread"] = thread
     state = str(pr.get("state", "")).upper()
@@ -130,7 +151,9 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
         pending = []
         if pr.get("isDraft"):
             pending.append("ready_for_review")
-        if not review:
+        if review_uncertain:
+            pending.append("review_event_order")
+        elif not review:
             pending.append("exact_head_review")
         if pr.get("mergeStateStatus") in {"BLOCKED", "UNKNOWN", None} or pr.get("reviewDecision") == "REVIEW_REQUIRED":
             pending.append("github_mergeability")

@@ -15,7 +15,7 @@ def candidate():
             'headRefName': 'wiki/one', 'baseRefName': 'main', 'isDraft': False,
             'headRepositoryOwner': {'login': 'owner'}, 'mergeStateStatus': 'CLEAN',
             'statusCheckRollup': [{'conclusion': 'SUCCESS'}], 'reviewDecision': '',
-            'reviews': [], 'comments': [{'author': {'login': 'independent'}, 'body': f'Head: {HEAD}\nExecutor: agent-a\nReviewer: agent-b\nReview: approved\nReview-Evidence: transcript-1\nResponsible-Thread: thread-1'}]}
+            'reviews': [], 'comments': [{'createdAt': '2026-11-14T10:00:00Z', 'author': {'login': 'independent'}, 'body': f'Head: {HEAD}\nExecutor: agent-a\nReviewer: agent-b\nReview: approved\nReview-Evidence: transcript-1\nResponsible-Thread: thread-1'}]}
 
 
 def evaluate(pr=None, policy=None, ancestry='current', human=False):
@@ -229,7 +229,7 @@ def test_missing_approval_block_uses_defaults(monkeypatch, tmp_path):
 
 def test_later_rejection_blocks_even_with_another_approval():
     pr = candidate()
-    pr['comments'].append({'author': {'login': 'independent'}, 'body': f'Head: {HEAD}\nReview: rejected'})
+    pr['comments'].append({'createdAt': '2026-11-14T11:00:00Z', 'author': {'login': 'independent'}, 'body': f'Head: {HEAD}\nReview: rejected'})
     pr['comments'].append({'author': {'login': 'other'}, 'body': f'Head: {HEAD}\nReview: approved'})
     assert evaluate(pr)['status'] == 'fix:conflict_or_changes_requested'
 
@@ -253,3 +253,22 @@ def test_cli_text_exposes_action_reconciliation(monkeypatch, capsys):
     monkeypatch.setattr(sys, 'argv', ['wiki_integration_check.py'])
     assert cli.main() == 0
     assert 'action reconciliation: unverified' in capsys.readouterr().out
+
+
+def test_later_native_review_resolves_rejection_but_reverse_blocks():
+    pr = candidate()
+    pr['comments'][0]['body'] = f'Head: {HEAD}\nReview: rejected'
+    pr['reviews'] = [{'author': {'login': 'independent'}, 'state': 'APPROVED', 'commit': {'oid': HEAD},
+                      'body': f'Approved {HEAD}', 'submittedAt': '2026-11-14T11:00:00Z'}]
+    assert evaluate(pr)['status'] == 'integrable'
+    pr['reviews'][0]['submittedAt'] = '2026-11-14T09:00:00Z'
+    assert evaluate(pr)['status'] == 'fix:conflict_or_changes_requested'
+    pr['reviews'][0]['submittedAt'] = None
+    assert evaluate(pr)['status'] == 'waiting:review_event_order'
+
+
+def test_github_logins_are_case_insensitive():
+    pr = candidate()
+    pr['author']['login'] = 'Alice'
+    pr['comments'][0]['author']['login'] = 'alice'
+    assert evaluate(pr)['status'] == 'waiting:exact_head_review'
