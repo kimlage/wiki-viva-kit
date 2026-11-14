@@ -52,7 +52,7 @@ def check_requirement_yaml(text: str) -> None:
 
     def pairs(node, active):
         consume()
-        if not isinstance(node, yaml.MappingNode) or id(node) in active:
+        if not isinstance(node, yaml.MappingNode) or id(node) in active or len(active) >= 128:
             raise RequirementYamlError('ambiguous information requirements')
         active.add(id(node))
         try:
@@ -78,7 +78,7 @@ def check_requirement_yaml(text: str) -> None:
 
     def visit(node, active):
         consume()
-        if id(node) in active:
+        if id(node) in active or len(active) >= 128:
             raise RequirementYamlError('ambiguous information requirements')
         if isinstance(node, yaml.ScalarNode):
             return

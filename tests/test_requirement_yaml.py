@@ -35,3 +35,11 @@ def test_missing_frontmatter_and_bounded_depth():
     nested = '[' * 129 + '0' + ']' * 129
     with pytest.raises(RequirementYamlError, match='frontmatter unavailable'):
         check_requirement_yaml('---\nmetadata: ' + nested + '\n---\n')
+
+
+def test_long_merge_alias_chain_fails_with_controlled_error():
+    rows = ['m0: &m0 {x: 1}']
+    rows += [f'm{i}: &m{i} {{<<: *m{i - 1}}}' for i in range(1, 1100)]
+    rows.append('<<: *m1099')
+    with pytest.raises(RequirementYamlError, match='ambiguous information requirements'):
+        check_requirement_yaml('---\n' + '\n'.join(rows) + '\n---\n')
