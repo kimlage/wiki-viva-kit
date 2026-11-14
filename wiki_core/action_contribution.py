@@ -199,8 +199,14 @@ def _scratch_signing_settings(root: Path, settings: tuple[tuple[str, str], ...])
                         if key.casefold() == "user.signingkey"), "")
     if signing_format == "ssh" and not signing_key:
         raise ContributionError("git_ssh_default_signing_key_unsupported")
+    scalar_keys = {"gpg.format", "user.signingkey", "gpg.program", "gpg.openpgp.program",
+                   "gpg.ssh.program", "gpg.x509.program"}
+    last_scalar = {key.casefold(): index for index, (key, _) in enumerate(settings)
+                   if key.casefold() in scalar_keys}
     result = []
-    for key, value in settings:
+    for index, (key, value) in enumerate(settings):
+        if key.casefold() in last_scalar and last_scalar[key.casefold()] != index:
+            continue
         if not value:
             raise ContributionError("git_signing_config_value_unsupported")
         lowered = key.casefold()

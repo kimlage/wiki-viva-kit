@@ -541,7 +541,14 @@ def test_prepare_preserves_required_ssh_signing(tmp_path, monkeypatch, source):
         monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(global_config))
     elif source == 'local':
         for name, value in settings:
-            git(root, 'config', name, value)
+            if name == 'user.signingkey':
+                git(root, 'config', '--add', name, 'missing-old-key')
+                git(root, 'config', '--add', name, value)
+            elif name == 'gpg.ssh.program':
+                git(root, 'config', '--add', name, 'old-ambiguous-signer')
+                git(root, 'config', '--add', name, value)
+            else:
+                git(root, 'config', name, value)
     else:
         monkeypatch.setenv('GIT_CONFIG_COUNT', str(len(settings)))
         for index, (name, value) in enumerate(settings):
