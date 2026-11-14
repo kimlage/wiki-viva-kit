@@ -253,7 +253,14 @@ def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
                 raw_after=proposed_file['frontmatter'].get('information_requirements',[])
                 has_query=isinstance(raw_after,list) and any(isinstance(r,dict) and 'query' in r for r in raw_after)
                 has_normative=isinstance(raw_after,list) and any(isinstance(r,dict) and r.get('source_kind')=='mandatory' for r in raw_after)
-                if raw_before!=raw_after or has_query or has_normative:
+                # Python considers True and 1 equal. A common requirement's
+                # numeric age must still be revalidated when its type changes.
+                if (raw_before!=raw_after or has_query or has_normative or
+                        (isinstance(raw_before, list) and isinstance(raw_after, list)
+                         and len(raw_before) <= 64
+                         and any(isinstance(before, dict) and isinstance(after, dict)
+                                 and type(before.get('max_age_days')) is not type(after.get('max_age_days'))
+                                 for before, after in zip(raw_before, raw_after)))):
                     def resolve(ref): return [ref] if isinstance(ref,str) and ref in base_reader.paths else []
                     try: declared=information_requirements(proposed_file['frontmatter'],resolve)
                     except (ValueError,TypeError) as exc: raise IntegrationError('invalid proposed information requirement') from exc
