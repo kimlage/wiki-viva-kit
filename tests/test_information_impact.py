@@ -68,6 +68,34 @@ def test_only_superseded_inactive_legacy_history_can_be_retired():
         assert affected_dynamic_queries(new, old, {'consumer.md','AGENTS.md'}, set(), _retirement_approved=True), mutation
 
 
+def test_retired_historical_query_does_not_exempt_distinct_current_query():
+    from copy import deepcopy
+
+    historical = {
+        'target': 'archive/index.md', 'fields': ['*'], 'temporal': 'historical', 'max_age_days': 30,
+        'consumed_revision': 'a' * 40, 'query_policy_revision': 'b' * 40,
+        'authority_digest': 'c' * 64, 'members_digest': 'd' * 64, 'selected_digest': 'e' * 64,
+        'use': 'interpret', 'classification': 'synthetic',
+        'query': {'scope': 'archive/items', 'filters': {'status': 'active'},
+                  'max_enumerated': 20, 'max_matches': 10, 'max_scan_bytes': 100000},
+    }
+    base = {'nodes': {'consumer.md': {'status': 'active'}, 'archive/index.md': {}},
+            'documents': {'consumer.md': 'Old', 'archive/index.md': 'Index'},
+            'edges': [{'type': 'operational_prerequisite', 'source': 'consumer.md',
+                       'target': historical['target'], 'requirement': historical}], 'errors': []}
+    candidate = deepcopy(base)
+    candidate['nodes']['consumer.md']['status'] = 'superseded'
+    candidate['documents']['consumer.md'] = 'New'
+    candidate['edges'][0]['requirement']['temporal'] = 'current'
+    # Approval is simulated here: this test does not read an approved Git base.
+    result = evaluate_information_impact(candidate, base, {'consumer.md', 'AGENTS.md'},
+                                         today=TODAY, _retirement_approved=True)
+    assert any(row['path'] == 'consumer.md' and row['reason'] == 'legacy_query_retired'
+               and row['verification_performed'] is False for row in result['pending_reviews'])
+    assert any(row['path'] == 'consumer.md' and row['reason'] == 'dynamic_query_requires_authorized_revalidation'
+               for row in result['integrity_blockers'])
+
+
 def graph():
     nodes = {p: {'updated_at': '2026-01-01', 'stale_after_days': 10}
              for p in ['action', 'queue', 'panel', 'review', *[f'source{i}' for i in range(12)]]}
