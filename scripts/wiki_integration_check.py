@@ -24,6 +24,8 @@ def main() -> int:
     else:
         for item in result['proposals']:
             print(f"PR {item['number']}: {item['status']}" + (f" ({item['responsible_thread']})" if item.get('responsible_thread') else ''))
+            if item.get('action_reconciliation'):
+                print('  action reconciliation: ' + item['action_reconciliation'])
             if item.get('pending'):
                 print('  pending: ' + ', '.join(item['pending']))
             if item.get('required_at_integration'):

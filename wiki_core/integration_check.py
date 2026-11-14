@@ -14,6 +14,7 @@ from typing import Any
 import yaml
 
 from wiki_core.action_contribution import ContributionError, _blob, _gh, _git, _repository
+from wiki_core.action_transition import ActionTransitionError, _assert_no_secrets
 
 SHA = re.compile(r"^[0-9a-f]{40,64}$")
 FIELDS = ("number,url,state,author,headRefName,headRefOid,headRepositoryOwner,"
@@ -38,6 +39,18 @@ def policy(root: Path, base: str) -> dict[str, Any] | None:
         return None
 
 
+def _thread_ref(value: str) -> str | None:
+    # Provider data is untrusted. Only bounded thread identifiers, never free
+    # text, terminal control sequences, credentials or arbitrary URLs.
+    if not re.fullmatch(r"(?:thread:[A-Za-z0-9:%_-]{1,220}|mcp:launch:[0-9a-f]{64}|[0-9a-f]{8}-[0-9a-f-]{27,36})", value):
+        return None
+    try:
+        _assert_no_secrets(value)
+    except ActionTransitionError:
+        return None
+    return value
+
+
 def _latest_reviews(pr: dict) -> list[dict]:
     # GitHub returns review history, not just current decisions. A later
     # dismissal or change request from the same principal supersedes approval.
@@ -49,8 +62,8 @@ def _latest_reviews(pr: dict) -> list[dict]:
     return list(latest.values())
 
 
-def _comment_evidence(pr: dict, head: str) -> tuple[bool, str | None]:
-    review = False
+def _comment_evidence(pr: dict, head: str) -> tuple[bool, bool, str | None]:
+    decisions: dict[str, str] = {}
     thread = None
     author = (pr.get("author") or {}).get("login")
     for item in pr.get("comments") or []:
@@ -58,17 +71,22 @@ def _comment_evidence(pr: dict, head: str) -> tuple[bool, str | None]:
         if not isinstance(body, str) or _field(body, "Head") != head:
             continue
         commenter = (item.get("author") or {}).get("login")
-        # A comment cannot assert another agent's identity into existence.
-        if author and commenter and commenter != author and _field(body, "Review").lower() == "approved":
-            review = True
-        thread = _field(body, "Responsible-Thread") or thread
+        decision = _field(body, "Review").lower().replace(" ", "_")
+        if author and commenter and commenter != author and decision in {"approved", "rejected", "changes_requested", "blocked"}:
+            decisions[commenter] = decision
+        thread = _thread_ref(_field(body, "Responsible-Thread")) or thread
+    native_decisions: dict[str, str] = {}
     for item in _latest_reviews(pr):
         reviewer = (item.get("author") or {}).get("login")
-        if (author and reviewer and reviewer != author and item.get("state") == "APPROVED"
+        if (author and reviewer and reviewer != author
                 and (item.get("commit") or {}).get("oid") == head
                 and head in str(item.get("body") or "")):
-            review = True
-    return review, thread
+            decision = str(item.get("state") or "").lower()
+            if decision in {"approved", "changes_requested"}:
+                native_decisions[reviewer] = decision
+    all_decisions = list(decisions.values()) + list(native_decisions.values())
+    blocked = any(x in {"rejected", "changes_requested", "blocked"} for x in all_decisions)
+    return "approved" in all_decisions, blocked, thread
 
 
 def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -> dict:
@@ -76,7 +94,7 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
     head = pr.get("headRefOid") or ""
     out = {"number": pr.get("number"), "url": pr.get("url"), "head": head,
            "base": pr.get("baseRefOid"), "status": "waiting:observation"}
-    review, thread = _comment_evidence(pr, head)
+    review, review_blocked, thread = _comment_evidence(pr, head)
     if thread:
         out["responsible_thread"] = thread
     state = str(pr.get("state", "")).upper()
@@ -106,7 +124,7 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
         out["status"] = "waiting:local_git_objects"
     elif ancestry != "current":
         out["status"] = "fix:base_outdated"
-    elif pr.get("mergeStateStatus") in {"DIRTY", "CONFLICTING"} or pr.get("reviewDecision") == "CHANGES_REQUESTED":
+    elif pr.get("mergeStateStatus") in {"DIRTY", "CONFLICTING"} or pr.get("reviewDecision") == "CHANGES_REQUESTED" or review_blocked:
         out["status"] = "fix:conflict_or_changes_requested"
     else:
         pending = []

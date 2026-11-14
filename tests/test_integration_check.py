@@ -225,3 +225,31 @@ def test_missing_approval_block_uses_defaults(monkeypatch, tmp_path):
     monkeypatch.setattr(check, '_blob', lambda *args: 'repo_id: synthetic\ncontexts: example\n')
     assert check.policy(tmp_path, BASE) == {}
     assert evaluate(policy=check.policy(tmp_path, BASE))['status'] == 'integrable'
+
+
+def test_later_rejection_blocks_even_with_another_approval():
+    pr = candidate()
+    pr['comments'].append({'author': {'login': 'independent'}, 'body': f'Head: {HEAD}\nReview: rejected'})
+    pr['comments'].append({'author': {'login': 'other'}, 'body': f'Head: {HEAD}\nReview: approved'})
+    assert evaluate(pr)['status'] == 'fix:conflict_or_changes_requested'
+
+
+def test_untrusted_thread_text_is_not_forwarded():
+    pr = candidate()
+    pr['comments'][0]['body'] += '\nResponsible-Thread: \x1b[31munsafe'
+    assert 'responsible_thread' not in evaluate(pr)
+    assert check._thread_ref('mcp:launch:' + 'a' * 64) == 'mcp:launch:' + 'a' * 64
+    assert check._thread_ref('https://example.test/private-token') is None
+
+
+def test_cli_text_exposes_action_reconciliation(monkeypatch, capsys):
+    import importlib
+    import sys
+    scripts = str(Path(__file__).resolve().parents[1] / 'scripts')
+    monkeypatch.syspath_prepend(scripts)
+    cli = importlib.import_module('wiki_integration_check')
+    monkeypatch.setattr(cli, 'inspect', lambda *args: {'ok': True, 'proposals': [
+        {'number': 2, 'status': 'done', 'action_reconciliation': 'unverified'}], 'hygiene': []})
+    monkeypatch.setattr(sys, 'argv', ['wiki_integration_check.py'])
+    assert cli.main() == 0
+    assert 'action reconciliation: unverified' in capsys.readouterr().out
