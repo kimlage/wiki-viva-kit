@@ -11,6 +11,10 @@ from wiki_core.repository_reader import RepositoryReader, RepositoryReadError
 
 
 BAD = '---\nupdated_at: 2026-01-01T00:00:00+99:00\nnote: synthetic-private-sentinel\n---\nOld\n'
+BAD_BOOL = '---\nflag: !!bool synthetic-private-sentinel\n---\nOld\n'
+BAD_TIMESTAMP = '---\nupdated_at: !!timestamp synthetic-private-sentinel\n---\nOld\n'
+BAD_INT = '---\ncount: !!int ""\n---\nOld\n'
+BAD_FLOAT = '---\namount: !!float ""\n---\nOld\n'
 GOOD = '---\nupdated_at: 2026-01-01\n---\nOld\n'
 
 
@@ -20,8 +24,9 @@ def assert_opaque(error):
     assert 'datetime.timedelta(days=4' not in rendered
 
 
-def test_reader_returns_opaque_error_for_invalid_timestamp(repository):
-    (repository / 'memories/policy.md').write_text(BAD)
+@pytest.mark.parametrize('bad', [BAD, BAD_BOOL, BAD_TIMESTAMP, BAD_INT, BAD_FLOAT])
+def test_reader_returns_opaque_error_for_invalid_frontmatter(repository, bad):
+    (repository / 'memories/policy.md').write_text(bad)
     reader_commit(repository)
     with pytest.raises(RepositoryReadError, match='frontmatter unavailable') as error:
         RepositoryReader(repository).read('memories/policy.md')
@@ -37,18 +42,23 @@ def test_reader_wraps_parser_overflow(repository, monkeypatch):
     assert_opaque(error.value)
 
 
-@pytest.mark.parametrize('case', ['bad_base', 'bad_proposal', 'valid'])
-def test_preflight_handles_invalid_base_and_proposal_opaquely(audit_collection, case):
+@pytest.mark.parametrize('case,bad', [
+    ('bad_base', BAD), ('bad_proposal', BAD), ('valid', GOOD),
+    ('bad_base', BAD_BOOL), ('bad_proposal', BAD_BOOL),
+    ('bad_base', BAD_TIMESTAMP), ('bad_proposal', BAD_TIMESTAMP),
+    ('bad_base', BAD_INT), ('bad_proposal', BAD_FLOAT),
+])
+def test_preflight_handles_invalid_base_and_proposal_opaquely(audit_collection, case, bad):
     root = audit_collection
     target = 'finance/costs/result.md'
-    (root / target).write_text(BAD if case == 'bad_base' else GOOD)
+    (root / target).write_text(bad if case == 'bad_base' else GOOD)
     commit(root)
     base = git(root, 'rev-parse', 'HEAD')
     policy = folder_policy(root)
     packet = folder_build_packet(root, policy, AUDIT_CONTEXT, base, [], 50000,
         task_id='date', goal='synthetic', output=target, integrator='reviewer')
     git(root, 'checkout', '-qb', 'wiki/date-test')
-    (root / target).write_text(BAD if case == 'bad_proposal' else GOOD.replace('Old', 'New'))
+    (root / target).write_text(bad if case == 'bad_proposal' else GOOD.replace('Old', 'New'))
     git(root, 'add', target); git(root, 'commit', '-qm', 'proposal')
     head = git(root, 'rev-parse', 'HEAD')
     result = {'schema_version': 'wiki.task-result/v1', 'task_id': packet['task_id'],

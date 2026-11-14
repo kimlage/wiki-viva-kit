@@ -129,7 +129,7 @@ class RepositoryReader:
                 fm, body = parse_frontmatter(text)
             except RecursionError:
                 raise RepositoryReadError('repository frontmatter exceeds nesting limit') from None
-            except (ValueError, OverflowError):
+            except (ValueError, OverflowError, KeyError, AttributeError, IndexError):
                 raise RepositoryReadError('repository frontmatter unavailable') from None
             self._documents[blob] = {'content': raw, 'text': text,
                 'body': body, 'frontmatter': fm, 'content_sha256': hashlib.sha256(raw).hexdigest()}
