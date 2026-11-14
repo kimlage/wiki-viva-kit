@@ -596,3 +596,5 @@ def test_folder_request_selection_refuses_mismatched_source_before_open(project,
     monkeypatch.setattr(Path, 'read_text', no_request_open)
     assert module._emitted_requests(paths, source_id='synthetic-other-source', folder_request=request) == []
     assert module._emitted_requests(paths, source_id=None, folder_request=request) == []
+    invalid = dict(request, folder_request_id='0' * 64)
+    assert module._emitted_requests(paths, source_id=request['source_id'], folder_request=invalid) == []
