@@ -446,6 +446,79 @@ def test_candidate_validation_ignores_inherited_git_directory(tmp_path, monkeypa
     port._entry(root, prepared['proposal_commit'], request['files'][0]['path'], request, port.digest(request))
 
 
+@pytest.mark.skipif(os.name == 'nt', reason='synthetic shell hook is POSIX-only')
+def test_local_git_observation_does_not_run_configured_fsmonitor(tmp_path):
+    fixture(tmp_path)
+    marker = tmp_path.parent / (tmp_path.name + '-fsmonitor-ran')
+    hook = tmp_path / 'synthetic-fsmonitor.sh'
+    hook.write_text('#!/bin/sh\nprintf ran > "' + str(marker) + '"\n')
+    hook.chmod(0o755)
+    git(tmp_path, 'config', 'core.fsmonitor', str(hook))
+    port._git(tmp_path, 'status', '--porcelain')
+    assert not marker.exists()
+
+
+def test_prepare_uses_selected_repo_despite_inherited_git_directory(tmp_path, monkeypatch):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    _, request = fixture(root)
+    other = tmp_path / 'other'
+    other.mkdir()
+    git(other, 'init', '-q')
+    monkeypatch.setenv('GIT_DIR', str(other / '.git'))
+    monkeypatch.setenv('GIT_INDEX_FILE', str(other / 'synthetic-index'))
+    result = call(root, 'prepare', request, review=review(request))
+    assert result['ok'] and result['status'] == 'prepared', result
+
+
+def test_prepare_preserves_global_identity_without_inherited_repo(tmp_path, monkeypatch):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    _, request = fixture(root)
+    git(root, 'config', '--local', '--unset', 'user.name')
+    git(root, 'config', '--local', '--unset', 'user.email')
+    global_config = tmp_path / 'global-gitconfig'
+    global_config.write_text('[user]\n\tname = Synthetic Global\n\temail = global@example.test\n')
+    other = tmp_path / 'other'
+    other.mkdir()
+    git(other, 'init', '-q')
+    monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(global_config))
+    monkeypatch.setenv('GIT_DIR', str(other / '.git'))
+    result = call(root, 'prepare', request, review=review(request))
+    assert result['ok'] and result['status'] == 'prepared', result
+    author = port._local_git_bytes(root, 'show', '-s', '--format=%an <%ae>', result['proposal_commit'])
+    assert author.strip() == b'Synthetic Global <global@example.test>'
+
+
+def test_local_gates_use_selected_clone_despite_inherited_git_directory(tmp_path, monkeypatch):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    _, request = fixture(root)
+    gate = root / 'scripts/wiki_input_stage.py'
+    gate.write_text(
+        'from pathlib import Path\nimport subprocess\n'
+        'top = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()\n'
+        'assert Path(top).resolve() == Path.cwd().resolve()\n'
+        'path = Path("memories/actions/example.md")\n'
+        'assert "Reviewed historical evidence." in path.read_text()\n'
+        'if subprocess.run(["git", "diff", "--quiet"]).returncode == 0:\n'
+        '    text = subprocess.check_output(["git", "show", "HEAD:memories/actions/example.md"], text=True)\n'
+        '    assert "Reviewed historical evidence." in text\n'
+    )
+    git(root, 'add', 'scripts/wiki_input_stage.py')
+    git(root, 'commit', '-qm', 'synthetic Git observation gate')
+    request['files'][0]['base_commit'] = git(root, 'rev-parse', 'HEAD')
+    prepared = call(root, 'prepare', request, review=review(request))
+    assert prepared['ok'], prepared
+    other = tmp_path / 'other'
+    other.mkdir()
+    git(other, 'init', '-q')
+    monkeypatch.setenv('GIT_DIR', str(other / '.git'))
+    monkeypatch.setenv('GIT_INDEX_FILE', str(other / 'synthetic-index'))
+    receipts = port._local_integration_gates(root, prepared['proposal_commit'], required_policy='github_checks')
+    assert receipts and all(receipt['exit_code'] == 0 for receipt in receipts)
+
+
 @pytest.mark.parametrize('target', ['action', 'log'])
 @pytest.mark.parametrize('mode', ['100755', '120000'])
 def test_canonical_mode_change_requires_reconciliation(tmp_path, monkeypatch, target, mode):

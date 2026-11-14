@@ -61,8 +61,11 @@ def _run(root: Path, *argv: str, timeout: int = 120) -> str:
 def _local_git_bytes(root: Path, *argv: str) -> bytes:
     """Observe local Git objects without inherited object/replace overrides."""
     from wiki_core.git_env import local_git_environment, local_git_executable
+    from wiki_core.git_safety import sanitized_git_argv
     try:
-        result = subprocess.run([local_git_executable(), "--no-lazy-fetch", "--literal-pathspecs", *argv],
+        command = sanitized_git_argv(argv, executable=local_git_executable())
+        command[1:1] = ["--no-lazy-fetch", "--literal-pathspecs"]
+        result = subprocess.run(command,
                                 cwd=root, env=local_git_environment(), capture_output=True, timeout=120)
     except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
         raise ContributionError("local_git_observation_unavailable") from exc
@@ -80,8 +83,11 @@ def _git(root: Path, *argv: str) -> str:
 def _local_git_probe(root: Path, *argv: str) -> subprocess.CompletedProcess:
     """Observe a short Git result while preserving the distinction 0/1/error."""
     from wiki_core.git_env import local_git_environment, local_git_executable
+    from wiki_core.git_safety import sanitized_git_argv
     try:
-        result = subprocess.run([local_git_executable(), "--no-lazy-fetch", *argv], cwd=root,
+        command = sanitized_git_argv(argv, executable=local_git_executable())
+        command.insert(1, "--no-lazy-fetch")
+        result = subprocess.run(command, cwd=root,
                                 env=local_git_environment(), stdout=subprocess.PIPE,
                                 stderr=subprocess.DEVNULL, timeout=120)
     except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
@@ -89,6 +95,69 @@ def _local_git_probe(root: Path, *argv: str) -> subprocess.CompletedProcess:
     if result.returncode not in (0, 1) or len(result.stdout) > 4096:
         raise ContributionError("local_git_observation_unavailable")
     return result
+
+
+def _local_process_environment(*, allow_file: bool = False) -> dict[str, str]:
+    """Keep non-Git settings and auth while binding local Git to its cwd."""
+    from wiki_core.git_env import local_git_executable
+    preserved = {"GIT_ASKPASS", "GIT_SSH", "GIT_SSH_COMMAND", "GIT_SSH_VARIANT",
+                 "GIT_TERMINAL_PROMPT", "GIT_ALLOW_PROTOCOL", "GIT_AUTHOR_NAME",
+                 "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE", "GIT_COMMITTER_NAME",
+                 "GIT_COMMITTER_EMAIL", "GIT_COMMITTER_DATE"}
+    env = {key: value for key, value in os.environ.items()
+           if not key.upper().startswith("GIT_") or key.upper() in preserved}
+    env["GIT_NO_REPLACE_OBJECTS"] = "1"
+    env["GIT_NO_LAZY_FETCH"] = "1"
+    env["GIT_CONFIG_GLOBAL"] = os.devnull
+    env["GIT_CONFIG_SYSTEM"] = os.devnull
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    overrides = (("core.fsmonitor", "false"), ("core.untrackedCache", "false"),
+                 ("core.hooksPath", os.devnull), ("core.useReplaceRefs", "false"))
+    env["GIT_CONFIG_COUNT"] = str(len(overrides))
+    for index, (key, value) in enumerate(overrides):
+        env[f"GIT_CONFIG_KEY_{index}"] = key
+        env[f"GIT_CONFIG_VALUE_{index}"] = value
+    if allow_file:
+        env["GIT_ALLOW_PROTOCOL"] = "file"
+    env["PATH"] = str(Path(local_git_executable()).parent) + os.pathsep + env.get("PATH", "")
+    return env
+
+
+def _local_git_effect(root: Path, *argv: str, allow_file: bool = False) -> str:
+    """Run local scratch/ref operations, separate from remote transport."""
+    from wiki_core.git_env import local_git_executable
+    from wiki_core.git_safety import sanitized_git_argv
+    try:
+        command = sanitized_git_argv(argv, executable=local_git_executable(), allow_file_protocol=allow_file)
+        command.insert(1, "--no-lazy-fetch")
+        result = subprocess.run(command, cwd=root, env=_local_process_environment(allow_file=allow_file),
+                                capture_output=True, timeout=120)
+    except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+        raise ContributionError("local_git_effect_unknown: reconcile before retry") from exc
+    if result.returncode:
+        raise ContributionError("command_failed:git")
+    return os.fsdecode(result.stdout).strip()
+
+
+def _git_identity(root: Path, field: str) -> str:
+    """Read configured author identity without inherited repository selectors."""
+    from wiki_core.git_env import local_git_executable
+    if field not in {"user.name", "user.email"}:
+        raise ContributionError("invalid_git_identity_field")
+    env = _local_process_environment()
+    for key in ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_NOSYSTEM"):
+        if key in os.environ:
+            env[key] = os.environ[key]
+        else:
+            env.pop(key, None)
+    try:
+        result = subprocess.run([local_git_executable(), "--no-lazy-fetch", "config", "--get", field],
+                                cwd=root, env=env, capture_output=True, timeout=120)
+    except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+        raise ContributionError("git_identity_unavailable") from exc
+    if result.returncode:
+        raise ContributionError("git_identity_unavailable")
+    return os.fsdecode(result.stdout).strip()
 
 
 def _blob(root: Path, revision: str, path: str) -> str:
@@ -341,7 +410,8 @@ def _gates(root: Path, config: WikiConfig, *, full_checks: bool = False,
     results = []
     for command in [*commands, *extra]:
         try:
-            call = lambda: subprocess.run(command, cwd=root, capture_output=True, timeout=600)
+            call = lambda: subprocess.run(command, cwd=root, env=_local_process_environment(),
+                                          capture_output=True, timeout=600)
             p = effect_runner(call) if effect_runner else call()
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise ContributionError("gate_unavailable") from exc
@@ -385,8 +455,8 @@ def _local_integration_gates(root: Path, commit: str, *, effect_runner=None,
     """
     with tempfile.TemporaryDirectory(prefix="wiki-contribution-validation-") as temporary:
         scratch = Path(temporary) / "proposal"
-        _run(root, "git", "clone", "--shared", "--no-checkout", str(root), str(scratch))
-        _git(scratch, "checkout", "--detach", commit)
+        _local_git_effect(root, "clone", "--shared", "--no-checkout", str(root), str(scratch), allow_file=True)
+        _local_git_effect(scratch, "checkout", "--detach", commit)
         config = load_config(scratch)
         if _validation_policy(config) != required_policy:
             raise ContributionError("committed_validation_policy_mismatch")
@@ -560,10 +630,10 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
     # staged/unstaged/untracked files in the application's checkout stay there.
     with tempfile.TemporaryDirectory(prefix="wiki-contribution-") as temporary:
         scratch = Path(temporary) / "proposal"
-        _run(root, "git", "clone", "--shared", "--no-checkout", str(root), str(scratch))
-        _git(scratch, "checkout", "--detach", base)
+        _local_git_effect(root, "clone", "--shared", "--no-checkout", str(root), str(scratch), allow_file=True)
+        _local_git_effect(scratch, "checkout", "--detach", base)
         for field in ("user.name", "user.email"):
-            _git(scratch, "config", field, _git(root, "config", field))
+            _local_git_effect(scratch, "config", field, _git_identity(root, field))
         # Carry only the proven current action suffix into the isolated
         # checkout, through the same canonical file boundary.
         from wiki_core.action_transition import seed_action_proposal
@@ -587,8 +657,8 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         allowed = [path, log_ref]
         if changed != sorted(allowed) or _git(scratch, "ls-files", "--others", "--exclude-standard"):
             raise ContributionError("gate_modified_other_paths")
-        _git(scratch, "add", "--", *allowed)
-        _git(scratch, "commit", "-m", "wiki: integrate reviewed action body " + material[:12])
+        _local_git_effect(scratch, "add", "--", *allowed)
+        _local_git_effect(scratch, "commit", "-m", "wiki: integrate reviewed action body " + material[:12])
         commit = _git(scratch, "rev-parse", "HEAD")
         # No model/audit work under these process-shared guards. Revalidate
         # HEAD, bytes and policy immediately before installing the proposal ref.
@@ -601,8 +671,8 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
                 raise ContributionError("source_changed_during_prepare")
             if _candidate(root, branch):
                 raise ContributionError("contribution_prepared_concurrently: reconcile")
-            _git(root, "fetch", "--no-write-fetch-head", str(scratch), commit)
-            _git(root, "update-ref", f"refs/heads/{branch}", commit, "0" * 40)
+            _local_git_effect(root, "fetch", "--no-write-fetch-head", str(scratch), commit, allow_file=True)
+            _local_git_effect(root, "update-ref", f"refs/heads/{branch}", commit, "0" * 40)
     return {"status": "prepared", "proposal_commit": commit, "branch": branch,
             "material_sha256": material, "after_sha256": receipt["after_sha256"],
             "receipt_id": receipt["receipt_id"], "gate_receipts": gates,
