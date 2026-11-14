@@ -286,3 +286,20 @@ def test_grafts_cannot_hide_a_secret_in_pushed_history(tmp_path):
     result = hook(root, base, head)
     assert result.returncode != 0 and 'secret detected' in result.stderr
     assert secret not in result.stderr
+
+
+@pytest.mark.parametrize('flag', ['--assume-unchanged', '--skip-worktree'])
+def test_index_flags_cannot_hide_different_gate_inputs(tmp_path, flag):
+    root = repo(tmp_path)
+    base = git(root, 'rev-parse', 'HEAD')
+    config = {'pre_push': {'quick_commands': [[sys.executable, '-c',
+              'from pathlib import Path; assert Path("page.md").read_text() == "GOOD\\n"']]}}
+    (root / 'wiki.config.yaml').write_text(json.dumps(config))
+    (root / 'page.md').write_text('BAD\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'configure bad committed input')
+    head = git(root, 'rev-parse', 'HEAD')
+    (root / 'page.md').write_text('GOOD\n')
+    git(root, 'update-index', flag, 'page.md')
+    result = hook(root, base, head)
+    assert result.returncode != 0 and 'index flags' in result.stderr

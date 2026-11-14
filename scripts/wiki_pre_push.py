@@ -148,6 +148,9 @@ def check(root: Path, updates: str, deadline: float, push_url: str | None) -> No
             head = git(root, deadline, 'rev-parse', '--verify', 'HEAD^{commit}').decode().strip()
             if any(new != head for _, new, _ in changes):
                 raise Blocked('consumer checks require the pushed HEAD to be checked out')
+            entries = git(root, deadline, 'ls-files', '-v', '-z').split(b'\x00')
+            if any(entry and (entry[:1].islower() or entry[:1] == b'S') for entry in entries):
+                raise Blocked('index flags can hide changes from consumer checks')
             git(root, deadline, 'diff', '--quiet', 'HEAD', '--')
         for command in commands:
             run(root, command, deadline)

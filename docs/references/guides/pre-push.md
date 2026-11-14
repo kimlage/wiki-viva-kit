@@ -38,7 +38,9 @@ Only configure commands that are safe to run automatically and finish within
 the shared budget. Configuration comes from each pushed commit, not from an
 uncommitted or untracked file. These commands run from the working tree, so configured commands
 require every pushed tip to be the checked-out HEAD and tracked files to match
-HEAD. They do not establish the state of untracked files. A repo without this
+HEAD. The hook blocks if index flags such as `assume-unchanged` or
+`skip-worktree` could hide changes. These checks do not establish the state of
+untracked files. A repo without this
 configuration runs the generic checks alone. Deleting a ref has no content to
 check. The consumer is responsible for declaring any queue freshness gate.
 
