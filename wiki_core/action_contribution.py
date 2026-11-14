@@ -191,6 +191,12 @@ def _scratch_signing_settings(root: Path, settings: tuple[tuple[str, str], ...])
     """Keep selected repo-relative signing files anchored across the clone."""
     signing_format = next((value.casefold() for key, value in reversed(settings)
                            if key.casefold() == "gpg.format"), "openpgp")
+    programs = {"ssh": ("gpg.ssh.program",), "x509": ("gpg.x509.program",),
+                "openpgp": ("gpg.openpgp.program", "gpg.program")}
+    if signing_format not in programs or not any(key.casefold() in programs[signing_format] for key, _ in settings):
+        raise ContributionError("git_signer_path_selection_unsupported")
+    if signing_format == "ssh" and not any(key.casefold() == "user.signingkey" and value for key, value in settings):
+        raise ContributionError("git_ssh_default_signing_key_unsupported")
     result = []
     for key, value in settings:
         lowered = key.casefold()
@@ -199,7 +205,7 @@ def _scratch_signing_settings(root: Path, settings: tuple[tuple[str, str], ...])
         path = Path(value)
         if (key_file or signer_file) and not path.is_absolute() and (root / path).is_file():
             value = str((root / path).resolve())
-        elif lowered in {"gpg.program", "gpg.openpgp.program", "gpg.ssh.program", "gpg.x509.program"} and "/" not in value and "\\" not in value:
+        elif lowered in {"gpg.program", "gpg.openpgp.program", "gpg.ssh.program", "gpg.x509.program"} and not path.is_absolute():
             # A bare signer can resolve differently after changing cwd or Git's
             # PATH/exec-path; refuse rather than choose a different program.
             raise ContributionError("git_signer_path_selection_unsupported")
@@ -747,8 +753,9 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         _local_git_effect(scratch, "add", "--", *allowed)
         if _commit_signing_policy(root) != signing_policy:
             raise ContributionError("git_commit_signing_policy_changed")
-        for key, value in _scratch_signing_settings(root, signing_policy[1]):
-            _local_git_effect(scratch, "config", "--add", key, value)
+        if signing_policy[0]:
+            for key, value in _scratch_signing_settings(root, signing_policy[1]):
+                _local_git_effect(scratch, "config", "--add", key, value)
         signing_arg = ("-S",) if signing_policy[0] else ()
         _local_git_effect(scratch, "commit", *signing_arg, "-m", "wiki: integrate reviewed action body " + material[:12])
         commit = _git(scratch, "rev-parse", "HEAD")

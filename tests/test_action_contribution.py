@@ -533,10 +533,11 @@ def test_prepare_preserves_required_ssh_signing(tmp_path, monkeypatch, source):
     _, request = fixture(root)
     key = tmp_path / 'synthetic-signing-key'
     subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)], check=True)
-    settings = [('commit.gpgSign', 'true'), ('gpg.format', 'ssh'), ('user.signingkey', str(key))]
+    settings = [('commit.gpgSign', 'true'), ('gpg.format', 'ssh'), ('user.signingkey', str(key)),
+                ('gpg.ssh.program', shutil.which('ssh-keygen'))]
     if source == 'global':
         global_config = tmp_path.parent / (tmp_path.name + '-gitconfig')
-        global_config.write_text('[commit]\n\tgpgSign = true\n[gpg]\n\tformat = ssh\n[user]\n\tsigningkey = ' + str(key) + '\n')
+        global_config.write_text('[commit]\n\tgpgSign = true\n[gpg]\n\tformat = ssh\n[gpg "ssh"]\n\tprogram = ' + shutil.which('ssh-keygen') + '\n[user]\n\tsigningkey = ' + str(key) + '\n')
         monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(global_config))
     elif source == 'local':
         for name, value in settings:
@@ -632,6 +633,17 @@ def test_prepare_refuses_unproven_signer_resolution_from_relative_path(tmp_path,
     assert not result['ok']
     assert result['error'] == 'git_signer_path_selection_unsupported'
     assert port._candidate(tmp_path, result['branch']) is None
+
+
+def test_signer_selection_refuses_defaults_and_ambiguous_paths(tmp_path):
+    with pytest.raises(port.ContributionError, match='git_signer_path_selection_unsupported'):
+        port._scratch_signing_settings(tmp_path, (('gpg.format', 'ssh'), ('user.signingkey', 'key::literal')))
+    with pytest.raises(port.ContributionError, match='git_signer_path_selection_unsupported'):
+        port._scratch_signing_settings(tmp_path, (('gpg.format', 'ssh'), ('user.signingkey', 'key::literal'),
+                                                   ('gpg.ssh.program', r'synthetic\signer')))
+    with pytest.raises(port.ContributionError, match='git_ssh_default_signing_key_unsupported'):
+        port._scratch_signing_settings(tmp_path, (('gpg.format', 'ssh'), ('gpg.ssh.program', '/synthetic/signer'),
+                                                   ('gpg.ssh.defaultkeycommand', './synthetic-command')))
 
 
 def test_selected_local_unsigned_policy_overrides_global_signing(tmp_path, monkeypatch):
