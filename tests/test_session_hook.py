@@ -96,3 +96,17 @@ def test_stop_state_is_rechecked_after_observation(monkeypatch, tmp_path):
 def test_placeholder_handoff_is_incomplete():
     message = f'Proposal: none\nHead: {"0" * 40}\nBase: {"0" * 40}\nReview: unknown\nGates: unknown\nPending: unknown\nResponsible-Thread: unknown'
     assert not hook.complete_handoff(message)
+
+
+def test_hook_accepts_filled_canonical_brief():
+    brief = (SCRIPT.parents[1] / 'docs/references/templates/wiki/subagent-brief.md').read_text()
+    replacements = {
+        '<PR URL or number, destination repository and target branch>': 'PR #123 to main',
+        '<full final head SHA>': HEAD, '<full base SHA>': BASE,
+        '<independent exact-head review reference>': 'https://example.test/review',
+        '<commands and results>': 'pytest passed', '<items and wait events, or none>': 'none',
+        '<executor thread reference>': 'thread:sample',
+    }
+    for old, new in replacements.items():
+        brief = brief.replace(old, new)
+    assert hook.complete_handoff(brief)
