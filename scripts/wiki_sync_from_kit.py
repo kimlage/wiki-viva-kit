@@ -67,6 +67,17 @@ def _check_consumer_root(consumer: Path) -> None:
         raise SyncError("consumer path must be its Git root")
 
 
+def _consumer_root_identity(consumer: Path) -> tuple[int, int]:
+    """Observe the selected directory identity; this is not a held descriptor."""
+    try:
+        observed = consumer.stat()
+    except OSError as exc:
+        raise SyncError("consumer root identity unavailable") from exc
+    if not stat.S_ISDIR(observed.st_mode) or observed.st_ino <= 0 or observed.st_dev < 0:
+        raise SyncError("consumer root identity unavailable")
+    return observed.st_dev, observed.st_ino
+
+
 def _check_distinct_roots(kit: Path, consumer: Path) -> None:
     kit_root = _run(["git", "rev-parse", "--show-toplevel"], cwd=kit).stdout.strip()
     consumer_root = _run(["git", "rev-parse", "--show-toplevel"], cwd=consumer).stdout.strip()
@@ -524,6 +535,7 @@ def _git_dirty(root: Path) -> list[str]:
 def build_plan(kit: Path, consumer: Path, manifest_path: Path, c3_commands: list[list[str]]) -> dict[str, Any]:
     _check_consumer_root(consumer)
     _check_distinct_roots(kit, consumer)
+    consumer_root_identity = _consumer_root_identity(consumer)
     try:
         manifest_rel = manifest_path.relative_to(kit).as_posix()
     except ValueError as exc:
@@ -568,6 +580,9 @@ def build_plan(kit: Path, consumer: Path, manifest_path: Path, c3_commands: list
                 or actual.get("sha256") != old.get("sha256") or actual.get("mode") != old.get("mode")):
             raise SyncError(f"previously managed consumer file changed: {rel}")
     _check_source(kit, source_sha)
+    consumer_dirty = _git_dirty(consumer)
+    if _consumer_root_identity(consumer) != consumer_root_identity:
+        raise SyncError("consumer root changed during B0; review the plan again")
     tree = [{"path": rel, "sha256": item["sha256"], "mode": item["mode"]} for rel, item in files.items()]
     return {
         "schema_version": "wiki_viva_sync_plan.v1",
@@ -575,7 +590,7 @@ def build_plan(kit: Path, consumer: Path, manifest_path: Path, c3_commands: list
         "source_sha": source_sha,
         "manifest_sha256": _canonical_sha256(manifest),
         "portable_tree_sha256": _canonical_sha256(tree),
-        "consumer_dirty": _git_dirty(consumer),
+        "consumer_dirty": consumer_dirty,
         "c1": {
             "managed_total": len(files),
             "add": added,
@@ -588,6 +603,7 @@ def build_plan(kit: Path, consumer: Path, manifest_path: Path, c3_commands: list
         "_files": files,
         "_manifest": manifest,
         "_consumer_state": current,
+        "_consumer_root_identity": consumer_root_identity,
     }
 
 
@@ -625,6 +641,8 @@ def _print_plan(plan: dict[str, Any], *, as_json: bool) -> None:
 def _copy_c1(kit: Path, consumer: Path, plan: dict[str, Any]) -> None:
     _check_consumer_root(consumer)
     _check_distinct_roots(kit, consumer)
+    if _consumer_root_identity(consumer) != plan.get("_consumer_root_identity"):
+        raise SyncError("consumer root changed after B0; review the plan again")
     _check_source(kit, plan["source_sha"])
     files = plan["_files"]
     affected = plan["c1"]["remove_previously_managed"] + plan["c1"]["add"] + plan["c1"]["change"]
