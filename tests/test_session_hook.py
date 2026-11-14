@@ -391,10 +391,17 @@ def test_unicode_repository_path_with_ascii_locale(tmp_path):
     import os
     repo = tmp_path / 'revisão'
     subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+    subprocess.run(['git', 'checkout', '-qb', 'revisão'], cwd=repo, check=True)
     (repo / 'file.txt').write_text('synthetic')
+    subprocess.run(['git', 'add', 'file.txt'], cwd=repo, check=True)
+    subprocess.run(['git', '-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.test',
+                    '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=no-hooks',
+                    'commit', '-qm', 'synthetic'], cwd=repo, check=True)
+    (repo / 'file.txt').write_text('updated')
     env = dict(os.environ, LC_ALL='C', PYTHONUTF8='0')
     result = subprocess.run([sys.executable, str(SCRIPT), '--timeout', '3'],
                             input=json.dumps({'hook_event_name': 'Stop', 'cwd': str(repo)}),
                             capture_output=True, text=True, encoding='utf-8', env=env, timeout=5)
     assert result.returncode == 0
-    assert 'uncommitted_changes' in json.loads(result.stdout)['systemMessage']
+    message = json.loads(result.stdout)['systemMessage']
+    assert 'uncommitted_changes' in message and 'local_branch_without_upstream' in message

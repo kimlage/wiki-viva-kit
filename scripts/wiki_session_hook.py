@@ -60,16 +60,17 @@ def _branch_without_upstream(root: Path) -> bool | None:
     """Observe local tracking configuration, not whether a remote/PR exists."""
     try:
         branch = subprocess.run(['git', 'symbolic-ref', '--quiet', '--short', 'HEAD'], cwd=root,
-                                capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', timeout=5)
+                                capture_output=True, timeout=5)
         if branch.returncode or not branch.stdout.strip():
             return None
-        ref = 'refs/heads/' + branch.stdout.strip()
+        ref_bytes = b'refs/heads/' + branch.stdout.strip()
+        ref = os.fsdecode(ref_bytes)
         tracking = subprocess.run(['git', 'for-each-ref', '--format=%(refname) %(upstream)', ref],
-                                  cwd=root, capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', timeout=5)
-        line = tracking.stdout.rstrip('\n')
-        if tracking.returncode or not line.startswith(ref + ' '):
+                                  cwd=root, capture_output=True, timeout=5)
+        line = tracking.stdout.rstrip(b'\n')
+        if tracking.returncode or not line.startswith(ref_bytes + b' '):
             return None
-        return not bool(line[len(ref) + 1:].strip())
+        return not bool(line[len(ref_bytes) + 1:].strip())
     except (OSError, subprocess.TimeoutExpired):
         return None
 
