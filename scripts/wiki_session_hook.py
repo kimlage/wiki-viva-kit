@@ -14,6 +14,7 @@ import signal
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -24,25 +25,47 @@ MAX_INPUT = 1_000_000
 FIELDS = ('proposal', 'head', 'base', 'review', 'gates', 'pending', 'responsible-thread')
 
 
+def _bounded_output(argv: list[str], root: Path, timeout: float, env=None) -> tuple[int, bytes]:
+    # Do not wait on inherited pipe handles after killing a timed-out child.
+    with tempfile.TemporaryFile() as output:
+        p = subprocess.run(argv, cwd=root, env=env, stdout=output,
+                           stderr=subprocess.DEVNULL, timeout=timeout)
+        output.seek(0)
+        return p.returncode, output.read()
+
+
 def check(root: Path, timeout: float) -> dict:
-    if not CHECKER.is_file():
-        return {'ok': False, 'status': 'waiting:integration_checker_unavailable'}
+    """Fast, incomplete observation: local Git and at most one bounded GH query."""
     try:
-        p = subprocess.run([sys.executable, str(CHECKER), '--root', str(root), '--json'],
-                           capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', timeout=timeout)
-        result = json.loads(p.stdout)
-        if p.returncode or not isinstance(result, dict):
+        code, output = _bounded_output(['git', '--no-optional-locks', 'status', '--porcelain', '--untracked-files=no'],
+                                       root, min(timeout, 0.5))
+        local = 'dirty' if code == 0 and output else ('clean' if code == 0 else 'unknown')
+    except (OSError, subprocess.TimeoutExpired):
+        local = 'unknown'
+    try:
+        env = dict(os.environ, GH_PROMPT_DISABLED='1')
+        # The outer worker supervisor cleans up the whole process group on return.
+        code, output = _bounded_output(['gh', 'pr', 'list', '--state', 'open', '--limit', '25',
+                                        '--json', 'number,isDraft,statusCheckRollup'], root, min(timeout, 1.1), env)
+        prs = json.loads(output) if code == 0 else None
+        if not isinstance(prs, list) or any(not isinstance(pr, dict) for pr in prs):
             raise ValueError
-        return result
+        failed = sum(any(isinstance(item, dict) and (
+            (item.get('status') == 'COMPLETED' and item.get('conclusion') in {'FAILURE', 'TIMED_OUT', 'STARTUP_FAILURE'})
+            or (item.get('__typename') == 'StatusContext' and item.get('state') in {'FAILURE', 'ERROR'}))
+                         for item in (pr.get('statusCheckRollup') or [])) for pr in prs)
+        drafts = sum(pr.get('isDraft') is True for pr in prs)
+        remote = (f'{len(prs)} open PRs, {drafts} drafts, {failed} with failed CI'
+                  + (' (limit reached)' if len(prs) >= 25 else ''))
     except (OSError, ValueError, subprocess.TimeoutExpired):
-        return {'ok': False, 'status': 'waiting:integration_observation_unavailable'}
+        remote = 'PR state unknown'
+    return {'ok': True, 'summary': f'Local tracked changes: {local}; {remote}. Run wiki_integration_check.py for full verification.'}
 
 
 def _repository_root(path: Path) -> Path | None:
     try:
-        p = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=path,
-                           capture_output=True, timeout=5)
-        return Path(os.fsdecode(p.stdout.strip())).resolve() if p.returncode == 0 and p.stdout.strip() else None
+        code, output = _bounded_output(['git', 'rev-parse', '--show-toplevel'], path, 0.5)
+        return Path(os.fsdecode(output.strip())).resolve() if code == 0 and output.strip() else None
     except (OSError, subprocess.TimeoutExpired):
         return None
 
@@ -152,14 +175,7 @@ def handle(event: dict, root: Path, mode: str, stop_state: str,
     continued = event.get('stop_hook_active') is not False
     if name == 'SessionStart':
         observation = check(root, timeout)
-        if observation.get('ok'):
-            counts: dict[str, int] = {}
-            for item in observation.get('proposals', []) + observation.get('hygiene', []):
-                key = str(item.get('status', 'unknown')).split(':', 1)[0]
-                counts[key] = counts.get(key, 0) + 1
-            summary = 'Integration observations: ' + (', '.join(f'{k}={v}' for k, v in sorted(counts.items())) or 'none')
-        else:
-            summary = 'Integration observation unavailable; run wiki_integration_check.py when available.'
+        summary = observation.get('summary') or 'Integration observation unavailable; run wiki_integration_check.py when available.'
         return {'hookSpecificOutput': {'hookEventName': 'SessionStart', 'additionalContext': summary}}
     if name == 'SubagentStop':
         if event.get('agent_type') not in executor_types:
