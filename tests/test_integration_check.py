@@ -272,3 +272,20 @@ def test_github_logins_are_case_insensitive():
     pr['author']['login'] = 'Alice'
     pr['comments'][0]['author']['login'] = 'alice'
     assert evaluate(pr)['status'] == 'waiting:exact_head_review'
+
+
+def test_native_review_order_is_temporal_not_array_order():
+    pr = candidate()
+    pr['comments'] = []
+    def review(state, time):
+        return {'author': {'login': 'Reviewer'}, 'state': state, 'commit': {'oid': HEAD},
+                'body': f'{state} {HEAD}', 'submittedAt': time}
+    old = review('APPROVED', '2026-11-14T10:00:00Z')
+    new = review('CHANGES_REQUESTED', '2026-11-14T11:00:00Z')
+    new['author']['login'] = 'reviewer'
+    pr['reviews'] = [new, old]
+    assert evaluate(pr)['status'] == 'fix:conflict_or_changes_requested'
+    pr['reviews'] = [old, new]
+    assert evaluate(pr)['status'] == 'fix:conflict_or_changes_requested'
+    old['submittedAt'] = '2026-11-14T12:00:00Z'
+    assert evaluate(pr)['status'] == 'integrable'

@@ -52,17 +52,6 @@ def _thread_ref(value: str) -> str | None:
     return value
 
 
-def _latest_reviews(pr: dict) -> list[dict]:
-    # GitHub returns review history, not just current decisions. A later
-    # dismissal or change request from the same principal supersedes approval.
-    latest: dict[str, dict] = {}
-    for review in pr.get("reviews") or []:
-        login = (review.get("author") or {}).get("login")
-        if isinstance(login, str) and login:
-            latest[login.casefold()] = review
-    return list(latest.values())
-
-
 def _event_time(value: Any) -> datetime | None:
     if not isinstance(value, str):
         return None
@@ -88,14 +77,14 @@ def _comment_evidence(pr: dict, head: str) -> tuple[bool, bool, bool, str | None
         if author and commenter and commenter != author and decision in {"approved", "rejected", "changes_requested", "blocked"}:
             decisions.setdefault(commenter, []).append((_event_time(item.get("createdAt")), decision))
         thread = _thread_ref(_field(body, "Responsible-Thread")) or thread
-    for item in _latest_reviews(pr):
+    for item in pr.get("reviews") or []:
         raw_reviewer = (item.get("author") or {}).get("login")
         reviewer = raw_reviewer.casefold() if isinstance(raw_reviewer, str) else None
         if (author and reviewer and reviewer != author
                 and (item.get("commit") or {}).get("oid") == head
                 and head in str(item.get("body") or "")):
             decision = str(item.get("state") or "").lower()
-            if decision in {"approved", "changes_requested"}:
+            if decision in {"approved", "changes_requested", "dismissed"}:
                 decisions.setdefault(reviewer, []).append((_event_time(item.get("submittedAt")), decision))
     latest = []
     uncertain = False
