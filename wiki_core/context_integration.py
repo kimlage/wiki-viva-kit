@@ -17,6 +17,11 @@ from wiki_core.context_selection import packet_queries, revalidate_packet_querie
 
 class IntegrationError(ValueError): pass
 
+def _same_json_value(left, right):
+    """Compare normalized JSON without Python's bool/int equality coercion."""
+    options = {'ensure_ascii': False, 'sort_keys': True, 'separators': (',', ':'), 'allow_nan': False}
+    return json.dumps(left, **options) == json.dumps(right, **options)
+
 def _git(root,*args):
     p=subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),*args],stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=local_git_environment())
     if p.returncode: raise IntegrationError('Git precondition failed')
@@ -259,7 +264,7 @@ def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
                     try: previous=information_requirements(prior,resolve)
                     except (ValueError,TypeError) as exc: raise IntegrationError('invalid existing information requirement') from exc
                     for requirement in declared:
-                        if requirement in previous:
+                        if any(_same_json_value(requirement, prior) for prior in previous):
                             if requirement.get('source_kind') == 'mandatory':
                                 from wiki_core.context_normative import normative_history
                                 ref=requirement['target']; consumed=requirement['consumed_revision']
@@ -291,7 +296,7 @@ def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
                         if consumed is None: raise IntegrationError('new requirement is unpinned')
                         if 'query' in requirement:
                             rows = [r for r in packet.get('query_selections', []) if r['request']['target']==requirement['target']
-                                and r['request']['query']==requirement['query'] and r['members_digest']==requirement['members_digest']
+                                and _same_json_value(r['request']['query'], requirement['query']) and r['members_digest']==requirement['members_digest']
                                 and r['selected_digest']==requirement['selected_digest'] and r['revision']==consumed
                                 and r['policy_revision']==requirement['query_policy_revision'] and r['authority_digest']==requirement['authority_digest'] and all(r.get(k)==requirement.get(k) for k in ('authority_format','entry_folder','entry_index'))
                                 and r['request']['use']==requirement['use'] and r['request']['classification']==requirement['classification']]
