@@ -11,7 +11,7 @@ from wiki_core.repo_read import contains_access_secrets
 from wiki_core.index.sqlite import PAGE_SOURCE_PREFIX, search_detailed
 from wiki_core.index.page_collection import current_page_signature
 from wiki_core.paths import WikiPaths
-from wiki_core.traversal import is_in_nested_git, wiki_files, wiki_markdown_files
+from wiki_core.traversal import is_in_nested_git, is_protected_artifact, wiki_files, wiki_markdown_files
 
 
 def _find_selected(root: Path, query: str, selections, limit: int) -> dict:
@@ -115,6 +115,9 @@ def _local_catalog(root: Path, config) -> tuple[dict, list]:
     files = []
     for directory, kind, pattern in [(paths.source_manifests, "manifest", "*.json"),
                                       (paths.memory_root, "page", "**/*.md")]:
+        if is_protected_artifact(directory):
+            issues.append(dict(kind=kind, reason="protected_artifact_requires_bound_dispatch"))
+            continue
         if not directory.resolve().is_relative_to(root):
             issues.append(dict(kind=kind, reason="metadata_path_outside_local_catalog"))
             continue
