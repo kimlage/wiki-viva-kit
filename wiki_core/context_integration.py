@@ -253,7 +253,7 @@ def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
                 raw_after=proposed_file['frontmatter'].get('information_requirements',[])
                 has_query=isinstance(raw_after,list) and any(isinstance(r,dict) and 'query' in r for r in raw_after)
                 has_normative=isinstance(raw_after,list) and any(isinstance(r,dict) and r.get('source_kind')=='mandatory' for r in raw_after)
-                if raw_before!=raw_after or has_query or has_normative:
+                if not semantic_equal(raw_before,raw_after) or has_query or has_normative:
                     def resolve(ref): return [ref] if isinstance(ref,str) and ref in base_reader.paths else []
                     try: declared=information_requirements(proposed_file['frontmatter'],resolve)
                     except (ValueError,TypeError) as exc: raise IntegrationError('invalid proposed information requirement') from exc
