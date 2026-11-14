@@ -93,12 +93,26 @@ this brief does not change runtime admission or those flags.
 
 ## Integration handoff
 
-- Proposal/PR and destination repository and target branch:
-- Final head SHA and base SHA:
-- Independent review of that exact final SHA and link to findings/resolution:
-- Gates run, results and evidence:
-- Pending items, including required approvals and named wait event:
-- Responsible executor thread and integrator recipient:
+Use these exact field names for the optional session-hook shape check. Include
+the destination repository and target branch in `Proposal`, the independent
+review and findings/resolution link in `Review`, and each gate and result in
+`Gates` using comma-separated `name=passed|failed|pending|waiting` entries.
+The `Review` value includes the full head SHA. List pending approvals and wait events explicitly; use `none` only
+when there are none; a failed, pending or waiting gate must have a named
+pending item. `Responsible-Thread` names the executor thread, and the
+integrator recipient is identified after these fields.
+
+```text
+Proposal: <PR URL or PR number with repo=owner/repo, then target=branch>
+Head: <full final head SHA>
+Base: <full base SHA>
+Review: <independent review reference and full head SHA>
+Gates: <gate=passed, gate=pending>
+Pending: <items and wait events, or none>
+Responsible-Thread: <executor thread reference>
+```
+
+Integrator recipient: <destination integrator>
 
 The integrator checks destination policy and does not infer approval from this
 handoff. Update it if the head or base changes.

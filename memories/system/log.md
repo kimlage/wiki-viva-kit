@@ -19,6 +19,11 @@ Append-only record of changes in the [memories/](../index.md) layer.
 The [command reference](wiki/command-reference.md) lists the read-only
 integration observation CLI. This change does not renew source dates.
 
+## [2026-11-14] Index optional session hooks
+
+The [command reference](wiki/command-reference.md) lists the optional session
+hook adapter. This change does not renew source dates.
+
 ## [2026-11-12] Restore authorized Drive publication
 
 Restore [Drive publication](../../scripts/wiki_drive_publish.py) under the owner's

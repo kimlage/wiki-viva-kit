@@ -284,3 +284,10 @@ readiness and Git lifecycle hygiene without mutation:
 `python3 scripts/wiki_integration_check.py --root /path/to/repo [--pr N] [--json]`.
 See [integration observation](../docs/references/guides/agent-contributions.md#read-only-integration-observation)
 for the supported GitHub adapter, exact-head handoff and local-gate limitations.
+
+### Optional session hook
+
+[wiki_session_hook.py](wiki_session_hook.py) adapts provider lifecycle JSON to
+integration observations and bounded executor handoffs. It is opt-in; see the
+[session hook guide](../docs/references/guides/context-coordinators.md#optional-session-hooks)
+for arguments, STOP authority, limitations and provider configuration.
