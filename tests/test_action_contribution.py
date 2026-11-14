@@ -662,7 +662,8 @@ def test_prepare_does_not_install_ref_when_required_signer_fails(tmp_path):
     git(tmp_path, 'config', 'user.signingkey', '/synthetic/missing-key')
     result = call(tmp_path, 'prepare', request, review=review(request))
     assert not result['ok']
-    assert result['error'] == 'command_failed:git'
+    assert result['status'] == 'unknown'
+    assert result['error'] == 'git_signing_effect_unknown: reconcile before retry'
     assert port._candidate(tmp_path, result['branch']) is None
 
 
@@ -691,6 +692,36 @@ def test_prepare_refuses_signing_policy_change_after_commit(tmp_path, monkeypatc
     result = call(tmp_path, 'prepare', request, review=review(request))
     assert result['error'] == 'git_commit_signing_policy_changed'
     assert port._candidate(tmp_path, result['branch']) is None
+
+
+@pytest.mark.skipif(os.name == 'nt' or shutil.which('ssh-keygen') is None, reason='requires POSIX SSH signing fixture')
+def test_signed_prepare_reports_unknown_when_policy_changes_after_signer(tmp_path, monkeypatch):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    _, request = fixture(root)
+    key = tmp_path / 'synthetic-key'
+    subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)], check=True)
+    marker = tmp_path / 'signer-ran'
+    signer = tmp_path / 'synthetic-signer'
+    signer.write_text('#!/bin/sh\nprintf ran > ' + shlex.quote(str(marker)) + '\nexec "' +
+                      shutil.which('ssh-keygen') + '" "$@"\n')
+    signer.chmod(0o755)
+    git(root, 'config', 'commit.gpgSign', 'true')
+    git(root, 'config', 'gpg.format', 'ssh')
+    git(root, 'config', 'user.signingkey', str(key))
+    git(root, 'config', 'gpg.ssh.program', str(signer))
+    original = port._local_git_effect
+    def commit_then_change(scratch, *args, **kwargs):
+        value = original(scratch, *args, **kwargs)
+        if args and args[0] == 'commit':
+            git(root, 'config', 'commit.gpgSign', 'false')
+        return value
+    monkeypatch.setattr(port, '_local_git_effect', commit_then_change)
+    result = call(root, 'prepare', request, review=review(request))
+    assert marker.exists()
+    assert result['status'] == 'unknown'
+    assert result['error'] == 'git_signing_effect_unknown: reconcile before retry'
+    assert port._candidate(root, result['branch']) is None
 
 
 @pytest.mark.skipif(os.name == 'nt' or shutil.which('ssh-keygen') is None, reason='requires POSIX SSH signing fixture')
@@ -813,7 +844,8 @@ def test_prepare_uses_same_openpgp_alias_as_selected_git(tmp_path, first, last):
     expected = marker.read_text()
     marker.unlink()
     result = call(root, 'prepare', request, review=review(request))
-    assert not result['ok'] and result['error'] == 'command_failed:git'
+    assert not result['ok'] and result['status'] == 'unknown'
+    assert result['error'] == 'git_signing_effect_unknown: reconcile before retry'
     assert marker.read_text() == expected
     assert port._candidate(root, result['branch']) is None
 

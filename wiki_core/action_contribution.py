@@ -833,25 +833,33 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
             for key, value in _scratch_signing_settings(root, signing_policy[1]):
                 _local_git_effect(scratch, "config", "--add", key, value)
         signing_arg = ("-S",) if signing_policy[0] else ()
-        _local_git_effect(scratch, "commit", *signing_arg, "-m", "wiki: integrate reviewed action body " + material[:12])
-        commit = _git(scratch, "rev-parse", "HEAD")
-        # No model/audit work under these process-shared guards. Revalidate
-        # HEAD, bytes and policy immediately before installing the proposal ref.
-        with ExitStack() as locks:
-            for lock in ["contribution-ref:" + branch, path, source_log_ref]:
-                locks.enter_context(_action_file_lock(root, lock))
-            if (_git(root, "rev-parse", "HEAD") != base or target.read_bytes().decode("utf-8") != before
-                or (root / "wiki.config.yaml").read_text() != policy
-                or source_log_path.read_text() != source_log):
-                raise ContributionError("source_changed_during_prepare")
-            if _candidate(root, branch):
-                raise ContributionError("contribution_prepared_concurrently: reconcile")
-            if _commit_signing_policy(root) != signing_policy:
-                raise ContributionError("git_commit_signing_policy_changed")
-            _local_git_effect(root, "fetch", "--no-write-fetch-head", str(scratch), commit, allow_file=True)
-            if _commit_signing_policy(root) != signing_policy:
-                raise ContributionError("git_commit_signing_policy_changed")
-            _local_git_effect(root, "update-ref", f"refs/heads/{branch}", commit, "0" * 40)
+        try:
+            _local_git_effect(scratch, "commit", *signing_arg, "-m", "wiki: integrate reviewed action body " + material[:12])
+            commit = _git(scratch, "rev-parse", "HEAD")
+            # No model/audit work under these process-shared guards. Revalidate
+            # HEAD, bytes and policy immediately before installing the proposal ref.
+            with ExitStack() as locks:
+                for lock in ["contribution-ref:" + branch, path, source_log_ref]:
+                    locks.enter_context(_action_file_lock(root, lock))
+                if (_git(root, "rev-parse", "HEAD") != base or target.read_bytes().decode("utf-8") != before
+                    or (root / "wiki.config.yaml").read_text() != policy
+                    or source_log_path.read_text() != source_log):
+                    raise ContributionError("source_changed_during_prepare")
+                if _candidate(root, branch):
+                    raise ContributionError("contribution_prepared_concurrently: reconcile")
+                if _commit_signing_policy(root) != signing_policy:
+                    raise ContributionError("git_commit_signing_policy_changed")
+                _local_git_effect(root, "fetch", "--no-write-fetch-head", str(scratch), commit, allow_file=True)
+                if _commit_signing_policy(root) != signing_policy:
+                    raise ContributionError("git_commit_signing_policy_changed")
+                _local_git_effect(root, "update-ref", f"refs/heads/{branch}", commit, "0" * 40)
+        except (ContributionError, ActionTransitionError, ValueError, KeyError, TypeError, OSError,
+                subprocess.TimeoutExpired) as exc:
+            # A configured signer can execute external code before Git reports
+            # failure. Neither a failed commit nor later refusal rolls it back.
+            if signing_policy[0]:
+                raise ContributionError("git_signing_effect_unknown: reconcile before retry") from exc
+            raise
     return {"status": "prepared", "proposal_commit": commit, "branch": branch,
             "material_sha256": material, "after_sha256": receipt["after_sha256"],
             "receipt_id": receipt["receipt_id"], "gate_receipts": gates,
