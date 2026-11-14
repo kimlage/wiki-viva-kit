@@ -829,7 +829,7 @@ export type SourceOperationPreview = {
     runnable?: boolean;
     requires_agent?: boolean;
   };
-  steps?: { id: string; label: string; status: string }[];
+  steps?: { id: string; label: string; status: string; scope?: "configured" | "local_raw" | "external_returned" }[];
 };
 export type SourceOperationReceipt = {
   ok?: boolean;
