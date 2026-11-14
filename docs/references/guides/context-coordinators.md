@@ -430,12 +430,13 @@ and reader/service adoption in the project application already in use.
 The repository may opt in to `scripts/wiki_session_hook.py`. It consumes one
 provider event as JSON on stdin. It uses the read-only integration checker and
 returns JSON to the host; it does not post, merge, clean, persist a queue or
-change action state. `SessionStart` injects a short count summary. `Stop` defaults
-to `--mode observe` and warns only. `--mode enforce` may request one continuation
-for a verified current-branch-without-PR, uncommitted current worktree or a
-merged branch/worktree remaining in the destination. It does not block on other
-findings or an unavailable observation. A provider `stop_hook_active` event ends that one
-attempt; no generic continuation is requested.
+change action state. `SessionStart` queries the checker and injects a short count
+summary. `Stop` uses local Git only in both modes; it does not query GitHub.
+It defaults to `--mode observe` and warns only. In `--mode enforce`, a verified
+uncommitted current worktree may cause one continuation. An offline Stop cannot
+verify whether a branch lacks a PR or whether a PR was merged; inspect those
+findings through SessionStart or the integration checker. A provider
+`stop_hook_active` event ends the attempt; no generic continuation is requested.
 
 `SubagentStop` checks only the explicitly selected executor agent types. Its
 final handoff uses separate `Proposal`, `Head`, `Base`, `Review`, `Gates`,
@@ -463,7 +464,10 @@ not created by the kit. The hook cannot authenticate its contents or infer a
 user STOP from an unavailable transcript; a host must maintain and protect it. Only enable blocking if the host
 can maintain this state for the current session and respect owner STOPs.
 The `--executor-type` option can be repeated; absent it, only `executor`
-qualifies. `--timeout` is bounded to 1–60 seconds. These are opt-in behavior
+qualifies. `--timeout` bounds the entire event, including input and subprocesses,
+to five seconds by default; it accepts values greater than zero up to 60 seconds.
+On timeout the hook terminates its worker process group and returns a short
+warning with exit status zero. These are opt-in behavior
 and do not grant authority or replace the destination policy.
 
 Codex discovers project hooks in `.codex/hooks.json` (and requires trust for

@@ -8,9 +8,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import queue
+import signal
 import re
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -20,7 +24,7 @@ MAX_INPUT = 1_000_000
 FIELDS = ('proposal', 'head', 'base', 'review', 'gates', 'pending', 'responsible-thread')
 
 
-def check(root: Path, timeout: int) -> dict:
+def check(root: Path, timeout: float) -> dict:
     if not CHECKER.is_file():
         return {'ok': False, 'status': 'waiting:integration_checker_unavailable'}
     try:
@@ -43,15 +47,6 @@ def _repository_root(path: Path) -> Path | None:
         return None
 
 
-def _current_branch(root: Path) -> str | None:
-    try:
-        p = subprocess.run(['git', 'symbolic-ref', '--quiet', '--short', 'HEAD'], cwd=root,
-                           capture_output=True, text=True, timeout=5)
-        return p.stdout.strip() if p.returncode == 0 else None
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-
-
 def _worktree_dirty(root: Path) -> bool | None:
     try:
         p = subprocess.run(['git', '--no-optional-locks', 'status', '--porcelain', '--untracked-files=normal'],
@@ -59,23 +54,6 @@ def _worktree_dirty(root: Path) -> bool | None:
         return bool(p.stdout) if p.returncode == 0 else None
     except (OSError, subprocess.TimeoutExpired):
         return None
-
-
-def mechanical_findings(observation: dict, root: Path, branch: str | None) -> list[str]:
-    if not observation.get('ok'):
-        return []
-    findings = set()
-    for item in observation.get('hygiene', []):
-        status = item.get('status')
-        current_branch = branch is not None and item.get('branch') == branch
-        current_tree = item.get('path') == str(root.resolve())
-        if current_branch and status == 'fix:local_branch_without_pr':
-            findings.add('current_branch_without_proposal')
-        if current_tree and status == 'fix:dirty_worktree':
-            findings.add('uncommitted_changes')
-        if status in {'fix:merged_branch_remaining', 'fix:merged_worktree_remaining'}:
-            findings.add('merged_branch_or_worktree_remaining')
-    return sorted(findings)
 
 
 def handoff_problems(message: Any) -> list[str]:
@@ -145,7 +123,7 @@ def _stop_state(path: Path | None, session_id: Any) -> str:
 
 
 def handle(event: dict, root: Path, mode: str, stop_state: str,
-           executor_types: set[str], timeout: int) -> dict:
+           executor_types: set[str], timeout: float) -> dict:
     name = event.get('hook_event_name')
     message = event.get('last_assistant_message')
     def stopped() -> bool:
@@ -172,29 +150,137 @@ def handle(event: dict, root: Path, mode: str, stop_state: str,
             return {}
         return {'systemMessage': 'Executor handoff missing or invalid fields: ' + ', '.join(problems) + '.'}
     if name == 'Stop':
-        observation = check(root, timeout)
-        findings = mechanical_findings(observation, root, _current_branch(root))
-        if _worktree_dirty(root) is True and 'uncommitted_changes' not in findings:
-            findings.append('uncommitted_changes')
-        if not findings:
-            return {} if observation.get('ok') else {'systemMessage': 'Integration observation unavailable; no mechanical finding was verified.'}
-        reason = 'Mechanical integration findings: ' + ', '.join(findings) + '.'
+        # Stop is offline in both modes. Git can verify this worktree's changes;
+        # PR association and merged-PR residues need fresh provider evidence and
+        # are not inferred from local branch names or stale tracking refs.
+        dirty = _worktree_dirty(root)
+        if dirty is None:
+            return {'systemMessage': 'Local Git observation unavailable.'}
+        if not dirty:
+            return {}
+        reason = 'Mechanical integration findings: uncommitted_changes.'
         if mode == 'enforce' and not stopped() and not continued:
             return {'decision': 'block', 'reason': reason + ' Resolve the specific finding or report its blocker.'}
         return {'systemMessage': reason}
+
     return {}
 
 
+def _windows_job():
+    """Use a Windows job whose closure terminates the worker and descendants."""
+    import ctypes
+    from ctypes import wintypes
+
+    class BasicLimits(ctypes.Structure):
+        _fields_ = [('PerProcessUserTimeLimit', ctypes.c_longlong),
+                    ('PerJobUserTimeLimit', ctypes.c_longlong), ('LimitFlags', wintypes.DWORD),
+                    ('MinimumWorkingSetSize', ctypes.c_size_t), ('MaximumWorkingSetSize', ctypes.c_size_t),
+                    ('ActiveProcessLimit', wintypes.DWORD), ('Affinity', ctypes.c_size_t),
+                    ('PriorityClass', wintypes.DWORD), ('SchedulingClass', wintypes.DWORD)]
+
+    class IoCounters(ctypes.Structure):
+        _fields_ = [(name, ctypes.c_ulonglong) for name in ('ReadOperationCount', 'WriteOperationCount',
+                    'OtherOperationCount', 'ReadTransferCount', 'WriteTransferCount', 'OtherTransferCount')]
+
+    class ExtendedLimits(ctypes.Structure):
+        _fields_ = [('BasicLimitInformation', BasicLimits), ('IoInfo', IoCounters),
+                    ('ProcessMemoryLimit', ctypes.c_size_t), ('JobMemoryLimit', ctypes.c_size_t),
+                    ('PeakProcessMemoryUsed', ctypes.c_size_t), ('PeakJobMemoryUsed', ctypes.c_size_t)]
+
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+    kernel.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+    kernel.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    job = kernel.CreateJobObjectW(None, None)
+    if not job:
+        raise OSError('job creation failed')
+    limits = ExtendedLimits()
+    limits.BasicLimitInformation.LimitFlags = 0x00002000  # KILL_ON_JOB_CLOSE
+    if not kernel.SetInformationJobObject(job, 9, ctypes.byref(limits), ctypes.sizeof(limits)):
+        kernel.CloseHandle(job)
+        raise OSError('job configuration failed')
+    return kernel, job
+
+
+def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
+    """Bound and reap a worker tree, including children holding its pipes."""
+    if timeout <= 0:
+        return None
+    deadline = time.monotonic() + timeout
+    job = kernel = proc = None
+    try:
+        if os.name == 'nt':
+            kernel, job = _windows_job()
+        proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, text=True,
+                                start_new_session=(os.name != 'nt'),
+                                creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0))
+        if job is not None and not kernel.AssignProcessToJobObject(job, int(proc._handle)):
+            proc.kill()
+            proc.wait()
+            return None
+        # The worker reads stdin before starting any subprocess. On Windows the
+        # job assignment above therefore precedes all worker descendants.
+        output, _ = proc.communicate(payload, timeout=max(0, deadline - time.monotonic()))
+        return output if proc.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    finally:
+        if job is not None:
+            kernel.CloseHandle(job)  # kills all members, also on normal exit
+        elif proc is not None and os.name != 'nt':
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                pass
+        if proc is not None:
+            if proc.poll() is None:
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
+            try:
+                proc.communicate(timeout=0.2)
+            except (OSError, ValueError, subprocess.TimeoutExpired):
+                pass
+
+
+def _read_input(timeout: float) -> str | None:
+    """Bound waiting for the provider to finish writing its event."""
+    result: queue.Queue = queue.Queue(maxsize=1)
+    def read() -> None:
+        try:
+            result.put(sys.stdin.read(MAX_INPUT + 1))
+        except (OSError, UnicodeError):
+            result.put(None)
+    threading.Thread(target=read, daemon=True).start()
+    try:
+        return result.get(timeout=max(0, timeout))
+    except queue.Empty:
+        return None
+
+
 def main() -> int:
+    started = time.monotonic()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, help='Repository root; defaults to event cwd')
     parser.add_argument('--mode', choices=('observe', 'enforce'), default='observe')
     parser.add_argument('--stop-state-file', type=Path, help='Fresh trusted runtime JSON with matching session_id and state')
     parser.add_argument('--executor-type', action='append', default=[], help='Exact executor agent_type; repeatable')
-    parser.add_argument('--timeout', type=int, default=30)
+    parser.add_argument('--timeout', type=float, default=5, help='Total event budget in seconds (default: 5)')
+    parser.add_argument('--_worker', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if args.timeout < 1 or args.timeout > 60:
-        parser.error('--timeout must be 1..60 seconds')
+    if not 0 < args.timeout <= 60:
+        parser.error('--timeout must be greater than 0 and at most 60 seconds')
+    if not args._worker:
+        raw = _read_input(args.timeout - (time.monotonic() - started))
+        remaining = args.timeout - (time.monotonic() - started)
+        output = (_run_group([sys.executable, str(Path(__file__).resolve()), *sys.argv[1:], '--_worker'], raw, remaining)
+                  if raw is not None and len(raw) <= MAX_INPUT else None)
+        print(output.strip() if output else json.dumps({'systemMessage': 'Hook timed out or unavailable; no continuation requested.'}))
+        return 0
     raw = sys.stdin.read(MAX_INPUT + 1)
     try:
         event = json.loads(raw) if len(raw) <= MAX_INPUT else None
