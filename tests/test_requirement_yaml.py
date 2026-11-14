@@ -11,7 +11,7 @@ from wiki_core.requirement_yaml import RequirementYamlError, check_requirement_y
     'information_requirements: [{target: one, target: two}]',
     'information_requirements: [{query: {filters: {amount: true, amount: 1}}}]',
     'defaults: &d {query: {filters: {x: 1, x: 2}}}\ninformation_requirements: [{<<: *d, query: {filters: {x: 3}}}]',
-    'defaults: &d {information_requirements: [{target: one}]}\n<<: *d\ninformation_requirements: []',
+    'defaults: &d {information_requirements: [], information_requirements: [{target: one}]}\n<<: *d\ninformation_requirements: []',
     'defaults: &d {target: one, target: two}\ninformation_requirements: [{<<: *d, target: three}]',
     'information_requirements: &r [*r]',
 ])
@@ -28,6 +28,7 @@ def test_ambiguous_or_cyclic_requirement_subtree_is_refused(block):
     'shared: &s {target: one}\ninformation_requirements: [*s, *s]',
     'shared: &s {fields: ["*"]}\ninformation_requirements: [{<<: *s, target: one}]',
     'defaults: &d {information_requirements: []}\n<<: *d\ninformation_requirements: []',
+    'defaults: &d {information_requirements: [{target: one}]}\n<<: *d\ninformation_requirements: []',
     'defaults: &d {target: one}\ninformation_requirements: [{<<: *d, target: two}]',
     'first: &a {target: one}\nsecond: &b {target: two}\ninformation_requirements: [{<<: [*a, *b]}]',
 ])
@@ -86,23 +87,21 @@ def test_repair_canonicalization_bounds_expanded_aliases():
                                repair_value=[shared] * 400)
 
 
-def test_shared_merged_requirements_are_canonicalized_once(monkeypatch):
-    from wiki_core import requirement_yaml
-    calls = []
-    original = requirement_yaml._canonical_bounded
-    def observe(value):
-        calls.append(value)
-        return original(value)
-    monkeypatch.setattr(requirement_yaml, '_canonical_bounded', observe)
+def test_shared_merged_requirements_are_traversed_without_expansion():
     block = 'defaults: &d {information_requirements: []}\n<<: [' + ', '.join(['*d'] * 64) + ']'
     check_requirement_yaml('---\n' + block + '\n---\n')
-    assert len(calls) == 1
 
 
-def test_distinct_merged_requirement_expansions_have_aggregate_limit():
+def test_distinct_merged_requirement_aliases_are_traversed_without_expansion():
     scalar = 'x' * 10_000
     rows = ['shared: &s ' + scalar]
     rows += [f'd{i}: &d{i} {{information_requirements: [*s]}}' for i in range(220)]
     rows.append('<<: [' + ', '.join(f'*d{i}' for i in range(220)) + ']')
-    with pytest.raises(RequirementYamlError, match='frontmatter unavailable'):
-        check_requirement_yaml('---\n' + '\n'.join(rows) + '\n---\n')
+    check_requirement_yaml('---\n' + '\n'.join(rows) + '\n---\n')
+
+
+def test_top_level_merge_override_keeps_safe_loader_winner():
+    block = ('defaults: &d {information_requirements: [{target: one}]}\n'
+             '<<: *d\ninformation_requirements: []')
+    check_requirement_yaml('---\n' + block + '\n---\n')
+    assert yaml.safe_load(block)['information_requirements'] == []

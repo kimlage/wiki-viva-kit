@@ -135,3 +135,28 @@ def test_preflight_accepts_valid_requirement_merge_override_with_reported_eviden
                                 'observed_queries': [], 'missing': packet['coverage']['missing']}}
     assert preflight(root, policy, context_id=AUDIT_CONTEXT, base=base, head=head,
                      branch='wiki/yaml-merge', packet=packet, result=result)['state'] == 'independent_review_required'
+
+
+def test_preflight_preserves_valid_top_level_merge_override(audit_collection):
+    root = audit_collection
+    target = 'finance/costs/result.md'
+    base = git(root, 'rev-parse', 'HEAD')
+    policy = folder_policy(root)
+    packet = folder_build_packet(root, policy, AUDIT_CONTEXT, base, [], 50000,
+        task_id='yaml-root-merge', goal='review', output=target, integrator='reviewer')
+    git(root, 'checkout', '-qb', 'wiki/yaml-root-merge')
+    text = ('---\npage_type: claim\ndefaults: &d\n  information_requirements:\n'
+            '    - target: finance/costs/other.md\n      fields: [body]\n'
+            f'      temporal: current\n      max_age_days: 30\n      consumed_revision: {base}\n'
+            '<<: *d\ninformation_requirements: []\n---\nSynthetic.\n')
+    (root / target).write_text(text)
+    git(root, 'add', target); git(root, 'commit', '-qm', 'synthetic root merge')
+    head = git(root, 'rev-parse', 'HEAD')
+    result = {'schema_version': 'wiki.task-result/v1', 'task_id': packet['task_id'],
+              'context_id': packet['context_id'], 'packet_digest': packet['packet_digest'],
+              'status': 'completed', 'blockers': [],
+              'changes': [{'path': target, 'action': 'modified'}],
+              'read_coverage': {'observed_refs': packet['declared_read_set'],
+                                'observed_queries': [], 'missing': packet['coverage']['missing']}}
+    assert preflight(root, policy, context_id=AUDIT_CONTEXT, base=base, head=head,
+                     branch='wiki/yaml-root-merge', packet=packet, result=result)['state'] == 'independent_review_required'

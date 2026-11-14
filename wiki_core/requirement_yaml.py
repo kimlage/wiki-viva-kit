@@ -159,26 +159,7 @@ def check_requirement_yaml(text: str, *, repair_value=NO_REPAIR_VALUE) -> None:
         return
     protected = [value for key, value in pairs(root, set(), protected_only=True)
                  if key.tag == 'tag:yaml.org,2002:str' and key.value == 'information_requirements']
-    if protected:
-        # Different top-level declarations could hide a complete requirement
-        # list even when YAML merge precedence has a deterministic winner.
-        try:
-            canonical = {}
-            expected = None
-            total = 0
-            for node in protected:
-                visit(node, set())
-                if id(node) not in canonical:
-                    value = _canonical_bounded(yaml.safe_load(yaml.serialize(node, Dumper=yaml.SafeDumper)))
-                    total += len(value.encode('utf-8'))
-                    if total > 2_000_000:
-                        raise RequirementYamlError('requirement frontmatter unavailable')
-                    canonical[id(node)] = value
-                if expected is None:
-                    expected = canonical[id(node)]
-                elif canonical[id(node)] != expected:
-                    raise RequirementYamlError('ambiguous information requirements')
-        except RequirementYamlError:
-            raise
-        except (yaml.YAMLError, RecursionError, TypeError, ValueError):
-            raise RequirementYamlError('ambiguous information requirements') from None
+    # Merge overrides are deterministic in SafeLoader. Inspect every protected
+    # origin for direct duplicates while leaving its existing winner unchanged.
+    for node in protected:
+        visit(node, set())
