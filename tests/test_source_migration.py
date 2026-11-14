@@ -3,6 +3,8 @@ from __future__ import annotations
 import datetime as dt
 from pathlib import Path
 
+import pytest
+
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import parse_frontmatter_flat
 from wiki_core.source_migration import (
@@ -324,3 +326,45 @@ def test_plan_never_overwrites_existing_values(tmp_path: Path) -> None:
     changes = plan_source_migration(tmp_path, _config(), today=dt.date(2026, 7, 3))
     # Fully-specified source needs no changes.
     assert changes == []
+
+
+@pytest.mark.parametrize('include_inverse_ref', [False, True])
+def test_operational_recipe_deduplicates_source_linked_by_config(tmp_path: Path, include_inverse_ref: bool) -> None:
+    _seed_source_wiki(tmp_path)
+    config_path = tmp_path / 'memories/sources/config/methodology.md'
+    if not include_inverse_ref:
+        config_path.write_text(config_path.read_text().replace('source_refs:\n  - sources-methodology\n', ''))
+    changes = plan_source_migration(tmp_path, _config(), today=dt.date(2026, 8, 26), operational_recipes=True)
+    change = next(item for item in changes if item.page_type == 'source_config')
+    recipe = parse_recipe(extract_recipe_mapping(change.append_recipe))
+    assert len(recipe.streams) == 1
+    assert recipe.streams[0].selected is True
+    assert recipe.streams[0].filters == {'source_ref': 'sources-methodology'}
+    assert validate_recipe(recipe) == []
+
+
+@pytest.mark.parametrize(('refs', 'expected'), [
+    (['Synthetic observation without a file reference', 'https://example.invalid/events/record.md'], ''),
+    (['Synthetic observation without a file reference', 'memories/events/example.md'], 'memories/events/example.md'),
+])
+def test_operational_migration_skips_selected_prose_and_lowercase_https(tmp_path: Path, refs: list[str], expected: str) -> None:
+    _seed_source_wiki(tmp_path)
+    source = tmp_path / 'memories/sources/methodology.md'
+    rows = ''.join(f'    - {ref}\n' for ref in refs)
+    source.write_text(source.read_text().replace('---\n\n# Methodology source',
+        "source_lifecycle:\n  last_sync_success_at: '2026-08-21'\n  secret_safe_log_refs:\n" + rows + '---\n\n# Methodology source'))
+    changes = plan_source_migration(tmp_path, _config(), today=dt.date(2026, 8, 26), operational_recipes=True)
+    change = next(item for item in changes if item.page_type == 'source')
+    assert change.add_frontmatter['sync']['last_event_ref'] == expected
+
+
+@pytest.mark.parametrize(('success', 'expected_status'), [('', 'never'), ('2026-08-21', 'ok')])
+def test_explicit_lifecycle_does_not_revive_legacy_success(tmp_path: Path, success: str, expected_status: str) -> None:
+    _seed_source_wiki(tmp_path)
+    source = tmp_path / 'memories/sources/methodology.md'
+    source.write_text(source.read_text().replace('---\n\n# Methodology source',
+        "last_ingested_at: '2026-01-01'\nsource_lifecycle:\n  last_sync_success_at: '" + success + "'\n---\n\n# Methodology source"))
+    changes = plan_source_migration(tmp_path, _config(), today=dt.date(2026, 8, 26), operational_recipes=True)
+    change = next(item for item in changes if item.page_type == 'source')
+    assert change.add_frontmatter['sync']['last_run_at'] == success
+    assert change.add_frontmatter['sync']['last_status'] == expected_status
