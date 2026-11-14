@@ -64,7 +64,7 @@ Packet generation is not evidence of LLM reading, comprehension or execution. Ru
 
 The [coordinator role contract](../../../.skills/wiki-viva/reference/coordinator.md)
 sets the behavioral boundary for both opening and resumption: the coordinator
-maintains direction and acceptance; existing integrators perform product code,
+maintains direction and the owner's acceptance criteria; existing integrators perform product code,
 tests, integration and infrastructure. Before any dispatch, the coordinator
 checks current owner direction and pauses; an old queued message does not lift
 a later pause. A protected packet may request `task.role: coordinator` to
@@ -248,8 +248,9 @@ historical files outside Git. Compare expected heads immediately before mutation
 If anything changed, reconcile it before deleting that item.
 
 On merge or close, remove the local and remote branch and worktree in the same
-delivery. Do not create backup branches, bundles or snapshots; GitHub retains PR
-commits in `refs/pull/<n>/head`. Enable automatic deletion of merged branches
+delivery. Do not create backup branches, bundles or snapshots. On GitHub, PR
+commits remain available through `refs/pull/<n>/head`; other adapters have their own
+retention behavior. Enable automatic deletion of merged branches
 where authorized, and still verify local and remote state. Read back branches,
 worktrees and PRs, and record the result with the existing delivery. Retain valid
 review and test evidence for unchanged work; new changes or concerns receive the
