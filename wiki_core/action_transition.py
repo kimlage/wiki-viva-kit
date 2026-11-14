@@ -60,6 +60,7 @@ from wiki_core.frontmatter import FRONTMATTER_RE
 ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v4"
 _PAGE_EDIT_RECEIPT_VERSION = "wiki_action_transition_receipt.v5"
 _CALENDAR_RECEIPT_VERSION = "wiki_action_transition_receipt.v6"
+_EOL_RECEIPT_VERSION = "wiki_action_transition_receipt.v7"
 _PAGE_EDIT_FIELDS = ("title", "owner_kind", "owner_ref", "body")
 _PAGE_EDIT_HASH_FIELDS = ("title_sha256", "owner_kind_sha256", "owner_ref_sha256", "body_revision")
 _V3_ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v3"
@@ -194,6 +195,15 @@ def _revision_sha256(text: str) -> str:
     return _sha256_text(text.rstrip("\r\n"))
 
 
+def _logical_eol(text: str) -> str:
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _logical_revision_sha256(text: str) -> str:
+    """Bind textual content across Git line-ending conversion; never use for CAS."""
+    return _revision_sha256(_logical_eol(text))
+
+
 def _receipt_id(entry: Mapping[str, Any]) -> str:
     canonical = {
         str(key): value for key, value in entry.items() if str(key) != "receipt_id"
@@ -213,7 +223,7 @@ def _parse_document(text: str) -> tuple[dict[str, Any], str]:
         raise ActionTransitionError("missing_frontmatter")
     try:
         loaded = yaml.safe_load(match.group(1))
-    except yaml.YAMLError as exc:
+    except (yaml.YAMLError, RecursionError, ValueError, OverflowError) as exc:
         raise ActionTransitionError("invalid_frontmatter") from exc
     if not isinstance(loaded, dict):
         raise ActionTransitionError("invalid_frontmatter")
@@ -391,9 +401,10 @@ def validate_page_edit(value: Any) -> dict[str, str]:
     return result
 
 
-def _page_edit_projection(fm: Mapping[str, Any], body: str) -> dict[str, str]:
+def _page_edit_projection(fm: Mapping[str, Any], body: str, *, logical_eol: bool = False) -> dict[str, str]:
+    revision = _logical_revision_sha256 if logical_eol else _revision_sha256
     return {**{key + "_sha256": _sha256_text(str(fm.get(key) or "")) for key in _PAGE_EDIT_FIELDS if key != "body"},
-            "body_revision": _revision_sha256(body)}
+            "body_revision": revision(body)}
 
 def _assert_no_secrets(text: str) -> None:
     if any(finding.category == "secret" for finding in scan_text(text)):
@@ -573,7 +584,9 @@ def _receipt_calendar_date(entry: Mapping[str, Any]) -> date | None:
     if instant is None:
         return None
     offset = entry.get("calendar_utc_offset_minutes")
-    if entry.get("schema_version") == _CALENDAR_RECEIPT_VERSION:
+    if (entry.get("schema_version") == _CALENDAR_RECEIPT_VERSION
+            or (entry.get("schema_version") == _EOL_RECEIPT_VERSION
+                and entry.get("kind") not in {"comment", "body_consolidation"})):
         if type(offset) is not int or not -840 <= offset <= 840:
             return None
     else:
@@ -616,6 +629,7 @@ def _history_last_instant(history: list[dict[str, Any]]) -> datetime | None:
             _V3_ACTION_TRANSITION_RECEIPT_VERSION,
             _PAGE_EDIT_RECEIPT_VERSION,
             _CALENDAR_RECEIPT_VERSION,
+            _EOL_RECEIPT_VERSION,
             ACTION_TRANSITION_RECEIPT_VERSION,
         }:
             raise ActionTransitionError("invalid_action_state_history")
@@ -729,10 +743,12 @@ def _transition_action_page_locked(
         raise ActionTransitionError("invalid_target_state", next_state=target)
     path, page_ref = _contained_action_path(root, page)
     try:
-        before_text = path.read_text(encoding="utf-8")
+        before_bytes = path.read_bytes()
+        before_text = before_bytes.decode("utf-8")
     except OSError as exc:
         raise ActionTransitionError("action_read_failed") from exc
-    before_sha256 = _sha256_text(before_text)
+    before_sha256 = hashlib.sha256(before_bytes).hexdigest()
+    logical_eol = "\r" in before_text
     expected = str(expected_sha256 or "").strip()
     if expected:
         if not _SHA256_RE.fullmatch(expected):
@@ -825,11 +841,12 @@ def _transition_action_page_locked(
         if current in {"done", "cancelled"}:
             raise ActionTransitionError("terminal_page_read_only")
         edited_body = edit.pop("body", body)
+        logical_eol = logical_eol or "\r" in edited_body
         updated.update(edit)
         if edit.get("owner_kind") == "unassigned":
             updated.pop("owner_ref", None)
-        before_projection = _page_edit_projection(frontmatter, body)
-        after_projection = _page_edit_projection(updated, edited_body)
+        before_projection = _page_edit_projection(frontmatter, body, logical_eol=logical_eol)
+        after_projection = _page_edit_projection(updated, edited_body, logical_eol=logical_eol)
         edited_fields = [key for key in before_projection if before_projection[key] != after_projection[key]]
         # Git-base audit projections deliberately ignore terminal newlines;
         # submitted text and the write/no-op decision must preserve exact bytes.
@@ -1003,7 +1020,8 @@ def _transition_action_page_locked(
         )
     )
     entry: dict[str, Any] = {
-        "schema_version": ACTION_TRANSITION_RECEIPT_VERSION if comment_only else _CALENDAR_RECEIPT_VERSION,
+        "schema_version": (_EOL_RECEIPT_VERSION if logical_eol else
+                           ACTION_TRANSITION_RECEIPT_VERSION if comment_only else _CALENDAR_RECEIPT_VERSION),
         "kind": kind,
         "page_id": page_id,
         "from": current,
@@ -1011,7 +1029,7 @@ def _transition_action_page_locked(
         "at": at,
         "state_source": resolution.source,
         "before_sha256": before_sha256,
-        "before_revision": _revision_sha256(before_text),
+        "before_revision": (_logical_revision_sha256(before_text) if logical_eol else _revision_sha256(before_text)),
         "payload_sha256": payload_sha256,
         "support_fields": support_fields,
         "governed_support_sha256": _governed_support_sha256(updated),
@@ -1140,7 +1158,7 @@ def seed_action_proposal(root: Path, page: Path | str, committed: str, current: 
     from wiki_core.action_contribution import _reconcile_source
     path, ref = _contained_action_path(root, page)
     with _TRANSITION_LOCK, _action_file_lock(root, ref):
-        if path.read_text(encoding="utf-8") != committed:
+        if _logical_eol(path.read_bytes().decode("utf-8")) != _logical_eol(committed):
             raise ActionTransitionError("stale_proposal_seed")
         _reconcile_source(committed, current, committed)
         _assert_no_secrets(current)
@@ -1156,7 +1174,7 @@ def _consolidated_body(body: str, records: Any) -> str:
             raise ActionTransitionError("invalid_body_consolidation")
         paragraph, ref, label = item["paragraph"], item["canonical_ref"], item["label"]
         if (not isinstance(paragraph, str) or not 120 <= len(paragraph) <= 16000
-                or paragraph not in [p.strip("\n") for p in re.split(r"\n\s*\n", body)] or body.count(paragraph) != 1
+                or paragraph not in [p.strip("\r\n") for p in re.split(r"(?:\r\n|\r(?!\n)|\n)[^\S\r\n]*(?:\r\n|\r(?!\n)|\n)", body)] or body.count(paragraph) != 1
                 or any(line.lstrip().startswith(("#", "|", "```", "~~~")) for line in paragraph.splitlines())
                 or not isinstance(ref, str) or not re.fullmatch(r"[a-zA-Z0-9_/-]+\.md", ref)
                 or ".." in Path(ref).parts
@@ -1173,10 +1191,10 @@ def _verify_consolidation_sources(root: Path, path: Path, records: list[dict]) -
         target, _ = _contained_action_path(root, item["canonical_ref"])
         if target == path or target.parent != path.parent:
             raise ActionTransitionError("consolidation_requires_distinct_sibling_action")
-        raw = target.read_text(encoding="utf-8")
+        raw = target.read_bytes().decode("utf-8")
         fm, body = _parse_document(raw)
         if (_sha256_text(raw) != item["canonical_sha256"] or fm.get("page_type") != "action"
-                or item["paragraph"] not in [p.strip("\n") for p in re.split(r"\n\s*\n", body)]):
+                or item["paragraph"] not in [p.strip("\r\n") for p in re.split(r"(?:\r\n|\r(?!\n)|\n)[^\S\r\n]*(?:\r\n|\r(?!\n)|\n)", body)]):
             raise ActionTransitionError("consolidation_canonical_content_changed")
 
 
@@ -1195,8 +1213,9 @@ def integrate_action_body(
         raise ActionTransitionError("action_writes_unsupported_on_windows")
     path, ref = _contained_action_path(root, page)
     with _TRANSITION_LOCK, _action_file_lock(root, ref):
-        before = path.read_text(encoding="utf-8")
-        if _sha256_text(before) != expected_sha256:
+        before_bytes = path.read_bytes()
+        before = before_bytes.decode("utf-8")
+        if hashlib.sha256(before_bytes).hexdigest() != expected_sha256:
             raise ActionTransitionError("stale_action_revision")
         fm, old_body = _parse_document(before)
         state = resolve_action_state(fm, legacy_state=legacy_action_state_from_body(old_body))
@@ -1231,14 +1250,17 @@ def integrate_action_body(
             metadata["consolidations"] = consolidations
         metadata["before_body_sha256"] = _sha256_text(old_body)
         metadata["after_body_sha256"] = _sha256_text(body)
-        metadata["before_body_revision"] = _revision_sha256(old_body)
-        metadata["after_body_revision"] = _revision_sha256(body)
+        logical_eol = "\r" in before or "\r" in body
+        revision = _logical_revision_sha256 if logical_eol else _revision_sha256
+        metadata["before_body_revision"] = revision(old_body)
+        metadata["after_body_revision"] = revision(body)
         entry = {
-            "schema_version": ACTION_TRANSITION_RECEIPT_VERSION if consolidations is not None else _CALENDAR_RECEIPT_VERSION,
+            "schema_version": (_EOL_RECEIPT_VERSION if logical_eol else
+                               ACTION_TRANSITION_RECEIPT_VERSION if consolidations is not None else _CALENDAR_RECEIPT_VERSION),
             "kind": "body_consolidation" if consolidations is not None else "body_integration", "page_id": fm["page_id"],
             "from": state.state, "to": state.state, "at": at,
             "state_source": state.source, "before_sha256": expected_sha256,
-            "before_revision": _revision_sha256(before),
+            "before_revision": revision(before),
             "payload_sha256": _sha256_text(json.dumps(metadata, sort_keys=True, ensure_ascii=False, separators=(",", ":"))),
             "support_fields": [], "governed_support_sha256": _governed_support_sha256(fm),
             "prior_receipt_id": _last_receipt_id(history), "reason_recorded": False,
@@ -1266,6 +1288,108 @@ def _document_for_audit(text: str) -> tuple[dict[str, Any], str] | None:
         return None
 
 
+def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000,
+                         max_value_bytes: int = 8_000_000) -> bool:
+    """Compare loaded values with bounded work; reject cycles and unsupported keys."""
+    scalar_key_types = {str, int, float, bool, bytes, type(None), date, datetime}
+    pending = [(False, before, after)]
+    active: set[tuple[int, int]] = set()
+    done: set[tuple[int, int]] = set()
+    scalar_done: set[tuple[int, int]] = set()
+    visited = 0
+    value_bytes = 0
+
+    def charge(size: int) -> None:
+        nonlocal value_bytes
+        value_bytes += size
+        if value_bytes > max_value_bytes:
+            raise ValueError("comparison value budget exceeded")
+
+    def typed_key(value: Any) -> tuple:
+        value_type = type(value)
+        if value_type not in scalar_key_types or value != value:
+            raise ValueError("unsupported comparison key")
+        # Python equates aware datetimes at the same instant even when their
+        # local date/offset differs, and equates negative and positive zero.
+        if value_type is datetime:
+            return value_type, value.isoformat(), value.fold
+        if value_type is date:
+            return value_type, value.isoformat()
+        if value_type is int:
+            # Hash randomized byte strings rather than attacker-selected
+            # integer hashes, without a decimal conversion size limit.
+            size = max(1, (value.bit_length() + 7) // 8)
+            if size > 1_000_000:
+                raise ValueError("integer comparison key too large")
+            charge(size)
+            return value_type, value < 0, abs(value).to_bytes(size, "big")
+        if value_type is str:
+            # Four bytes per code point is a conservative UTF-8 upper bound;
+            # avoid allocating an encoded copy just to check the budget.
+            charge(4 * len(value))
+        elif value_type is bytes:
+            charge(len(value))
+        if value_type is float:
+            import struct
+            return value_type, struct.pack("!d", value)
+        return value_type, value
+
+    while pending:
+        leaving, left, right = pending.pop()
+        pair = (id(left), id(right))
+        if leaving:
+            active.remove(pair)
+            done.add(pair)
+            continue
+        visited += 1
+        if visited > max_nodes or type(left) is not type(right):
+            return False
+        if isinstance(left, (dict, list, tuple, set, frozenset)):
+            if pair in active:
+                return False
+            if pair in done:
+                continue
+            # Account for already queued work before expanding another shared
+            # collection; aliases must not accumulate an unbounded pending stack.
+            if (len(left) != len(right)
+                    or visited + len(pending) + len(left) + 1 > max_nodes):
+                return False
+            active.add(pair)
+            pending.append((True, left, right))
+            if isinstance(left, dict):
+                try:
+                    right_values = {typed_key(key): value for key, value in right.items()}
+                    for key, value in left.items():
+                        other = typed_key(key)
+                        if other not in right_values:
+                            return False
+                        pending.append((False, value, right_values[other]))
+                except (TypeError, ValueError):
+                    return False
+            elif isinstance(left, (set, frozenset)):
+                try:
+                    if {typed_key(value) for value in left} != {typed_key(value) for value in right}:
+                        return False
+                except (TypeError, ValueError):
+                    return False
+            else:
+                pending.extend((False, a, b) for a, b in zip(left, right))
+        else:
+            if pair in scalar_done:
+                continue
+            try:
+                if type(left) is int:
+                    charge(max(1, (left.bit_length() + 7) // 8))
+                    if left != right:
+                        return False
+                elif typed_key(left) != typed_key(right):
+                    return False
+            except (TypeError, ValueError):
+                return False
+            scalar_done.add(pair)
+    return True
+
+
 def _comment_suffix_preserves_content(previous: dict, current: dict,
                                      previous_body: str, current_body: str) -> bool:
     """Shape check only; callers must also validate the native receipt chain.
@@ -1279,8 +1403,8 @@ def _comment_suffix_preserves_content(previous: dict, current: dict,
             or previous_body != current_body):
         return False
     ignored = {_HISTORY_FIELD, "action_dialogue"}
-    if ({k: v for k, v in previous.items() if k not in ignored}
-            != {k: v for k, v in current.items() if k not in ignored}):
+    if not _comment_typed_equal({k: v for k, v in previous.items() if k not in ignored},
+                                {k: v for k, v in current.items() if k not in ignored}):
         return False
     old_events = previous.get("action_dialogue") or []
     new_events = current.get("action_dialogue") or []
@@ -1291,16 +1415,17 @@ def _comment_suffix_preserves_content(previous: dict, current: dict,
         validate_history(new_events)
     except ValueError:
         return False
-    if (not isinstance(old_history, list) or not isinstance(new_history, list)
-            or new_history[:len(old_history)] != old_history
-            or new_events[:len(old_events)] != old_events):
+    if not isinstance(old_history, list) or not isinstance(new_history, list):
+        return False
+    if (not _comment_typed_equal(new_history[:len(old_history)], old_history)
+            or not _comment_typed_equal(new_events[:len(old_events)], old_events)):
         return False
     events, receipts = new_events[len(old_events):], new_history[len(old_history):]
     if not events or len(events) != len(receipts):
         return False
     state = previous["action_state"]
     return all(isinstance(receipt, dict)
-        and receipt.get("schema_version") == ACTION_TRANSITION_RECEIPT_VERSION
+        and receipt.get("schema_version") in {ACTION_TRANSITION_RECEIPT_VERSION, _EOL_RECEIPT_VERSION}
         and receipt.get("kind") == "comment"
         and receipt.get("from") == receipt.get("to") == state
         and receipt.get("state_source") == "action_state"
@@ -1310,6 +1435,14 @@ def _comment_suffix_preserves_content(previous: dict, current: dict,
         and event["at"] == receipt.get("at")
         and event["before_sha256"] == receipt.get("before_sha256")
         for event, receipt in zip(events, receipts))
+
+
+def _comment_payload_matches(receipt: Mapping[str, Any], current: Mapping[str, Any]) -> bool:
+    payload = {"reason": receipt.get("reason", ""),
+               "support": {"action_dialogue": current.get("action_dialogue")}}
+    expected = _sha256_text(json.dumps(payload, ensure_ascii=False,
+                                     separators=(",", ":"), sort_keys=True))
+    return receipt.get("payload_sha256") == expected
 
 
 def operational_comment_receipt(previous_text: str, current_text: str) -> dict | None:
@@ -1335,11 +1468,7 @@ def operational_comment_receipt(previous_text: str, current_text: str) -> dict |
     if (receipt["before_sha256"] != _sha256_text(previous_text)
             or _render_document(current, new_body) != current_text):
         return None
-    payload = {"reason": receipt.get("reason", ""),
-               "support": {"action_dialogue": current["action_dialogue"]}}
-    expected = _sha256_text(json.dumps(payload, ensure_ascii=False,
-                                     separators=(",", ":"), sort_keys=True))
-    if receipt["payload_sha256"] != expected:
+    if not _comment_payload_matches(receipt, current):
         return None
     return {"receipt_id": receipt["receipt_id"],
             "event_id": current["action_dialogue"][-1]["event_id"],
@@ -1363,6 +1492,7 @@ def _receipt_entry_error(
         _V3_ACTION_TRANSITION_RECEIPT_VERSION,
         _PAGE_EDIT_RECEIPT_VERSION,
         _CALENDAR_RECEIPT_VERSION,
+        _EOL_RECEIPT_VERSION,
         ACTION_TRANSITION_RECEIPT_VERSION,
     }:
         return "receipt schema is missing or unsupported"
@@ -1397,7 +1527,8 @@ def _receipt_entry_error(
     parsed_at = _parsed_transition_instant(entry.get("at"))
     if parsed_at is None:
         return "receipt has an invalid timestamp"
-    if schema_version == _CALENDAR_RECEIPT_VERSION:
+    if (schema_version == _CALENDAR_RECEIPT_VERSION
+            or (schema_version == _EOL_RECEIPT_VERSION and kind not in {"comment", "body_consolidation"})):
         if ("calendar_utc_offset_minutes" not in entry
                 or _receipt_calendar_date(entry) is None
                 or kind in {"comment", "body_consolidation"}):
@@ -1439,14 +1570,14 @@ def _receipt_entry_error(
     if kind == "contract_update" and not support_fields and not entry.get("page_edit"):
         return "contract-update receipt must bind at least one governed support field"
     if kind == "comment" and (
-        schema_version != ACTION_TRANSITION_RECEIPT_VERSION
+        schema_version not in {ACTION_TRANSITION_RECEIPT_VERSION, _EOL_RECEIPT_VERSION}
         or previous != target or target not in NON_TERMINAL_ACTION_STATES
         or entry.get("state_source") != "action_state"
         or support_fields != ["action_dialogue"]
         or "page_edit" in entry or "contribution" in entry
     ):
         return "comment receipt must preserve lifecycle and bind only dialogue"
-    if schema_version == _PAGE_EDIT_RECEIPT_VERSION or (schema_version == _CALENDAR_RECEIPT_VERSION and "page_edit" in entry):
+    if schema_version == _PAGE_EDIT_RECEIPT_VERSION or (schema_version in {_CALENDAR_RECEIPT_VERSION, _EOL_RECEIPT_VERSION} and "page_edit" in entry):
         edit = entry.get("page_edit")
         required = {"fields", "before", "after"}
         if not isinstance(edit, dict) or not required <= set(edit) or set(edit) - required - {"body_bytes"}:
@@ -1470,7 +1601,7 @@ def _receipt_entry_error(
         return "legacy receipt cannot bind page edits"
     if kind in {"body_integration", "body_consolidation"}:
         material = entry.get("contribution")
-        if schema_version not in {ACTION_TRANSITION_RECEIPT_VERSION, _CALENDAR_RECEIPT_VERSION} or not isinstance(material, dict):
+        if schema_version not in {ACTION_TRANSITION_RECEIPT_VERSION, _CALENDAR_RECEIPT_VERSION, _EOL_RECEIPT_VERSION} or not isinstance(material, dict):
             return "body integration is missing its material binding"
         for field in ("material_sha256", "before_body_sha256", "after_body_sha256", "before_body_revision", "after_body_revision"):
             if not _SHA256_RE.fullmatch(str(material.get(field) or "")):
@@ -1670,16 +1801,27 @@ def action_transition_diagnostics(
         # separate approved change, not hidden in an editorial date exception.
         if any(e.get("kind") != "body_consolidation" for e in content_events):
             return (ActionTransitionDiagnostic("consolidation_mixed_body_changes", "review factual and editorial body changes separately"),)
+        logical_eol = False
         rebuilt = previous_body
         try:
             for event in content_events:
-                rebuilt = _consolidated_body(rebuilt, (event.get("contribution") or {}).get("consolidations"))
+                if event.get("schema_version") == _EOL_RECEIPT_VERSION:
+                    if not logical_eol:
+                        rebuilt = _logical_eol(rebuilt)
+                    logical_eol = True
+                records = (event.get("contribution") or {}).get("consolidations")
+                if event.get("schema_version") == _EOL_RECEIPT_VERSION and isinstance(records, list):
+                    records = [{**row, "paragraph": _logical_eol(row["paragraph"])}
+                               if isinstance(row, dict) and isinstance(row.get("paragraph"), str) else row
+                               for row in records]
+                rebuilt = _consolidated_body(rebuilt, records)
         except ActionTransitionError:
             return (ActionTransitionDiagnostic("invalid_body_consolidation", "editorial receipt must bind exact paragraph replacements"),)
-        if rebuilt != current_body:
+        if rebuilt != (_logical_eol(current_body) if logical_eol else current_body):
             return (ActionTransitionDiagnostic("invalid_body_consolidation", "editorial receipt does not preserve the remaining body"),)
     if content_events:
-        projection = _page_edit_projection(previous, previous_body)
+        logical_eol = any(e.get("schema_version") == _EOL_RECEIPT_VERSION for e in content_events)
+        projection = _page_edit_projection(previous, previous_body, logical_eol=logical_eol)
         for event in content_events:
             if event.get("kind") in {"body_integration", "body_consolidation"}:
                 material = event.get("contribution")
@@ -1696,7 +1838,7 @@ def action_transition_diagnostics(
                     return (ActionTransitionDiagnostic("action_page_edit_mismatch",
                             "page edit does not extend the audited page"),)
                 projection = dict(edit["after"])
-        final_projection = _page_edit_projection(current, current_body)
+        final_projection = _page_edit_projection(current, current_body, logical_eol=logical_eol)
         has_page_edits = any("page_edit" in e for e in content_events)
         if (projection["body_revision"] != final_projection["body_revision"]
             or (has_page_edits and projection != final_projection)):
@@ -1706,7 +1848,8 @@ def action_transition_diagnostics(
     prior_receipt_id = _last_receipt_id(
         [dict(item) for item in previous_history if isinstance(item, dict)]
     )
-    first_revision: str | None = _revision_sha256(previous_text)
+    first_revision: str | None = (_logical_revision_sha256(previous_text)
+        if additions[0].get("schema_version") == _EOL_RECEIPT_VERSION else _revision_sha256(previous_text))
     terminal_transition_at = ""
     for raw_entry in additions:
         entry = dict(raw_entry)
@@ -1752,7 +1895,7 @@ def action_transition_diagnostics(
     ):
         first_factual = next((e for e in additions if e.get("kind") not in {"comment", "body_consolidation"}), None)
         normalized_previous = (_prior_calendar_date(previous, previous_history, first_factual["calendar_utc_offset_minutes"], _receipt_calendar_date(first_factual))
-                               if first_factual and first_factual.get("schema_version") == _CALENDAR_RECEIPT_VERSION
+                               if first_factual and first_factual.get("schema_version") in {_CALENDAR_RECEIPT_VERSION, _EOL_RECEIPT_VERSION}
                                else previous_updated_at)
         if normalized_previous is None or current_updated_at < normalized_previous:
             return (

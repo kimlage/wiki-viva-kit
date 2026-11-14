@@ -1287,3 +1287,195 @@ def test_page_edit_keeps_previous_v5_receipts_and_validates_exact_body_binding(t
     entry["receipt_id"] = transition_module._receipt_id(entry)
     diagnostics = action_transition_diagnostics(before, transition_module._render_document(fm, body))
     assert diagnostics[0].code == "invalid_action_transition_receipt"
+
+
+@pytest.mark.parametrize('writer', ['transition', 'body'])
+@pytest.mark.parametrize('newline', ['lf', 'crlf', 'mixed', 'cr_in_body', 'cr_only'])
+def test_action_writer_cas_binds_exact_file_bytes(tmp_path, writer, newline):
+    from wiki_core.action_transition import integrate_action_body
+
+    path = _write_action(tmp_path)
+    logical_before = path.read_text(encoding='utf-8')
+    raw_before = logical_before.encode('utf-8')
+    if newline == 'crlf':
+        raw_before = raw_before.replace(b'\n', b'\r\n')
+    elif newline == 'mixed':
+        raw_before = raw_before.replace(b'\n', b'\r\n', 1)
+    elif newline == 'cr_in_body':
+        raw_before = raw_before.replace(b'Body is preserved verbatim.', b'Body is preserved\rverbatim.')
+    elif newline == 'cr_only':
+        raw_before = raw_before.replace(b'\n', b'\r')
+    path.write_bytes(raw_before)
+    exact_sha = hashlib.sha256(raw_before).hexdigest()
+    normalized = raw_before.decode('utf-8').replace('\r\n', '\n').replace('\r', '\n')
+    normalized_sha = hashlib.sha256(normalized.encode('utf-8')).hexdigest()
+
+    def apply(expected):
+        if writer == 'transition':
+            return transition_action_page(tmp_path, path, 'in_progress', expected_sha256=expected,
+                                          recorded_at=FIXED_AT)
+        return integrate_action_body(tmp_path, path, '# Reviewed synthetic body\n', expected_sha256=expected,
+                                     contribution={'effect_key': 'crlf-fixture', 'material_sha256': 'a' * 64},
+                                     recorded_at=FIXED_AT)
+
+    if newline != 'lf':
+        assert normalized_sha != exact_sha
+        with pytest.raises(ActionTransitionError, match='stale_action_revision'):
+            apply(normalized_sha)
+        assert path.read_bytes() == raw_before
+    receipt = apply(exact_sha)
+    receipt_before = receipt.before_sha256 if writer == 'transition' else receipt['before_sha256']
+    assert receipt_before == exact_sha
+    assert action_transition_diagnostics(raw_before.decode('utf-8'), path.read_bytes().decode('utf-8')) == ()
+    from wiki_core.page_types import _action_history_shape_errors
+    fm, _ = transition_module._parse_document(path.read_bytes().decode('utf-8'))
+    entry = fm['action_state_history'][-1]
+    assert entry['schema_version'] == ('wiki_action_transition_receipt.v6' if newline == 'lf' else 'wiki_action_transition_receipt.v7')
+    assert _action_history_shape_errors('synthetic', fm, fm['action_state']) == []
+
+
+@pytest.mark.parametrize('newline', ['lf', 'crlf'])
+def test_idempotent_action_returns_exact_unchanged_sha(tmp_path, newline):
+    path = _write_action(tmp_path)
+    original = path.read_bytes()
+    if newline == 'crlf':
+        original = original.replace(b'\n', b'\r\n')
+        path.write_bytes(original)
+    expected = hashlib.sha256(original).hexdigest()
+    receipt = transition_action_page(tmp_path, path, 'open', expected_sha256=expected, recorded_at=FIXED_AT)
+    assert not receipt.changed and receipt.idempotent
+    assert receipt.before_sha256 == receipt.after_sha256 == expected
+    assert path.read_bytes() == original
+
+
+def test_mixed_legacy_and_eol_receipts_bind_body_across_checkout_conversion(tmp_path):
+    path = _write_action(tmp_path)
+    base = path.read_bytes().decode('utf-8')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': '# First synthetic body\n'}, recorded_at='2026-07-11T14:30:00Z')
+    path.write_bytes(path.read_bytes().replace(b'\n', b'\r\n'))
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': '# Second synthetic body\n'}, recorded_at='2026-07-11T14:30:01Z')
+    after = path.read_bytes().decode('utf-8')
+    fm, _ = transition_module._parse_document(after)
+    assert [entry['schema_version'] for entry in fm['action_state_history']] == [
+        'wiki_action_transition_receipt.v6', 'wiki_action_transition_receipt.v7']
+    assert action_transition_diagnostics(base, after) == ()
+    tampered = after.replace('# Second synthetic body', '# Different synthetic body')
+    assert action_transition_diagnostics(base, tampered)
+
+
+@pytest.mark.parametrize('first_body,second_body', [
+    ('# First\r\nBody\r\n', '# Second\nBody\n'),
+    ('# First\nBody\n', '# Second\r\nBody\r\n'),
+])
+def test_new_content_receipts_bind_mixed_line_ending_chains(tmp_path, first_body, second_body):
+    path = _write_action(tmp_path)
+    base = path.read_bytes().decode('utf-8')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': first_body}, recorded_at='2026-07-11T14:30:00Z')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': second_body}, recorded_at='2026-07-11T14:30:01Z')
+    after = path.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(base, after) == ()
+    assert action_transition_diagnostics(base, after.replace('\r\n', '\n')) == ()
+    assert action_transition_diagnostics(base, after.replace('# Second', '# Forged'))
+
+
+def test_legacy_physical_crlf_body_chain_without_intermediate_witness_fails_closed(tmp_path):
+    path = _write_action(tmp_path)
+    base = path.read_bytes().decode('utf-8')
+    base_fm, base_body = transition_module._parse_document(base)
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': '# Historical first\r\nBody\r\n'}, recorded_at='2026-07-11T14:30:00Z')
+    fm, body = transition_module._parse_document(path.read_bytes().decode('utf-8'))
+    entry = fm['action_state_history'][-1]
+    # Historical v6 receipts recorded physical body projections; reconstruct
+    # that valid fixture without pretending a missing intermediate is stored.
+    entry['schema_version'] = 'wiki_action_transition_receipt.v6'
+    entry['before_revision'] = transition_module._revision_sha256(base)
+    entry['page_edit']['before'] = transition_module._page_edit_projection(base_fm, base_body)
+    entry['page_edit']['after'] = transition_module._page_edit_projection(fm, body)
+    entry['receipt_id'] = transition_module._receipt_id(entry)
+    path.write_bytes(transition_module._render_document(fm, body).encode('utf-8'))
+    middle = path.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(base, middle) == ()
+    transition_action_page(tmp_path, path, 'open', expected_sha256=_sha(path),
+        page_edit={'body': '# New synthetic body\n'}, recorded_at='2026-07-11T14:30:01Z')
+    after = path.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(middle, after) == ()
+    assert action_transition_diagnostics(base, after)[0].code == 'action_page_edit_mismatch'
+
+
+def test_comment_typed_comparison_bounds_shared_aliases_and_rejects_cycles():
+    left = {'value': 0}
+    right = {'value': 0}
+    for _ in range(35):
+        left = {'a': left, 'b': left}
+        right = {'a': right, 'b': right}
+    assert transition_module._comment_typed_equal(left, right)
+    cycle_left, cycle_right = {}, {}
+    cycle_left['self'] = cycle_left
+    cycle_right['self'] = cycle_right
+    assert not transition_module._comment_typed_equal(cycle_left, cycle_right)
+    assert not transition_module._comment_typed_equal({'nested': [True]}, {'nested': [1]})
+    assert not transition_module._comment_typed_equal({'a': 1, 'b': 2}, {'a': 1, 'b': 2}, max_nodes=2)
+    many = {str(i): i for i in range(6000)}
+    assert transition_module._comment_typed_equal(many, dict(reversed(list(many.items()))))
+
+
+def test_comment_typed_comparison_limits_scheduled_work_before_expansion():
+    expanded = []
+    class WatchedList(list):
+        def __iter__(self):
+            expanded.append(True)
+            return super().__iter__()
+    child_left = WatchedList([0] * 80)
+    child_right = WatchedList([0] * 80)
+    assert not transition_module._comment_typed_equal([child_left] * 80, [child_right] * 80, max_nodes=100)
+    assert expanded == []
+
+
+def test_comment_typed_comparison_preserves_local_offsets_and_float_sign():
+    from datetime import datetime, timedelta, timezone
+    utc = datetime(2026, 11, 14, 0, 30, tzinfo=timezone.utc)
+    local = datetime(2026, 11, 13, 21, 30, tzinfo=timezone(timedelta(hours=-3)))
+    assert utc == local  # Same instant, but different authored local date and offset.
+    assert not transition_module._comment_typed_equal({'at': utc}, {'at': local})
+    assert not transition_module._comment_typed_equal({utc: 'x'}, {local: 'x'})
+    assert not transition_module._comment_typed_equal({'value': -0.0}, {'value': 0.0})
+    assert not transition_module._comment_typed_equal({-0.0: 'x'}, {0.0: 'x'})
+
+
+def test_comment_typed_comparison_handles_colliding_integer_keys():
+    import sys
+    # CPython hashes these distinct integers identically; compare them without
+    # the quadratic probing caused by their original numeric hashes.
+    modulus = sys.hash_info.modulus
+    left = {i * modulus: i for i in range(6000)}
+    right = dict(reversed(list(left.items())))
+    assert transition_module._comment_typed_equal(left, right)
+    right[modulus] = -1
+    assert not transition_module._comment_typed_equal(left, right)
+
+
+def test_comment_typed_comparison_handles_large_integer_without_decimal_conversion():
+    value = 2 ** 16000 + 123
+    assert transition_module._comment_typed_equal({'value': value, value: 'x'}, {'value': value, value: 'x'})
+    assert not transition_module._comment_typed_equal({'value': value}, {'value': -value})
+
+
+def test_comment_typed_comparison_memoizes_scalars_and_limits_value_work():
+    left = 2 ** 8192 + 1
+    right = int.from_bytes(left.to_bytes(1025, 'big'), 'big')
+    assert left == right and left is not right
+    assert transition_module._comment_typed_equal([left] * 5000, [right] * 5000, max_value_bytes=2000)
+    values = [left + i for i in range(4)]
+    assert not transition_module._comment_typed_equal(values, list(values), max_value_bytes=2000)
+    too_large = -(2 ** 8_000_000)
+    assert not transition_module._comment_typed_equal({too_large: 'x'}, {too_large: 'x'})
+
+
+def test_comment_typed_comparison_budgets_unicode_without_encoding_copy():
+    assert not transition_module._comment_typed_equal('😀', '😀', max_value_bytes=2)
+    assert transition_module._comment_typed_equal('😀', '😀', max_value_bytes=8)

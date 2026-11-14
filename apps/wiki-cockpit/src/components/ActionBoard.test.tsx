@@ -332,10 +332,10 @@ it.each([
   await waitFor(()=>expect((screen.getByLabelText('Message') as HTMLTextAreaElement).value).toBe(''));
 });
 
-function setupAuthoring(mode='local_operator', demo=false) {
+function setupAuthoring(mode='local_operator', demo=false, body='# Original text') {
   const page=action('Synthetic task');
   const loaded={source:'/api/snapshot',runtime:{mode},bundle:{manifest:{repo:{language:'en'},snapshot_id:'test'},pages:{pages:[page]},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult;
-  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(loaded),loadPageContent:vi.fn().mockResolvedValue({ok:true,body:'# Original text',frontmatter:{owner_kind:'human',owner_ref:'synthetic-owner'},source_refs:[],resolved_links:[]})};
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(loaded),loadPageContent:vi.fn().mockResolvedValue({ok:true,body,frontmatter:{owner_kind:'human',owner_ref:'synthetic-owner'},source_refs:[],resolved_links:[]})};
   const save=vi.fn().mockResolvedValue(undefined);
   const create=vi.fn().mockResolvedValue({created:true,page_id:'new-task',page_ref:'memories/actions/new-task.md',after_sha256:'b'.repeat(64)});
   const loadCreationOptions=vi.fn().mockResolvedValue({contexts:['system','example'],default_context:'system'});
@@ -370,6 +370,17 @@ it('edits title, body and owner and moves column in the same CAS transaction',as
   await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
   expect(save).toHaveBeenCalledWith(expect.objectContaining({page_ref:'memories/Synthetic task.md',expected_sha256:'a'.repeat(64),next_state:'in_progress',page_edit:{title:'Renamed',body:'# New body',owner_kind:'agent',owner_ref:'context-coordinator'}}));
 });
+it.each([['CRLF', '# Original\r\nSecond line\r\n'], ['mixed', '# Original\r\nSecond line\n']])(
+  'does not submit an unchanged %s body as an edit', async (_label, original) => {
+    const {save}=setupAuthoring('local_operator', false, original);
+    fireEvent.click(await screen.findByRole('button',{name:/Synthetic task/}));
+    const body=await screen.findByLabelText('Page text (Markdown)') as HTMLTextAreaElement;
+    expect(body.value).toBe(original.replace(/\r\n?/g, '\n'));
+    fireEvent.click(screen.getByRole('button',{name:'Save to wiki'}));
+    await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0][0]).toEqual(expect.objectContaining({expected_sha256:'a'.repeat(64)}));
+    expect(save.mock.calls[0][0].page_edit).toBeUndefined();
+  });
 it('retains typed page text after stale CAS and does not reload or replay the save',async()=>{
   const {save,operator}=setupAuthoring(); save.mockRejectedValue(new Error('stale_action_revision'));
   fireEvent.click(await screen.findByRole('button',{name:/Synthetic task/}));

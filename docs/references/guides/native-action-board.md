@@ -92,6 +92,29 @@ Body edits preserve the submitted text, including trailing blank lines. Exact
 body hashes decide whether a write is needed; the newline-normalized Git audit
 projection does not decide whether text was saved. Existing v5 receipts remain
 readable alongside the optional exact-byte witness in new body edits.
+When a captured preimage or submitted body contains CR line endings, a v7
+receipt records a logical `before_revision` and body revisions with CRLF and
+CR mapped to LF;
+`before_sha256` still binds the actual captured bytes and is the only accepted
+CAS value. This logical match supports a Git LF blob with a CRLF checkout; it
+is not a witness of the checkout's physical bytes. An operational comment is
+qualified as an exact append only when its actual preimage is available. The
+audit can classify a single legacy v4 or v7 comment logically without treating
+it as an exact physical witness or allowing it to discharge factual impact.
+Earlier receipt versions retain their existing revision rules; an older normalized
+comment preimage may no longer qualify as an exact physical append. Unchanged
+body bytes are preserved, while rewritten frontmatter uses LF; a document may therefore have
+mixed line endings. A v7 editorial consolidation is checked as an exact
+replacement in the logical line-ending representation; it does not prove the
+checkout's original physical bytes from a converted Git blob. Legacy mixed
+receipt chains may still fail closed if their intermediate bytes are not
+available. A second routed comment also remains blocked when its prior physical
+preimage cannot be proved. Contribution gates still apply the repository's Git
+whitespace policy to submitted text. Contribution readback reports checkout
+adoption when the action is equal after line-ending normalization; its readback
+hash identifies the canonical Git blob, not physical checkout bytes. Arbitrary
+Git filters and noncooperating concurrent writers are not covered by this
+contract.
 The API accepts a small `page_edit` allowlist, never a frontmatter patch. Other
 frontmatter values, prior history and dialogue are preserved structurally;
 YAML comments and formatting can change during the existing serialization.

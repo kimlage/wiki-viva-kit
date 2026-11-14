@@ -73,7 +73,7 @@ __all__ = [
 # Matches a leading YAML fence with either LF or CRLF line endings. Snapshot
 # compilation reads canonical bytes to hash them, so Windows-authored CRLF must
 # parse without normalizing those bytes first.
-FRONTMATTER_RE = re.compile(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n)?", re.DOTALL)
+FRONTMATTER_RE = re.compile(r"\A---(?:\r\n|\n|\r)(.*?)(?:\r\n|\n|\r)---(?:(?:\r\n|\n|\r))?", re.DOTALL)
 
 # Only cache pure YAML parsing during one compilation. File reads and Markdown
 # bodies remain current, and no parsed mutable value is shared with a caller.

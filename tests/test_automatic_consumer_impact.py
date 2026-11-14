@@ -12,7 +12,8 @@ from wiki_core.context_impact import report_review
 from wiki_core.context_policy import load_policy
 
 
-def test_approved_change_discovers_owner_review_and_reads_back(repo):
+@pytest.mark.parametrize('line_ending', ['lf', 'crlf', 'checkout_crlf'])
+def test_approved_change_discovers_owner_review_and_reads_back(repo, line_ending):
     config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
     config['paths'] = {'memory_root': 'alpha/memories'}
     grant = {'from_context': '.', 'to_context': 'alpha', 'selector': 'wiki.coordination.yaml',
@@ -24,7 +25,12 @@ def test_approved_change_discovers_owner_review_and_reads_back(repo):
         'label': 'Research', 'scope': 'Review', 'action_ids': ['review-action']}}}
     write(repo, 'wiki.coordination.yaml', yaml.safe_dump(route))
     action_path = 'alpha/memories/actions/review.md'
+    if line_ending == 'checkout_crlf':
+        write(repo, '.gitattributes', 'alpha/memories/actions/*.md text eol=crlf\n')
     write(repo, action_path, '---\npage_id: review-action\npage_type: action\naction_state: open\nnext_action: Existing work\n---\nExisting work\n')
+    if line_ending == 'crlf':
+        action_file = repo / action_path
+        action_file.write_bytes(action_file.read_bytes().replace(b'\n', b'\r\n'))
     git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'declare existing action route')
     git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     initial = git(repo, 'rev-parse', 'HEAD')
@@ -74,6 +80,11 @@ def test_approved_change_discovers_owner_review_and_reads_back(repo):
     other_candidate = next(row for row in output['candidates'] if row['target'] == 'alpha/other.md')
     import hashlib
     action_file = repo / action_path
+    if line_ending == 'checkout_crlf':
+        action_file.unlink()
+        git(repo, 'checkout', '--', action_path)
+        assert b'\r\n' in action_file.read_bytes()
+        git(repo, 'diff', '--quiet', '--', action_path)
     action_sha = lambda: hashlib.sha256(action_file.read_bytes()).hexdigest()
     def selected(event, sha, profile='research'):
         return ('--event-id', event, '--action-id', 'review-action', '--action-path', action_path,
@@ -104,6 +115,12 @@ def test_approved_change_discovers_owner_review_and_reads_back(repo):
     routed = impact(proposal, proposal, routing=selected(candidate['event_id'], action_sha()))
     assert routed.returncode == 0, routed.stderr
     assert json.loads(routed.stdout)['action']['status'] == 'recorded'
+    if line_ending == 'checkout_crlf':
+        # The approved blob cannot itself witness the exact converted preimage
+        # for a second comment; keep the unproved suffix closed.
+        with pytest.raises(ValueError):
+            route(other_candidate['event_id'], action_sha())
+        return
     assert route(other_candidate['event_id'], action_sha())['status'] == 'recorded'
     assert route(candidate['event_id'], action_sha())['status'] == 'already_recorded'
     recorded_action = action_file.read_bytes()

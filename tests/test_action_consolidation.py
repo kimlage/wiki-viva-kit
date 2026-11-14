@@ -87,3 +87,119 @@ def test_forged_editorial_receipt_cannot_hide_extra_body_changes(tmp_path):
     event['payload_sha256'] = _sha256_text(json.dumps(event['contribution'],sort_keys=True,ensure_ascii=False,separators=(',',':')))
     event['receipt_id'] = _receipt_id(event)
     assert action_transition_diagnostics(before,_render_document(fm,body))[0].code == 'invalid_body_consolidation'
+
+
+@pytest.mark.parametrize('line_ending', ['crlf', 'mixed', 'cr_only'])
+def test_consolidation_binds_crlf_sibling_bytes_and_preserves_surrounding_body(tmp_path, line_ending):
+    p, canonical, records = fixture(tmp_path)
+    for path in (p, canonical):
+        raw = path.read_bytes()
+        if line_ending == 'crlf':
+            raw = raw.replace(b'\n', b'\r\n')
+        elif line_ending == 'mixed':
+            raw = raw.replace(b'\n\n', b'\r\n\n')
+        else:
+            raw = raw.replace(b'\n', b'\r')
+        path.write_bytes(raw)
+    source = canonical.read_bytes()
+    before = p.read_bytes().decode('utf-8')
+    _, body = _parse_document(before)
+    records[0]['canonical_sha256'] = hashlib.sha256(source).hexdigest()
+    new_body = _consolidated_body(body, records)
+    assert new_body == body.replace(PARAGRAPH, '[Canonical prerequisite evidence](canonical.md).')
+    stale = [dict(records[0], canonical_sha256=hashlib.sha256(canonical.read_text().encode()).hexdigest())]
+    assert stale[0]['canonical_sha256'] != records[0]['canonical_sha256']
+    with pytest.raises(ActionTransitionError, match='consolidation_canonical_content_changed'):
+        integrate_action_body(tmp_path, p, new_body, expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+            contribution={'effect_key': 'stale', 'material_sha256': 'a' * 64},
+            recorded_at='2026-07-11T23:45:00-03:00', consolidations=stale)
+    assert p.read_bytes().decode('utf-8') == before
+    integrate_action_body(tmp_path, p, new_body, expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'crlf-consolidation', 'material_sha256': 'a' * 64},
+        recorded_at='2026-07-11T23:45:00-03:00', consolidations=records)
+    assert canonical.read_bytes() == source
+    assert action_transition_diagnostics(before, p.read_bytes().decode('utf-8')) == ()
+
+
+def test_crlf_consolidation_keeps_single_newline_inside_paragraph():
+    paragraph = ('First synthetic line with enough factual detail to exceed the required length.\r\n'
+                 'Second synthetic line remains part of the same paragraph for an exact replacement.')
+    body = '# Heading\r\n\r\n' + paragraph + '\r\n\r\nOther paragraph.\r\n'
+    record = {'paragraph': paragraph, 'canonical_ref': 'memories/actions/canonical.md',
+              'canonical_sha256': 'a' * 64, 'label': 'Canonical evidence'}
+    assert _consolidated_body(body, [record]) == body.replace(paragraph, '[Canonical evidence](canonical.md).')
+
+
+def test_eol_receipt_consolidation_audits_logical_checkout_conversion(tmp_path):
+    p, _, records = fixture(tmp_path)
+    git_base = p.read_bytes().decode('utf-8')
+    p.write_bytes(p.read_bytes().replace(b'\n', b'\r\n'))
+    physical = p.read_bytes().decode('utf-8')
+    _, body = _parse_document(physical)
+    result = _consolidated_body(body, records)
+    integrate_action_body(tmp_path, p, result, expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'logical-consolidation', 'material_sha256': 'a' * 64},
+        recorded_at='2026-07-11T23:45:00-03:00', consolidations=records)
+    after = p.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(physical, after) == ()
+    assert action_transition_diagnostics(git_base, after) == ()
+    assert action_transition_diagnostics(git_base, after + '\nA new factual assertion.\n')
+
+
+def test_legacy_then_eol_consolidation_survives_checkout_conversion(tmp_path):
+    p, canonical, records = fixture(tmp_path)
+    other = ('A second synthetic paragraph records separate reviewed evidence, '
+             'preserving its historical origin while avoiding any claim of current execution. '
+             'The remaining context still requires its own verification.')
+    p.write_text(p.read_text() + '\n' + other + '\n')
+    canonical.write_text(canonical.read_text() + '\n' + other + '\n')
+    records[0]['canonical_sha256'] = hashlib.sha256(canonical.read_bytes()).hexdigest()
+    base = p.read_text()
+    _, body = _parse_document(base)
+    integrate_action_body(tmp_path, p, _consolidated_body(body, records),
+        expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'legacy-first', 'material_sha256': 'a' * 64},
+        recorded_at='2026-07-11T23:45:00-03:00', consolidations=records)
+    p.write_bytes(p.read_bytes().replace(b'\n', b'\r\n'))
+    middle = p.read_bytes().decode('utf-8')
+    _, body = _parse_document(middle)
+    second = [dict(records[0], paragraph=other)]
+    integrate_action_body(tmp_path, p, _consolidated_body(body, second),
+        expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'eol-second', 'material_sha256': 'b' * 64},
+        recorded_at='2026-07-11T23:46:00-03:00', consolidations=second)
+    after = p.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(middle, after) == ()
+    assert action_transition_diagnostics(base, after) == ()
+    assert action_transition_diagnostics(base, after + '\nA new factual assertion.\n')
+
+
+def test_eol_then_legacy_consolidation_survives_audit_chain(tmp_path):
+    p, canonical, records = fixture(tmp_path)
+    first = ('First synthetic line documents a reviewed historical observation.\r\n'
+             'Second synthetic line retains the context and scope of that observation without claiming fresh verification.')
+    other = ('A second synthetic paragraph records separate reviewed evidence, '
+             'preserving its historical origin while avoiding any claim of current execution. '
+             'The remaining context still requires its own verification.')
+    for path in (p, canonical):
+        raw = path.read_bytes().replace(PARAGRAPH.encode(), first.encode())
+        path.write_bytes(raw + b'\n' + other.encode() + b'\n')
+    records[0].update(paragraph=first, canonical_sha256=hashlib.sha256(canonical.read_bytes()).hexdigest())
+    base = p.read_bytes().decode('utf-8')
+    _, body = _parse_document(base)
+    integrate_action_body(tmp_path, p, _consolidated_body(body, records),
+        expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'eol-first', 'material_sha256': 'a' * 64},
+        recorded_at='2026-07-11T23:45:00-03:00', consolidations=records)
+    middle = p.read_bytes().decode('utf-8')
+    assert '\r' not in middle
+    _, body = _parse_document(middle)
+    second = [dict(records[0], paragraph=other)]
+    integrate_action_body(tmp_path, p, _consolidated_body(body, second),
+        expected_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+        contribution={'effect_key': 'legacy-second', 'material_sha256': 'b' * 64},
+        recorded_at='2026-07-11T23:46:00-03:00', consolidations=second)
+    after = p.read_bytes().decode('utf-8')
+    assert action_transition_diagnostics(middle, after) == ()
+    assert action_transition_diagnostics(base, after) == ()
+    assert action_transition_diagnostics(base, after + '\nA new factual assertion.\n')

@@ -235,8 +235,17 @@ def test_waits_for_real_ci_human_policy_and_unknown_is_read_only(tmp_path, monke
     assert call(tmp_path, "reconcile", request, pr=1)["status"] == "waiting_pr"
 
 
-def test_remote_merge_is_not_checkout_or_served_adoption(tmp_path, monkeypatch):
+@pytest.mark.parametrize('checkout_eol', ['lf', 'crlf'])
+def test_remote_merge_is_not_checkout_or_served_adoption(tmp_path, monkeypatch, checkout_eol):
     p, request = fixture(tmp_path)
+    if checkout_eol == 'crlf':
+        (tmp_path / '.gitattributes').write_text('memories/actions/*.md text eol=crlf\n')
+        git(tmp_path, 'add', '.gitattributes')
+        git(tmp_path, 'commit', '-m', 'Synthetic checkout conversion')
+        request['files'][0]['base_commit'] = git(tmp_path, 'rev-parse', 'HEAD')
+        p.unlink()
+        git(tmp_path, 'checkout', '--', request['files'][0]['path'])
+        assert b'\r\n' in p.read_bytes()
     out = call(tmp_path, "prepare", request, review=review(request))
     remote = tmp_path.parent / (tmp_path.name + "-remote.git")
     subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
@@ -256,6 +265,12 @@ def test_remote_merge_is_not_checkout_or_served_adoption(tmp_path, monkeypatch):
     assert second["canonical_body_adopted"] and second["canonical_matches_material"]
     assert second["served_adoption_verified"] is False
     assert "Reviewed historical evidence." in p.read_text()
+    if checkout_eol == 'crlf':
+        assert b'\r\n' in p.read_bytes()
+        p.write_bytes(p.read_bytes().replace(b'Reviewed historical evidence.', b'Different factual evidence.'))
+        third = call(tmp_path, "reconcile", request, pr=1)
+        assert third['canonical_matches_material'] and not third['worktree_adopted']
+        assert third['status'] == 'waiting_worktree_adoption'
 
 
 def test_unrelated_committed_branch_is_not_a_proposal_base(tmp_path):
@@ -424,3 +439,76 @@ def test_external_effect_failure_is_unknown_not_automatic_retry(tmp_path, monkey
     monkeypatch.setattr(port.subprocess, "run", lambda *a, **kw: subprocess.CompletedProcess(a, 1, "", "connection lost"))
     with pytest.raises(port.ContributionError, match="outcome_unknown"):
         port._run(tmp_path, "gh", "pr", "merge", "1")
+
+
+@pytest.mark.parametrize('proposed_endings', ['lf', 'crlf', 'crlf_allowed'])
+def test_prepare_contribution_retains_crlf_preimage_bytes(tmp_path, monkeypatch, proposed_endings):
+    if proposed_endings == 'crlf_allowed':
+        monkeypatch.setenv('GIT_CONFIG_COUNT', '1')
+        monkeypatch.setenv('GIT_CONFIG_KEY_0', 'core.whitespace')
+        monkeypatch.setenv('GIT_CONFIG_VALUE_0', 'cr-at-eol')
+    p, request = fixture(tmp_path)
+    original = p.read_bytes().replace(b'\n', b'\r\n')
+    p.write_bytes(original)
+    git(tmp_path, 'add', str(p.relative_to(tmp_path)))
+    git(tmp_path, 'commit', '-m', 'Synthetic CRLF action')
+    text = original.decode('utf-8')
+    proposed = text.replace('Original evidence.', 'Reviewed historical evidence.')
+    if proposed_endings == 'lf':
+        proposed = proposed.replace('\r\n', '\n')
+    request['files'][0].update(base_commit=git(tmp_path, 'rev-parse', 'HEAD'),
+        base_sha256=sha(text), sha256=sha(proposed), text=proposed)
+    out = call(tmp_path, 'prepare', request, review=review(request))
+    if proposed_endings == 'crlf':
+        assert out['status'] == 'refused' and out['error'] == 'proposal_gate_failed:git'
+        assert p.read_bytes() == original
+        return
+    assert out['status'] == 'prepared', json.dumps(out, indent=2)
+    candidate = port._blob(tmp_path, out['proposal_commit'], request['files'][0]['path'])
+    assert action_transition_diagnostics(text, candidate) == ()
+    assert p.read_bytes() == original
+
+
+@pytest.mark.parametrize('changed_endings', ['crlf', 'mixed'])
+def test_source_check_refuses_newline_only_byte_change_before_remote_effect(tmp_path, monkeypatch, changed_endings):
+    path, request = fixture(tmp_path)
+    before = path.read_bytes()
+    if changed_endings == 'crlf':
+        path.write_bytes(before.replace(b'\n', b'\r\n'))
+    else:
+        path.write_bytes(before.replace(b'\n', b'\r\n', 1))
+    current = path.read_bytes()
+    monkeypatch.setattr(port, '_canonical_observation', lambda *a, **k: pytest.fail('remote check reached'))
+    with pytest.raises(port.ContributionError, match='source_changed_since_prepare'):
+        port._integration_source_check(tmp_path, load_config(tmp_path), request['files'][0]['base_commit'],
+            request['files'][0]['path'], {'before_sha256': hashlib.sha256(before).hexdigest()}, dry_run=False)
+    assert path.read_bytes() == current
+
+
+@pytest.mark.parametrize('factual_change', [False, True])
+def test_contribution_reconciles_lf_git_blob_with_crlf_checkout(tmp_path, factual_change):
+    p, request = fixture(tmp_path)
+    (tmp_path / '.gitattributes').write_text('memories/actions/*.md text eol=crlf\n')
+    git(tmp_path, 'add', '.gitattributes')
+    git(tmp_path, 'commit', '-m', 'Synthetic checkout conversion')
+    ref = request['files'][0]['path']
+    base_commit = git(tmp_path, 'rev-parse', 'HEAD')
+    blob = port._blob(tmp_path, base_commit, ref)
+    request['files'][0]['base_commit'] = base_commit
+    assert '\r\n' not in blob
+    p.unlink()
+    git(tmp_path, 'checkout', '--', ref)
+    assert b'\r\n' in p.read_bytes()
+    git(tmp_path, 'diff', '--quiet', '--', ref)
+    if factual_change:
+        p.write_bytes(p.read_bytes().replace(b'Original evidence.', b'Different evidence.'))
+    physical = p.read_bytes()
+    out = call(tmp_path, 'prepare', request, review=review(request))
+    if factual_change:
+        assert out['status'] == 'refused' and out['error'] == 'source_body_conflict'
+        assert p.read_bytes() == physical
+        return
+    assert out['status'] == 'prepared', json.dumps(out, indent=2)
+    candidate = port._blob(tmp_path, out['proposal_commit'], ref)
+    assert action_transition_diagnostics(blob, candidate) == ()
+    assert p.read_bytes() == physical

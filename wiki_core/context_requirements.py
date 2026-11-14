@@ -181,7 +181,7 @@ def route_impact_to_action(root, binding, *, destination_context, before, after,
     from wiki_core.action_dialogue import validate_history
     from wiki_core.action_transition import (_TRANSITION_LOCK, _action_file_lock,
         _contained_action_path, _parse_document, _sha256_text, _transition_action_page_locked,
-        operational_comment_receipt, _comment_suffix_preserves_content, _render_document)
+        operational_comment_receipt, _comment_suffix_preserves_content, _render_document, _logical_eol)
     from wiki_core.coordination import POLICY_FILE, dialogue_action
     from wiki_core.coordination_context import _policy
     from wiki_core.context_packet import guard_folder_blob
@@ -238,8 +238,9 @@ def route_impact_to_action(root, binding, *, destination_context, before, after,
         if hashlib.sha256(route_bytes).hexdigest() != route['content_sha256']:
             raise RequirementError('review route unavailable')
         path, ref = _contained_action_path(root, action_path)
-        raw = path.read_text(encoding='utf-8')
-        current_sha = _sha256_text(raw)
+        action_bytes = path.read_bytes()
+        raw = action_bytes.decode('utf-8')
+        current_sha = hashlib.sha256(action_bytes).hexdigest()
         if current_sha != expected_sha256:
             raise RequirementError('review action revision changed')
         try:
@@ -249,7 +250,8 @@ def route_impact_to_action(root, binding, *, destination_context, before, after,
         frontmatter, body = _parse_document(raw)
         history = frontmatter.get('action_dialogue') or []
         validate_history(history)
-        if current_sha != approved_action['content_sha256']:
+        if (current_sha != approved_action['content_sha256']
+                and _logical_eol(raw) != _logical_eol(approved_action['text'])):
             baseline, baseline_body = _parse_document(approved_action['text'])
             old_events = baseline.get('action_dialogue') or []
             old_receipts = baseline.get('action_state_history') or []

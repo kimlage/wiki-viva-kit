@@ -319,3 +319,21 @@ def test_comment_impact_audit_retains_physical_delta_and_blocks_mixed_changes(re
         assert any(ref + ': impacted by changed page(s) memories/policy.md' in e for e in errors)
     else:
         assert any('memories/consumer.md: impacted by changed page' in e for e in errors)
+
+
+def test_crlf_comment_separates_logical_revision_from_physical_proof(tmp_path):
+    from tests.test_action_transition import _write_action
+    path = _write_action(tmp_path)
+    raw = path.read_bytes().replace(b'\n', b'\r\n')
+    path.write_bytes(raw)
+    expected = hashlib.sha256(raw).hexdigest()
+    transition_action_page(tmp_path, path, 'open', expected_sha256=expected,
+        recorded_at='2026-07-11T15:00:00Z', dialogue_actor='operator',
+        dialogue_event={'event_id': 'synthetic-crlf-comment', 'kind': 'comment',
+                        'coordinator': 'research', 'text': 'Synthetic comment received.'})
+    after = path.read_bytes().decode('utf-8')
+    physical = raw.decode('utf-8')
+    logical = physical.replace('\r\n', '\n')
+    assert action_transition_diagnostics(logical, after) == ()
+    assert operational_comment_receipt(physical, after)['before_sha256'] == expected
+    assert operational_comment_receipt(logical, after) is None

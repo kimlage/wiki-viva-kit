@@ -250,7 +250,8 @@ export function ActionBoard({ admin, navigation, operator, save, create, loadCre
     const originalRef = String(content.frontmatter?.owner_ref || page.work?.owner_ref || "");
     const originalKind = String(content.frontmatter?.owner_kind || page.work?.owner_kind || (originalRef ? "other" : "unassigned"));
     if (title !== page.title) pageEdit.title = title;
-    if (body !== (content.body || "")) pageEdit.body = body;
+    // Textarea values normalize CRLF and CR to LF even without an edit.
+    if (body !== (content.body || "").replace(/\r\n?/g, "\n")) pageEdit.body = body;
     if (ownerRef !== originalRef || ownerKind !== originalKind) { pageEdit.owner_kind = ownerKind; pageEdit.owner_ref = ownerRef; }
     if (Object.keys(pageEdit).length) edit.page_edit = pageEdit;
     const route = coordinatorFor(page);

@@ -379,9 +379,8 @@ def _text_at_audit_base(rel: str) -> str | None:
         return subprocess.check_output(
             ["git", "show", f"{base}:{rel}"],
             cwd=ROOT,
-            text=True,
             stderr=subprocess.DEVNULL,
-        )
+        ).decode("utf-8")
     except subprocess.CalledProcessError:
         return None
 
@@ -647,6 +646,44 @@ def _semantic_impact_text(text: str) -> str:
     return re.sub(r"\s+", " ", "\n".join(normalized)).strip()
 
 
+
+def _logical_comment_only(previous: str, current: str) -> bool:
+    """Recognize a single logical comment without asserting physical preimage proof.
+
+    Legacy v4 writers normalized input newlines; v7 can bind a logical Git
+    revision while its physical checkout preimage is unavailable to this audit.
+    This classification never supplies a CAS value or an exact-byte receipt.
+    """
+    from wiki_core.action_transition import (
+        ActionTransitionError, _comment_payload_matches, _comment_suffix_preserves_content, _logical_eol,
+        _parse_document, _render_document, action_transition_diagnostics,
+        operational_comment_receipt,
+    )
+    if operational_comment_receipt(previous, current) is not None:
+        return True
+    before, after = _logical_eol(previous), _logical_eol(current)
+    try:
+        old_fm, old_body = _parse_document(before)
+        new_fm, new_body = _parse_document(after)
+        old_history = old_fm.get('action_state_history') or []
+        new_history = new_fm.get('action_state_history') or []
+        if (not isinstance(old_history, list) or not isinstance(new_history, list)
+                or len(new_history) != len(old_history) + 1
+                or not isinstance(new_history[-1], dict)):
+            return False
+        version = new_history[-1].get('schema_version')
+        if version == 'wiki_action_transition_receipt.v4':
+            return operational_comment_receipt(before, after) is not None
+        if version != 'wiki_action_transition_receipt.v7':
+            return False
+        return (_comment_suffix_preserves_content(old_fm, new_fm, old_body, new_body)
+                and _comment_payload_matches(new_history[-1], new_fm)
+                and not action_transition_diagnostics(before, after)
+                and _render_document(new_fm, new_body) == after)
+    except (ActionTransitionError, TypeError, ValueError):
+        return False
+
+
 def _link_or_metadata_only_change(rel: str) -> bool:
     if not rel.endswith(".md"):
         return False
@@ -656,11 +693,13 @@ def _link_or_metadata_only_change(rel: str) -> bool:
     previous = _text_at_audit_base(rel)
     if previous is None:
         return False
-    current_text = _audit_read_text(current, encoding="utf-8", errors="replace")
-    # Reuse the writer's exact state/body/policy-preserving comment contract.
-    # Physical changes remain visible to integrity, authorization and CAS.
-    from wiki_core.action_transition import operational_comment_receipt
-    if operational_comment_receipt(previous, current_text) is not None:
+    try:
+        current_text = _audit_read_bytes(current).decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    # A logical comment is not a physical preimage witness. Physical changes
+    # remain visible to integrity, authorization and CAS.
+    if _logical_comment_only(previous, current_text):
         return True
     return _semantic_impact_text(previous) == _semantic_impact_text(current_text)
 
@@ -693,8 +732,8 @@ def _action_adoption_baseline(
                 "[action_adoption_receipt_deleted]"
             )
             return None, True
-        current_text = _audit_read_text(path, encoding="utf-8", errors="replace")
-        if current_text != previous_text:
+        current_bytes = _audit_read_bytes(path)
+        if current_bytes != previous_text.encode("utf-8"):
             errors.append(
                 f"{rel}: action adoption receipt is immutable "
                 "[action_adoption_receipt_rewritten]"
@@ -832,7 +871,11 @@ def audit_action_state_transitions(errors: list[str]) -> None:
                     "[action_page_deleted]"
                 )
             continue
-        current_text = _audit_read_text(current_path, encoding="utf-8", errors="replace")
+        try:
+            current_text = _audit_read_bytes(current_path).decode("utf-8")
+        except UnicodeDecodeError:
+            errors.append(f"{rel}: action is not valid UTF-8 [invalid_action_utf8]")
+            continue
         current_values, _body = canonical_parse_frontmatter(current_text)
         current_is_action = str(current_values.get("page_type") or "") == "action"
         previous_text = base_by_path.get(rel)
@@ -2327,14 +2370,16 @@ def audit_impact(errors: list[str], config: WikiConfig) -> None:
         return
     for affected in result.affected_pages:
         if affected in changed_all:
-            from wiki_core.action_transition import operational_comment_receipt
             previous = _text_at_audit_base(affected)
             current = ROOT / affected
             # Receiving a comment cannot discharge an incoming factual impact.
-            if (previous is None or not current.is_file()
-                    or operational_comment_receipt(
-                        previous, _audit_read_text(current, encoding="utf-8", errors="replace")
-                    ) is None):
+            try:
+                current_text = _audit_read_bytes(current).decode("utf-8") if current.is_file() else None
+            except UnicodeDecodeError:
+                current_text = None
+            if previous is None:
+                continue
+            if current_text is not None and not _logical_comment_only(previous, current_text):
                 continue
         if _impact_ack_added(config, affected):
             continue

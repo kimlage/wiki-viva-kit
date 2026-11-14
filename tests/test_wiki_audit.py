@@ -2877,3 +2877,296 @@ def test_audit_selected_config_path_in_ignored_clone_is_not_opened(tmp_path, aud
     monkeypatch.setattr(Path, 'read_text', guarded)
     assert audit.main() == 1
     assert 'audit coverage unavailable' in capsys.readouterr().out
+
+
+def test_action_receipt_audit_preserves_crlf_preimage_bytes(tmp_path, monkeypatch):
+    import hashlib
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import transition_action_page
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path)
+    original = path.read_bytes().replace(b'\n', b'\r\n')
+    path.write_bytes(original)
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic CRLF base')
+    receipt = transition_action_page(tmp_path, path, 'in_progress',
+        expected_sha256=hashlib.sha256(original).hexdigest(), recorded_at='2026-07-11T15:00:00Z')
+    assert receipt.before_sha256 == hashlib.sha256(original).hexdigest()
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    rel = path.relative_to(tmp_path).as_posix()
+    assert audit._action_candidate_texts_by_path_at_ref('main')[rel].encode('utf-8') == original
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert errors == []
+
+
+def test_crlf_action_comment_uses_exact_git_preimage_for_audit(tmp_path, monkeypatch):
+    import hashlib
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import operational_comment_receipt, transition_action_page
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path)
+    original = path.read_bytes().replace(b'\n', b'\r\n')
+    path.write_bytes(original)
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic CRLF comment base')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=hashlib.sha256(original).hexdigest(),
+        recorded_at='2026-07-11T15:00:00Z', dialogue_actor='operator',
+        dialogue_event={'event_id': 'synthetic-comment-1', 'kind': 'comment',
+                        'coordinator': 'research', 'text': 'Synthetic comment received.'})
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    rel = path.relative_to(tmp_path).as_posix()
+    assert audit._text_at_audit_base(rel).encode('utf-8') == original
+    assert operational_comment_receipt(original.decode('utf-8'), path.read_bytes().decode('utf-8'))
+    assert audit._link_or_metadata_only_change(rel)
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert errors == []
+
+
+@pytest.mark.parametrize('endings', ['lf', 'crlf', 'mixed'])
+def test_action_adoption_receipt_immutability_compares_exact_bytes(tmp_path, monkeypatch, endings):
+    audit = _load_wiki_audit()
+    original = b'version: receipt\nnote: synthetic\n'
+    if endings == 'crlf':
+        original = original.replace(b'\n', b'\r\n')
+    elif endings == 'mixed':
+        original = original.replace(b'\n', b'\r\n', 1)
+    path = tmp_path / audit.ACTION_ADOPTION_RECEIPT_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(original)
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, '_text_at_audit_base', lambda _ref: original.decode('utf-8'))
+    errors = []
+    assert audit._action_adoption_baseline(errors, WikiConfig()) == (None, False)
+    assert errors == []
+    changed = original.replace(b'\r\n', b'\n') if b'\r\n' in original else original.replace(b'\n', b'\r\n')
+    path.write_bytes(changed)
+    assert audit._action_adoption_baseline(errors, WikiConfig()) == (None, True)
+    assert any('[action_adoption_receipt_rewritten]' in e for e in errors)
+
+
+def test_action_adoption_receipt_rejects_invalid_utf8_even_if_replacement_matches(tmp_path, monkeypatch):
+    audit = _load_wiki_audit()
+    previous = 'note: \ufffd\n'
+    path = tmp_path / audit.ACTION_ADOPTION_RECEIPT_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b'note: \xff\n')
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, '_text_at_audit_base', lambda _ref: previous)
+    errors = []
+    assert audit._action_adoption_baseline(errors, WikiConfig()) == (None, True)
+    assert any('[action_adoption_receipt_rewritten]' in e for e in errors)
+
+
+def test_action_receipt_audit_checks_lf_blob_with_crlf_checkout(tmp_path, monkeypatch):
+    import hashlib
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import transition_action_page
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path)
+    rel = path.relative_to(tmp_path).as_posix()
+    (tmp_path / '.gitattributes').write_text('memories/actions/*.md text eol=crlf\n')
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic LF blob with CRLF checkout')
+    blob = git('show', f'main:{rel}')
+    path.unlink()
+    git('checkout', '--', rel)
+    checkout = path.read_bytes()
+    assert b'\r\n' in checkout and b'\r\n' not in blob
+    git('diff', '--quiet', '--', rel)
+    transition_action_page(tmp_path, path, 'in_progress',
+        expected_sha256=hashlib.sha256(checkout).hexdigest(), recorded_at='2026-07-11T15:00:00Z')
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert errors == []
+
+
+def test_invalid_utf8_action_cannot_be_qualified_as_exact_comment(tmp_path, monkeypatch):
+    import hashlib
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import transition_action_page
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path)
+    path.write_bytes(path.read_bytes().replace(b'Body is preserved', 'Body \ufffd is preserved'.encode()))
+    original = path.read_bytes()
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic UTF-8 action')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=hashlib.sha256(original).hexdigest(),
+        recorded_at='2026-07-11T15:00:00Z', dialogue_actor='operator',
+        dialogue_event={'event_id': 'synthetic-comment-utf8', 'kind': 'comment',
+                        'coordinator': 'research', 'text': 'Synthetic comment received.'})
+    path.write_bytes(path.read_bytes().replace('\ufffd'.encode(), b'\xff'))
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    rel = path.relative_to(tmp_path).as_posix()
+    assert not audit._link_or_metadata_only_change(rel)
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert any('[invalid_action_utf8]' in error for error in errors)
+
+
+def test_eol_receipt_audits_after_git_normalizes_submitted_body(tmp_path, monkeypatch):
+    import hashlib
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import transition_action_page
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path)
+    rel = path.relative_to(tmp_path).as_posix()
+    (tmp_path / '.gitattributes').write_text('memories/actions/*.md text eol=lf\n')
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic action base')
+    git('checkout', '-b', 'wiki/synthetic-eol')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        page_edit={'body': '# Edited body\r\nSynthetic second line.\r\n'}, recorded_at='2026-07-11T15:00:00Z')
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert errors == []
+    git('add', rel)
+    staged = git('show', ':' + rel)
+    assert b'\r\n' not in staged
+    git('commit', '-m', 'Synthetic edited action')
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert errors == []
+
+
+@pytest.mark.parametrize('receipt_kind', ['legacy_v4', 'converted_v7'])
+def test_logical_comment_does_not_discharge_factual_impact_without_physical_witness(tmp_path, monkeypatch, receipt_kind):
+    import hashlib
+    from types import SimpleNamespace
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import operational_comment_receipt, transition_action_page
+
+    root = tmp_path.resolve()
+    audit = _load_wiki_audit()
+    path = _write_action(root)
+    rel = path.relative_to(root).as_posix()
+    if receipt_kind == 'legacy_v4':
+        path.write_bytes(path.read_bytes().replace(b'\n', b'\r\n'))
+    else:
+        (root / '.gitattributes').write_text('memories/actions/*.md text eol=crlf\n')
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=root, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('config', 'core.autocrlf', 'false')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic comment base')
+    if receipt_kind == 'legacy_v4':
+        # Reproduce the previous writer's universal-newline read before write.
+        path.write_bytes(path.read_bytes().replace(b'\r\n', b'\n'))
+    else:
+        path.unlink()
+        git('checkout', '--', rel)
+        assert b'\r\n' in path.read_bytes()
+    transition_action_page(root, path, 'open', expected_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        recorded_at='2026-07-11T15:00:00Z', dialogue_actor='operator',
+        dialogue_event={'event_id': 'synthetic-comment-logical', 'kind': 'comment',
+                        'coordinator': 'research', 'text': 'Synthetic comment received.'})
+    monkeypatch.setattr(audit, 'ROOT', root)
+    previous = audit._text_at_audit_base(rel)
+    current = path.read_bytes().decode('utf-8')
+    assert operational_comment_receipt(previous, current) is None
+    assert audit._link_or_metadata_only_change(rel)
+    result = SimpleNamespace(changed_pages={'memories/source.md'}, affected_pages={rel},
+                             references={rel: {'memories/source.md'}})
+    monkeypatch.setattr(audit, 'build_page_graph', lambda *_a, **_k: {})
+    monkeypatch.setattr(audit, 'changed_paths_for_audit', lambda: {rel, 'memories/source.md'})
+    monkeypatch.setattr(audit, '_impact_relevant_changed_paths', lambda: {'memories/source.md'})
+    monkeypatch.setattr(audit, 'compute_impact', lambda *_a, **_k: result)
+    monkeypatch.setattr(audit, '_impact_ack_added', lambda *_a, **_k: False)
+    config = WikiConfig()
+    config.audit['impact_check'] = True
+    errors = []
+    audit.audit_impact(errors, config)
+    assert any(rel in error and 'impacted by' in error for error in errors)
+    assert not audit._logical_comment_only(previous, current + '\nA new factual assertion.\n')
+
+
+@pytest.mark.parametrize('receipt_kind', ['v4', 'v7'])
+@pytest.mark.parametrize('mutation', ['bool_to_int', 'int_to_float', 'nested_bool', 'datetime_offset', 'negative_zero', 'payload'])
+def test_logical_comment_rejects_typed_fact_and_payload_tampering(tmp_path, receipt_kind, mutation):
+    import hashlib
+    from datetime import datetime, timedelta, timezone
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import (_parse_document, _receipt_id, _render_document,
+        operational_comment_receipt, transition_action_page)
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path, extra={'approved': True, 'count': 1, 'nested': {'flag': True},
+        'expected_at': datetime(2026, 11, 14, 0, 30, tzinfo=timezone.utc), 'signed_zero': -0.0})
+    logical_before = path.read_text()
+    if receipt_kind == 'v7':
+        path.write_bytes(path.read_bytes().replace(b'\n', b'\r\n'))
+    physical_before = path.read_bytes().decode('utf-8')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        recorded_at='2026-07-11T15:00:00Z', dialogue_actor='operator',
+        dialogue_event={'event_id': 'synthetic-tamper', 'kind': 'comment',
+                        'coordinator': 'research', 'text': 'Synthetic comment.'})
+    physical_after = path.read_bytes().decode('utf-8')
+    assert audit._logical_comment_only(logical_before, physical_after)
+    fm, body = _parse_document(physical_after)
+    if mutation == 'bool_to_int':
+        fm['approved'] = 1
+    elif mutation == 'int_to_float':
+        fm['count'] = 1.0
+    elif mutation == 'nested_bool':
+        fm['nested']['flag'] = 1
+    elif mutation == 'datetime_offset':
+        fm['expected_at'] = datetime(2026, 11, 13, 21, 30, tzinfo=timezone(timedelta(hours=-3)))
+    elif mutation == 'negative_zero':
+        fm['signed_zero'] = 0.0
+    else:
+        entry = fm['action_state_history'][-1]
+        entry['payload_sha256'] = '0' * 64
+        entry['receipt_id'] = _receipt_id(entry)
+    tampered = _render_document(fm, body)
+    assert not audit._logical_comment_only(logical_before, tampered)
+    assert operational_comment_receipt(logical_before, tampered) is None
+    assert operational_comment_receipt(physical_before, tampered) is None
+
+
+def test_logical_comment_rejects_deep_yaml_without_recursing_out():
+    audit = _load_wiki_audit()
+    text = '---\npage_type: action\nitems: ' + '[' * 600 + '0' + ']' * 600 + '\n---\nSynthetic body\n'
+    assert not audit._logical_comment_only(text, text)
+
+
+@pytest.mark.parametrize('invalid_date', ['2026-02-30', '2026-11-14T00:30:00+99:99'])
+def test_logical_comment_rejects_invalid_yaml_dates_without_raising(invalid_date):
+    audit = _load_wiki_audit()
+    text = f'---\npage_type: action\nobserved_at: {invalid_date}\n---\nSynthetic body\n'
+    assert not audit._logical_comment_only(text, text)

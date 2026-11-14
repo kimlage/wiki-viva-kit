@@ -17,7 +17,7 @@ from typing import Any
 
 from wiki_core.action_transition import (
     ActionTransitionError, _action_file_lock, _assert_no_secrets,
-    _contained_action_path, _parse_document, integrate_action_body,
+    _contained_action_path, _parse_document, _logical_eol, integrate_action_body,
     action_transition_diagnostics, _SUPPORT_FIELDS, contribution_log_text, append_contribution_log,
 )
 from wiki_core.config import WikiConfig, load_config
@@ -381,7 +381,7 @@ def _integration_source_check(root: Path, config: WikiConfig, commit: str, path:
                               entry: dict, *, dry_run: bool) -> None:
     """Revalidate committed policy and overlapping source bytes before the effect."""
     target, _ = _contained_action_path(root, path)
-    if _sha(target.read_text()) != entry["before_sha256"]:
+    if _sha(target.read_bytes().decode("utf-8")) != entry["before_sha256"]:
         raise ContributionError("source_changed_since_prepare: reconcile required")
     base_branch = str(config.approval.get("default_branch") or "main")
     canonical = _canonical_observation(root, base_branch, dry_run=dry_run)
@@ -434,9 +434,9 @@ def _reconcile_source(known: str, current: str, proposed: str) -> str:
     proposed_fm, new_body = _parse_document(proposed)
     if old_fm != proposed_fm:
         raise ContributionError("frontmatter_changes_not_supported")
-    if old_body != body:
+    if _logical_eol(old_body) != _logical_eol(body):
         raise ContributionError("source_body_conflict")
-    if current != known:
+    if _logical_eol(current) != _logical_eol(known):
         # Permit only legitimate canonical transition suffixes, not arbitrary
         # history exclusions or owner/tool/authority changes.
         allowed = {*_SUPPORT_FIELDS, "action_state", "action_state_history", "updated_at", "completed_at"}
@@ -478,7 +478,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
             continue
     if approved != base:
         raise ContributionError("checkout_not_at_approved_base")
-    before = target.read_text()
+    before = target.read_bytes().decode("utf-8")
     item = request["files"][0]
     known = _known_base(root, path, item)
     committed = _blob(root, base, path)
@@ -524,7 +524,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         if (scratch / log_ref).read_text() != expected_log:
             raise ContributionError("gate_modified_log_annotation")
         # Check commands may not silently modify the reviewed proposal.
-        after = (scratch / path).read_text()
+        after = (scratch / path).read_bytes().decode("utf-8")
         if _sha(after) != receipt["after_sha256"]:
             raise ContributionError("gate_modified_proposal")
         changed = _git(scratch, "diff", "--name-only", base).splitlines()
@@ -539,7 +539,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         with ExitStack() as locks:
             for lock in ["contribution-ref:" + branch, path, source_log_ref]:
                 locks.enter_context(_action_file_lock(root, lock))
-            if (_git(root, "rev-parse", "HEAD") != base or target.read_text() != before
+            if (_git(root, "rev-parse", "HEAD") != base or target.read_bytes().decode("utf-8") != before
                 or (root / "wiki.config.yaml").read_text() != policy
                 or source_log_path.read_text() != source_log):
                 raise ContributionError("source_changed_during_prepare")
@@ -766,7 +766,10 @@ def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
     p = subprocess.run(["git", "merge-base", "--is-ancestor", merge, "HEAD"], cwd=root,
                        capture_output=True)
     target, _ = _contained_action_path(root, path)
-    local = p.returncode == 0 and target.read_text() == current_text and current_text == expected
+    # Git may check out the same canonical text with CRLF. This is a logical
+    # adoption comparison; the readback digest below remains the Git blob's.
+    local = (p.returncode == 0 and _logical_eol(target.read_bytes().decode("utf-8")) == _logical_eol(current_text)
+             and current_text == expected)
     log_ref = WikiPaths(root, config).log_page.relative_to(root).as_posix()
     expected_log = _blob(root, candidate, log_ref)
     merged_log, current_log = _blob(root, merge, log_ref), _blob(root, remote_head, log_ref)
