@@ -1860,7 +1860,7 @@ def audit_context_bound_secrets(context_id: str, approved_revision: str, approve
             current = path.stat()
             if (current.st_dev, current.st_ino, current.st_mode, current.st_size, current.st_mtime_ns, current.st_ctime_ns) != states[rel]:
                 return unavailable()
-            for finding in scan_file(path):
+            for finding in scan_file(path, reject_binary=True):
                 if finding.category == 'secret':
                     errors.append(f"{rel}:{finding.line}: possible {finding.kind} secret ({finding.excerpt})")
         if not still_current():

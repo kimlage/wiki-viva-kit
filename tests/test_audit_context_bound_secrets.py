@@ -106,7 +106,7 @@ def test_denied_selected_document_blocks_before_any_scan(case, monkeypatch, caps
     assert policy.permits('.', 'read', 'public.md')
     opened = []
     original = audit.scan_file
-    monkeypatch.setattr(audit, 'scan_file', lambda path: (opened.append(Path(path)), original(path))[1])
+    monkeypatch.setattr(audit, 'scan_file', lambda path, **kw: (opened.append(Path(path)), original(path, **kw))[1])
     status = invoke(case, monkeypatch, '--only', 'secrets')
     output = capsys.readouterr().out.lower()
     assert status != 0
@@ -121,7 +121,7 @@ def test_approved_full_selection_scans_tracked_and_untracked(case, monkeypatch, 
     (root / 'untracked.txt').write_text('Synthetic untracked fixture\n')
     opened = []
     original = audit.scan_file
-    monkeypatch.setattr(audit, 'scan_file', lambda path: (opened.append(Path(path)), original(path))[1])
+    monkeypatch.setattr(audit, 'scan_file', lambda path, **kw: (opened.append(Path(path)), original(path, **kw))[1])
     assert invoke(case, monkeypatch, '--only', 'secrets', '--check') == 0
     assert {root / 'public.md', root / 'restricted/example.md', root / 'untracked.txt'} <= set(opened)
     capsys.readouterr()
@@ -133,6 +133,19 @@ def test_secret_finding_still_fails_gate(case, monkeypatch, capsys):
     (case['root'] / 'public.md').write_text('synthetic key: ' + 'AKIA' + 'IOSFODNN7EXAMPLE' + '\n')
     assert invoke(case, monkeypatch, '--only', 'secrets', '--check') != 0
     assert 'secret' in capsys.readouterr().out.lower()
+
+
+@pytest.mark.parametrize('contains_pattern', [False, True])
+def test_selected_nul_text_reports_coverage_unavailable(case, monkeypatch, capsys, contains_pattern):
+    commit_policy(case)
+    # Synthetic detector pattern is split so this test does not contain a key.
+    payload = b'prefix\x00' + (b'AKIA' + b'IOSFODNN7EXAMPLE' if contains_pattern else b'synthetic') + b'\n'
+    (case['root'] / 'public.md').write_bytes(payload)
+    assert invoke(case, monkeypatch, '--only', 'secrets', '--check') != 0
+    output = capsys.readouterr().out.lower()
+    assert 'coverage unavailable' in output
+    assert '0 error(s)' not in output
+    assert 'iosfodnn7example' not in output
 
 
 @pytest.mark.parametrize('condition', ['missing_binding', 'stale_revision', 'wrong_context'])
@@ -282,11 +295,11 @@ def test_tracked_candidate_deleted_during_scan_fails_coverage(case, monkeypatch,
     selected = root / 'restricted/example.md'
     scanned = []
     original = audit.scan_file
-    def concurrent_delete(path):
+    def concurrent_delete(path, **kw):
         scanned.append(Path(path))
         if len(scanned) == 1:
             selected.unlink()
-        return original(path)
+        return original(path, **kw)
     monkeypatch.setattr(audit, 'scan_file', concurrent_delete)
     assert invoke(case, monkeypatch, '--only', 'secrets') != 0
     assert scanned, 'the synthetic deletion occurs after a legitimate scan starts'
@@ -394,9 +407,9 @@ def test_contaminated_git_environment_cannot_replace_authorized_inventory(case, 
     monkeypatch.setenv('PATH', str(fakebin))
     scanned = []
     original = audit.scan_file
-    def record(path):
+    def record(path, **kw):
         scanned.append(Path(path))
-        return original(path)
+        return original(path, **kw)
     monkeypatch.setattr(audit, 'scan_file', record)
     status = invoke(case, monkeypatch, '--only', 'secrets')
     output = capsys.readouterr().out.lower()
