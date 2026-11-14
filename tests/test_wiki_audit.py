@@ -3060,3 +3060,57 @@ def test_eol_receipt_audits_after_git_normalizes_submitted_body(tmp_path, monkey
     errors = []
     audit.audit_action_state_transitions(errors)
     assert errors == []
+
+
+@pytest.mark.parametrize('receipt_kind', ['legacy_v4', 'converted_v7'])
+def test_logical_comment_does_not_discharge_factual_impact_without_physical_witness(tmp_path, monkeypatch, receipt_kind):
+    import hashlib
+    from types import SimpleNamespace
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import operational_comment_receipt, transition_action_page
+
+    root = tmp_path.resolve()
+    audit = _load_wiki_audit()
+    path = _write_action(root)
+    rel = path.relative_to(root).as_posix()
+    if receipt_kind == 'legacy_v4':
+        path.write_bytes(path.read_bytes().replace(b'\n', b'\r\n'))
+    else:
+        (root / '.gitattributes').write_text('memories/actions/*.md text eol=crlf\n')
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=root, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('config', 'core.autocrlf', 'false')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic comment base')
+    if receipt_kind == 'legacy_v4':
+        # Reproduce the previous writer's universal-newline read before write.
+        path.write_bytes(path.read_bytes().replace(b'\r\n', b'\n'))
+    else:
+        path.unlink()
+        git('checkout', '--', rel)
+        assert b'\r\n' in path.read_bytes()
+    transition_action_page(root, path, 'open', expected_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        recorded_at='2026-07-11T15:00:00Z', dialogue_actor='operator',
+        dialogue_event={'event_id': 'synthetic-comment-logical', 'kind': 'comment',
+                        'coordinator': 'research', 'text': 'Synthetic comment received.'})
+    monkeypatch.setattr(audit, 'ROOT', root)
+    previous = audit._text_at_audit_base(rel)
+    current = path.read_bytes().decode('utf-8')
+    assert operational_comment_receipt(previous, current) is None
+    assert audit._link_or_metadata_only_change(rel)
+    result = SimpleNamespace(changed_pages={'memories/source.md'}, affected_pages={rel},
+                             references={rel: {'memories/source.md'}})
+    monkeypatch.setattr(audit, 'build_page_graph', lambda *_a, **_k: {})
+    monkeypatch.setattr(audit, 'changed_paths_for_audit', lambda: {rel, 'memories/source.md'})
+    monkeypatch.setattr(audit, '_impact_relevant_changed_paths', lambda: {'memories/source.md'})
+    monkeypatch.setattr(audit, 'compute_impact', lambda *_a, **_k: result)
+    monkeypatch.setattr(audit, '_impact_ack_added', lambda *_a, **_k: False)
+    config = WikiConfig()
+    config.audit['impact_check'] = True
+    errors = []
+    audit.audit_impact(errors, config)
+    assert any(rel in error and 'impacted by' in error for error in errors)
+    assert not audit._logical_comment_only(previous, current + '\nA new factual assertion.\n')

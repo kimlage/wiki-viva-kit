@@ -98,8 +98,10 @@ CR mapped to LF;
 `before_sha256` still binds the actual captured bytes and is the only accepted
 CAS value. This logical match supports a Git LF blob with a CRLF checkout; it
 is not a witness of the checkout's physical bytes. An operational comment is
-qualified as an exact append only when its actual preimage is available. Earlier
-receipt versions retain their existing revision rules; an older normalized
+qualified as an exact append only when its actual preimage is available. The
+audit can classify a single legacy v4 or v7 comment logically without treating
+it as an exact physical witness or allowing it to discharge factual impact.
+Earlier receipt versions retain their existing revision rules; an older normalized
 comment preimage may no longer qualify as an exact physical append. Unchanged
 body bytes are preserved, while rewritten frontmatter uses LF; a document may therefore have
 mixed line endings. A v7 editorial consolidation is checked as an exact

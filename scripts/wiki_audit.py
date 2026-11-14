@@ -646,6 +646,43 @@ def _semantic_impact_text(text: str) -> str:
     return re.sub(r"\s+", " ", "\n".join(normalized)).strip()
 
 
+
+def _logical_comment_only(previous: str, current: str) -> bool:
+    """Recognize a single logical comment without asserting physical preimage proof.
+
+    Legacy v4 writers normalized input newlines; v7 can bind a logical Git
+    revision while its physical checkout preimage is unavailable to this audit.
+    This classification never supplies a CAS value or an exact-byte receipt.
+    """
+    from wiki_core.action_transition import (
+        ActionTransitionError, _comment_suffix_preserves_content, _logical_eol,
+        _parse_document, _render_document, action_transition_diagnostics,
+        operational_comment_receipt,
+    )
+    if operational_comment_receipt(previous, current) is not None:
+        return True
+    before, after = _logical_eol(previous), _logical_eol(current)
+    try:
+        old_fm, old_body = _parse_document(before)
+        new_fm, new_body = _parse_document(after)
+        old_history = old_fm.get('action_state_history') or []
+        new_history = new_fm.get('action_state_history') or []
+        if (not isinstance(old_history, list) or not isinstance(new_history, list)
+                or len(new_history) != len(old_history) + 1
+                or not isinstance(new_history[-1], dict)):
+            return False
+        version = new_history[-1].get('schema_version')
+        if version == 'wiki_action_transition_receipt.v4':
+            return operational_comment_receipt(before, after) is not None
+        if version != 'wiki_action_transition_receipt.v7':
+            return False
+        return (_comment_suffix_preserves_content(old_fm, new_fm, old_body, new_body)
+                and not action_transition_diagnostics(before, after)
+                and _render_document(new_fm, new_body) == after)
+    except (ActionTransitionError, TypeError, ValueError):
+        return False
+
+
 def _link_or_metadata_only_change(rel: str) -> bool:
     if not rel.endswith(".md"):
         return False
@@ -659,10 +696,9 @@ def _link_or_metadata_only_change(rel: str) -> bool:
         current_text = _audit_read_bytes(current).decode("utf-8")
     except UnicodeDecodeError:
         return False
-    # Reuse the writer's exact state/body/policy-preserving comment contract.
-    # Physical changes remain visible to integrity, authorization and CAS.
-    from wiki_core.action_transition import operational_comment_receipt
-    if operational_comment_receipt(previous, current_text) is not None:
+    # A logical comment is not a physical preimage witness. Physical changes
+    # remain visible to integrity, authorization and CAS.
+    if _logical_comment_only(previous, current_text):
         return True
     return _semantic_impact_text(previous) == _semantic_impact_text(current_text)
 
@@ -2333,7 +2369,6 @@ def audit_impact(errors: list[str], config: WikiConfig) -> None:
         return
     for affected in result.affected_pages:
         if affected in changed_all:
-            from wiki_core.action_transition import operational_comment_receipt
             previous = _text_at_audit_base(affected)
             current = ROOT / affected
             # Receiving a comment cannot discharge an incoming factual impact.
@@ -2341,8 +2376,9 @@ def audit_impact(errors: list[str], config: WikiConfig) -> None:
                 current_text = _audit_read_bytes(current).decode("utf-8") if current.is_file() else None
             except UnicodeDecodeError:
                 current_text = None
-            if (previous is None or current_text is None
-                    or operational_comment_receipt(previous, current_text) is None):
+            if previous is None:
+                continue
+            if current_text is not None and not _logical_comment_only(previous, current_text):
                 continue
         if _impact_ack_added(config, affected):
             continue
