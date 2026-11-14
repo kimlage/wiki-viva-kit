@@ -18,7 +18,7 @@ from wiki_core.action_contribution import ContributionError, _blob, _gh, _git, _
 from wiki_core.action_transition import ActionTransitionError, _assert_no_secrets
 
 SHA = re.compile(r"^[0-9a-f]{40,64}$")
-FIELDS = ("number,url,state,author,headRefName,headRefOid,headRepositoryOwner,"
+FIELDS = ("number,url,state,author,headRefName,headRefOid,headRepositoryOwner,isCrossRepository,"
           "baseRefName,baseRefOid,mergeCommit,isDraft,reviewDecision,statusCheckRollup,"
           "reviews,comments,mergeStateStatus,closedAt")
 
@@ -223,7 +223,8 @@ def inspect(root: Path, number: int | None = None) -> dict:
         else:
             prs = [_gh(root, "pr", "view", str(number), "--repo", repo, "--json", FIELDS)]
         owner = repo.split("/")[1].lower()
-        own = lambda p: str((p.get("headRepositoryOwner") or {}).get("login") or "").lower() == owner
+        own = lambda p: (p.get("isCrossRepository") is False
+                         and str((p.get("headRepositoryOwner") or {}).get("login") or "").lower() == owner)
         proposals = []
         for pr in prs:
             target_base = remote.get(str(pr.get("baseRefName") or ""), "")

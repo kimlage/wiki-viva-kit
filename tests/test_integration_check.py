@@ -13,7 +13,7 @@ def candidate():
     return {'number': 1, 'url': 'https://example.test/pull/1', 'state': 'OPEN',
             'author': {'login': 'author'}, 'headRefOid': HEAD, 'baseRefOid': BASE,
             'headRefName': 'wiki/one', 'baseRefName': 'main', 'isDraft': False,
-            'headRepositoryOwner': {'login': 'owner'}, 'mergeStateStatus': 'CLEAN',
+            'headRepositoryOwner': {'login': 'owner'}, 'isCrossRepository': False, 'mergeStateStatus': 'CLEAN',
             'statusCheckRollup': [{'conclusion': 'SUCCESS'}], 'reviewDecision': '',
             'reviews': [], 'comments': [{'createdAt': '2026-11-14T10:00:00Z', 'author': {'login': 'independent'}, 'body': f'Head: {HEAD}\nExecutor: agent-a\nReviewer: agent-b\nReview: approved\nReview-Evidence: transcript-1\nResponsible-Thread: thread-1'}]}
 
@@ -303,3 +303,19 @@ def test_host_behind_disagreement_waits():
     pr = candidate()
     pr['mergeStateStatus'] = 'BEHIND'
     assert evaluate(pr)['status'] == 'waiting:github_mergeability'
+
+
+def test_cross_repository_same_owner_and_sha_is_not_origin_branch(monkeypatch, tmp_path):
+    pr = candidate() | {'isCrossRepository': True}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: pr)
+    def git(root, *args):
+        if '--symref' in args:
+            return 'ref: refs/heads/main\tHEAD\n' + BASE + '\tHEAD'
+        if '--heads' in args:
+            return BASE + '\trefs/heads/main\n' + HEAD + '\trefs/heads/wiki/one'
+        return 'main'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {'gate': 'github_pr'})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    assert check.inspect(tmp_path, 1)['proposals'][0]['status'] == 'waiting:head_observation'
