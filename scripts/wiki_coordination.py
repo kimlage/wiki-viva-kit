@@ -2,6 +2,9 @@
 """Read canonical coordinator routes or prepare revision-bound agent context."""
 from __future__ import annotations
 import json
+import io
+import os
+import stat
 import re
 import sys
 from pathlib import Path
@@ -13,6 +16,24 @@ from wiki_core.config import load_config
 from wiki_core.coordination import coordination_index, profile_packet_migration, transition_dialogue_action
 from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordinationError,
     prepare_packet, protected_source_stage, blocker_response, _policy, capability)
+
+
+
+def _read_dialogue_event(path: Path):
+    """Read one bounded event; reject special files before reading on POSIX."""
+    flags = os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0) | getattr(os, 'O_BINARY', 0)
+    fd = os.open(path, flags)
+    with os.fdopen(fd, 'rb') as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise ValueError('event input unavailable')
+        if os.fstat(stream.fileno()).st_size > 16_000:
+            raise ValueError('event file exceeds limit')
+        raw = stream.read(16_001)
+    if len(raw) > 16_000:
+        raise ValueError('event file exceeds limit')
+    # Match Path.read_text's platform-default encoding and newline handling.
+    with io.TextIOWrapper(io.BytesIO(raw)) as text:
+        return json.loads(text.read())
 
 
 def main() -> None:
@@ -102,7 +123,7 @@ def main() -> None:
                 payload['artifact_context'] = args.integrator_context
             result = protected_source_stage(root, binding, args.source_stage,
                 {**payload, 'context_id': context_id, 'approved_revision': args.approved_revision})
-        except (ProtectedCoordinationError, ValueError, OSError) as error:
+        except (ProtectedCoordinationError, ValueError, OSError, RecursionError) as error:
             safe_error = error if isinstance(error, ProtectedCoordinationError) else ProtectedCoordinationError('coordination_invalid_request')
             print(json.dumps(blocker_response(safe_error), ensure_ascii=False))
             raise SystemExit(1)
@@ -135,7 +156,7 @@ def main() -> None:
             result = prepare_packet(root, binding, {"context_id": args.context_id,
                 "approved_revision": args.approved_revision, "content_revision": revision(root, args.revision),
                 "task": request, **selection})
-        except (ProtectedCoordinationError, ValueError, OSError) as error:
+        except (ProtectedCoordinationError, ValueError, OSError, RecursionError) as error:
             safe_error = error if isinstance(error, ProtectedCoordinationError) else ProtectedCoordinationError("coordination_invalid_request")
             print(json.dumps(blocker_response(safe_error), ensure_ascii=False))
             raise SystemExit(1)
@@ -152,22 +173,34 @@ def main() -> None:
     if args.profile and not args.event_file:
         print(json.dumps(profile_packet_migration(), ensure_ascii=False))
         return
-    root = args.root.resolve()
+    try:
+        root = args.root.resolve()
+    except (OSError, RuntimeError):
+        parser.error('repository root unavailable')
     if not args.event_file:
         from wiki_core.web.snapshot import build_snapshot
-        result = coordination_index(root, build_snapshot(root, load_config(root)))
+        try:
+            result = coordination_index(root, build_snapshot(root, load_config(root)))
+        except (OSError, ValueError, KeyError, RecursionError):
+            print('coordination read unavailable', file=sys.stderr)
+            raise SystemExit(1)
     if args.event_file:
         try:
-            if args.event_file.stat().st_size > 16_000:
+            event = _read_dialogue_event(args.event_file)
+        except (OSError, UnicodeError, ValueError, RecursionError) as error:
+            if type(error) is ValueError and str(error) == 'event file exceeds limit':
                 parser.error("event file exceeds limit")
-            event = json.loads(args.event_file.read_text())
-        except (OSError, UnicodeError, ValueError, RecursionError):
             parser.error("event input unavailable")
         if not isinstance(event, dict) or event.get("coordinator") != args.profile:
             parser.error("event coordinator must equal selected profile")
-        result = transition_dialogue_action(
-            root, args.action_path, args.action_id, event,
-            expected_sha256=args.expected_sha256, as_operator=args.as_operator).to_dict()
+        try:
+            result = transition_dialogue_action(
+                root, args.action_path, args.action_id, event,
+                expected_sha256=args.expected_sha256, as_operator=args.as_operator).to_dict()
+        except Exception:
+            # The call may have partially changed state; do not imply rollback.
+            print('action transition failed; inspect action state before retry', file=sys.stderr)
+            raise SystemExit(1)
 
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

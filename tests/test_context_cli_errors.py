@@ -103,3 +103,119 @@ def test_context_exception_values_do_not_reach_stderr(tmp_path, monkeypatch, cap
     result = capsys.readouterr()
     assert result.out == '' and SENTINEL not in result.err and 'Traceback' not in result.err
     assert 'context operation unavailable' in result.err
+
+
+@pytest.mark.parametrize('error_class,message', [
+    ('IntegrationError', 'approved base moved'),
+    ('IntegrationError', 'branch head changed'),
+    ('IntegrationError', 'result changes do not match branch'),
+    ('PolicyError', 'policy revision is not current trusted approval ref'),
+    ('ImpactError', 'cross-context folder authority requires requalification'),
+    ('PolicyError', 'complete packet exceeds byte budget'),
+    ('PolicyError', 'secret detected in packet input'),
+])
+def test_actionable_domain_errors_are_exact_class_and_message(capsys, error_class, message):
+    from wiki_core.cli_errors import report_context_error
+    from wiki_core.context_policy import PolicyError
+    from wiki_core.context_integration import IntegrationError
+    from wiki_core.context_impact import ImpactError
+    types = {'PolicyError': PolicyError, 'IntegrationError': IntegrationError, 'ImpactError': ImpactError}
+    report_context_error(types[error_class](message))
+    assert capsys.readouterr().err.strip() == message
+    report_context_error(ValueError(message))
+    assert capsys.readouterr().err.strip() == 'context operation unavailable'
+
+
+def test_coordination_deep_source_stage_json_returns_opaque_blocker(tmp_path):
+    import os
+    env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
+    args = ['--root', str(tmp_path), '--source-stage', 'prepare', '--context-id', 'root', '--approved-revision', 'a' * 40]
+    deep = '[' * 5000 + '0' + ']' * 5000
+    result = subprocess.run([sys.executable, str(ROOT / 'scripts/wiki_coordination.py'), *args],
+                            input=deep, capture_output=True, text=True, env=env)
+    assert result.returncode == 1 and 'Traceback' not in result.stderr
+    assert 'coordination_invalid_request' in result.stdout
+
+
+def test_coordination_transition_failure_reports_uncertain_state(tmp_path, monkeypatch, capsys):
+    monkeypatch.syspath_prepend(str(ROOT / 'scripts'))
+    module = _module('wiki_coordination')
+    event = tmp_path / 'event.json'
+    event.write_text('{"coordinator":"synthetic"}')
+    args = ['--root', str(tmp_path), '--profile', 'synthetic', '--action-id', 'a', '--action-path', SENTINEL,
+            '--expected-sha256', 'a' * 64, '--event-file', str(event)]
+    monkeypatch.setattr(sys, 'argv', ['wiki_coordination.py', *args])
+    def failure(*_a, **_k):
+        raise ValueError('synthetic failure with ' + SENTINEL)
+    monkeypatch.setattr(module, 'transition_dialogue_action', failure)
+    with pytest.raises(SystemExit) as error:
+        module.main()
+    assert error.value.code == 1
+    captured = capsys.readouterr()
+    assert SENTINEL not in captured.err and 'Traceback' not in captured.err
+    assert 'inspect action state before retry' in captured.err
+
+
+def test_coordination_read_failure_does_not_echo_path(tmp_path, monkeypatch, capsys):
+    monkeypatch.syspath_prepend(str(ROOT / 'scripts'))
+    module = _module('wiki_coordination')
+    monkeypatch.setattr(sys, 'argv', ['wiki_coordination.py', '--root', str(tmp_path)])
+    def failure(*_a, **_k):
+        raise OSError(SENTINEL)
+    monkeypatch.setattr(module, 'load_config', failure)
+    with pytest.raises(SystemExit) as error:
+        module.main()
+    assert error.value.code == 1
+    captured = capsys.readouterr()
+    assert SENTINEL not in captured.err and 'coordination read unavailable' in captured.err
+
+
+def test_coordination_fifo_event_does_not_wait_where_nonblocking_exists(tmp_path):
+    import os
+    if not hasattr(os, 'mkfifo') or not hasattr(os, 'O_NONBLOCK'):
+        pytest.skip('FIFO or nonblocking open unavailable')
+    event = tmp_path / 'event.fifo'
+    os.mkfifo(event)
+    args = ['--root', str(tmp_path), '--profile', 'synthetic', '--action-id', 'a', '--action-path', 'a.md',
+            '--expected-sha256', 'a' * 64, '--event-file', str(event)]
+    result = subprocess.run([sys.executable, str(ROOT / 'scripts/wiki_coordination.py'), *args],
+                            capture_output=True, text=True, timeout=3)
+    assert result.returncode == 2 and 'event input unavailable' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_coordination_deep_packet_request_returns_opaque_blocker(tmp_path, monkeypatch, capsys):
+    monkeypatch.syspath_prepend(str(ROOT / 'scripts'))
+    module = _module('wiki_coordination')
+    request = tmp_path / SENTINEL
+    request.write_text('[' * 5000 + '0' + ']' * 5000)
+    monkeypatch.setattr(module.CoordinationBinding, 'from_environment', classmethod(lambda cls: None))
+    monkeypatch.setattr(module, '_policy', lambda *_a, **_k: None)
+    monkeypatch.setattr(sys, 'argv', ['wiki_coordination.py', '--root', str(tmp_path), '--context-id', 'root',
+        '--approved-revision', 'a' * 40, '--packet-request', str(request)])
+    with pytest.raises(SystemExit) as error:
+        module.main()
+    assert error.value.code == 1
+    captured = capsys.readouterr()
+    assert 'coordination_invalid_request' in captured.out
+    assert SENTINEL not in captured.out + captured.err and 'Traceback' not in captured.err
+
+
+def test_dialogue_event_growth_is_bounded(tmp_path, monkeypatch):
+    import os
+    monkeypatch.syspath_prepend(str(ROOT / 'scripts'))
+    module = _module('wiki_coordination')
+    event = tmp_path / 'event.json'
+    event.write_text('{}')
+    original = os.fstat
+    calls = 0
+    def grow_after_metadata(fd):
+        nonlocal calls
+        info = original(fd)
+        calls += 1
+        if calls == 2:
+            event.write_bytes(b' ' * 16_001)
+        return info
+    monkeypatch.setattr(os, 'fstat', grow_after_metadata)
+    with pytest.raises(ValueError, match='event file exceeds limit'):
+        module._read_dialogue_event(event)
