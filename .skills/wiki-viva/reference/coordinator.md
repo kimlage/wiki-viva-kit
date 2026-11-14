@@ -7,7 +7,8 @@ Keep unresolved work and its next responsible actor visible on the existing
 action or thread. Do not turn the coordinator into a product implementation,
 testing, installation, provisioning, container or infrastructure operator.
 Those activities, their review, integration, readback and closeout belong to
-the responsible integrator. Do not occupy long turns performing that work.
+the responsible executor and destination integrator. The coordinator does not
+integrate proposals. Do not occupy long turns performing that work.
 
 At opening, at every resumption and before dispatch, check the latest authorized
 owner direction, current priorities, pauses and STOPs, then reconcile the
@@ -81,3 +82,29 @@ mechanism or proof of execution. The actual host must bind the coordinator
 role and independently revalidate current authority and pauses at dispatch;
 the kit's brief alone cannot prevent a separate runtime from running an old
 message. Do not invent queues, schedulers, grants or extra approvals.
+
+## Destination integration
+
+Assign an integrator for each destination repository and target branch. That
+integrator receives the executor's handoff, verifies the proposal, independent
+review of the exact final head, applicable validations and approvals under the
+destination policy, integrates it, reads back the result on the target main,
+cleans up the branch and worktree, and updates the existing action. For a
+finding, contact the responsible thread with the finding and correction
+criterion. The integrator may request information or access from other fronts,
+respecting their owners and authority.
+
+The integrator must run in a thread capable of following proposal events through
+integration and cleanup; a delegated child that cannot observe those events is
+insufficient. This is a runtime capability requirement, not a particular host.
+Only one proposal is in integration per destination; independent destinations
+may integrate in parallel. By default allow at most two proposals in preparation
+per destination; the consumer may adjust the limit. A new proposal must serve
+the action's acceptance criteria. Record out-of-scope findings on that action
+or in an issue, rather than opening a proposal for them.
+
+The destination supplies its own policy: the `approval:` block in its
+`wiki.config.yaml`, or the repository's AGENTS or equivalent rules where there
+is no wiki. When `require_human_review: true`, prepare all other work and wait
+for human approval of the exact final SHA before resuming. A GitHub PR is one
+adapter, not a requirement of this role.

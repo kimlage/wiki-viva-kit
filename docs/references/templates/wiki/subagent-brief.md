@@ -91,6 +91,18 @@ this brief does not change runtime admission or those flags.
 - Source/event references and destination updates required for consolidation:
 - Applicable validations and independent review required by the current policy:
 
+## Integration handoff
+
+- Proposal/PR and destination repository and target branch:
+- Final head SHA and base SHA:
+- Independent review of that exact final SHA and link to findings/resolution:
+- Gates run, results and evidence:
+- Pending items, including required approvals and named wait event:
+- Responsible executor thread and integrator recipient:
+
+The integrator checks destination policy and does not infer approval from this
+handoff. Update it if the head or base changes.
+
 ## Blocker and bounded recovery
 
 - Affected step, exact missing context/capability or denied operation, and receipt:
