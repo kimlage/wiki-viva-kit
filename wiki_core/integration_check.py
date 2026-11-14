@@ -26,16 +26,16 @@ def _field(body: str, key: str) -> str:
     return match.group(1).strip() if match else ""
 
 
-def policy(root: Path, base: str) -> dict[str, Any]:
+def policy(root: Path, base: str) -> dict[str, Any] | None:
     """Use policy in the observed destination base, never in the candidate."""
     try:
         obj = yaml.safe_load(_blob(root, base, "wiki.config.yaml"))
         approval = obj.get("approval", {}) if isinstance(obj, dict) else None
         if not isinstance(approval, dict):
-            return {}
+            return None
         return approval
     except (ContributionError, yaml.YAMLError, UnicodeError):
-        return {}
+        return None
 
 
 def _latest_reviews(pr: dict) -> list[dict]:
@@ -81,6 +81,7 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
         out["responsible_thread"] = thread
     state = str(pr.get("state", "")).upper()
     if state in {"MERGED", "CLOSED"}:
+        out["action_reconciliation"] = "unverified"
         out["status"] = "done" if state == "MERGED" else "waiting:closure_reason"
         if state == "CLOSED":
             reasons = [str(c.get("body") or "") for c in pr.get("comments") or []]
@@ -173,12 +174,6 @@ def inspect(root: Path, number: int | None = None) -> dict:
     root = root.resolve()
     try:
         repo = _repository(root)
-        if number is None:
-            prs = _gh(root, "pr", "list", "--repo", repo, "--state", "all", "--limit", "1000", "--json", FIELDS)
-            if len(prs) >= 1000:
-                return {"ok": False, "status": "waiting:proposal_inventory_truncated"}
-        else:
-            prs = [_gh(root, "pr", "view", str(number), "--repo", repo, "--json", FIELDS)]
         default_lines = _git(root, "ls-remote", "--symref", "origin", "HEAD").splitlines()
         if not default_lines:
             return {"ok": False, "status": "waiting:default_branch"}
@@ -189,17 +184,33 @@ def inspect(root: Path, number: int | None = None) -> dict:
         remote_lines = _git(root, "ls-remote", "--heads", "origin").splitlines()
         remote = {line.split("\t", 1)[1].removeprefix("refs/heads/"): line.split("\t", 1)[0] for line in remote_lines if "\t" in line}
         base = remote.get(default, "")
+        default_policy = policy(root, base) if SHA.fullmatch(base) else None
+        if default_policy is not None and default_policy.get("gate", "github_pr") != "github_pr":
+            return {"ok": False, "status": "waiting:policy_adapter"}
+        if number is None:
+            prs = _gh(root, "pr", "list", "--repo", repo, "--state", "all", "--limit", "1000", "--json", FIELDS)
+            if len(prs) >= 1000:
+                return {"ok": False, "status": "waiting:proposal_inventory_truncated"}
+        else:
+            prs = [_gh(root, "pr", "view", str(number), "--repo", repo, "--json", FIELDS)]
+        owner = repo.split("/")[1].lower()
+        own = lambda p: str((p.get("headRepositoryOwner") or {}).get("login") or "").lower() == owner
         proposals = []
         for pr in prs:
             target_base = remote.get(str(pr.get("baseRefName") or ""), "")
-            approval = policy(root, target_base) if SHA.fullmatch(target_base) else {}
+            approval = policy(root, target_base) if SHA.fullmatch(target_base) else None
             if pr.get("state") in {"MERGED", "CLOSED"}:
                 proposals.append(evaluate(pr, {}, ancestry="unknown", human_approved=False))
                 continue
-            if not approval:
+            if approval is None:
                 proposals.append({"number": pr.get("number"), "url": pr.get("url"),
                                   "head": pr.get("headRefOid"), "base": pr.get("baseRefOid"),
                                   "status": "waiting:destination_policy"})
+                continue
+            if not own(pr) or remote.get(str(pr.get("headRefName") or "")) != pr.get("headRefOid"):
+                proposals.append({"number": pr.get("number"), "url": pr.get("url"),
+                                  "head": pr.get("headRefOid"), "base": pr.get("baseRefOid"),
+                                  "status": "waiting:head_observation"})
                 continue
             if pr.get("baseRefOid") != target_base:
                 ancestry = "unknown"
@@ -209,8 +220,6 @@ def inspect(root: Path, number: int | None = None) -> dict:
                                       human_approved=_human_review(root, repo, pr) if approval.get("require_human_review") is True else False))
         local = _git(root, "for-each-ref", "--format=%(refname:short)", "refs/heads/").splitlines()
         worktrees = _worktrees(root)
-        owner = repo.split("/")[1].lower()
-        own = lambda p: str((p.get("headRepositoryOwner") or {}).get("login") or "").lower() == owner
         open_heads = {p.get("headRefName") for p in prs if p.get("state") == "OPEN" and own(p)}
         closed_heads = {p.get("headRefName") for p in prs if p.get("state") == "MERGED" and own(p)} - open_heads
         present = set(local) | set(remote) | {w["branch"] for w in worktrees}

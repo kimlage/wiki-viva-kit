@@ -249,7 +249,10 @@ produce a named wait rather than a readiness claim. The GitHub adapter refuses a
 inventory at its 1,000-proposal bound instead of presenting a truncated result.
 
 Each proposal reports `integrable`, `waiting:<event>`, `fix:<finding>` or
-`done`; hygiene findings are separate. This is an advisory snapshot, not an
+`done`; hygiene findings are separate. For terminal proposals, `done` describes
+the proposal only: `action_reconciliation: unverified` explicitly signals that
+the canonical action still needs its own readback; this adapter does not infer
+action freshness or closure. This is an advisory snapshot, not an
 approval or authorization. Recheck current head, base, policy and observations
 before an effect. A closed proposal requires an explicit reason comment using
 `Disposition-Reason:`, `Motivo:` or `Reason for closure:`; an unrecognized

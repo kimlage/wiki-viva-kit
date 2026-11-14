@@ -83,7 +83,7 @@ def test_inventory_and_cleanup_observations_are_read_only(monkeypatch, tmp_path)
         if args[:3] == ('ls-remote', '--symref', 'origin'):
             return 'ref: refs/heads/main\tHEAD\n' + BASE + '\tHEAD'
         if args == ('ls-remote', '--heads', 'origin'):
-            return f'{BASE}\trefs/heads/main\n{HEAD}\trefs/heads/wiki/remote\n{HEAD}\trefs/heads/wiki/merged'
+            return f'{BASE}\trefs/heads/main\n{HEAD}\trefs/heads/wiki/one\n{HEAD}\trefs/heads/wiki/remote\n{HEAD}\trefs/heads/wiki/merged'
         assert args[:2] == ('for-each-ref', '--format=%(refname:short)')
         return 'main\nwiki/one\nwiki/local\nwiki/merged'
     monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
@@ -195,3 +195,33 @@ def test_detached_worktree_at_merged_head_needs_reconciliation(monkeypatch, tmp_
     monkeypatch.setattr(check, 'policy', lambda *args: {'gate': 'github_pr'})
     monkeypatch.setattr(check, '_worktrees', lambda root: [{'path': '/detached', 'branch': None, 'head': HEAD, 'dirty': False}])
     assert check.inspect(tmp_path, 2)['proposals'][0]['status'] == 'waiting:verify_detached_worktree'
+
+
+def test_unsupported_policy_is_detected_before_github(monkeypatch, tmp_path):
+    monkeypatch.setattr(check, '_repository', lambda root: 'gitlab.example/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda *args: pytest.fail('unexpected GitHub request'))
+    monkeypatch.setattr(check, '_git', lambda root, *args: ('ref: refs/heads/main\tHEAD\n' + BASE + '\tHEAD') if '--symref' in args else (BASE + '\trefs/heads/main'))
+    monkeypatch.setattr(check, 'policy', lambda *args: {'gate': 'gitlab_mr'})
+    assert check.inspect(tmp_path)['status'] == 'waiting:policy_adapter'
+
+
+def test_head_changed_between_github_and_remote(monkeypatch, tmp_path):
+    pr = candidate()
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: pr)
+    def git(root, *args):
+        if '--symref' in args:
+            return 'ref: refs/heads/main\tHEAD\n' + BASE + '\tHEAD'
+        if '--heads' in args:
+            return BASE + '\trefs/heads/main\n' + 'c' * 40 + '\trefs/heads/wiki/one'
+        return 'main'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {'gate': 'github_pr'})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    assert check.inspect(tmp_path, 1)['proposals'][0]['status'] == 'waiting:head_observation'
+
+
+def test_missing_approval_block_uses_defaults(monkeypatch, tmp_path):
+    monkeypatch.setattr(check, '_blob', lambda *args: 'repo_id: synthetic\ncontexts: example\n')
+    assert check.policy(tmp_path, BASE) == {}
+    assert evaluate(policy=check.policy(tmp_path, BASE))['status'] == 'integrable'
