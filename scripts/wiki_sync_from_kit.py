@@ -580,6 +580,7 @@ def build_plan(kit: Path, consumer: Path, manifest_path: Path, c3_commands: list
                 or actual.get("sha256") != old.get("sha256") or actual.get("mode") != old.get("mode")):
             raise SyncError(f"previously managed consumer file changed: {rel}")
     _check_source(kit, source_sha)
+    consumer_dirty = _git_dirty(consumer)
     if _consumer_root_identity(consumer) != consumer_root_identity:
         raise SyncError("consumer root changed during B0; review the plan again")
     tree = [{"path": rel, "sha256": item["sha256"], "mode": item["mode"]} for rel, item in files.items()]
@@ -589,7 +590,7 @@ def build_plan(kit: Path, consumer: Path, manifest_path: Path, c3_commands: list
         "source_sha": source_sha,
         "manifest_sha256": _canonical_sha256(manifest),
         "portable_tree_sha256": _canonical_sha256(tree),
-        "consumer_dirty": _git_dirty(consumer),
+        "consumer_dirty": consumer_dirty,
         "c1": {
             "managed_total": len(files),
             "add": added,
