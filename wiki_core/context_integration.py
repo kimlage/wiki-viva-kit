@@ -13,6 +13,7 @@ from wiki_core.repository_reader import RepositoryReader
 from wiki_core.git_env import local_git_environment, local_git_executable
 from wiki_core.detectors import scan_text
 from wiki_core.information_relations import information_requirements, semantic_equal
+from wiki_core.requirement_yaml import RequirementYamlError, check_requirement_yaml
 from wiki_core.context_selection import packet_queries, revalidate_packet_queries, requirement_query, select_query, same_selection, reproduce_query, normalize_query
 
 class IntegrationError(ValueError): pass
@@ -246,9 +247,15 @@ def _preflight(root, policy, *, context_id, base, head, branch, packet, result,
                     raise IntegrationError('context boundary change requires separate policy review')
             if path.endswith('.md'):
                 try:
-                    prior=guarded_context_read(base_reader,policy,path)['frontmatter'] if path in base_reader.paths else {}
+                    prior_file=guarded_context_read(base_reader,policy,path) if path in base_reader.paths else None
                 except ValueError:
                     raise IntegrationError('unsupported or unsafe base file') from None
+                try:
+                    check_requirement_yaml(proposed_file['text'])
+                    if prior_file is not None: check_requirement_yaml(prior_file['text'])
+                except RequirementYamlError as exc:
+                    raise IntegrationError('ambiguous information requirements') from exc
+                prior=prior_file['frontmatter'] if prior_file is not None else {}
                 raw_before=prior.get('information_requirements',[])
                 raw_after=proposed_file['frontmatter'].get('information_requirements',[])
                 has_query=isinstance(raw_after,list) and any(isinstance(r,dict) and 'query' in r for r in raw_after)
