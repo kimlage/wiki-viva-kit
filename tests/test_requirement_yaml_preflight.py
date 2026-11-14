@@ -105,3 +105,33 @@ def test_preflight_repairs_identical_nonempty_requirements_without_changing_them
                                 'observed_queries': [], 'missing': packet['coverage']['missing']}}
     assert preflight(root, policy, context_id=AUDIT_CONTEXT, base=base, head=head,
                      branch='wiki/yaml-repair', packet=packet, result=result)['state'] == 'independent_review_required'
+
+
+def test_preflight_accepts_valid_requirement_merge_override_with_reported_evidence(audit_collection):
+    root = audit_collection
+    target = 'finance/costs/result.md'
+    source = 'finance/costs/other.md'
+    base = git(root, 'rev-parse', 'HEAD')
+    policy = folder_policy(root)
+    evidence = [{'ref': source, 'producer': AUDIT_CONTEXT, 'reason': 'synthetic',
+                 'use': 'interpret', 'classification': 'internal'}]
+    packet = folder_build_packet(root, policy, AUDIT_CONTEXT, base, evidence, 50000,
+        task_id='yaml-merge', goal='review', output=target, integrator='reviewer')
+    git(root, 'checkout', '-qb', 'wiki/yaml-merge')
+    text = ('---\npage_type: claim\n'
+            'defaults: &d\n  target: ignored\n  fields: [body]\n'
+            '  temporal: current\n  max_age_days: 30\n'
+            f'  consumed_revision: {base}\n'
+            'information_requirements:\n  - <<: *d\n'
+            f'    target: {source}\n---\nSynthetic.\n')
+    (root / target).write_text(text)
+    git(root, 'add', target); git(root, 'commit', '-qm', 'synthetic merge')
+    head = git(root, 'rev-parse', 'HEAD')
+    result = {'schema_version': 'wiki.task-result/v1', 'task_id': packet['task_id'],
+              'context_id': packet['context_id'], 'packet_digest': packet['packet_digest'],
+              'status': 'completed', 'blockers': [],
+              'changes': [{'path': target, 'action': 'modified'}],
+              'read_coverage': {'observed_refs': packet['declared_read_set'],
+                                'observed_queries': [], 'missing': packet['coverage']['missing']}}
+    assert preflight(root, policy, context_id=AUDIT_CONTEXT, base=base, head=head,
+                     branch='wiki/yaml-merge', packet=packet, result=result)['state'] == 'independent_review_required'

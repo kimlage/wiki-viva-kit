@@ -1,4 +1,5 @@
 import pytest
+import yaml
 
 from wiki_core.requirement_yaml import RequirementYamlError, check_requirement_yaml, _canonical_bounded
 
@@ -9,8 +10,8 @@ from wiki_core.requirement_yaml import RequirementYamlError, check_requirement_y
     'information_requirements: []\n!!str information_requirements: [{target: one}]',
     'information_requirements: [{target: one, target: two}]',
     'information_requirements: [{query: {filters: {amount: true, amount: 1}}}]',
-    'defaults: &d {information_requirements: []}\n<<: *d\ninformation_requirements: []',
-    'defaults: &d {target: one}\ninformation_requirements: [{<<: *d, target: two}]',
+    'defaults: &d {information_requirements: [{target: one}]}\n<<: *d\ninformation_requirements: []',
+    'defaults: &d {target: one, target: two}\ninformation_requirements: [{<<: *d, target: three}]',
     'information_requirements: &r [*r]',
 ])
 def test_ambiguous_or_cyclic_requirement_subtree_is_refused(block):
@@ -25,6 +26,9 @@ def test_ambiguous_or_cyclic_requirement_subtree_is_refused(block):
     'metadata: &m [*m]\ninformation_requirements: []',
     'shared: &s {target: one}\ninformation_requirements: [*s, *s]',
     'shared: &s {fields: ["*"]}\ninformation_requirements: [{<<: *s, target: one}]',
+    'defaults: &d {information_requirements: []}\n<<: *d\ninformation_requirements: []',
+    'defaults: &d {target: one}\ninformation_requirements: [{<<: *d, target: two}]',
+    'first: &a {target: one}\nsecond: &b {target: two}\ninformation_requirements: [{<<: [*a, *b]}]',
 ])
 def test_unambiguous_requirements_and_unrelated_aliases_are_allowed(block):
     check_requirement_yaml('---\n' + block + '\n---\nBody\n')
@@ -35,6 +39,13 @@ def test_missing_frontmatter_and_bounded_depth():
     nested = '[' * 129 + '0' + ']' * 129
     with pytest.raises(RequirementYamlError, match='frontmatter unavailable'):
         check_requirement_yaml('---\nmetadata: ' + nested + '\n---\n')
+
+
+def test_merge_sequence_precedence_matches_current_safe_loader():
+    block = ('first: &a {target: one}\nsecond: &b {target: two}\n'
+             'information_requirements: [{<<: [*a, *b]}]')
+    check_requirement_yaml('---\n' + block + '\n---\n')
+    assert yaml.safe_load(block)['information_requirements'][0]['target'] == 'one'
 
 
 def test_long_merge_alias_chain_fails_with_controlled_error():
