@@ -14,7 +14,7 @@ from pathlib import Path
 
 from _common import ROOT
 from wiki_session_hook import _run_group
-from wiki_core.detectors import scan_text
+from wiki_core.detectors.secrets import scan_secrets
 
 
 class Blocked(Exception):
@@ -39,7 +39,7 @@ def run(root: Path, args: list[str], deadline: float, *, data: bytes | None = No
 
 
 def git(root: Path, deadline: float, *args: str, data: bytes | None = None) -> bytes:
-    return run(root, ['git', '--no-optional-locks', *args], deadline, data=data)
+    return run(root, ['git', '--no-replace-objects', '--no-optional-locks', *args], deadline, data=data)
 
 
 def oid(root: Path, deadline: float, value: str) -> str:
@@ -81,7 +81,7 @@ def scan_objects(root: Path, deadline: float, new: str, old: str | None) -> None
         if len(content) != length or not payload.startswith(b'\n'):
             raise Blocked('object read incomplete')
         payload = payload[1:]
-        if any(f.category == 'secret' for f in scan_text(content.decode('utf-8', errors='replace'))):
+        if scan_secrets(content.decode('utf-8', errors='replace')):
             raise Blocked('secret detected in pushed history')
         if time.monotonic() >= deadline:
             raise Blocked('time budget exceeded')
@@ -104,7 +104,7 @@ def quick_commands(root: Path, commit: str, deadline: float) -> list[list[str]]:
         raise Blocked('invalid pre_push.quick_commands configuration') from None
 
 
-def check(root: Path, updates: str, deadline: float, remote_name: str | None) -> None:
+def check(root: Path, updates: str, deadline: float, push_url: str | None) -> None:
     changes: list[tuple[str, str, str | None]] = []
     for line in updates.splitlines():
         fields = line.split()
@@ -119,9 +119,9 @@ def check(root: Path, updates: str, deadline: float, remote_name: str | None) ->
     # A remote-tracking ref may be stale. For a newly created ref, only an
     # observed live server main can bound the historical inventory.
     remote_main = None
-    if remote_name and any(old is None for _, _, old in changes):
+    if push_url and any(old is None for _, _, old in changes):
         try:
-            lines = git(root, deadline, 'ls-remote', '--heads', '--', remote_name, 'refs/heads/main').splitlines()
+            lines = git(root, deadline, 'ls-remote', '--heads', '--', push_url, 'refs/heads/main').splitlines()
             if len(lines) == 1:
                 candidate, ref = lines[0].decode('ascii').split('\t', 1)
                 if ref == 'refs/heads/main':
@@ -175,6 +175,9 @@ def install(root: Path) -> None:
 
 
 def main() -> int:
+    # Replacement refs and grafts can hide history while Git pushes originals.
+    os.environ['GIT_NO_REPLACE_OBJECTS'] = '1'
+    os.environ['GIT_GRAFT_FILE'] = os.devnull
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=ROOT)
     parser.add_argument('--install', action='store_true')
@@ -186,7 +189,14 @@ def main() -> int:
     if not 0 < args.timeout <= 60:
         parser.error('--timeout must be greater than zero and at most 60')
     if not args.install and not args._worker:
-        payload = sys.stdin.read()
+        try:
+            raw = sys.stdin.buffer.read(1_000_001)
+            if len(raw) > 1_000_000:
+                raise ValueError
+            payload = raw.decode('utf-8')
+        except (OSError, UnicodeError, ValueError):
+            print('pre-push blocked: invalid Git pre-push input', file=sys.stderr)
+            return 1
         result = _run_group([sys.executable, str(Path(__file__).resolve()), *sys.argv[1:], '--_worker'],
                             payload, args.timeout)
         if result is None:
@@ -203,7 +213,7 @@ def main() -> int:
         if args.install:
             install(args.root.resolve())
         else:
-            check(args.root.resolve(), sys.stdin.read(), time.monotonic() + args.timeout, args.remote)
+            check(args.root.resolve(), sys.stdin.read(), time.monotonic() + args.timeout, args.url)
     except Blocked as error:
         print(f'FAIL:{error}' if args._worker else f'pre-push blocked: {error}',
               file=sys.stdout if args._worker else sys.stderr)

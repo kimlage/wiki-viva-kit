@@ -238,3 +238,51 @@ def test_new_ref_can_use_live_remote_main_as_baseline(tmp_path):
     result = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/topic'], cwd=root,
                             capture_output=True, text=True, timeout=12)
     assert result.returncode == 0, result.stderr
+
+
+def test_distinct_push_url_is_used_for_remote_baseline(tmp_path):
+    root = repo(tmp_path)
+    fetch = tmp_path / 'fetch.git'
+    target = tmp_path / 'target.git'
+    for remote in (fetch, target):
+        subprocess.run(['git', 'init', '--bare', '-q', str(remote)], check=True)
+    git(root, 'remote', 'add', 'origin', str(fetch))
+    secret = 'sk-proj-' + 'f' * 48
+    commit(root, 'token=' + secret + '\n')
+    git(root, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+    git(root, 'remote', 'set-url', '--push', 'origin', str(target))
+    subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--install'], check=True)
+    result = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/topic'], cwd=root,
+                            capture_output=True, text=True, timeout=12)
+    assert result.returncode != 0 and 'secret detected' in result.stderr
+    assert secret not in result.stderr
+
+
+def test_replace_refs_cannot_hide_a_secret_in_the_pushed_commit(tmp_path):
+    root = repo(tmp_path)
+    remote = tmp_path / 'remote.git'
+    subprocess.run(['git', 'init', '--bare', '-q', str(remote)], check=True)
+    git(root, 'remote', 'add', 'origin', str(remote))
+    clean = git(root, 'rev-parse', 'HEAD')
+    secret = 'sk-proj-' + 'g' * 48
+    original = commit(root, 'token=' + secret + '\n')
+    git(root, 'replace', original, clean)
+    subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--install'], check=True)
+    result = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/topic'], cwd=root,
+                            capture_output=True, text=True, timeout=12)
+    assert result.returncode != 0 and 'secret detected' in result.stderr
+    assert secret not in result.stderr
+
+
+def test_grafts_cannot_hide_a_secret_in_pushed_history(tmp_path):
+    root = repo(tmp_path)
+    base = git(root, 'rev-parse', 'HEAD')
+    secret = 'sk-proj-' + 'h' * 48
+    commit(root, 'token=' + secret + '\n')
+    head = commit(root, 'clean\n')
+    info = root / '.git' / 'info'
+    info.mkdir(exist_ok=True)
+    (info / 'grafts').write_text(head + '\n')
+    result = hook(root, base, head)
+    assert result.returncode != 0 and 'secret detected' in result.stderr
+    assert secret not in result.stderr

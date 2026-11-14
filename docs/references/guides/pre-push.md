@@ -15,7 +15,8 @@ its Python dependencies available at the installed path. The default budget is
 For each non-deleted ref, the hook checks whitespace in the pushed tree range
 and runs the kit's secret detector on introduced blobs, commit messages and tag
 objects, including blobs later removed before the tip. For a new ref the hook
-performs one bounded `git ls-remote` query for the server's current `main` and
+performs one bounded `git ls-remote` query against the actual push URL for its
+current `main` and
 uses it as a baseline only if present locally and ancestral; otherwise it scans
 the full reachable history. Local remote-tracking refs are never proof of the
 server's state. The server can change after the observation, so this is not a
