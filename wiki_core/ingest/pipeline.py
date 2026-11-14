@@ -398,6 +398,11 @@ def run(
                     context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
                     cache_root=root if entry_folder is not None else None,
                 )
+                if entry_folder is not None and request.get("source_id") != source_id:
+                    raise ContextRequestBlocked(
+                        "local_request_source_mismatch",
+                        "The local request does not match the selected source; prepare it again.",
+                    )
                 metrics["pending_llm_calls"] = int(request.get("pending_llm_calls", 0))
             if source_config:
                 request["source_config_ref"] = source_config["path"]
