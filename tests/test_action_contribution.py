@@ -580,6 +580,41 @@ def test_prepare_refuses_signing_policy_change_before_commit(tmp_path, monkeypat
     assert port._candidate(tmp_path, result['branch']) is None
 
 
+def test_prepare_refuses_signing_policy_change_after_commit(tmp_path, monkeypatch):
+    _, request = fixture(tmp_path)
+    original = port._local_git_effect
+    def commit_then_change(root, *args, **kwargs):
+        value = original(root, *args, **kwargs)
+        if args and args[0] == 'commit':
+            git(tmp_path, 'config', 'commit.gpgSign', 'true')
+        return value
+    monkeypatch.setattr(port, '_local_git_effect', commit_then_change)
+    result = call(tmp_path, 'prepare', request, review=review(request))
+    assert result['error'] == 'git_commit_signing_policy_changed'
+    assert port._candidate(tmp_path, result['branch']) is None
+
+
+@pytest.mark.skipif(os.name == 'nt' or shutil.which('ssh-keygen') is None, reason='requires POSIX SSH signing fixture')
+def test_prepare_uses_repo_relative_ssh_key_and_program(tmp_path):
+    _, request = fixture(tmp_path)
+    key = tmp_path / '.git' / 'synthetic-signing-key'
+    subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)], check=True)
+    wrapper = tmp_path / '.git' / 'synthetic-ssh-signer'
+    wrapper.write_text('#!/bin/sh\nexec "' + shutil.which('ssh-keygen') + '" "$@"\n')
+    wrapper.chmod(0o755)
+    git(tmp_path, 'config', 'commit.gpgSign', 'true')
+    git(tmp_path, 'config', 'gpg.format', 'ssh')
+    git(tmp_path, 'config', 'user.signingkey', '.git/synthetic-signing-key')
+    git(tmp_path, 'config', 'gpg.ssh.program', '.git/synthetic-ssh-signer')
+    result = call(tmp_path, 'prepare', request, review=review(request))
+    assert result['ok'] and result['status'] == 'prepared', result
+    allowed = tmp_path.parent / (tmp_path.name + '-allowed-signers')
+    allowed.write_text('operator@example.test ' + key.with_suffix('.pub').read_text())
+    verify = subprocess.run(['git', '-c', 'gpg.ssh.allowedSignersFile=' + str(allowed), 'verify-commit',
+                             result['proposal_commit']], cwd=tmp_path, capture_output=True)
+    assert verify.returncode == 0, verify.stderr.decode(errors='replace')
+
+
 def test_selected_local_unsigned_policy_overrides_global_signing(tmp_path, monkeypatch):
     fixture(tmp_path)
     git(tmp_path, 'config', 'commit.gpgSign', 'false')

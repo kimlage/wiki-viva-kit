@@ -187,6 +187,22 @@ def _commit_signing_policy(root: Path) -> tuple[bool, tuple[tuple[str, str], ...
     return True, tuple(values)
 
 
+def _scratch_signing_settings(root: Path, settings: tuple[tuple[str, str], ...]) -> tuple[tuple[str, str], ...]:
+    """Keep selected repo-relative signing files anchored across the clone."""
+    signing_format = next((value.casefold() for key, value in reversed(settings)
+                           if key.casefold() == "gpg.format"), "openpgp")
+    result = []
+    for key, value in settings:
+        lowered = key.casefold()
+        key_file = signing_format == "ssh" and lowered == "user.signingkey" and not value.startswith("key::")
+        signer_file = lowered in {"gpg.program", "gpg.openpgp.program", "gpg.ssh.program", "gpg.x509.program"} and "/" in value
+        path = Path(value)
+        if (key_file or signer_file) and not path.is_absolute() and (root / path).is_file():
+            value = str((root / path).resolve())
+        result.append((key, value))
+    return tuple(result)
+
+
 def _local_git_effect(root: Path, *argv: str, allow_file: bool = False) -> str:
     """Run local scratch/ref operations, separate from remote transport."""
     from wiki_core.git_env import local_git_executable
@@ -727,7 +743,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         _local_git_effect(scratch, "add", "--", *allowed)
         if _commit_signing_policy(root) != signing_policy:
             raise ContributionError("git_commit_signing_policy_changed")
-        for key, value in signing_policy[1]:
+        for key, value in _scratch_signing_settings(root, signing_policy[1]):
             _local_git_effect(scratch, "config", "--add", key, value)
         signing_arg = ("-S",) if signing_policy[0] else ()
         _local_git_effect(scratch, "commit", *signing_arg, "-m", "wiki: integrate reviewed action body " + material[:12])
@@ -743,7 +759,11 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
                 raise ContributionError("source_changed_during_prepare")
             if _candidate(root, branch):
                 raise ContributionError("contribution_prepared_concurrently: reconcile")
+            if _commit_signing_policy(root) != signing_policy:
+                raise ContributionError("git_commit_signing_policy_changed")
             _local_git_effect(root, "fetch", "--no-write-fetch-head", str(scratch), commit, allow_file=True)
+            if _commit_signing_policy(root) != signing_policy:
+                raise ContributionError("git_commit_signing_policy_changed")
             _local_git_effect(root, "update-ref", f"refs/heads/{branch}", commit, "0" * 40)
     return {"status": "prepared", "proposal_commit": commit, "branch": branch,
             "material_sha256": material, "after_sha256": receipt["after_sha256"],
