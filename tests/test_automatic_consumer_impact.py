@@ -12,7 +12,8 @@ from wiki_core.context_impact import report_review
 from wiki_core.context_policy import load_policy
 
 
-def test_approved_change_discovers_owner_review_and_reads_back(repo):
+@pytest.mark.parametrize('line_ending', ['lf', 'crlf'])
+def test_approved_change_discovers_owner_review_and_reads_back(repo, line_ending):
     config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
     config['paths'] = {'memory_root': 'alpha/memories'}
     grant = {'from_context': '.', 'to_context': 'alpha', 'selector': 'wiki.coordination.yaml',
@@ -25,6 +26,9 @@ def test_approved_change_discovers_owner_review_and_reads_back(repo):
     write(repo, 'wiki.coordination.yaml', yaml.safe_dump(route))
     action_path = 'alpha/memories/actions/review.md'
     write(repo, action_path, '---\npage_id: review-action\npage_type: action\naction_state: open\nnext_action: Existing work\n---\nExisting work\n')
+    if line_ending == 'crlf':
+        action_file = repo / action_path
+        action_file.write_bytes(action_file.read_bytes().replace(b'\n', b'\r\n'))
     git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'declare existing action route')
     git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     initial = git(repo, 'rev-parse', 'HEAD')

@@ -277,3 +277,29 @@ def test_proposal_action_selection_refuses_invalid_local_route(prepared, monkeyp
     with pytest.raises((normal_proposal.ProposalError, ValueError)):
         normal_proposal.preview_proposal(root, srv.server.config, params)
     assert _state(root) == before
+
+
+def test_proposal_preview_binds_crlf_action_to_exact_bytes(prepared):
+    from wiki_core.action_transition import action_transition_diagnostics
+
+    srv, root, params, _unlock, _clock = prepared
+    material = json.loads((root / params['material_path']).read_text())
+    ref = material['action']['page_ref']
+    action = root / ref
+    action.write_bytes(action.read_bytes().replace(b'\n', b'\r\n'))
+    _commit_inputs(root, params)
+    original = action.read_bytes()
+    raw_digest = _sha(original)
+    normalized_digest = _sha(action.read_text().encode())
+    assert raw_digest != normalized_digest
+    _material(root, params, lambda value: value['action'].update(expected_sha256=normalized_digest))
+    before = _state(root)
+    with pytest.raises(normal_proposal.ProposalError, match='proposal_action_revision_mismatch'):
+        normal_proposal.preview_proposal(root, srv.server.config, params)
+    assert _state(root) == before and action.read_bytes() == original
+    _material(root, params, lambda value: value['action'].update(expected_sha256=raw_digest))
+    before = _state(root)
+    preview = normal_proposal.preview_proposal(root, srv.server.config, params)
+    assert preview['readset'][ref] == original
+    assert action_transition_diagnostics(original.decode('utf-8'), preview['outputs'][ref].decode('utf-8')) == ()
+    assert _state(root) == before and action.read_bytes() == original

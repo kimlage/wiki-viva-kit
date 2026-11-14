@@ -2877,3 +2877,60 @@ def test_audit_selected_config_path_in_ignored_clone_is_not_opened(tmp_path, aud
     monkeypatch.setattr(Path, 'read_text', guarded)
     assert audit.main() == 1
     assert 'audit coverage unavailable' in capsys.readouterr().out
+
+
+def test_action_receipt_audit_preserves_crlf_preimage_bytes(tmp_path, monkeypatch):
+    import hashlib
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import transition_action_page
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path)
+    original = path.read_bytes().replace(b'\n', b'\r\n')
+    path.write_bytes(original)
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic CRLF base')
+    receipt = transition_action_page(tmp_path, path, 'in_progress',
+        expected_sha256=hashlib.sha256(original).hexdigest(), recorded_at='2026-07-11T15:00:00Z')
+    assert receipt.before_sha256 == hashlib.sha256(original).hexdigest()
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    rel = path.relative_to(tmp_path).as_posix()
+    assert audit._action_candidate_texts_by_path_at_ref('main')[rel].encode('utf-8') == original
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert errors == []
+
+
+def test_crlf_action_comment_uses_exact_git_preimage_for_audit(tmp_path, monkeypatch):
+    import hashlib
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import operational_comment_receipt, transition_action_page
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path)
+    original = path.read_bytes().replace(b'\n', b'\r\n')
+    path.write_bytes(original)
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic CRLF comment base')
+    transition_action_page(tmp_path, path, 'open', expected_sha256=hashlib.sha256(original).hexdigest(),
+        recorded_at='2026-07-11T15:00:00Z', dialogue_actor='operator',
+        dialogue_event={'event_id': 'synthetic-comment-1', 'kind': 'comment',
+                        'coordinator': 'research', 'text': 'Synthetic comment received.'})
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    rel = path.relative_to(tmp_path).as_posix()
+    assert audit._text_at_audit_base(rel).encode('utf-8') == original
+    assert operational_comment_receipt(original.decode('utf-8'), path.read_bytes().decode('utf-8'))
+    assert audit._link_or_metadata_only_change(rel)
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert errors == []

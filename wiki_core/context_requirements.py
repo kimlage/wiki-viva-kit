@@ -238,8 +238,9 @@ def route_impact_to_action(root, binding, *, destination_context, before, after,
         if hashlib.sha256(route_bytes).hexdigest() != route['content_sha256']:
             raise RequirementError('review route unavailable')
         path, ref = _contained_action_path(root, action_path)
-        raw = path.read_text(encoding='utf-8')
-        current_sha = _sha256_text(raw)
+        action_bytes = path.read_bytes()
+        raw = action_bytes.decode('utf-8')
+        current_sha = hashlib.sha256(action_bytes).hexdigest()
         if current_sha != expected_sha256:
             raise RequirementError('review action revision changed')
         try:

@@ -1319,4 +1319,4 @@ def test_action_writer_cas_binds_exact_file_bytes(tmp_path, writer, newline):
     receipt = apply(exact_sha)
     receipt_before = receipt.before_sha256 if writer == 'transition' else receipt['before_sha256']
     assert receipt_before == exact_sha
-    assert action_transition_diagnostics(logical_before, path.read_text(encoding='utf-8')) == ()
+    assert action_transition_diagnostics(raw_before.decode('utf-8'), path.read_bytes().decode('utf-8')) == ()

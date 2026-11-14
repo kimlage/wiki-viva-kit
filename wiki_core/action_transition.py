@@ -730,7 +730,7 @@ def _transition_action_page_locked(
     path, page_ref = _contained_action_path(root, page)
     try:
         before_bytes = path.read_bytes()
-        before_text = before_bytes.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+        before_text = before_bytes.decode("utf-8")
     except OSError as exc:
         raise ActionTransitionError("action_read_failed") from exc
     before_sha256 = hashlib.sha256(before_bytes).hexdigest()
@@ -1197,7 +1197,7 @@ def integrate_action_body(
     path, ref = _contained_action_path(root, page)
     with _TRANSITION_LOCK, _action_file_lock(root, ref):
         before_bytes = path.read_bytes()
-        before = before_bytes.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+        before = before_bytes.decode("utf-8")
         if hashlib.sha256(before_bytes).hexdigest() != expected_sha256:
             raise ActionTransitionError("stale_action_revision")
         fm, old_body = _parse_document(before)
