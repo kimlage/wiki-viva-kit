@@ -25,9 +25,15 @@ possible partial effects that require inspection.
 ## Folder selection
 
 Without approved-context flags, the existing working-tree adapter remains
-explicitly labelled compatibility. Previously retained envelopes are preserved;
-their availability depends on current authorization. New requests bind the explicit limits as well as the delivered interpretation
-context. Compatibility is not evidence of approved policy or source freshness.
+explicitly labelled compatibility. Its local-folder route can reuse a retained
+source capture while keeping requests for distinct interpretations. The
+compatibility route without a folder uses shared source-ID paths: a later
+ingestion of the same source can replace its manifest, extracted text, chunks
+and compatibility request, including an earlier interpretation. Inspect the
+retained artifacts before relying on them; their availability also depends on
+current authorization. New requests bind explicit limits and the delivered
+interpretation context. Compatibility is not evidence of approved policy or
+source freshness.
 For a local file ingested without a folder, platforms providing nonblocking open
 recheck its digest before persistence and refuse changed or unavailable inputs.
 Where that facility is unavailable, the compatibility route remains available
@@ -545,7 +551,9 @@ checks canonical event names for a request and rejects duplicates among those
 names; it does not scan other owners for renamed copies. The separately
 authorized global audit checks for duplicate page IDs.
 
-The shared source manifest retains the context recorded for its first capture.
+When the local-folder route reuses a shared source capture, its manifest retains
+the context recorded for that capture; a later compatibility ingestion without
+a folder can replace the shared manifest.
 A global catalog filtered by that field can therefore omit another interpretation
 of the same source; it does not establish complete coverage for that context.
 Quality telemetry reports physical chunks once and interpretation calls separately.
