@@ -19,6 +19,19 @@ from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordi
 
 
 
+
+class _ActionValueFailure(ValueError):
+    pass
+
+
+class _ActionOSFailure(OSError):
+    pass
+
+
+class _ActionFailure(RuntimeError):
+    pass
+
+
 def _read_dialogue_event(path: Path):
     """Read one bounded event; reject special files before reading on POSIX."""
     flags = os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0) | getattr(os, 'O_BINARY', 0)
@@ -66,7 +79,7 @@ def main() -> None:
             parser.error('host binding readback does not accept stage or task options')
         try:
             print(json.dumps(capability(args.root.resolve(), CoordinationBinding.from_environment()), ensure_ascii=False))
-        except (ValueError, OSError):
+        except (ValueError, OSError, RuntimeError):
             print(json.dumps({'ok': False, 'available': False, 'reason': 'host_binding_unavailable'}))
             raise SystemExit(1)
         return
@@ -123,7 +136,7 @@ def main() -> None:
                 payload['artifact_context'] = args.integrator_context
             result = protected_source_stage(root, binding, args.source_stage,
                 {**payload, 'context_id': context_id, 'approved_revision': args.approved_revision})
-        except (ProtectedCoordinationError, ValueError, OSError, RecursionError) as error:
+        except (ProtectedCoordinationError, ValueError, OSError, RuntimeError) as error:
             safe_error = error if isinstance(error, ProtectedCoordinationError) else ProtectedCoordinationError('coordination_invalid_request')
             print(json.dumps(blocker_response(safe_error), ensure_ascii=False))
             raise SystemExit(1)
@@ -156,7 +169,7 @@ def main() -> None:
             result = prepare_packet(root, binding, {"context_id": args.context_id,
                 "approved_revision": args.approved_revision, "content_revision": revision(root, args.revision),
                 "task": request, **selection})
-        except (ProtectedCoordinationError, ValueError, OSError, RecursionError) as error:
+        except (ProtectedCoordinationError, ValueError, OSError, RuntimeError) as error:
             safe_error = error if isinstance(error, ProtectedCoordinationError) else ProtectedCoordinationError("coordination_invalid_request")
             print(json.dumps(blocker_response(safe_error), ensure_ascii=False))
             raise SystemExit(1)
@@ -197,13 +210,25 @@ def main() -> None:
             result = transition_dialogue_action(
                 root, args.action_path, args.action_id, event,
                 expected_sha256=args.expected_sha256, as_operator=args.as_operator).to_dict()
+        except ValueError:
+            # Preserve the callable's ValueError contract without leaking input.
+            raise _ActionValueFailure('action transition failed; inspect action state before retry') from None
+        except OSError:
+            raise _ActionOSFailure('action transition failed; inspect action state before retry') from None
         except Exception:
             # The call may have partially changed state; do not imply rollback.
-            print('action transition failed; inspect action state before retry', file=sys.stderr)
-            raise SystemExit(1)
+            raise _ActionFailure('action transition failed; inspect action state before retry') from None
 
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+def _run_cli() -> None:
+    try:
+        main()
+    except (_ActionValueFailure, _ActionOSFailure, _ActionFailure):
+        print('action transition failed; inspect action state before retry', file=sys.stderr)
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
-    main()
+    _run_cli()

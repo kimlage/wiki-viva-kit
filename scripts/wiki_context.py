@@ -61,7 +61,7 @@ def main():
             sys.stdout.write(json.dumps(output, ensure_ascii=False, sort_keys=True, separators=(',', ':')))
         else:
             print(json.dumps(output, ensure_ascii=False, indent=2))
-    except (PolicyError, KeyError, ValueError, OSError, RecursionError) as exc:
+    except (PolicyError, KeyError, ValueError, OSError, RuntimeError) as exc:
         report_context_error(exc); return 1
     return 0
 

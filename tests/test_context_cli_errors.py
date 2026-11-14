@@ -148,8 +148,11 @@ def test_coordination_transition_failure_reports_uncertain_state(tmp_path, monke
     def failure(*_a, **_k):
         raise ValueError('synthetic failure with ' + SENTINEL)
     monkeypatch.setattr(module, 'transition_dialogue_action', failure)
-    with pytest.raises(SystemExit) as error:
+    with pytest.raises(ValueError) as internal:
         module.main()
+    assert SENTINEL not in str(internal.value) and 'inspect action state before retry' in str(internal.value)
+    with pytest.raises(SystemExit) as error:
+        module._run_cli()
     assert error.value.code == 1
     captured = capsys.readouterr()
     assert SENTINEL not in captured.err and 'Traceback' not in captured.err
@@ -219,3 +222,22 @@ def test_dialogue_event_growth_is_bounded(tmp_path, monkeypatch):
     monkeypatch.setattr(os, 'fstat', grow_after_metadata)
     with pytest.raises(ValueError, match='event file exceeds limit'):
         module._read_dialogue_event(event)
+
+
+@pytest.mark.parametrize('script,args', [
+    ('wiki_context.py', ['--repo', '{loop}', '--approved-revision', 'a' * 40, 'resolve', 'root']),
+    ('wiki_context_flow.py', ['--repo', '{loop}', '--approved-revision', 'a' * 40, 'revalidate', '--consumer', 'x', '--context', 'root']),
+    ('wiki_coordination.py', ['--root', '{loop}', '--show-host-binding']),
+    ('wiki_coordination.py', ['--root', '{loop}', '--source-stage', 'prepare', '--context-id', 'root', '--approved-revision', 'a' * 40]),
+    ('wiki_coordination.py', ['--root', '{loop}', '--context-id', 'root', '--approved-revision', 'a' * 40, '--packet-request', 'synthetic.json']),
+])
+def test_cyclic_root_errors_do_not_expose_selected_path(tmp_path, script, args):
+    import os
+    loop = tmp_path / SENTINEL
+    loop.symlink_to(loop.name)
+    env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
+    result = subprocess.run([sys.executable, str(ROOT / 'scripts' / script),
+                             *(str(loop) if arg == '{loop}' else arg for arg in args)],
+                            input='{}', text=True, capture_output=True, env=env)
+    assert result.returncode != 0 and 'Traceback' not in result.stderr
+    assert SENTINEL not in result.stdout + result.stderr

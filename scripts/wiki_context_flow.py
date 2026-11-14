@@ -121,7 +121,7 @@ def main():
         else:
             out=preflight(args.repo,policy,context_id=args.context,base=args.base,head=args.head,branch=args.branch,packet=strict_json_loads(Path(args.packet).read_text(encoding='utf-8')),result=strict_json_loads(Path(args.result).read_text(encoding='utf-8')),trusted_additional_readers=tuple(args.additional_reader),trusted_binding=binding,allow_owned_range=args.owned_range)
         print(json.dumps(out,ensure_ascii=False,sort_keys=True,indent=2))
-    except (PolicyError,ImpactError,IntegrationError,RequirementError,ValueError,KeyError,OSError,RecursionError) as exc:
+    except (PolicyError,ImpactError,IntegrationError,RequirementError,ValueError,KeyError,OSError,RuntimeError) as exc:
         report_context_error(exc); return 1
     return 0
 if __name__=='__main__': raise SystemExit(main())
