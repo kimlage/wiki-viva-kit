@@ -10,7 +10,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-
 PROTECTED_ARTIFACT_COMPONENT = '.wiki-viva-protected'
 
 
@@ -20,36 +19,30 @@ def is_protected_artifact(path: Path) -> bool:
 
 
 def is_in_nested_git(path: Path, *, wiki_root: Path) -> bool:
-    """Identify an existing nested-repository or symlink boundary for a file.
-
-    The parent repository's own .git is not a nested boundary. This check is
-    for automatic discovery; a separately selected repository uses its own root.
-    """
-    path = Path(path)
-    wiki_root = Path(wiki_root)
-    root = wiki_root.absolute()
+    """Check a selected path without crossing a nested Git or symlink boundary."""
+    path, wiki_root = Path(path), Path(wiki_root)
     try:
-        relative = path.absolute().relative_to(root)
+        relative = path.absolute().relative_to(wiki_root.absolute())
     except ValueError:
         raise ValueError('discovery path outside wiki root') from None
     if '..' in relative.parts:
         raise ValueError('unsafe discovery path')
     root = wiki_root.resolve()
-    path = root / relative
     current = root
     for part in relative.parts[:-1]:
         current /= part
         if current.is_symlink() or os.path.lexists(current / '.git'):
             return True
-    return bool(relative.parts and path.is_symlink())
+    return bool(relative.parts and (root / relative).is_symlink())
 
 
-def require_wiki_boundaries(wiki_root: Path, *, directories=(), files=()) -> None:
+def require_wiki_boundaries(wiki_root: Path, *, directories=(), files=(), allow_protected: bool = False) -> None:
     """Reject selected paths across a nested repository or symlink before use."""
     root = Path(wiki_root)
-    absolute_root = root.absolute()
-    resolved_root = root.resolve()
+    absolute_root, resolved_root = root.absolute(), root.resolve()
     def selected(path):
+        if is_protected_artifact(path) and not allow_protected:
+            raise ValueError('protected_artifact_requires_bound_dispatch')
         try:
             relative = Path(path).absolute().relative_to(absolute_root)
         except ValueError:
@@ -63,6 +56,26 @@ def require_wiki_boundaries(wiki_root: Path, *, directories=(), files=()) -> Non
     for path in files:
         if is_in_nested_git(selected(path), wiki_root=resolved_root):
             raise ValueError('derived_path_crosses_repository_boundary')
+def require_wiki_path(root: Path, relative: str) -> Path:
+    """Select a local path without crossing symlinks or a nested Git root.
+
+    The supplied root is trusted and may itself be relative. This does not
+    authorize access or protect against a concurrent filesystem replacement.
+    """
+    from wiki_core.context_policy import safe_path
+    relative = safe_path(relative, allow_root=True)
+    if is_protected_artifact(Path(relative)):
+        raise ValueError('protected_artifact_requires_bound_dispatch')
+    current = Path(root).resolve(strict=True)
+    if not current.is_dir():
+        raise ValueError('wiki root unavailable')
+    if relative == '.':
+        return current
+    from wiki_core.repository_reader import canonical_path
+    canonical_path(relative)
+    selected = current / relative
+    require_wiki_boundaries(current, directories=(selected,))
+    return selected
 
 
 def reject_nested_git(base: Path, *, include_hidden: bool = True) -> None:
@@ -88,7 +101,8 @@ def reject_nested_git(base: Path, *, include_hidden: bool = True) -> None:
             raise ValueError('source_directory_symlink: select regular source files')
 
 
-def wiki_files(base: Path, *, wiki_root: Path | None = None, suffix: str | None = None) -> list[Path]:
+def wiki_files(base: Path, *, wiki_root: Path | None = None, suffix: str | None = None,
+               max_entries: int | None = None) -> list[Path]:
     """Return regular files under base, pruning nested Git roots.
 
     If ``wiki_root`` is supplied, check every component between that root and
@@ -96,6 +110,8 @@ def wiki_files(base: Path, *, wiki_root: Path | None = None, suffix: str | None 
     boundary. A separately selected repository can be traversed as its own root.
     """
     base = Path(base)
+    if is_protected_artifact(base):
+        return []
     if wiki_root is None and '..' in base.parts:
         return []
     if wiki_root is not None:
@@ -116,10 +132,15 @@ def wiki_files(base: Path, *, wiki_root: Path | None = None, suffix: str | None 
     def fail(error: OSError) -> None:
         raise error
     result: list[Path] = []
+    seen_entries = 0
     for directory, subdirs, files in os.walk(base, followlinks=False, onerror=fail):
+        seen_entries += len(subdirs) + len(files)
+        if max_entries is not None and seen_entries > max_entries:
+            raise ValueError('wiki traversal entry limit exceeded')
         current = Path(directory)
         subdirs[:] = sorted(name for name in subdirs
                            if name != '.git'
+                           and name.casefold() != PROTECTED_ARTIFACT_COMPONENT
                            and not (current / name).is_symlink()
                            and not os.path.lexists(current / name / '.git'))
         for name in sorted(files):

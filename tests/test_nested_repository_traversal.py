@@ -495,3 +495,42 @@ def test_selected_source_collection_reports_nested_repo_and_explicit_root_works(
     raw, _ = _inventory_raw_path(tmp_path, child)
     assert count == 1
     assert [entry['path'] for entry in raw['entries']] == ['item.md']
+
+
+def test_traversal_prunes_reserved_protected_components(tmp_path):
+    from wiki_core.traversal import require_wiki_boundaries, wiki_files
+
+    public = tmp_path / 'public.md'
+    public.write_text('public')
+    reserved = tmp_path / '.WIKI-VIVA-PROTECTED'
+    reserved.mkdir()
+    (reserved / 'private.md').write_text('synthetic')
+    assert wiki_files(tmp_path, wiki_root=tmp_path, suffix='.md') == [public]
+    assert wiki_files(reserved, wiki_root=tmp_path) == []
+    with pytest.raises(ValueError, match='protected_artifact_requires_bound_dispatch'):
+        require_wiki_boundaries(tmp_path, files=(reserved / 'private.md',))
+    require_wiki_boundaries(tmp_path, files=(reserved / 'private.md',), allow_protected=True)
+
+
+def test_wiki_path_requires_canonical_local_selection(tmp_path):
+    from wiki_core.traversal import require_wiki_path
+
+    page = tmp_path / 'page.md'
+    page.write_text('synthetic')
+    assert require_wiki_path(tmp_path, 'page.md') == page
+    with pytest.raises(ValueError):
+        require_wiki_path(tmp_path, '../outside')
+    with pytest.raises(ValueError, match='protected_artifact_requires_bound_dispatch'):
+        require_wiki_path(tmp_path, '.wiki-viva-protected/private.md')
+    (tmp_path / 'alias').symlink_to(page)
+    with pytest.raises(ValueError):
+        require_wiki_path(tmp_path, 'alias')
+
+
+def test_wiki_files_limits_enumerated_entries(tmp_path):
+    from wiki_core.traversal import wiki_files
+
+    (tmp_path / 'one.md').write_text('1')
+    (tmp_path / 'two.md').write_text('2')
+    with pytest.raises(ValueError, match='wiki traversal entry limit exceeded'):
+        wiki_files(tmp_path, wiki_root=tmp_path, max_entries=1)
