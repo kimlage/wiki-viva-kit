@@ -92,8 +92,9 @@ Body edits preserve the submitted text, including trailing blank lines. Exact
 body hashes decide whether a write is needed; the newline-normalized Git audit
 projection does not decide whether text was saved. Existing v5 receipts remain
 readable alongside the optional exact-byte witness in new body edits.
-When a captured preimage contains CR line endings, a v7 receipt records a
-logical `before_revision` and body revisions with CRLF and CR mapped to LF;
+When a captured preimage or submitted body contains CR line endings, a v7
+receipt records a logical `before_revision` and body revisions with CRLF and
+CR mapped to LF;
 `before_sha256` still binds the actual captured bytes and is the only accepted
 CAS value. This logical match supports a Git LF blob with a CRLF checkout; it
 is not a witness of the checkout's physical bytes. An operational comment is
