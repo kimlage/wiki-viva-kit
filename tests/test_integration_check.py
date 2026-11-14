@@ -166,3 +166,32 @@ def test_closed_and_merged_hygiene_survive_missing_target_policy(monkeypatch, tm
     pr['state'] = 'CLOSED'
     pr['comments'] = []
     assert check.inspect(tmp_path, 2)['proposals'][0]['status'] == 'fix:closure_reason_missing'
+
+
+def test_target_branch_must_match_destination_policy():
+    pr = candidate()
+    pr['baseRefName'] = 'develop'
+    assert evaluate(pr, {'gate': 'github_pr', 'default_branch': 'main'})['status'] == 'fix:wrong_base'
+    assert evaluate(pr, {'gate': 'github_pr', 'default_branch': 'develop'})['status'] == 'integrable'
+
+
+@pytest.mark.parametrize('gates', ['invalid', [[]], [[1]], [['']]])
+def test_invalid_local_gates_are_not_integrable(gates):
+    result = evaluate(policy={'gate': 'github_pr', 'contribution_validation': 'local_gates', 'contribution_gates': gates})
+    assert result['status'] == 'fix:invalid_policy_gates'
+
+
+def test_detached_worktree_at_merged_head_needs_reconciliation(monkeypatch, tmp_path):
+    pr = candidate() | {'number': 2, 'state': 'MERGED', 'headRefName': 'wiki/merged'}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: pr)
+    def git(root, *args):
+        if args[:3] == ('ls-remote', '--symref', 'origin'):
+            return 'ref: refs/heads/main\tHEAD\n' + BASE + '\tHEAD'
+        if args == ('ls-remote', '--heads', 'origin'):
+            return f'{BASE}\trefs/heads/main'
+        return 'main'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {'gate': 'github_pr'})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [{'path': '/detached', 'branch': None, 'head': HEAD, 'dirty': False}])
+    assert check.inspect(tmp_path, 2)['proposals'][0]['status'] == 'waiting:verify_detached_worktree'

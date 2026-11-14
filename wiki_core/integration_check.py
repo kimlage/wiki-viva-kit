@@ -93,6 +93,14 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
         out["status"] = "waiting:policy_adapter"
     elif approval.get("contribution_validation", "github_checks") not in {"github_checks", "local_gates"} or not isinstance(approval.get("require_human_review", False), bool):
         out["status"] = "waiting:policy_adapter"
+    elif (approval.get("contribution_validation", "github_checks") == "local_gates"
+          and (not isinstance(approval.get("contribution_gates", []), list)
+               or any(not isinstance(gate, list) or not gate
+                      or any(not isinstance(arg, str) or not arg for arg in gate)
+                      for gate in approval.get("contribution_gates", [])))):
+        out["status"] = "fix:invalid_policy_gates"
+    elif pr.get("baseRefName") != str(approval.get("default_branch") or "main"):
+        out["status"] = "fix:wrong_base"
     elif ancestry == "unknown":
         out["status"] = "waiting:local_git_objects"
     elif ancestry != "current":
@@ -156,7 +164,7 @@ def _worktrees(root: Path) -> list[dict]:
             dirty = bool(p.stdout) if p.returncode == 0 else None
         except OSError:
             dirty = None
-        result.append({"path": path, "branch": branch or None, "dirty": dirty})
+        result.append({"path": path, "branch": branch or None, "head": fields.get("HEAD"), "dirty": dirty})
     return result
 
 
@@ -210,6 +218,8 @@ def inspect(root: Path, number: int | None = None) -> dict:
             if pr.get("state") == "MERGED" and own(pr) and pr.get("headRefName") in closed_heads & present:
                 observation["status"] = ("waiting:verify_branch_reuse" if number is not None
                                          else "fix:merged_branch_or_worktree_remaining")
+            if pr.get("state") == "MERGED" and any(w.get("branch") is None and w.get("head") == pr.get("headRefOid") for w in worktrees):
+                observation["status"] = "waiting:verify_detached_worktree"
         # A filtered PR view cannot establish global inventory safely.
         hygiene = []
         if number is None:
