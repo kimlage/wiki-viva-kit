@@ -624,3 +624,37 @@ def test_persisted_bound_request_cannot_downgrade_or_change_text(tmp_path, chang
         if change == "binding_and_marker":
             del request["context_binding_version"]
     assert read_matching_result(tmp_path / "cache", request, row) is None
+
+
+def test_find_refuses_configured_protected_catalog_before_enumeration(tmp_path, monkeypatch):
+    from dataclasses import replace
+    from wiki_core.config import WikiConfig
+    from wiki_core.find import find
+    from wiki_core.paths import WikiPaths
+
+    cfg = WikiConfig()
+    cfg = replace(cfg, paths={**cfg.paths, 'derived_root': 'data/.WIKI-VIVA-PROTECTED'})
+    paths = WikiPaths(tmp_path, cfg)
+    paths.source_manifests.mkdir(parents=True)
+    manifest = paths.source_manifests / 'synthetic.json'
+    manifest.write_text('{"schema_version":"wiki_source_manifest.v1","source_id":"synthetic-protected-id"}')
+    original_glob = Path.glob
+    original_read = Path.read_text
+
+    def guarded_glob(path, *args, **kwargs):
+        if path == paths.source_manifests:
+            pytest.fail('protected catalog enumerated')
+        return original_glob(path, *args, **kwargs)
+
+    def guarded_read(path, *args, **kwargs):
+        if path == manifest:
+            pytest.fail('protected manifest opened')
+        return original_read(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'glob', guarded_glob)
+    monkeypatch.setattr(Path, 'read_text', guarded_read)
+    result = find(tmp_path, cfg, 'synthetic')
+    assert result['status'] == 'index_error'
+    assert result['error'] == 'protected_artifact_requires_bound_dispatch'
+    assert not result['hits']
+    assert {'kind': 'manifest', 'reason': 'protected_artifact_requires_bound_dispatch'} in result['scope']['catalog_issues']
