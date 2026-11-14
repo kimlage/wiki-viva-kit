@@ -415,7 +415,7 @@ def test_c1_refuses_consumer_root_changed_after_plan(tmp_path: Path) -> None:
     plan = sync.build_plan(kit, consumer, manifest, [])
     # Simulate the selected root disappearing: Git now discovers the outer
     # synthetic repository instead of the originally selected consumer.
-    shutil.rmtree(consumer / '.git')
+    (consumer / '.git').rename(consumer / '.git-disabled-for-test')
     assert Path(_git(consumer, 'rev-parse', '--show-toplevel')).resolve() == tmp_path.resolve()
     with pytest.raises(sync.SyncError, match='consumer path must be its Git root'):
         sync._copy_c1(kit, consumer, plan)
