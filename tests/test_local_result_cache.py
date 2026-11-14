@@ -510,3 +510,77 @@ def test_duplicate_contextual_events_never_hide_pending_work(approved, monkeypat
     output = capsys.readouterr()
     assert 'ambiguous' in output.err and '"total": 0' not in output.out
     assert older.is_file() and newer.is_file()
+
+
+def test_two_contexts_report_one_pending_before_second_result(approved, monkeypatch, tmp_path, capsys):
+    from wiki_core.quality import build_quality_report
+
+    root, source, _, _ = approved
+    config = load_config(root)
+    cli, audit = module('wiki_llm_context_pass'), module('wiki_audit')
+    monkeypatch.setattr(audit, 'ROOT', root)
+    monkeypatch.chdir(root)
+    requests = []
+    for folder in ('one', 'two'):
+        (root / folder).mkdir()
+        (root / folder / 'index.md').write_text(f'{folder} index')
+        (root / folder / 'AGENTS.md').write_text(f'{folder} guidance')
+        produced = run(str(source), 'system', root, config, entry_folder=folder, record_score=False)
+        assert not produced.blocked
+        requests.append((produced, json.loads((root / produced.request_path).read_text())))
+    first, first_request = requests[0]
+    second, second_request = requests[1]
+    assert first_request['folder_request_id'] != second_request['folder_request_id']
+    payload = tmp_path / 'first-results.json'
+    payload.write_text(json.dumps(list({row['cache_key']: result_for(first_request, row) for row in first_request['chunks']}.values())))
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+        '--context', 'system', '--folder', 'one', '--record-result', str(payload)])
+    assert cli.main() == 0
+    capsys.readouterr()
+    errors, warnings = [], []
+    audit.audit_context_pass_gate(errors, config, warnings)
+    assert len(errors) == 1 and str(second.request_path) in errors[0]
+    report = build_quality_report(root, config)
+    telemetry = {row['folder_request_id']: row for row in report['cost_telemetry']['source_costs']
+                 if row['source_id'] == first.source_id}
+    assert telemetry[first_request['folder_request_id']]['pending_calls'] == 0
+    assert telemetry[second_request['folder_request_id']]['cached_calls'] == 0
+    assert telemetry[second_request['folder_request_id']]['pending_calls'] == len(second_request['chunks'])
+    assert report['summary']['interpretation_chunks'] == len(first_request['chunks']) + len(second_request['chunks'])
+    assert report['summary']['cache_reuse_rate'] == 0.5
+
+
+@pytest.mark.parametrize('changed', ['modify', 'override'])
+def test_result_recording_rejects_changed_instruction_then_allows_restored(approved, monkeypatch, tmp_path, capsys, changed):
+    root, source, _, _ = approved
+    folder = root / 'area'
+    folder.mkdir()
+    (folder / 'index.md').write_text('index')
+    instruction = folder / 'AGENTS.md'
+    instruction.write_text('guidance')
+    config = load_config(root)
+    produced = run(str(source), 'system', root, config, entry_folder='area', record_score=False)
+    assert not produced.blocked
+    request = json.loads((root / produced.request_path).read_text())
+    payload = tmp_path / 'results.json'
+    payload.write_text(json.dumps(list({row['cache_key']: result_for(request, row) for row in request['chunks']}.values())))
+    cli = module('wiki_llm_context_pass')
+    monkeypatch.chdir(root)
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+        '--context', 'system', '--folder', 'area', '--record-result', str(payload)])
+    cache_dir = result_cache_for_request(WikiPaths(root, config).llm_cache, request)
+    override = folder / 'AGENTS.override.md'
+    if changed == 'modify':
+        instruction.write_text('changed guidance')
+    else:
+        override.write_text('new override')
+    assert cli.main() != 0
+    capsys.readouterr()
+    assert not any((cache_dir / f"{row['cache_key']}.json").exists() for row in request['chunks'])
+    if changed == 'modify':
+        instruction.write_text('guidance')
+    else:
+        override.unlink()
+    assert cli.main() == 0
+    capsys.readouterr()
+    assert all((cache_dir / f"{row['cache_key']}.json").is_file() for row in request['chunks'])
