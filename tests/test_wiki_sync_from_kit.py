@@ -407,6 +407,24 @@ def test_sync_rechecks_nested_boundary_between_b0_and_write(tmp_path: Path) -> N
     assert not (consumer / 'kit.lock').exists()
 
 
+def test_c1_refuses_consumer_root_changed_after_plan(tmp_path: Path) -> None:
+    # All repositories in this test are synthetic and confined to tmp_path.
+    _git(tmp_path, 'init', '-q')
+    kit, consumer, manifest = _fixture(tmp_path)
+    sync = _sync_module()
+    plan = sync.build_plan(kit, consumer, manifest, [])
+    # Simulate the selected root disappearing: Git now discovers the outer
+    # synthetic repository instead of the originally selected consumer.
+    shutil.rmtree(consumer / '.git')
+    assert Path(_git(consumer, 'rev-parse', '--show-toplevel')).resolve() == tmp_path.resolve()
+    with pytest.raises(sync.SyncError, match='consumer path must be its Git root'):
+        sync._copy_c1(kit, consumer, plan)
+    assert (consumer / 'README.md').read_text() == 'consumer\n'
+    assert not (consumer / 'generate.py').exists()
+    assert not (consumer / 'portable').exists()
+    assert not (consumer / 'kit.lock').exists()
+
+
 @pytest.mark.parametrize('nested_repo', [False, True])
 def test_consumer_subdirectory_is_not_a_git_root(tmp_path: Path, nested_repo: bool) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
