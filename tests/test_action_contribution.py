@@ -458,6 +458,20 @@ def test_local_git_observation_does_not_run_configured_fsmonitor(tmp_path):
     assert not marker.exists()
 
 
+def test_local_gate_environment_keeps_whitespace_policy_but_drops_other_injection(monkeypatch):
+    monkeypatch.setenv('GIT_CONFIG_COUNT', '2')
+    monkeypatch.setenv('GIT_CONFIG_KEY_0', 'core.whitespace')
+    monkeypatch.setenv('GIT_CONFIG_VALUE_0', 'cr-at-eol')
+    monkeypatch.setenv('GIT_CONFIG_KEY_1', 'core.fsmonitor')
+    monkeypatch.setenv('GIT_CONFIG_VALUE_1', '/tmp/synthetic-hook')
+    env = port._local_process_environment()
+    pairs = [(env[f'GIT_CONFIG_KEY_{i}'], env[f'GIT_CONFIG_VALUE_{i}'])
+             for i in range(int(env['GIT_CONFIG_COUNT']))]
+    assert ('core.whitespace', 'cr-at-eol') in pairs
+    assert ('core.fsmonitor', '/tmp/synthetic-hook') not in pairs
+    assert ('core.fsmonitor', 'false') in pairs
+
+
 def test_prepare_uses_selected_repo_despite_inherited_git_directory(tmp_path, monkeypatch):
     root = tmp_path / 'selected'
     root.mkdir()

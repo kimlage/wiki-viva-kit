@@ -111,8 +111,18 @@ def _local_process_environment(*, allow_file: bool = False) -> dict[str, str]:
     env["GIT_CONFIG_GLOBAL"] = os.devnull
     env["GIT_CONFIG_SYSTEM"] = os.devnull
     env["GIT_CONFIG_NOSYSTEM"] = "1"
-    overrides = (("core.fsmonitor", "false"), ("core.untrackedCache", "false"),
-                 ("core.hooksPath", os.devnull), ("core.useReplaceRefs", "false"))
+    overrides = [("core.fsmonitor", "false"), ("core.untrackedCache", "false"),
+                 ("core.hooksPath", os.devnull), ("core.useReplaceRefs", "false")]
+    # Preserve the existing caller's explicit diff whitespace policy without
+    # forwarding unrelated injected Git settings, which can select another
+    # repository or execute programs. Git itself validates this value.
+    count = os.environ.get("GIT_CONFIG_COUNT", "0")
+    if count.isascii() and count.isdecimal() and len(count) <= 3 and int(count) <= 128:
+        for index in range(int(count)):
+            if os.environ.get(f"GIT_CONFIG_KEY_{index}", "").casefold() == "core.whitespace":
+                value = os.environ.get(f"GIT_CONFIG_VALUE_{index}")
+                if value is not None and len(value) <= 4096:
+                    overrides.append(("core.whitespace", value))
     env["GIT_CONFIG_COUNT"] = str(len(overrides))
     for index, (key, value) in enumerate(overrides):
         env[f"GIT_CONFIG_KEY_{index}"] = key
