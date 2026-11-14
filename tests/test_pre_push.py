@@ -170,3 +170,71 @@ def test_timeout_bounds_secret_scan_itself(tmp_path):
     result = subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--timeout', '0.6', 'origin', 'example'],
                             input=update, capture_output=True, text=True, timeout=4)
     assert result.returncode != 0 and time.monotonic() - started < 2
+
+
+def test_new_branch_does_not_trust_stale_remote_tracking_refs(tmp_path):
+    root = repo(tmp_path)
+    remote = tmp_path / 'remote.git'
+    subprocess.run(['git', 'init', '--bare', '-q', str(remote)], check=True)
+    git(root, 'remote', 'add', 'origin', str(remote))
+    secret = 'sk-proj-' + 'b' * 48
+    commit(root, 'token=' + secret + '\n')
+    git(root, 'update-ref', 'refs/remotes/origin/main', git(root, 'rev-parse', 'HEAD'))
+    subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--install'], check=True)
+    result = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/topic'], cwd=root,
+                            capture_output=True, text=True, timeout=12)
+    assert result.returncode != 0 and 'secret detected' in result.stderr
+    assert secret not in result.stderr
+
+
+def test_worktree_cannot_remove_a_committed_failing_gate(tmp_path):
+    root = repo(tmp_path)
+    base = git(root, 'rev-parse', 'HEAD')
+    config = root / 'wiki.config.yaml'
+    config.write_text(json.dumps({'pre_push': {'quick_commands': [[sys.executable, '-c', 'raise SystemExit(5)']]}}))
+    git(root, 'add', 'wiki.config.yaml')
+    git(root, 'commit', '-qm', 'configure')
+    head = git(root, 'rev-parse', 'HEAD')
+    config.unlink()
+    assert hook(root, base, head).returncode != 0
+    config.write_text('pre_push:\n  quick_commands: []\n')
+    assert hook(root, base, head).returncode != 0
+
+
+def test_secret_in_commit_message_is_blocked(tmp_path):
+    root = repo(tmp_path)
+    base = git(root, 'rev-parse', 'HEAD')
+    (root / 'page.md').write_text('change\n')
+    git(root, 'add', 'page.md')
+    secret = 'sk-proj-' + 'c' * 48
+    git(root, 'commit', '-qm', 'token=' + secret)
+    result = hook(root, base, git(root, 'rev-parse', 'HEAD'))
+    assert result.returncode != 0 and 'secret detected' in result.stderr
+    assert secret not in result.stderr
+
+
+def test_secret_in_annotated_tag_is_blocked(tmp_path):
+    root = repo(tmp_path)
+    secret = 'sk-proj-' + 'd' * 48
+    git(root, 'tag', '-a', 'synthetic', '-m', 'token=' + secret)
+    tag = git(root, 'rev-parse', 'refs/tags/synthetic')
+    update = f'refs/tags/synthetic {tag} refs/tags/synthetic {"0" * 40}\n'
+    result = subprocess.run([sys.executable, str(SCRIPT), '--root', str(root)],
+                            input=update, capture_output=True, text=True, timeout=12)
+    assert result.returncode != 0 and 'secret detected' in result.stderr
+    assert secret not in result.stderr
+
+
+def test_new_ref_can_use_live_remote_main_as_baseline(tmp_path):
+    root = repo(tmp_path)
+    remote = tmp_path / 'remote.git'
+    subprocess.run(['git', 'init', '--bare', '-q', str(remote)], check=True)
+    git(root, 'remote', 'add', 'origin', str(remote))
+    secret = 'sk-proj-' + 'e' * 48
+    commit(root, 'token=' + secret + '\n')
+    git(root, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+    commit(root, 'clean\n')
+    subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--install'], check=True)
+    result = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/topic'], cwd=root,
+                            capture_output=True, text=True, timeout=12)
+    assert result.returncode == 0, result.stderr

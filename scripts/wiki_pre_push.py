@@ -58,22 +58,23 @@ def scan_objects(root: Path, deadline: float, new: str, old: str | None) -> None
         return
     records = git(root, deadline, 'cat-file', '--batch-check=%(objectname) %(objecttype) %(objectsize)',
                   data=b'\n'.join(names) + b'\n').splitlines()
-    blobs = []
+    objects_to_scan = []
     size = 0
     for record in records:
         fields = record.split()
         if len(fields) != 3:
             raise Blocked('object inventory incomplete')
-        if fields[1] == b'blob':
+        if fields[1] in {b'blob', b'commit', b'tag'}:
             size += int(fields[2])
-            blobs.append(fields[0])
+            objects_to_scan.append((fields[0], fields[1]))
     if size > 50_000_000:
         raise Blocked('secret scan exceeds local limit')
-    payload = git(root, deadline, 'cat-file', '--batch', data=b'\n'.join(blobs) + b'\n') if blobs else b''
-    for expected in blobs:
+    names = [name for name, _ in objects_to_scan]
+    payload = git(root, deadline, 'cat-file', '--batch', data=b'\n'.join(names) + b'\n') if names else b''
+    for expected, kind in objects_to_scan:
         header, separator, payload = payload.partition(b'\n')
         parts = header.split()
-        if not separator or len(parts) != 3 or parts[0] != expected or parts[1] != b'blob':
+        if not separator or len(parts) != 3 or parts[0] != expected or parts[1] != kind:
             raise Blocked('object read incomplete')
         length = int(parts[2])
         content, payload = payload[:length], payload[length:]
@@ -86,13 +87,13 @@ def scan_objects(root: Path, deadline: float, new: str, old: str | None) -> None
             raise Blocked('time budget exceeded')
 
 
-def quick_commands(root: Path) -> list[list[str]]:
-    path = root / 'wiki.config.yaml'
-    if not path.exists():
+def quick_commands(root: Path, commit: str, deadline: float) -> list[list[str]]:
+    # Read policy from the pushed commit, never from a possibly modified file.
+    if not git(root, deadline, 'ls-tree', '--name-only', commit, '--', 'wiki.config.yaml').strip():
         return []
     import yaml
     try:
-        config = yaml.safe_load(path.read_text(encoding='utf-8'))
+        config = yaml.safe_load(git(root, deadline, 'show', commit + ':wiki.config.yaml'))
         section = (config or {}).get('pre_push', {})
         commands = section.get('quick_commands', [])
         if not isinstance(commands, list) or any(not isinstance(c, list) or not c or
@@ -103,8 +104,8 @@ def quick_commands(root: Path) -> list[list[str]]:
         raise Blocked('invalid pre_push.quick_commands configuration') from None
 
 
-def check(root: Path, updates: str, deadline: float, remote_name: str | None = None) -> None:
-    changes: list[tuple[str, str | None]] = []
+def check(root: Path, updates: str, deadline: float, remote_name: str | None) -> None:
+    changes: list[tuple[str, str, str | None]] = []
     for line in updates.splitlines():
         fields = line.split()
         if len(fields) != 4:
@@ -114,31 +115,38 @@ def check(root: Path, updates: str, deadline: float, remote_name: str | None = N
             continue
         new = oid(root, deadline, local)
         old = None if set(remote) == {'0'} else oid(root, deadline, remote)
-        changes.append((new, old))
-    for new, old in changes:
-        if old is None:
-            # This is an offline estimate of already-shared history at this remote.
+        changes.append((local, new, old))
+    # A remote-tracking ref may be stale. For a newly created ref, only an
+    # observed live server main can bound the historical inventory.
+    remote_main = None
+    if remote_name and any(old is None for _, _, old in changes):
+        try:
+            lines = git(root, deadline, 'ls-remote', '--heads', '--', remote_name, 'refs/heads/main').splitlines()
+            if len(lines) == 1:
+                candidate, ref = lines[0].decode('ascii').split('\t', 1)
+                if ref == 'refs/heads/main':
+                    remote_main = oid(root, deadline, candidate)
+        except (Blocked, ValueError, UnicodeError):
+            remote_main = None
+    for raw_new, new, old in changes:
+        if old is None and remote_main:
             try:
-                if not remote_name or not re.fullmatch(r'[A-Za-z0-9._-]+', remote_name):
-                    raise Blocked('remote tracking unknown')
-                candidate = git(root, deadline, 'rev-parse', '--verify',
-                                f'refs/remotes/{remote_name}/main^{{commit}}').decode().strip()
-                git(root, deadline, 'merge-base', '--is-ancestor', candidate, new)
-                old = candidate
+                git(root, deadline, 'merge-base', '--is-ancestor', remote_main, new)
+                old = remote_main
             except Blocked:
-                old = None
+                pass
         if old:
             git(root, deadline, 'diff', '--check', '--no-ext-diff', old, new, '--')
         else:
             # Empty tree versus tip checks the entire initial tree.
             empty = git(root, deadline, 'hash-object', '-t', 'tree', '--stdin', data=b'').decode().strip()
             git(root, deadline, 'diff', '--check', '--no-ext-diff', empty, new, '--')
-        scan_objects(root, deadline, new, old)
+        scan_objects(root, deadline, raw_new, old)
     if changes:
-        commands = quick_commands(root)
+        commands = [command for _, new, _ in changes for command in quick_commands(root, new, deadline)]
         if commands:
             head = git(root, deadline, 'rev-parse', '--verify', 'HEAD^{commit}').decode().strip()
-            if any(new != head for new, _ in changes):
+            if any(new != head for _, new, _ in changes):
                 raise Blocked('consumer checks require the pushed HEAD to be checked out')
             git(root, deadline, 'diff', '--quiet', 'HEAD', '--')
         for command in commands:

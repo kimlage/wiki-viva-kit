@@ -13,12 +13,14 @@ its Python dependencies available at the installed path. The default budget is
 10 seconds; timeout, failed checks, and incomplete object reads block the push.
 
 For each non-deleted ref, the hook checks whitespace in the pushed tree range
-and runs the kit's secret detector on blobs reachable in the introduced commit
-history, including blobs later removed before the tip. For a new branch it uses
-the locally known `<remote>/main` as the base only if that is an ancestor;
-otherwise it examines the full available history. This offline estimate may be
-stale and is not proof of the server's current history. A missing object or
-more than 50 MB of candidate blobs blocks instead of silently skipping the
+and runs the kit's secret detector on introduced blobs, commit messages and tag
+objects, including blobs later removed before the tip. For a new ref the hook
+performs one bounded `git ls-remote` query for the server's current `main` and
+uses it as a baseline only if present locally and ancestral; otherwise it scans
+the full reachable history. Local remote-tracking refs are never proof of the
+server's state. The server can change after the observation, so this is not a
+substitute for server-side secret protection. A missing object or
+more than 50 MB of candidate objects blocks instead of silently skipping the
 scan. Results do not replace CI, review, server-side protection, or the full
 privacy audit. It does not print matching content.
 
@@ -32,7 +34,8 @@ pre_push:
 ```
 
 Only configure commands that are safe to run automatically and finish within
-the shared budget. These run from the working tree, so configured commands
+the shared budget. Configuration comes from each pushed commit, not from an
+uncommitted or untracked file. These commands run from the working tree, so configured commands
 require every pushed tip to be the checked-out HEAD and tracked files to match
 HEAD. They do not establish the state of untracked files. A repo without this
 configuration runs the generic checks alone. Deleting a ref has no content to
