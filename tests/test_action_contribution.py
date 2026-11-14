@@ -424,3 +424,43 @@ def test_external_effect_failure_is_unknown_not_automatic_retry(tmp_path, monkey
     monkeypatch.setattr(port.subprocess, "run", lambda *a, **kw: subprocess.CompletedProcess(a, 1, "", "connection lost"))
     with pytest.raises(port.ContributionError, match="outcome_unknown"):
         port._run(tmp_path, "gh", "pr", "merge", "1")
+
+
+@pytest.mark.parametrize('proposed_endings', ['lf', 'crlf'])
+def test_prepare_contribution_retains_crlf_preimage_bytes(tmp_path, proposed_endings):
+    p, request = fixture(tmp_path)
+    original = p.read_bytes().replace(b'\n', b'\r\n')
+    p.write_bytes(original)
+    git(tmp_path, 'add', str(p.relative_to(tmp_path)))
+    git(tmp_path, 'commit', '-m', 'Synthetic CRLF action')
+    text = original.decode('utf-8')
+    proposed = text.replace('Original evidence.', 'Reviewed historical evidence.')
+    if proposed_endings == 'lf':
+        proposed = proposed.replace('\r\n', '\n')
+    request['files'][0].update(base_commit=git(tmp_path, 'rev-parse', 'HEAD'),
+        base_sha256=sha(text), sha256=sha(proposed), text=proposed)
+    out = call(tmp_path, 'prepare', request, review=review(request))
+    if proposed_endings == 'crlf':
+        assert out['status'] == 'refused' and out['error'] == 'proposal_gate_failed:git'
+        assert p.read_bytes() == original
+        return
+    assert out['status'] == 'prepared', json.dumps(out, indent=2)
+    candidate = port._blob(tmp_path, out['proposal_commit'], request['files'][0]['path'])
+    assert action_transition_diagnostics(text, candidate) == ()
+    assert p.read_bytes() == original
+
+
+@pytest.mark.parametrize('changed_endings', ['crlf', 'mixed'])
+def test_source_check_refuses_newline_only_byte_change_before_remote_effect(tmp_path, monkeypatch, changed_endings):
+    path, request = fixture(tmp_path)
+    before = path.read_bytes()
+    if changed_endings == 'crlf':
+        path.write_bytes(before.replace(b'\n', b'\r\n'))
+    else:
+        path.write_bytes(before.replace(b'\n', b'\r\n', 1))
+    current = path.read_bytes()
+    monkeypatch.setattr(port, '_canonical_observation', lambda *a, **k: pytest.fail('remote check reached'))
+    with pytest.raises(port.ContributionError, match='source_changed_since_prepare'):
+        port._integration_source_check(tmp_path, load_config(tmp_path), request['files'][0]['base_commit'],
+            request['files'][0]['path'], {'before_sha256': hashlib.sha256(before).hexdigest()}, dry_run=False)
+    assert path.read_bytes() == current

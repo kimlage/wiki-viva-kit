@@ -381,7 +381,7 @@ def _integration_source_check(root: Path, config: WikiConfig, commit: str, path:
                               entry: dict, *, dry_run: bool) -> None:
     """Revalidate committed policy and overlapping source bytes before the effect."""
     target, _ = _contained_action_path(root, path)
-    if _sha(target.read_text()) != entry["before_sha256"]:
+    if _sha(target.read_bytes().decode("utf-8")) != entry["before_sha256"]:
         raise ContributionError("source_changed_since_prepare: reconcile required")
     base_branch = str(config.approval.get("default_branch") or "main")
     canonical = _canonical_observation(root, base_branch, dry_run=dry_run)
@@ -478,7 +478,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
             continue
     if approved != base:
         raise ContributionError("checkout_not_at_approved_base")
-    before = target.read_text()
+    before = target.read_bytes().decode("utf-8")
     item = request["files"][0]
     known = _known_base(root, path, item)
     committed = _blob(root, base, path)
@@ -539,7 +539,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         with ExitStack() as locks:
             for lock in ["contribution-ref:" + branch, path, source_log_ref]:
                 locks.enter_context(_action_file_lock(root, lock))
-            if (_git(root, "rev-parse", "HEAD") != base or target.read_text() != before
+            if (_git(root, "rev-parse", "HEAD") != base or target.read_bytes().decode("utf-8") != before
                 or (root / "wiki.config.yaml").read_text() != policy
                 or source_log_path.read_text() != source_log):
                 raise ContributionError("source_changed_during_prepare")
@@ -766,7 +766,7 @@ def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
     p = subprocess.run(["git", "merge-base", "--is-ancestor", merge, "HEAD"], cwd=root,
                        capture_output=True)
     target, _ = _contained_action_path(root, path)
-    local = p.returncode == 0 and target.read_text() == current_text and current_text == expected
+    local = p.returncode == 0 and target.read_bytes().decode("utf-8") == current_text and current_text == expected
     log_ref = WikiPaths(root, config).log_page.relative_to(root).as_posix()
     expected_log = _blob(root, candidate, log_ref)
     merged_log, current_log = _blob(root, merge, log_ref), _blob(root, remote_head, log_ref)

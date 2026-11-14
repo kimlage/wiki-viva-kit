@@ -1141,7 +1141,7 @@ def seed_action_proposal(root: Path, page: Path | str, committed: str, current: 
     from wiki_core.action_contribution import _reconcile_source
     path, ref = _contained_action_path(root, page)
     with _TRANSITION_LOCK, _action_file_lock(root, ref):
-        if path.read_text(encoding="utf-8") != committed:
+        if path.read_bytes().decode("utf-8") != committed:
             raise ActionTransitionError("stale_proposal_seed")
         _reconcile_source(committed, current, committed)
         _assert_no_secrets(current)

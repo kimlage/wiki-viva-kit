@@ -1290,7 +1290,7 @@ def test_page_edit_keeps_previous_v5_receipts_and_validates_exact_body_binding(t
 
 
 @pytest.mark.parametrize('writer', ['transition', 'body'])
-@pytest.mark.parametrize('newline', ['lf', 'crlf'])
+@pytest.mark.parametrize('newline', ['lf', 'crlf', 'mixed'])
 def test_action_writer_cas_binds_exact_file_bytes(tmp_path, writer, newline):
     from wiki_core.action_transition import integrate_action_body
 
@@ -1299,7 +1299,9 @@ def test_action_writer_cas_binds_exact_file_bytes(tmp_path, writer, newline):
     raw_before = logical_before.encode('utf-8')
     if newline == 'crlf':
         raw_before = raw_before.replace(b'\n', b'\r\n')
-        path.write_bytes(raw_before)
+    elif newline == 'mixed':
+        raw_before = raw_before.replace(b'\n', b'\r\n', 1)
+    path.write_bytes(raw_before)
     exact_sha = hashlib.sha256(raw_before).hexdigest()
     normalized_sha = hashlib.sha256(logical_before.encode('utf-8')).hexdigest()
 
@@ -1311,7 +1313,7 @@ def test_action_writer_cas_binds_exact_file_bytes(tmp_path, writer, newline):
                                      contribution={'effect_key': 'crlf-fixture', 'material_sha256': 'a' * 64},
                                      recorded_at=FIXED_AT)
 
-    if newline == 'crlf':
+    if newline != 'lf':
         assert normalized_sha != exact_sha
         with pytest.raises(ActionTransitionError, match='stale_action_revision'):
             apply(normalized_sha)
@@ -1320,3 +1322,17 @@ def test_action_writer_cas_binds_exact_file_bytes(tmp_path, writer, newline):
     receipt_before = receipt.before_sha256 if writer == 'transition' else receipt['before_sha256']
     assert receipt_before == exact_sha
     assert action_transition_diagnostics(raw_before.decode('utf-8'), path.read_bytes().decode('utf-8')) == ()
+
+
+@pytest.mark.parametrize('newline', ['lf', 'crlf'])
+def test_idempotent_action_returns_exact_unchanged_sha(tmp_path, newline):
+    path = _write_action(tmp_path)
+    original = path.read_bytes()
+    if newline == 'crlf':
+        original = original.replace(b'\n', b'\r\n')
+        path.write_bytes(original)
+    expected = hashlib.sha256(original).hexdigest()
+    receipt = transition_action_page(tmp_path, path, 'open', expected_sha256=expected, recorded_at=FIXED_AT)
+    assert not receipt.changed and receipt.idempotent
+    assert receipt.before_sha256 == receipt.after_sha256 == expected
+    assert path.read_bytes() == original
