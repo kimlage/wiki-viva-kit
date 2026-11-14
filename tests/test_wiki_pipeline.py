@@ -330,3 +330,25 @@ def test_legacy_source_removed_during_preparation_preserves_prior_capture(tmp_pa
     assert result.blocked and not result.written
     assert result.context_error_code == 'source_changed_before_persistence'
     assert {p.relative_to(derived): p.read_bytes() for p in derived.rglob('*') if p.is_file()} == prior
+
+
+def test_legacy_source_replaced_by_fifo_does_not_block(tmp_path, monkeypatch):
+    import os
+    import wiki_core.ingest.pipeline as pipeline
+
+    source = tmp_path / 'synthetic.md'
+    source.write_text('# Synthetic\n' + ('original synthetic content ' * 80))
+    original = pipeline.build_context_request
+
+    def replace_during_preparation(*args, **kwargs):
+        request = original(*args, **kwargs)
+        source.unlink()
+        os.mkfifo(source)
+        return request
+
+    monkeypatch.setattr(pipeline, 'build_context_request', replace_during_preparation)
+    result = pipeline.run(str(source), 'system', tmp_path, WikiConfig(), record_score=False)
+    assert result.blocked and not result.written
+    assert result.context_error_code == 'source_changed_before_persistence'
+    assert result.request_path is None and result.manifest_path is None
+    assert not (tmp_path / 'data/derived/wiki').exists()
