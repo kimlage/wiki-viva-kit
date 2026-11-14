@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Resolve a context or build a bounded packet; approval is external to this CLI."""
-import argparse
 import json
 import subprocess
 import sys
@@ -10,10 +9,11 @@ from wiki_core.context_selection import strict_json_loads
 from wiki_core.context_policy import load_policy, PolicyError
 from wiki_core.context_packet import build_packet
 from wiki_core.git_env import local_git_environment, local_git_executable
+from wiki_core.cli_errors import SafeArgumentParser, report_context_error
 
 
 def main():
-    p = argparse.ArgumentParser(description=__doc__)
+    p = SafeArgumentParser(prog="wiki_context.py", description=__doc__)
     p.add_argument('--repo', help='wiki Git root; defaults to the current Git root')
     p.add_argument('--approved-revision', required=True, help='externally approved policy revision (not verified by this tool)')
     p.add_argument('--manifest', choices=['wiki.config.yaml'], default='wiki.config.yaml')
@@ -61,8 +61,8 @@ def main():
             sys.stdout.write(json.dumps(output, ensure_ascii=False, sort_keys=True, separators=(',', ':')))
         else:
             print(json.dumps(output, ensure_ascii=False, indent=2))
-    except (PolicyError, KeyError, ValueError, OSError) as exc:
-        print(str(exc), file=sys.stderr); return 1
+    except (PolicyError, KeyError, ValueError, OSError, RuntimeError) as exc:
+        report_context_error(exc); return 1
     return 0
 
 if __name__ == '__main__': raise SystemExit(main())

@@ -52,6 +52,14 @@ Task bodies come exclusively from the [protected coordination route](context-coo
 - [wiki_coordination.py](../../../scripts/wiki_coordination.py) with `--context-id`, `--approved-revision`, `--revision` and `--packet-request`: explicit protected task packet. Read the complete packet's mandatory rules and selected evidence, not a truncated sample.
 - Dialogue CLI: `--profile`, `--action-id`, exact configured `--action-path`, `--event-file` and `--expected-sha256`; see the protected coordination guide for migration examples.
 
+Argument errors and expected input failures in these context CLIs avoid echoing
+operator-supplied values; successful output and other logs still need their own
+privacy boundary. The dialogue adapter reads at most 16,001 bytes from a regular
+event file before parsing. Nonblocking open is used where available; without it,
+opening a special file may still block before the type check. If a transition
+fails after it starts, inspect the action state before retrying: the CLI does not
+claim that a failure rolled back every effect.
+
 Packet generation is not evidence of LLM reading, comprehension or execution. Runtime admission separately checks actual capability, authorization, claim/STOP/dedup and permitted operations. Profiles never select a canonical context or bypass a refused admission check. Waiting and terminal states remain canonical; coordinator assignment never changes them. Preserve existing action IDs, executor ownership and conversation history; never import packets as duplicate domain tasks.
 
 The [coordinator role contract](../../../.skills/wiki-viva/reference/coordinator.md)

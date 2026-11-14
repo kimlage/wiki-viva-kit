@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Finite, read-only context impact and proposal preflight."""
-import argparse
 import json
 import os
 import stat
@@ -14,6 +13,7 @@ from wiki_core.context_impact import assess_impact, report_review, ImpactError
 from wiki_core.context_integration import preflight, preflight_composite, IntegrationError
 from wiki_core.context_requirements import assess_approved_impact, requirements_from_result, revalidate_approved_queries, route_impact_to_action, RequirementError
 from wiki_core.git_env import local_git_environment, local_git_executable
+from wiki_core.cli_errors import SafeArgumentParser, report_context_error
 
 
 def _composite_participants(path):
@@ -31,7 +31,7 @@ def _composite_participants(path):
         raise PolicyError('composite participant input unavailable') from exc
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__)
+    p=SafeArgumentParser(prog="wiki_context_flow.py", description=__doc__)
     p.add_argument('--repo',help='wiki Git root; defaults to the current Git root')
     p.add_argument('--approved-revision',required=True)
     p.add_argument('--manifest',choices=['wiki.config.yaml'],default='wiki.config.yaml')
@@ -121,7 +121,7 @@ def main():
         else:
             out=preflight(args.repo,policy,context_id=args.context,base=args.base,head=args.head,branch=args.branch,packet=strict_json_loads(Path(args.packet).read_text(encoding='utf-8')),result=strict_json_loads(Path(args.result).read_text(encoding='utf-8')),trusted_additional_readers=tuple(args.additional_reader),trusted_binding=binding,allow_owned_range=args.owned_range)
         print(json.dumps(out,ensure_ascii=False,sort_keys=True,indent=2))
-    except (PolicyError,ImpactError,IntegrationError,RequirementError,ValueError,KeyError,OSError) as exc:
-        print(str(exc),file=sys.stderr); return 1
+    except (PolicyError,ImpactError,IntegrationError,RequirementError,ValueError,KeyError,OSError,RuntimeError) as exc:
+        report_context_error(exc); return 1
     return 0
 if __name__=='__main__': raise SystemExit(main())

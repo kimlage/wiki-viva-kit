@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Read canonical coordinator routes or prepare revision-bound agent context."""
 from __future__ import annotations
-import argparse
 import json
+import io
+import os
+import stat
 import re
 import sys
 from pathlib import Path
 from _common import ROOT
 from wiki_core.context_selection import strict_json_loads
+from wiki_core.cli_errors import SafeArgumentParser
 from wiki_core.context_policy import revision
 from wiki_core.config import load_config
 from wiki_core.coordination import coordination_index, profile_packet_migration, transition_dialogue_action
@@ -15,8 +18,31 @@ from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordi
     prepare_packet, protected_source_stage, blocker_response, _policy, capability)
 
 
+
+
+class _EventTooLarge(ValueError):
+    pass
+
+
+def _read_dialogue_event(path: Path):
+    """Read one bounded event; reject special files before reading on POSIX."""
+    flags = os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0) | getattr(os, 'O_BINARY', 0)
+    fd = os.open(path, flags)
+    with os.fdopen(fd, 'rb') as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise ValueError('event input unavailable')
+        if os.fstat(stream.fileno()).st_size > 16_000:
+            raise _EventTooLarge('event file exceeds limit')
+        raw = stream.read(16_001)
+    if len(raw) > 16_000:
+        raise _EventTooLarge('event file exceeds limit')
+    # Match Path.read_text's platform-default encoding and newline handling.
+    with io.TextIOWrapper(io.BytesIO(raw)) as text:
+        return json.loads(text.read())
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = SafeArgumentParser(prog="wiki_coordination.py", description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--context-id", help="Explicit context ID; source stages can select a host-bound context from cwd.")
     parser.add_argument("--approved-revision", help="Current approved commit SHA for protected packet mode.")
@@ -45,7 +71,7 @@ def main() -> None:
             parser.error('host binding readback does not accept stage or task options')
         try:
             print(json.dumps(capability(args.root.resolve(), CoordinationBinding.from_environment()), ensure_ascii=False))
-        except (ValueError, OSError):
+        except (ValueError, OSError, RuntimeError):
             print(json.dumps({'ok': False, 'available': False, 'reason': 'host_binding_unavailable'}))
             raise SystemExit(1)
         return
@@ -102,7 +128,7 @@ def main() -> None:
                 payload['artifact_context'] = args.integrator_context
             result = protected_source_stage(root, binding, args.source_stage,
                 {**payload, 'context_id': context_id, 'approved_revision': args.approved_revision})
-        except (ProtectedCoordinationError, ValueError, OSError) as error:
+        except (ProtectedCoordinationError, ValueError, OSError, RuntimeError) as error:
             safe_error = error if isinstance(error, ProtectedCoordinationError) else ProtectedCoordinationError('coordination_invalid_request')
             print(json.dumps(blocker_response(safe_error), ensure_ascii=False))
             raise SystemExit(1)
@@ -135,7 +161,7 @@ def main() -> None:
             result = prepare_packet(root, binding, {"context_id": args.context_id,
                 "approved_revision": args.approved_revision, "content_revision": revision(root, args.revision),
                 "task": request, **selection})
-        except (ProtectedCoordinationError, ValueError, OSError) as error:
+        except (ProtectedCoordinationError, ValueError, OSError, RuntimeError) as error:
             safe_error = error if isinstance(error, ProtectedCoordinationError) else ProtectedCoordinationError("coordination_invalid_request")
             print(json.dumps(blocker_response(safe_error), ensure_ascii=False))
             raise SystemExit(1)
@@ -157,9 +183,10 @@ def main() -> None:
         from wiki_core.web.snapshot import build_snapshot
         result = coordination_index(root, build_snapshot(root, load_config(root)))
     if args.event_file:
-        if args.event_file.stat().st_size > 16_000:
+        try:
+            event = _read_dialogue_event(args.event_file)
+        except _EventTooLarge:
             parser.error("event file exceeds limit")
-        event = json.loads(args.event_file.read_text())
         if not isinstance(event, dict) or event.get("coordinator") != args.profile:
             parser.error("event coordinator must equal selected profile")
         result = transition_dialogue_action(
@@ -169,5 +196,15 @@ def main() -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+def _run_cli() -> None:
+    try:
+        main()
+    except Exception:
+        # Direct callers retain original exception types and details. The CLI
+        # reports no exception text and does not imply rollback after a write.
+        print('coordination failed; if a transition was attempted, inspect action state before retry', file=sys.stderr)
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
-    main()
+    _run_cli()
