@@ -1465,6 +1465,12 @@ Nenhuma direção visual foi aprovada como canônica. Aurora, voxel, terreno
 liso, modelos Blender e a ponte IA + projeção são evidências de famílias e
 pipelines, não uma escolha encerrada.
 
+O relato de QA de um [protótipo histórico em rascunho](https://github.com/kimlage/wiki-viva-kit/pull/317)
+registrou que uma cena navegável não alcançou a fidelidade visual da referência.
+Uma variação de terreno foi descrita como experimento visual sem solver granular
+ou conservação de volume. Esses relatos não são validação atual, aceite de
+produto ou autorização de uso dos assets; a proposta visual permanece aberta.
+
 ### 24.2 Tema padrão
 
 O produto precisa oferecer um mundo padrão completo, coerente e digno. Esse
