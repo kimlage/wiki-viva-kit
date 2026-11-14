@@ -20,6 +20,10 @@ from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordi
 
 
 
+class _EventTooLarge(ValueError):
+    pass
+
+
 def _read_dialogue_event(path: Path):
     """Read one bounded event; reject special files before reading on POSIX."""
     flags = os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0) | getattr(os, 'O_BINARY', 0)
@@ -28,10 +32,10 @@ def _read_dialogue_event(path: Path):
         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
             raise ValueError('event input unavailable')
         if os.fstat(stream.fileno()).st_size > 16_000:
-            raise ValueError('event file exceeds limit')
+            raise _EventTooLarge('event file exceeds limit')
         raw = stream.read(16_001)
     if len(raw) > 16_000:
-        raise ValueError('event file exceeds limit')
+        raise _EventTooLarge('event file exceeds limit')
     # Match Path.read_text's platform-default encoding and newline handling.
     with io.TextIOWrapper(io.BytesIO(raw)) as text:
         return json.loads(text.read())
@@ -174,24 +178,15 @@ def main() -> None:
     if args.profile and not args.event_file:
         print(json.dumps(profile_packet_migration(), ensure_ascii=False))
         return
-    try:
-        root = args.root.resolve()
-    except (OSError, RuntimeError):
-        parser.error('repository root unavailable')
+    root = args.root.resolve()
     if not args.event_file:
         from wiki_core.web.snapshot import build_snapshot
-        try:
-            result = coordination_index(root, build_snapshot(root, load_config(root)))
-        except (OSError, ValueError, KeyError, RecursionError):
-            print('coordination read unavailable', file=sys.stderr)
-            raise SystemExit(1)
+        result = coordination_index(root, build_snapshot(root, load_config(root)))
     if args.event_file:
         try:
             event = _read_dialogue_event(args.event_file)
-        except (OSError, UnicodeError, ValueError, RecursionError) as error:
-            if type(error) is ValueError and str(error) == 'event file exceeds limit':
-                parser.error("event file exceeds limit")
-            parser.error("event input unavailable")
+        except _EventTooLarge:
+            parser.error("event file exceeds limit")
         if not isinstance(event, dict) or event.get("coordinator") != args.profile:
             parser.error("event coordinator must equal selected profile")
         result = transition_dialogue_action(

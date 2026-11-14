@@ -15,8 +15,6 @@ _STATIC_ARGUMENT_ERRORS = frozenset({
     '--action-id requires --profile',
     'event file exceeds limit',
     'event coordinator must equal selected profile',
-    'event input unavailable',
-    'repository root unavailable',
 })
 
 class SafeArgumentParser(argparse.ArgumentParser):

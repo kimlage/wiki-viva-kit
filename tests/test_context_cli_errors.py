@@ -83,8 +83,8 @@ def test_coordination_missing_event_input_is_opaque(tmp_path):
     args = ['--root', str(tmp_path), '--profile', 'synthetic', '--action-id', 'a', '--action-path', 'a.md',
             '--expected-sha256', 'a' * 64, '--event-file', str(tmp_path / SENTINEL)]
     result = subprocess.run([sys.executable, str(ROOT / 'scripts/wiki_coordination.py'), *args], capture_output=True, text=True)
-    assert result.returncode == 2 and result.stdout == ''
-    assert 'event input unavailable' in result.stderr and SENTINEL not in result.stderr
+    assert result.returncode == 1 and result.stdout == ''
+    assert 'coordination failed' in result.stderr and SENTINEL not in result.stderr
     assert 'Traceback' not in result.stderr
 
 
@@ -166,11 +166,14 @@ def test_coordination_read_failure_does_not_echo_path(tmp_path, monkeypatch, cap
     def failure(*_a, **_k):
         raise OSError(SENTINEL)
     monkeypatch.setattr(module, 'load_config', failure)
-    with pytest.raises(SystemExit) as error:
+    with pytest.raises(OSError) as direct:
         module.main()
+    assert SENTINEL in str(direct.value)
+    with pytest.raises(SystemExit) as error:
+        module._run_cli()
     assert error.value.code == 1
     captured = capsys.readouterr()
-    assert SENTINEL not in captured.err and 'coordination read unavailable' in captured.err
+    assert SENTINEL not in captured.err and 'coordination failed' in captured.err
 
 
 def test_coordination_fifo_event_does_not_wait_where_nonblocking_exists(tmp_path):
@@ -183,7 +186,7 @@ def test_coordination_fifo_event_does_not_wait_where_nonblocking_exists(tmp_path
             '--expected-sha256', 'a' * 64, '--event-file', str(event)]
     result = subprocess.run([sys.executable, str(ROOT / 'scripts/wiki_coordination.py'), *args],
                             capture_output=True, text=True, timeout=3)
-    assert result.returncode == 2 and 'event input unavailable' in result.stderr
+    assert result.returncode == 1 and 'coordination failed' in result.stderr
     assert 'Traceback' not in result.stderr
 
 
