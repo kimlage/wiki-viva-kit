@@ -41,8 +41,8 @@ def check(root: Path, timeout: float) -> dict:
 def _repository_root(path: Path) -> Path | None:
     try:
         p = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=path,
-                           capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', timeout=5)
-        return Path(p.stdout.strip()).resolve() if p.returncode == 0 and p.stdout.strip() else None
+                           capture_output=True, timeout=5)
+        return Path(os.fsdecode(p.stdout.strip())).resolve() if p.returncode == 0 and p.stdout.strip() else None
     except (OSError, subprocess.TimeoutExpired):
         return None
 
@@ -236,13 +236,18 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
     process_deadline = deadline - min(0.25, timeout / 4)
     job = kernel = proc = None
     threads: list[threading.Thread] = []
-    output: list[str] = []
+    output: list[bytes] = []
     overflow = [False]
     success = False
 
     def write_input() -> None:
         try:
-            proc.stdin.write(payload)
+            data = memoryview(payload.encode('utf-8'))
+            while data:
+                written = proc.stdin.write(data)
+                if not written:
+                    break
+                data = data[written:]
         except (OSError, ValueError, UnicodeError):
             pass
         finally:
@@ -266,6 +271,11 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
                         overflow[0] = True
         except (OSError, ValueError, UnicodeError):
             overflow[0] = True
+        finally:
+            try:
+                stream.close()
+            except (OSError, ValueError):
+                pass
 
     try:
         if os.name == 'nt':
@@ -280,7 +290,7 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
             signal.signal(sig, defer)
         try:
             proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE, text=True, encoding='utf-8',
+                                    stderr=subprocess.PIPE, bufsize=0,
                                     start_new_session=(os.name != 'nt'),
                                     creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0))
         finally:
@@ -323,7 +333,19 @@ def _run_group(argv: list[str], payload: str, timeout: float) -> str | None:
                 pass
         for thread in threads:
             thread.join(timeout=max(0, deadline - time.monotonic()))
-    return ''.join(output) if success and not overflow[0] and not any(t.is_alive() for t in threads) else None
+        if proc is not None:
+            for stream in (proc.stdin, proc.stdout, proc.stderr):
+                if stream is not None and not stream.closed:
+                    try:
+                        stream.close()
+                    except (OSError, ValueError):
+                        pass
+    if not success or overflow[0] or any(t.is_alive() for t in threads):
+        return None
+    try:
+        return b''.join(output).decode('utf-8')
+    except UnicodeError:
+        return None
 
 
 def _read_input(timeout: float) -> str | None:
@@ -373,7 +395,16 @@ def main() -> int:
         event = json.loads(raw) if len(raw) <= MAX_INPUT else None
         if not isinstance(event, dict):
             raise ValueError
-        root = _repository_root((args.root or Path(event.get('cwd') or '.')).resolve())
+        if args.root is not None:
+            source_path = args.root
+        else:
+            cwd = event.get('cwd') or '.'
+            if not isinstance(cwd, str):
+                raise ValueError
+            # JSON paths arrive as Unicode. Preserve their UTF-8 bytes even
+            # when Python's filesystem encoding is ASCII (LC_ALL=C).
+            source_path = Path(os.fsdecode(cwd.encode('utf-8')) if os.name != 'nt' else cwd)
+        root = _repository_root(source_path)
         if root is None:
             output = {'systemMessage': 'Repository root unavailable; no continuation was requested.'}
         else:
