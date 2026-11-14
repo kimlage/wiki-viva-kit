@@ -289,3 +289,17 @@ def test_native_review_order_is_temporal_not_array_order():
     assert evaluate(pr)['status'] == 'fix:conflict_or_changes_requested'
     old['submittedAt'] = '2026-11-14T12:00:00Z'
     assert evaluate(pr)['status'] == 'integrable'
+
+
+def test_native_change_request_blocks_without_sha_in_body():
+    pr = candidate()
+    pr['reviews'] = [{'author': {'login': 'another'}, 'state': 'CHANGES_REQUESTED',
+                      'commit': {'oid': HEAD}, 'body': 'Blocking defect',
+                      'submittedAt': '2026-11-14T11:00:00Z'}]
+    assert evaluate(pr)['status'] == 'fix:conflict_or_changes_requested'
+
+
+def test_host_behind_disagreement_waits():
+    pr = candidate()
+    pr['mergeStateStatus'] = 'BEHIND'
+    assert evaluate(pr)['status'] == 'waiting:github_mergeability'

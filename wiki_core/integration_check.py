@@ -80,11 +80,10 @@ def _comment_evidence(pr: dict, head: str) -> tuple[bool, bool, bool, str | None
     for item in pr.get("reviews") or []:
         raw_reviewer = (item.get("author") or {}).get("login")
         reviewer = raw_reviewer.casefold() if isinstance(raw_reviewer, str) else None
-        if (author and reviewer and reviewer != author
-                and (item.get("commit") or {}).get("oid") == head
-                and head in str(item.get("body") or "")):
+        if author and reviewer and reviewer != author and (item.get("commit") or {}).get("oid") == head:
             decision = str(item.get("state") or "").lower()
-            if decision in {"approved", "changes_requested", "dismissed"}:
+            if (decision in {"changes_requested", "dismissed"}
+                    or (decision == "approved" and head in str(item.get("body") or ""))):
                 decisions.setdefault(reviewer, []).append((_event_time(item.get("submittedAt")), decision))
     latest = []
     uncertain = False
@@ -144,7 +143,7 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
             pending.append("review_event_order")
         elif not review:
             pending.append("exact_head_review")
-        if pr.get("mergeStateStatus") in {"BLOCKED", "UNKNOWN", None} or pr.get("reviewDecision") == "REVIEW_REQUIRED":
+        if pr.get("mergeStateStatus") != "CLEAN" or pr.get("reviewDecision") == "REVIEW_REQUIRED":
             pending.append("github_mergeability")
         checks = pr.get("statusCheckRollup") or []
         if (approval.get("contribution_validation", "github_checks") == "github_checks" and not checks) or any((c.get("conclusion") or c.get("state")) != "SUCCESS" for c in checks):
