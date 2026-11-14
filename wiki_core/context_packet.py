@@ -148,15 +148,27 @@ def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, 
     inspected = set()
     inspection_order = []
     nonempty = {}
-    def inspect_authorized(ref):
-        nonlocal qualification_bytes
-        guard_folder_blob(root, policy, ref)
+    def check_authorized(ref):
         producer = policy.owner_of(ref)
         if policy._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved':
             raise PolicyError('context body not authorized')
         for reader_context in additional_readers:
             if policy._connection(producer, reader_context, ref, 'interpretation', 'context', qualified=False) != 'approved':
                 raise PolicyError('additional reader not authorized for context body')
+
+    # A negative metadata check avoids opening instructions for a lineage whose
+    # required index is already denied. It does not qualify or authorize reads.
+    for context in lineage:
+        folder = context['root']
+        if folder != '.' or context_id == '.':
+            index = entry_index if folder == context_id else policy._context_indexes.get(folder)
+            if index not in reader.paths: raise PolicyError('context index empty or unavailable')
+            check_authorized(index)
+
+    def inspect_authorized(ref):
+        nonlocal qualification_bytes
+        guard_folder_blob(root, policy, ref)
+        check_authorized(ref)
         from wiki_core.traversal import require_wiki_boundaries
         try: require_wiki_boundaries(Path(root), files=(Path(root) / ref,))
         except (ValueError, OSError) as exc: raise PolicyError('context body unavailable') from exc
