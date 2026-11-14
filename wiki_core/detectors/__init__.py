@@ -133,16 +133,18 @@ def contains_secret_structure(value: object) -> bool:
         raise ValueError("invalid structured data") from None
 
 
-def scan_file(path: str | Path) -> list[Finding]:
+def scan_file(path: str | Path, *, reject_binary: bool = False) -> list[Finding]:
     """Read ``path`` as text and scan it; return ``[]`` for binary files.
 
     A file is treated as binary (and skipped) if its raw bytes contain a NUL
-    byte. Decoding uses UTF-8 with ``errors="replace"`` so odd encodings do not
-    crash the scan.
+    byte. Callers requiring complete selected-text coverage can refuse such a
+    file instead. Decoding uses UTF-8 with ``errors="replace"``.
     """
     path = Path(path)
     raw = path.read_bytes()
     if b"\x00" in raw:
+        if reject_binary:
+            raise ValueError("selected text is unavailable")
         return []
     text = raw.decode("utf-8", errors="replace")
     return scan_text(text)
