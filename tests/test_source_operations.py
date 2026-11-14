@@ -199,6 +199,9 @@ def test_refresh_preview_for_connector_is_honest_and_not_locally_runnable(tmp_pa
     assert result["execution"]["mode"] == "agent_connector"
     assert result["execution"]["requires_agent"] is True
     assert result["execution"]["runnable"] is False
+    inventory = next(step for step in result["steps"] if step["id"] == "inventory")
+    assert inventory["scope"] == "configured" and "external source not checked" in inventory["label"]
+    assert result["discovery"] is None
     with pytest.raises(ValueError, match="requires_agent_or_manual_export"):
         run_source_refresh(tmp_path, config, "source-a", "file-a", "", result["preview_token"])
 
@@ -214,6 +217,9 @@ def test_refresh_runs_only_allowlisted_script_against_hashed_raw(tmp_path: Path)
 
     preview = preview_source_refresh(tmp_path, config, "source-a", "file-a", "data/raw/input.txt")
     assert preview["execution"]["mode"] == "script"
+    inventory = next(step for step in preview["steps"] if step["id"] == "inventory")
+    assert inventory["scope"] == "local_raw" and "external source not checked" in inventory["label"]
+    assert preview["discovery"] is None
     assert preview["raw_inventory"]["local_raw"]["sha256"]
     result = run_source_refresh(
         tmp_path, config, "source-a", "file-a", "data/raw/input.txt", preview["preview_token"]
@@ -267,6 +273,8 @@ def test_deterministic_connector_previews_collection_diff_and_applies_selected_r
     preview = preview_source_refresh(tmp_path, config, "source-a")
 
     assert preview["execution"]["mode"] == "deterministic_connector"
+    inventory = next(step for step in preview["steps"] if step["id"] == "inventory")
+    assert inventory["scope"] == "external_returned" and "completeness not established" in inventory["label"]
     assert preview["execution"]["runnable"] is True
     assert preview["discovery"]["counts"] == {"new": 1, "changed": 0, "enriched": 0, "unchanged": 1}
     assert preview["raw_inventory"]["external_inventory"]["records"][1]["external_id"] == "drive-456"
@@ -353,3 +361,19 @@ def test_retired_connection_updates_do_not_change_source_content(tmp_path: Path,
     with pytest.raises(ValueError, match="source_operation_unknown_field"):
         preview_source_operation(tmp_path, config, "source-a", "__source__", updates)
     assert {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*.md")} == before
+
+
+def test_manual_preview_lists_configuration_without_running_external_inventory(tmp_path: Path, monkeypatch) -> None:
+    config = _repo(tmp_path)
+    config_path = tmp_path / "memories/sources/config/source-a.md"
+    text = config_path.read_text(encoding="utf-8").replace("mcp_hint: google-drive", "mcp_hint: ''")
+    config_path.write_text(text, encoding="utf-8")
+    monkeypatch.setattr('wiki_core.web.source_operations._run_refresh_adapter', lambda *_args, **_kwargs: pytest.fail('external adapter invoked'))
+    monkeypatch.setattr('wiki_core.web.source_operations._inventory_raw_path', lambda *_args, **_kwargs: pytest.fail('raw path inventoried'))
+    preview = preview_source_refresh(tmp_path, config, "source-a")
+    assert preview["execution"]["mode"] == "manual_export"
+    assert preview["execution"]["runnable"] is False and preview["discovery"] is None
+    inventory = next(step for step in preview["steps"] if step["id"] == "inventory")
+    assert inventory["scope"] == "configured" and "external source not checked" in inventory["label"]
+    with pytest.raises(ValueError, match="requires_agent_or_manual_export"):
+        run_source_refresh(tmp_path, config, "source-a", "__source__", "", preview["preview_token"])

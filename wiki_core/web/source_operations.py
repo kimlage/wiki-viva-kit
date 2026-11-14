@@ -785,6 +785,17 @@ def preview_source_refresh(
         normalized_raw_path = str(raw_file.relative_to(root))
         raw["local_raw"], raw_sha = _inventory_raw_path(root, raw_file)
         argv = _safe_ingest_argv(root, recipe.ingest_argv, raw_file)
+    inventory_scope = {
+        "deterministic_connector": "external_returned",
+        "script": "local_raw",
+        "agent_connector": "configured",
+        "manual_export": "configured",
+    }[mode]
+    inventory_label = {
+        "external_returned": "Connector returned records for comparison; source completeness not established",
+        "local_raw": "Selected local raw metadata inventoried; external source not checked",
+        "configured": "Configured records listed; external source not checked",
+    }[inventory_scope]
     token_material = {
         "schema": SOURCE_OPERATION_SCHEMA_VERSION,
         "kind": "refresh",
@@ -821,7 +832,7 @@ def preview_source_refresh(
         },
         "steps": [
             {"id": "bind", "label": "Confirm source and collection scope", "status": "complete"},
-            {"id": "inventory", "label": "Inventory the whole source and detect record changes", "status": "complete"},
+            {"id": "inventory", "label": inventory_label, "status": "complete", "scope": inventory_scope},
             {"id": "execute", "label": "Apply selected inventory records" if mode == "deterministic_connector" else "Run the allowlisted ingestion script", "status": "ready" if mode in {"script", "deterministic_connector"} else "delegated" if mode == "agent_connector" else "blocked"},
             {"id": "review", "label": "Review emitted event and file diff", "status": "pending"},
             {"id": "receipt", "label": "Persist execution receipt", "status": "pending"},

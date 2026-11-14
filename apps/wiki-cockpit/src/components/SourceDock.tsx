@@ -691,7 +691,7 @@ export function SourceDock({
                 )}
                 {refreshPreview.execution?.mcp_hint && <code>{refreshPreview.execution.mcp_hint}</code>}
                 <ol>
-                  {(refreshPreview.steps ?? []).map((step) => <li key={step.id} data-status={step.status}>{t(`source.refresh.step.${step.id}`)}</li>)}
+                  {(refreshPreview.steps ?? []).map((step) => <li key={step.id} data-status={step.status}>{t(step.id === "inventory" && (step.scope === "configured" || step.scope === "local_raw" || step.scope === "external_returned") ? `source.refresh.step.inventory.${step.scope}` : `source.refresh.step.${step.id}`)}</li>)}
                 </ol>
                 {refreshPreview.discovery && (
                   <div className="sourceDiscovery" aria-label={t("source.refresh.discovery.title")}>

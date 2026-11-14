@@ -9,7 +9,7 @@
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { configureLanguage } from "../data/i18n";
+import { configureLanguage, t } from "../data/i18n";
 import type { BriefSpec, SnapshotBundle, SourceEntity, SourceGroup, SourceGroupsOperationResult, SourceOperationPreview, SourceOperationReceipt } from "../types";
 import { SourceDock } from "./SourceDock";
 import { SourceWorkspace } from "./SourceWorkspace";
@@ -114,6 +114,33 @@ afterEach(() => {
 });
 
 describe("SourceDock operational workspace", () => {
+  it.each([
+    ["configured", "Configured records listed; external source not checked"],
+    ["local_raw", "Selected local raw metadata inventoried; external source not checked"],
+    ["external_returned", "Connector returned records for comparison; source completeness not established"],
+    [undefined, "Review available records; source completeness not established"]
+  ] as const)("labels refresh inventory scope %s without claiming full coverage", async (scope, label) => {
+    const onPreviewRefresh = vi.fn(async (): Promise<SourceOperationPreview> => ({
+      ok: true, preview_token: "synthetic",
+      execution: { mode: "agent_connector", argv: [], mcp_hint: "synthetic", how_to_export: "", requires_agent: true },
+      steps: [{ id: "inventory", label: "synthetic", status: "complete", scope }]
+    }));
+    render(<SourceDock bundle={bundleWith(sourceFixture())} sourceId="source-gmail" onPreviewRefresh={onPreviewRefresh} onNotice={noop} onClose={noop} />);
+    fireEvent.click(screen.getByRole("button", { name: "Update" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check connector and plan" }));
+    expect(await screen.findByText(label)).toBeTruthy();
+    expect(screen.queryByText("Inventory the whole source and detect record changes")).toBeNull();
+  });
+
+  it.each([
+    ["en", "Configured records listed; external source not checked"],
+    ["pt-BR", "Registros configurados listados; fonte externa não verificada"],
+    ["es", "Registros configurados listados; fuente externa no verificada"]
+  ])("translates configured inventory limits in %s", (language, label) => {
+    configureLanguage(language);
+    expect(t("source.refresh.step.inventory.configured")).toBe(label);
+  });
+
   it("filters the registry by attention and valid recipe while preserving mixed counts", () => {
     const ready = sourceFixture({ source_id: "synthetic-ready", title: "Synthetic ready", pending_streams: 0 });
     const invalid = sourceFixture({ source_id: "synthetic-invalid", title: "Synthetic invalid", recipe_ok: false, pending_streams: 0 });
