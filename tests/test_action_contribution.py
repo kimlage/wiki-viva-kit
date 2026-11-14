@@ -561,6 +561,9 @@ def test_prepare_refuses_configured_hook_policy_instead_of_skipping_it(tmp_path,
     config = tmp_path / 'gitconfig'
     config.write_text('[core]\n\thooksPath = ' + str(hooks) + '\n')
     monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(config))
+    dry = run_git_workflow(root, load_config(root), 'prepare_contribution',
+                           {'request': request, 'review': review(request)}, dry_run=True)
+    assert not dry['ok'] and dry['error'] == 'git_commit_hook_policy_unsupported'
     result = call(root, 'prepare', request, review=review(request))
     assert not result['ok'] and result['error'] == 'git_commit_hook_policy_unsupported'
     assert not marker.exists()
@@ -594,6 +597,22 @@ def test_prepare_refuses_configured_clone_template(tmp_path, monkeypatch, source
     result = call(root, 'prepare', request, review=review(request))
     assert not result['ok'] and result['error'] == 'git_clone_template_policy_unsupported'
     assert port._candidate(root, result['branch']) is None
+
+
+@pytest.mark.parametrize('setting,expected', [('init.templateDir', 'git_clone_template_policy_unsupported'),
+                                               ('core.hooksPath', 'git_commit_hook_policy_unsupported')])
+def test_local_integration_gates_refuse_unhandled_hook_or_template(tmp_path, monkeypatch, setting, expected):
+    _, request = fixture(tmp_path)
+    prepared = call(tmp_path, 'prepare', request, review=review(request))
+    assert prepared['ok'], prepared
+    policy_path = tmp_path.parent / (tmp_path.name + '-policy')
+    policy_path.mkdir()
+    monkeypatch.setenv('GIT_CONFIG_COUNT', '1')
+    monkeypatch.setenv('GIT_CONFIG_KEY_0', setting)
+    monkeypatch.setenv('GIT_CONFIG_VALUE_0', str(policy_path))
+    monkeypatch.setattr(port, '_local_git_effect', lambda *_args, **_kwargs: pytest.fail('clone ran'))
+    with pytest.raises(port.ContributionError, match=expected):
+        port._local_integration_gates(tmp_path, prepared['proposal_commit'], required_policy='github_checks')
 
 
 @pytest.mark.skipif(os.name == 'nt' or shutil.which('ssh-keygen') is None, reason='requires POSIX SSH signing fixture')

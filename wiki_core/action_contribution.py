@@ -585,6 +585,8 @@ def _local_integration_gates(root: Path, commit: str, *, effect_runner=None,
     delta to the action/log, so policy and gate code come from its
     approved parent. Ignored caches may change; authored files and HEAD may not.
     """
+    _require_supported_clone_template_policy(root)
+    _require_supported_commit_hook_policy(root)
     with tempfile.TemporaryDirectory(prefix="wiki-contribution-validation-") as temporary:
         scratch = Path(temporary) / "proposal"
         _local_git_effect(root, "clone", "--shared", "--no-checkout", str(root), str(scratch), allow_file=True)
@@ -756,7 +758,10 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
     if (root / "wiki.config.yaml").read_text() != policy:
         raise ContributionError("uncommitted_policy")
     _require_supported_clone_template_policy(root)
+    _require_supported_commit_hook_policy(root)
     signing_policy = _commit_signing_policy(root)
+    if signing_policy[0]:
+        _scratch_signing_settings(root, signing_policy[1])
     if dry_run:
         return {"status": "ready_to_prepare", "material_sha256": material,
                 "branch": branch, "coverage": COVERAGE}
