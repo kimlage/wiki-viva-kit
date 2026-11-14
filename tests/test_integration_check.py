@@ -335,7 +335,7 @@ def test_linked_action_stale_current_terminal_and_indeterminate():
     fm['action_state_history'] = [{'at': '2026-11-14T13:00:00Z'}]
     assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'current'
     fm['action_state'] = 'done'
-    assert check._action_observation(fm, '', pr, 'github.com/owner/repo') is None
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'terminal'
 
 
 def test_action_reference_in_body_and_evidence():
@@ -376,3 +376,16 @@ def test_numeric_reference_and_unreadable_last_receipt():
     assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'fix:action_stale'
     fm['action_state_history'] = [{'at': 'invalid'}]
     assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'waiting:action_reconciliation'
+
+
+def test_yaml_datetime_receipt_is_observed():
+    fm, body = check.parse_frontmatter('---\npage_id: action-a\npage_type: action\naction_state: open\nnext_action: "PR #1"\naction_state_history:\n  - at: 2026-11-12T10:00:00Z\n---\n')
+    pr = candidate() | {'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    assert check._action_observation(fm, body, pr, 'github.com/owner/repo')['status'] == 'fix:action_stale'
+
+
+@pytest.mark.parametrize('body', ['Proposta 1', 'Pull request 1', '1'])
+def test_explicit_proposal_number_in_body(body):
+    pr = candidate() | {'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'a', 'action_state': 'open', 'updated_at': '2026-11-10'}
+    assert check._action_observation(fm, body, pr, 'github.com/owner/repo')['status'] == 'fix:action_stale'

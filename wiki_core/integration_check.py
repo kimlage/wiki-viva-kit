@@ -57,6 +57,8 @@ def _thread_ref(value: str) -> str | None:
 
 
 def _event_time(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value if value.tzinfo is not None else None
     if not isinstance(value, str):
         return None
     try:
@@ -187,7 +189,7 @@ def _action_reference(text: str, number: int, repository: str) -> bool:
     """A local PR number or a URL explicitly belonging to this repository."""
     host, owner, repo = repository.split("/", 2)
     url = rf"https?://{re.escape(host)}/{re.escape(owner)}/{re.escape(repo)}/pull/{number}(?=[^0-9]|$)"
-    local = rf"(?i)(?:\bPR\s*#?\s*|(?<![\w/])#){number}(?![0-9])"
+    local = rf"(?i)(?:\b(?:PR|pull\s+request|proposta)\s*#?\s*|(?<![\w/])#){number}(?![0-9])"
     return bool(re.search(url, text, re.IGNORECASE) or re.search(local, text))
 
 
@@ -211,11 +213,10 @@ def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str)
         references = [references]
     numeric_reference = any(str(ref).strip() == str(number) for ref in references)
     numeric_next = str(frontmatter.get("next_action") or "").strip() == str(number)
-    if not numeric_reference and not numeric_next and not _action_reference(cited, number, repository):
+    numeric_body = body.strip() == str(number)
+    if not numeric_reference and not numeric_next and not numeric_body and not _action_reference(cited, number, repository):
         return None
     state = frontmatter.get("action_state")
-    if state in TERMINAL_ACTION_STATES:
-        return None
     responsible = str(frontmatter.get("owner_ref") or frontmatter.get("owner") or "action_owner")
     if not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", responsible):
         responsible = "action_owner"
@@ -224,6 +225,8 @@ def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str)
     except ActionTransitionError:
         responsible = "action_owner"
     result = {"action_id": action_id, "pr": number, "responsible": responsible}
+    if state in TERMINAL_ACTION_STATES:
+        return {**result, "status": "terminal", "event": "action_already_terminal"}
     event = _event_time(pr.get("mergedAt") if pr.get("state") == "MERGED" else pr.get("closedAt"))
     if state not in NON_TERMINAL_ACTION_STATES or event is None:
         return {**result, "status": "waiting:action_reconciliation", "event": "action_state_or_closure_time_unavailable"}
