@@ -450,13 +450,15 @@ carry the report separately from `last_assistant_message`; when the host does
 not supply the report in that field, this adapter cannot verify that handback.
 Do not enable blocking for that flow without a host adapter that supplies it.
 
-A continuation requires a trusted host-maintained `--stop-state-file` whose
-entire content is `running`. A missing, unreadable, stale or unrecognized
-state must be represented as `unknown` by that host; `stop`, an explicit
+A continuation requires a trusted host-maintained `--stop-state-file` with JSON
+`{"session_id":"<current provider session>","state":"running"}`. The hook
+requires the session ID to match and the file modification time to be no more
+than 45 seconds old, and reads it again after observation. Missing, stale,
+symlinked or invalid state is unknown. `stop`, an explicit
 `stop_requested` input, a STOP notice in the response, or an already active
 stop hook prevents a continuation. This file is an input owned by the host,
 not created by the kit. The hook cannot authenticate its contents or infer a
-user STOP from an unavailable transcript. Only enable blocking if the host
+user STOP from an unavailable transcript; a host must maintain and protect it. Only enable blocking if the host
 can maintain this state for the current session and respect owner STOPs.
 The `--executor-type` option can be repeated; absent it, only `executor`
 qualifies. `--timeout` is bounded to 1–60 seconds. These are opt-in behavior

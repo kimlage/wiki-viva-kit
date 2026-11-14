@@ -11,6 +11,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,15 @@ def _current_branch(root: Path) -> str | None:
         p = subprocess.run(['git', 'symbolic-ref', '--quiet', '--short', 'HEAD'], cwd=root,
                            capture_output=True, text=True, timeout=5)
         return p.stdout.strip() if p.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def _worktree_dirty(root: Path) -> bool | None:
+    try:
+        p = subprocess.run(['git', '--no-optional-locks', 'status', '--porcelain', '--untracked-files=normal'],
+                           cwd=root, capture_output=True, text=True, timeout=5)
+        return bool(p.stdout) if p.returncode == 0 else None
     except (OSError, subprocess.TimeoutExpired):
         return None
 
@@ -98,16 +108,23 @@ def complete_handoff(message: Any) -> bool:
     return True
 
 
-def _stop_state(path: Path | None) -> str:
-    """Only the runtime's explicit current state authorizes enforce mode."""
-    if path is None:
+def _stop_state(path: Path | None, session_id: Any) -> str:
+    """Only fresh, session-bound state from the trusted runtime permits blocking."""
+    if path is None or not isinstance(session_id, str) or not session_id:
         return 'unknown'
     try:
-        if not path.is_file() or path.stat().st_size > 64:
+        if path.is_symlink() or not path.is_file():
             return 'unknown'
-        state = path.read_text(encoding='utf-8').strip().lower()
+        stat = path.stat()
+        age = time.time() - stat.st_mtime
+        if stat.st_size > 4096 or age < 0 or age > 45:
+            return 'unknown'
+        data = json.loads(path.read_text(encoding='utf-8'))
+        if not isinstance(data, dict) or data.get('session_id') != session_id:
+            return 'unknown'
+        state = data.get('state')
         return state if state in {'running', 'stop'} else 'unknown'
-    except (OSError, UnicodeError):
+    except (OSError, UnicodeError, ValueError):
         return 'unknown'
 
 
@@ -119,7 +136,7 @@ def handle(event: dict, root: Path, mode: str, stop_state: str,
         current = stop_state() if callable(stop_state) else stop_state
         return (current != 'running' or event.get('stop_requested') is True
                 or (isinstance(message, str) and bool(re.search(r'\bSTOP\b', message, re.I))))
-    continued = event.get('stop_hook_active') is True
+    continued = event.get('stop_hook_active') is not False
     if name == 'SessionStart':
         observation = check(root, timeout)
         if observation.get('ok'):
@@ -140,11 +157,11 @@ def handle(event: dict, root: Path, mode: str, stop_state: str,
         return {'systemMessage': warning + ' Automatic continuation is held or already attempted.'}
     if name == 'Stop':
         observation = check(root, timeout)
-        if not observation.get('ok'):
-            return {'systemMessage': 'Integration observation unavailable; no mechanical finding was verified.'}
         findings = mechanical_findings(observation, root, _current_branch(root))
+        if _worktree_dirty(root) is True and 'uncommitted_changes' not in findings:
+            findings.append('uncommitted_changes')
         if not findings:
-            return {}
+            return {} if observation.get('ok') else {'systemMessage': 'Integration observation unavailable; no mechanical finding was verified.'}
         reason = 'Mechanical integration findings: ' + ', '.join(findings) + '.'
         if mode == 'enforce' and not stopped() and not continued:
             return {'decision': 'block', 'reason': reason + ' Resolve the specific finding or report its blocker.'}
@@ -156,7 +173,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, help='Repository root; defaults to event cwd')
     parser.add_argument('--mode', choices=('observe', 'enforce'), default='observe')
-    parser.add_argument('--stop-state-file', type=Path, help='Trusted runtime file containing running or stop')
+    parser.add_argument('--stop-state-file', type=Path, help='Fresh trusted runtime JSON with matching session_id and state')
     parser.add_argument('--executor-type', action='append', default=[], help='Exact executor agent_type; repeatable')
     parser.add_argument('--timeout', type=int, default=30)
     args = parser.parse_args()
@@ -171,7 +188,7 @@ def main() -> int:
         if root is None:
             output = {'systemMessage': 'Repository root unavailable; no continuation was requested.'}
         else:
-            output = handle(event, root, args.mode, lambda: _stop_state(args.stop_state_file),
+            output = handle(event, root, args.mode, lambda: _stop_state(args.stop_state_file, event.get('session_id')),
                             set(args.executor_type or ['executor']), args.timeout)
     except (ValueError, OSError, TypeError):
         output = {'systemMessage': 'Hook input unavailable; no continuation was requested.'}

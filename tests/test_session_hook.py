@@ -43,12 +43,12 @@ def test_stop_observe_and_bounded_enforce(monkeypatch, tmp_path):
 def test_only_current_merged_worktree_blocks(monkeypatch, tmp_path):
     monkeypatch.setattr(hook, 'check', lambda *args: {'ok': True, 'hygiene': [{'status': 'fix:merged_worktree_remaining', 'path': str(tmp_path), 'branch': 'wiki/work'}]})
     monkeypatch.setattr(hook, '_current_branch', lambda root: 'wiki/work')
-    result = hook.handle({'hook_event_name': 'Stop'}, tmp_path, 'enforce', 'running', {'executor'}, 10)
+    result = hook.handle({'hook_event_name': 'Stop', 'stop_hook_active': False}, tmp_path, 'enforce', 'running', {'executor'}, 10)
     assert result['decision'] == 'block' and 'merged_branch_or_worktree_remaining' in result['reason']
 
 
 def test_executor_handoff_and_non_executor(tmp_path):
-    event = {'hook_event_name': 'SubagentStop', 'agent_type': 'executor', 'last_assistant_message': 'incomplete'}
+    event = {'hook_event_name': 'SubagentStop', 'agent_type': 'executor', 'last_assistant_message': 'incomplete', 'stop_hook_active': False}
     assert hook.handle(event, tmp_path, 'observe', 'running', {'executor'}, 10)['decision'] == 'block'
     assert 'decision' not in hook.handle(event | {'stop_hook_active': True}, tmp_path, 'observe', 'running', {'executor'}, 10)
     assert hook.handle(event | {'agent_type': 'reviewer'}, tmp_path, 'enforce', 'running', {'executor'}, 10) == {}
@@ -58,16 +58,16 @@ def test_executor_handoff_and_non_executor(tmp_path):
 
 def test_unknown_observation_never_blocks(monkeypatch, tmp_path):
     monkeypatch.setattr(hook, 'check', lambda *args: {'ok': False})
-    out = hook.handle({'hook_event_name': 'Stop'}, tmp_path, 'enforce', 'running', {'executor'}, 1)
+    out = hook.handle({'hook_event_name': 'Stop', 'stop_hook_active': False}, tmp_path, 'enforce', 'running', {'executor'}, 1)
     assert 'decision' not in out
 
 
 def test_protocol_json_for_both_hosts(tmp_path):
     subprocess.run(['git', 'init', '-q', str(tmp_path)], check=True)
     state = tmp_path / 'state'
-    state.write_text('stop')
+    state.write_text(json.dumps({'session_id': 'test-session', 'state': 'stop'}))
     for provider in ('Codex', 'Claude'):
-        event = {'hook_event_name': 'SubagentStop', 'agent_type': 'executor', 'cwd': str(tmp_path), 'last_assistant_message': 'incomplete', 'provider': provider}
+        event = {'hook_event_name': 'SubagentStop', 'agent_type': 'executor', 'cwd': str(tmp_path), 'last_assistant_message': 'incomplete', 'provider': provider, 'session_id': 'test-session'}
         proc = subprocess.run([sys.executable, str(SCRIPT), '--stop-state-file', str(state)], input=json.dumps(event), capture_output=True, text=True)
         assert proc.returncode == 0 and 'decision' not in json.loads(proc.stdout)
 
@@ -83,13 +83,13 @@ def test_subdirectory_resolves_actual_repository_root(tmp_path):
 
 def test_stop_state_is_rechecked_after_observation(monkeypatch, tmp_path):
     state = tmp_path / 'stop-state'
-    state.write_text('running')
+    state.write_text(json.dumps({'session_id': 'test-session', 'state': 'running'}))
     def delayed_check(*args):
-        state.write_text('stop')
+        state.write_text(json.dumps({'session_id': 'test-session', 'state': 'stop'}))
         return {'ok': True, 'hygiene': [{'status': 'fix:dirty_worktree', 'path': str(tmp_path)}]}
     monkeypatch.setattr(hook, 'check', delayed_check)
     monkeypatch.setattr(hook, '_current_branch', lambda root: 'wiki/work')
-    result = hook.handle({'hook_event_name': 'Stop'}, tmp_path, 'enforce', lambda: hook._stop_state(state), {'executor'}, 10)
+    result = hook.handle({'hook_event_name': 'Stop', 'stop_hook_active': False}, tmp_path, 'enforce', lambda: hook._stop_state(state, 'test-session'), {'executor'}, 10)
     assert 'decision' not in result
 
 
@@ -122,3 +122,29 @@ def test_handoff_rejects_partial_sha():
     short = 'a' * 41
     message = f'Proposal: PR 1\nHead: {short}\nBase: {BASE}\nReview: https://example.test/review {short}\nGates: pytest=passed\nPending: none\nResponsible-Thread: thread:sample'
     assert not hook.complete_handoff(message)
+
+
+def test_stop_state_requires_fresh_matching_session(tmp_path):
+    import os
+    state = tmp_path / 'state'
+    state.write_text(json.dumps({'session_id': 'session-one', 'state': 'running'}))
+    assert hook._stop_state(state, 'session-one') == 'running'
+    assert hook._stop_state(state, 'session-two') == 'unknown'
+    os.utime(state, (1, 1))
+    assert hook._stop_state(state, 'session-one') == 'unknown'
+
+
+def test_offline_still_detects_local_dirty_worktree(monkeypatch, tmp_path):
+    subprocess.run(['git', 'init', '-q', str(tmp_path)], check=True)
+    (tmp_path / 'new.txt').write_text('synthetic')
+    monkeypatch.setattr(hook, 'check', lambda *args: {'ok': False})
+    result = hook.handle({'hook_event_name': 'Stop', 'stop_hook_active': False}, tmp_path, 'enforce', 'running', {'executor'}, 10)
+    assert result['decision'] == 'block' and 'uncommitted_changes' in result['reason']
+
+
+def test_missing_attempt_state_never_continues(monkeypatch, tmp_path):
+    monkeypatch.setattr(hook, 'check', lambda *args: {'ok': True, 'hygiene': [{'status': 'fix:dirty_worktree', 'path': str(tmp_path)}]})
+    monkeypatch.setattr(hook, '_current_branch', lambda root: 'wiki/work')
+    for event in ({'hook_event_name': 'Stop'}, {'hook_event_name': 'Stop', 'stop_hook_active': 'false'},
+                  {'hook_event_name': 'SubagentStop', 'agent_type': 'executor', 'last_assistant_message': 'incomplete'}):
+        assert 'decision' not in hook.handle(event, tmp_path, 'enforce', 'running', {'executor'}, 10)
