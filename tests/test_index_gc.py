@@ -379,3 +379,26 @@ def test_live_source_ids_follows_localized_layout(tmp_path: Path) -> None:
     _proposal(ingest / "arquivo" / "gone.md", "archived", "src-archived")
 
     assert gc.live_source_ids(paths) == {"src-live"}
+
+
+def test_legacy_index_routes_refuse_reserved_protected_artifacts(tmp_path, monkeypatch):
+    import sqlite3
+    from wiki_core.index.sqlite import index_pages, index_source, search, search_detailed
+    from wiki_core.traversal import is_protected_artifact
+
+    protected = tmp_path / 'data' / '.WIKI-VIVA-PROTECTED'
+    db = protected / 'index.sqlite'
+    chunk = protected / 'chunks.json'
+    assert is_protected_artifact(db)
+    monkeypatch.setattr(sqlite3, 'connect', lambda *args, **kwargs: pytest.fail('protected database connected'))
+    with pytest.raises(ValueError, match='protected artifacts'):
+        index_source(tmp_path / 'index.sqlite', chunk)
+    with pytest.raises(ValueError, match='protected artifacts'):
+        index_pages(db, [])
+    with pytest.raises(ValueError, match='protected artifacts'):
+        search(db, 'word')
+    result = search_detailed(db, 'word')
+    assert result['status'] == 'index_error'
+    assert result['error'] == 'protected_artifact_requires_bound_dispatch'
+    assert result['hits'] == []
+    assert not protected.exists()

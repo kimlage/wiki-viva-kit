@@ -11,6 +11,14 @@ import os
 from pathlib import Path
 
 
+PROTECTED_ARTIFACT_COMPONENT = '.wiki-viva-protected'
+
+
+def is_protected_artifact(path: Path) -> bool:
+    """Reserved application route; the name itself does not grant access."""
+    return any(part.casefold() == PROTECTED_ARTIFACT_COMPONENT for part in Path(path).parts)
+
+
 def is_in_nested_git(path: Path, *, wiki_root: Path) -> bool:
     """Identify an existing nested-repository or symlink boundary for a file.
 
