@@ -69,6 +69,18 @@ def _blob(root: Path, revision: str, path: str) -> str:
     return p.stdout.decode("utf-8")
 
 
+def _tree_file_mode(root: Path, revision: str, path: str) -> str:
+    """Read one literal Git tree entry, without treating a symlink as a file."""
+    row = _git(root, "ls-tree", "-z", revision, "--", ":(literal)" + path)
+    if not row.endswith("\0") or row.count("\0") != 1:
+        raise ContributionError("candidate_file_mode_unavailable")
+    header, sep, actual_path = row[:-1].partition("\t")
+    parts = header.split(" ")
+    if not sep or actual_path != path or len(parts) != 3 or parts[1] != "blob":
+        raise ContributionError("candidate_file_mode_unavailable")
+    return parts[0]
+
+
 def _string(value: Any, label: str, limit: int = 1000) -> str:
     if not isinstance(value, str) or not value.strip() or len(value) > limit or "\x00" in value:
         raise ContributionError("invalid_" + label)
@@ -170,6 +182,11 @@ def _entry(root: Path, commit: str, path: str, request: dict, material: str,
     _git(root, "merge-base", "--is-ancestor", parent, approved)
     frozen_config = _parent_policy(root, parent)
     log_ref = WikiPaths(root, frozen_config).log_page.relative_to(root).as_posix()
+    for ref in (path, log_ref):
+        original_mode = _tree_file_mode(root, parent, ref)
+        proposed_mode = _tree_file_mode(root, commit, ref)
+        if original_mode not in {"100644", "100755"} or proposed_mode != original_mode:
+            raise ContributionError("candidate_file_mode_changed")
     text = _blob(root, commit, path)
     fm, _ = _parse_document(text)
     history = fm.get("action_state_history") or []

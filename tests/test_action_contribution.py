@@ -384,6 +384,27 @@ def test_reused_candidate_revalidates_effective_bytes(tmp_path, field):
     assert not result["canonical_body_adopted"]
 
 
+@pytest.mark.parametrize('target', ['action', 'log'])
+@pytest.mark.parametrize('mode', ['100755', '120000'])
+def test_candidate_refuses_changed_git_mode_without_materializing_symlink(tmp_path, target, mode):
+    _, request = fixture(tmp_path)
+    prepared = call(tmp_path, 'prepare', request, review=review(request))
+    assert prepared['ok'], prepared
+    commit = prepared['proposal_commit']
+    action = request['files'][0]['path']
+    ref = action if target == 'action' else 'memories/system/log.md'
+    # The ordinary candidate is valid before its tree mode is changed.
+    port._entry(tmp_path, commit, action, request, port.digest(request))
+    blob = git(tmp_path, 'rev-parse', f'{commit}:{ref}')
+    parent = git(tmp_path, 'rev-parse', commit + '^')
+    git(tmp_path, 'read-tree', commit)
+    git(tmp_path, 'update-index', '--add', '--cacheinfo', f'{mode},{blob},{ref}')
+    tree = git(tmp_path, 'write-tree')
+    altered = git(tmp_path, 'commit-tree', tree, '-p', parent, '-m', 'synthetic altered mode')
+    with pytest.raises(port.ContributionError, match='candidate_file_mode_changed'):
+        port._entry(tmp_path, altered, action, request, port.digest(request))
+
+
 def test_structured_review_keeps_nonblocking_findings_losslessly(tmp_path):
     _, request = fixture(tmp_path)
     report = review(request)
