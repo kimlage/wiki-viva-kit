@@ -1288,13 +1288,22 @@ def _document_for_audit(text: str) -> tuple[dict[str, Any], str] | None:
         return None
 
 
-def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000) -> bool:
+def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000,
+                         max_value_bytes: int = 8_000_000) -> bool:
     """Compare loaded values with bounded work; reject cycles and unsupported keys."""
     scalar_key_types = {str, int, float, bool, bytes, type(None), date, datetime}
     pending = [(False, before, after)]
     active: set[tuple[int, int]] = set()
     done: set[tuple[int, int]] = set()
+    scalar_done: set[tuple[int, int]] = set()
     visited = 0
+    value_bytes = 0
+
+    def charge(size: int) -> None:
+        nonlocal value_bytes
+        value_bytes += size
+        if value_bytes > max_value_bytes:
+            raise ValueError("comparison value budget exceeded")
 
     def typed_key(value: Any) -> tuple:
         value_type = type(value)
@@ -1309,11 +1318,13 @@ def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000) -
         if value_type is int:
             # Hash randomized byte strings rather than attacker-selected
             # integer hashes, without a decimal conversion size limit.
-            magnitude = abs(value)
-            size = max(1, (magnitude.bit_length() + 7) // 8)
+            size = max(1, (value.bit_length() + 7) // 8)
             if size > 1_000_000:
                 raise ValueError("integer comparison key too large")
-            return value_type, value < 0, magnitude.to_bytes(size, "big")
+            charge(size)
+            return value_type, value < 0, abs(value).to_bytes(size, "big")
+        if value_type in {str, bytes}:
+            charge(len(value))
         if value_type is float:
             import struct
             return value_type, struct.pack("!d", value)
@@ -1360,11 +1371,18 @@ def _comment_typed_equal(before: Any, after: Any, *, max_nodes: int = 100_000) -
             else:
                 pending.extend((False, a, b) for a, b in zip(left, right))
         else:
+            if pair in scalar_done:
+                continue
             try:
-                if typed_key(left) != typed_key(right):
+                if type(left) is int:
+                    charge(max(1, (left.bit_length() + 7) // 8))
+                    if left != right:
+                        return False
+                elif typed_key(left) != typed_key(right):
                     return False
             except (TypeError, ValueError):
                 return False
+            scalar_done.add(pair)
     return True
 
 

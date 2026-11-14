@@ -1463,3 +1463,14 @@ def test_comment_typed_comparison_handles_large_integer_without_decimal_conversi
     value = 2 ** 16000 + 123
     assert transition_module._comment_typed_equal({'value': value, value: 'x'}, {'value': value, value: 'x'})
     assert not transition_module._comment_typed_equal({'value': value}, {'value': -value})
+
+
+def test_comment_typed_comparison_memoizes_scalars_and_limits_value_work():
+    left = 2 ** 8192 + 1
+    right = int.from_bytes(left.to_bytes(1025, 'big'), 'big')
+    assert left == right and left is not right
+    assert transition_module._comment_typed_equal([left] * 5000, [right] * 5000, max_value_bytes=2000)
+    values = [left + i for i in range(4)]
+    assert not transition_module._comment_typed_equal(values, list(values), max_value_bytes=2000)
+    too_large = -(2 ** 8_000_000)
+    assert not transition_module._comment_typed_equal({too_large: 'x'}, {too_large: 'x'})
