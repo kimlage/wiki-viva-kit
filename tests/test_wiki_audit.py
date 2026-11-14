@@ -3114,3 +3114,38 @@ def test_logical_comment_does_not_discharge_factual_impact_without_physical_witn
     audit.audit_impact(errors, config)
     assert any(rel in error and 'impacted by' in error for error in errors)
     assert not audit._logical_comment_only(previous, current + '\nA new factual assertion.\n')
+
+
+@pytest.mark.parametrize('receipt_kind', ['v4', 'v7'])
+@pytest.mark.parametrize('mutation', ['bool_to_int', 'int_to_float', 'nested_bool', 'payload'])
+def test_logical_comment_rejects_typed_fact_and_payload_tampering(tmp_path, receipt_kind, mutation):
+    import hashlib
+    from tests.test_action_transition import _write_action
+    from wiki_core.action_transition import (_parse_document, _receipt_id, _render_document,
+        operational_comment_receipt, transition_action_page)
+
+    audit = _load_wiki_audit()
+    path = _write_action(tmp_path, extra={'approved': True, 'count': 1, 'nested': {'flag': True}})
+    logical_before = path.read_text()
+    if receipt_kind == 'v7':
+        path.write_bytes(path.read_bytes().replace(b'\n', b'\r\n'))
+    transition_action_page(tmp_path, path, 'open', expected_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        recorded_at='2026-07-11T15:00:00Z', dialogue_actor='operator',
+        dialogue_event={'event_id': 'synthetic-tamper', 'kind': 'comment',
+                        'coordinator': 'research', 'text': 'Synthetic comment.'})
+    physical_after = path.read_bytes().decode('utf-8')
+    assert audit._logical_comment_only(logical_before, physical_after)
+    fm, body = _parse_document(physical_after)
+    if mutation == 'bool_to_int':
+        fm['approved'] = 1
+    elif mutation == 'int_to_float':
+        fm['count'] = 1.0
+    elif mutation == 'nested_bool':
+        fm['nested']['flag'] = 1
+    else:
+        entry = fm['action_state_history'][-1]
+        entry['payload_sha256'] = '0' * 64
+        entry['receipt_id'] = _receipt_id(entry)
+    tampered = _render_document(fm, body)
+    assert not audit._logical_comment_only(logical_before, tampered)
+    assert operational_comment_receipt(logical_before, tampered) is None

@@ -655,7 +655,7 @@ def _logical_comment_only(previous: str, current: str) -> bool:
     This classification never supplies a CAS value or an exact-byte receipt.
     """
     from wiki_core.action_transition import (
-        ActionTransitionError, _comment_suffix_preserves_content, _logical_eol,
+        ActionTransitionError, _comment_payload_matches, _comment_suffix_preserves_content, _logical_eol,
         _parse_document, _render_document, action_transition_diagnostics,
         operational_comment_receipt,
     )
@@ -677,6 +677,7 @@ def _logical_comment_only(previous: str, current: str) -> bool:
         if version != 'wiki_action_transition_receipt.v7':
             return False
         return (_comment_suffix_preserves_content(old_fm, new_fm, old_body, new_body)
+                and _comment_payload_matches(new_history[-1], new_fm)
                 and not action_transition_diagnostics(before, after)
                 and _render_document(new_fm, new_body) == after)
     except (ActionTransitionError, TypeError, ValueError):

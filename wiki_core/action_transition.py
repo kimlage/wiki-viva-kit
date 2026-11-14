@@ -1301,8 +1301,12 @@ def _comment_suffix_preserves_content(previous: dict, current: dict,
             or previous_body != current_body):
         return False
     ignored = {_HISTORY_FIELD, "action_dialogue"}
-    if ({k: v for k, v in previous.items() if k not in ignored}
-            != {k: v for k, v in current.items() if k not in ignored}):
+    from wiki_core.information_relations import semantic_equal
+    try:
+        if not semantic_equal({k: v for k, v in previous.items() if k not in ignored},
+                              {k: v for k, v in current.items() if k not in ignored}):
+            return False
+    except (RecursionError, TypeError):
         return False
     old_events = previous.get("action_dialogue") or []
     new_events = current.get("action_dialogue") or []
@@ -1313,9 +1317,13 @@ def _comment_suffix_preserves_content(previous: dict, current: dict,
         validate_history(new_events)
     except ValueError:
         return False
-    if (not isinstance(old_history, list) or not isinstance(new_history, list)
-            or new_history[:len(old_history)] != old_history
-            or new_events[:len(old_events)] != old_events):
+    if not isinstance(old_history, list) or not isinstance(new_history, list):
+        return False
+    try:
+        if (not semantic_equal(new_history[:len(old_history)], old_history)
+                or not semantic_equal(new_events[:len(old_events)], old_events)):
+            return False
+    except (RecursionError, TypeError):
         return False
     events, receipts = new_events[len(old_events):], new_history[len(old_history):]
     if not events or len(events) != len(receipts):
@@ -1332,6 +1340,14 @@ def _comment_suffix_preserves_content(previous: dict, current: dict,
         and event["at"] == receipt.get("at")
         and event["before_sha256"] == receipt.get("before_sha256")
         for event, receipt in zip(events, receipts))
+
+
+def _comment_payload_matches(receipt: Mapping[str, Any], current: Mapping[str, Any]) -> bool:
+    payload = {"reason": receipt.get("reason", ""),
+               "support": {"action_dialogue": current.get("action_dialogue")}}
+    expected = _sha256_text(json.dumps(payload, ensure_ascii=False,
+                                     separators=(",", ":"), sort_keys=True))
+    return receipt.get("payload_sha256") == expected
 
 
 def operational_comment_receipt(previous_text: str, current_text: str) -> dict | None:
@@ -1357,11 +1373,7 @@ def operational_comment_receipt(previous_text: str, current_text: str) -> dict |
     if (receipt["before_sha256"] != _sha256_text(previous_text)
             or _render_document(current, new_body) != current_text):
         return None
-    payload = {"reason": receipt.get("reason", ""),
-               "support": {"action_dialogue": current["action_dialogue"]}}
-    expected = _sha256_text(json.dumps(payload, ensure_ascii=False,
-                                     separators=(",", ":"), sort_keys=True))
-    if receipt["payload_sha256"] != expected:
+    if not _comment_payload_matches(receipt, current):
         return None
     return {"receipt_id": receipt["receipt_id"],
             "event_id": current["action_dialogue"][-1]["event_id"],
