@@ -116,6 +116,17 @@ def quick_commands(root: Path, commit: str, deadline: float) -> list[list[str]]:
         raise Blocked('invalid pre_push.quick_commands configuration') from None
 
 
+def bind_python_command(command: list[str], *, executable: str, windows: bool) -> list[str]:
+    """Use the hook's selected interpreter for conventional Python aliases."""
+    alias = command[0].lower() if windows else command[0]
+    aliases = {'python', 'python3'} | ({'python.exe', 'python3.exe'} if windows else set())
+    if alias not in aliases:
+        return command
+    if not executable:
+        raise Blocked('selected Python interpreter unavailable')
+    return [executable, *command[1:]]
+
+
 def verify_worktree(root: Path, expected: str, deadline: float) -> None:
     """Compare raw worktree bytes, including submodules, with the pushed tree."""
     head = git(root, deadline, 'rev-parse', '--verify', 'HEAD^{commit}').decode().strip()
@@ -246,7 +257,7 @@ def check(root: Path, updates: str, deadline: float, push_url: str | None) -> No
                 raise Blocked('consumer checks require the pushed HEAD to be checked out')
             verify_worktree(root, changes[0][1], deadline)
         for command in commands:
-            run(root, command, deadline)
+            run(root, bind_python_command(command, executable=sys.executable, windows=os.name == 'nt'), deadline)
 
 
 def install(root: Path) -> None:

@@ -43,8 +43,13 @@ pre_push:
 
 Only configure commands that are safe to run automatically and finish within
 the shared budget. Configuration comes from each pushed commit, not from an
-uncommitted or untracked file. These commands run from the working tree, so configured commands
-require every pushed tip to be the checked-out HEAD and tracked files to match
+uncommitted or untracked file. Configured commands whose executable is `python`
+or `python3` use the same interpreter selected by
+the hook. On Windows this also applies to `python.exe` and `python3.exe`, with
+case-insensitive names. Explicit paths, version-specific names and other
+commands are run as declared. This avoids requiring manual `.venv` activation.
+Commands run from the working tree, so every pushed tip must be the checked-out
+HEAD and tracked files must match
 HEAD. The hook blocks if index flags such as `assume-unchanged` or
 `skip-worktree` could hide changes, or if submodules are uninitialized or
 different from the committed state. It compares raw tracked bytes to Git blobs,
