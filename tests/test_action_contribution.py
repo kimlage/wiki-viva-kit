@@ -406,6 +406,46 @@ def test_candidate_refuses_changed_git_mode_without_materializing_symlink(tmp_pa
         port._entry(tmp_path, altered, action, request, port.digest(request))
 
 
+@pytest.mark.parametrize('raw_is_valid', [False, True])
+def test_candidate_validation_uses_real_objects_despite_replace_ref(tmp_path, raw_is_valid):
+    _, request = fixture(tmp_path)
+    prepared = call(tmp_path, 'prepare', request, review=review(request))
+    assert prepared['ok'], prepared
+    valid = prepared['proposal_commit']
+    action = request['files'][0]['path']
+    original = port._blob(tmp_path, valid, action)
+    altered = original.replace('Reviewed historical evidence.', 'Different synthetic evidence.')
+    assert altered != original
+    blob = subprocess.check_output(['git', 'hash-object', '-w', '--stdin'], cwd=tmp_path,
+                                   input=altered.encode()).decode().strip()
+    parent = git(tmp_path, 'rev-parse', valid + '^')
+    git(tmp_path, 'read-tree', valid)
+    git(tmp_path, 'update-index', '--add', '--cacheinfo', f'100644,{blob},{action}')
+    invalid = git(tmp_path, 'commit-tree', git(tmp_path, 'write-tree'), '-p', parent,
+                  '-m', 'synthetic different body')
+    raw, replacement = (valid, invalid) if raw_is_valid else (invalid, valid)
+    git(tmp_path, 'replace', raw, replacement)
+    if raw_is_valid:
+        port._entry(tmp_path, raw, action, request, port.digest(request))
+    else:
+        with pytest.raises(port.ContributionError, match='candidate_material_or_frontmatter_tampered'):
+            port._entry(tmp_path, raw, action, request, port.digest(request))
+
+
+def test_candidate_validation_ignores_inherited_git_directory(tmp_path, monkeypatch):
+    root = tmp_path / 'selected'
+    root.mkdir()
+    _, request = fixture(root)
+    prepared = call(root, 'prepare', request, review=review(request))
+    assert prepared['ok'], prepared
+    other = tmp_path / 'other'
+    other.mkdir()
+    git(other, 'init', '-q')
+    monkeypatch.setenv('GIT_DIR', str(other / '.git'))
+    monkeypatch.setenv('GIT_INDEX_FILE', str(other / 'synthetic-index'))
+    port._entry(root, prepared['proposal_commit'], request['files'][0]['path'], request, port.digest(request))
+
+
 @pytest.mark.parametrize('target', ['action', 'log'])
 @pytest.mark.parametrize('mode', ['100755', '120000'])
 def test_canonical_mode_change_requires_reconciliation(tmp_path, monkeypatch, target, mode):

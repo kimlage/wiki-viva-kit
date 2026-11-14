@@ -58,16 +58,45 @@ def _run(root: Path, *argv: str, timeout: int = 120) -> str:
     return p.stdout.strip()
 
 
+def _local_git_bytes(root: Path, *argv: str) -> bytes:
+    """Observe local Git objects without inherited object/replace overrides."""
+    from wiki_core.git_env import local_git_environment, local_git_executable
+    try:
+        result = subprocess.run([local_git_executable(), "--no-lazy-fetch", "--literal-pathspecs", *argv],
+                                cwd=root, env=local_git_environment(), capture_output=True, timeout=120)
+    except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+        raise ContributionError("local_git_observation_unavailable") from exc
+    if result.returncode:
+        raise ContributionError("local_git_observation_unavailable")
+    return result.stdout
+
+
 def _git(root: Path, *argv: str) -> str:
+    if argv and argv[0] in {"rev-parse", "merge-base", "diff", "ls-files", "status", "log"}:
+        return os.fsdecode(_local_git_bytes(root, *argv)).strip()
     return _run(root, "git", *argv)
+
+
+def _local_git_probe(root: Path, *argv: str) -> subprocess.CompletedProcess:
+    """Observe a short Git result while preserving the distinction 0/1/error."""
+    from wiki_core.git_env import local_git_environment, local_git_executable
+    try:
+        result = subprocess.run([local_git_executable(), "--no-lazy-fetch", *argv], cwd=root,
+                                env=local_git_environment(), stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, timeout=120)
+    except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+        raise ContributionError("local_git_observation_unavailable") from exc
+    if result.returncode not in (0, 1) or len(result.stdout) > 4096:
+        raise ContributionError("local_git_observation_unavailable")
+    return result
 
 
 def _blob(root: Path, revision: str, path: str) -> str:
     # Do not strip terminal newlines: these hashes bind the actual bytes.
-    p = subprocess.run(["git", "show", f"{revision}:{path}"], cwd=root, capture_output=True)
-    if p.returncode:
-        raise ContributionError("source_blob_unavailable")
-    return p.stdout.decode("utf-8")
+    try:
+        return _local_git_bytes(root, "show", f"{revision}:{path}").decode("utf-8")
+    except (ContributionError, UnicodeError) as exc:
+        raise ContributionError("source_blob_unavailable") from exc
 
 
 def _tree_file_mode(root: Path, revision: str, path: str) -> str:
@@ -228,7 +257,10 @@ def _entry(root: Path, commit: str, path: str, request: dict, material: str,
     if _blob(root, commit, log_ref) not in expected_logs:
         raise ContributionError("candidate_log_annotation_tampered")
     allowed = [path, log_ref]
-    if _git(root, "diff", "--name-only", parent, commit).splitlines() != sorted(allowed):
+    changed = _local_git_bytes(root, "diff", "--name-only", "--no-ext-diff", "--no-textconv",
+                               "-z", parent, commit, "--")
+    paths = [os.fsdecode(item) for item in changed.split(b"\0") if item]
+    if paths != sorted(allowed):
         raise ContributionError("proposal_exceeds_body_and_log_annotation")
     return entry, text
 
@@ -273,13 +305,11 @@ def _gate_input_fingerprint(root: Path) -> str:
     digest = hashlib.sha256()
     for args in commands:
         try:
-            result = subprocess.run(["git", *args], cwd=root, capture_output=True, timeout=120)
-        except (OSError, subprocess.TimeoutExpired) as exc:
+            output = _local_git_bytes(root, *args)
+        except ContributionError as exc:
             raise ContributionError("gate_input_state_unavailable") from exc
-        if result.returncode:
-            raise ContributionError("gate_input_state_unavailable")
-        digest.update(len(result.stdout).to_bytes(8, "big"))
-        digest.update(result.stdout)
+        digest.update(len(output).to_bytes(8, "big"))
+        digest.update(output)
     return digest.hexdigest()
 
 
@@ -430,9 +460,8 @@ def _candidate(root: Path, branch: str) -> str | None:
 
 
 def _candidate_ref(root: Path, ref: str) -> str | None:
-    p = subprocess.run(["git", "rev-parse", "--verify", ref],
-                       cwd=root, text=True, capture_output=True)
-    return p.stdout.strip() if p.returncode == 0 else None
+    p = _local_git_probe(root, "rev-parse", "--verify", "--quiet", ref)
+    return os.fsdecode(p.stdout).strip() if p.returncode == 0 else None
 
 
 def _known_base(root: Path, path: str, item: dict) -> str:
@@ -797,8 +826,7 @@ def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
     if merged_text != expected:
         raise ContributionError("merged_body_readback_mismatch")
     current_text = _blob(root, remote_head, path)
-    p = subprocess.run(["git", "merge-base", "--is-ancestor", merge, "HEAD"], cwd=root,
-                       capture_output=True)
+    p = _local_git_probe(root, "merge-base", "--is-ancestor", merge, "HEAD")
     target, _ = _contained_action_path(root, path)
     # Git may check out the same canonical text with CRLF. This is a logical
     # adoption comparison; the readback digest below remains the Git blob's.
