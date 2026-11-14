@@ -10,16 +10,19 @@ The installer configures `core.hooksPath` locally and refuses to replace an
 existing hook or configured hook path. If hooks already exist, integrate this
 script manually in that hook; do not silently discard them. The installed hook
 uses the script and dependencies in the invoking worktree. A worktree without
-the script cannot push until it is updated. The default budget is
+the script cannot push until it is updated. It uses that worktree's `.venv`
+Python when present, otherwise `python3` from `PATH`; the selected interpreter
+must have the kit's dependencies. The default budget is
 10 seconds; timeout, failed checks, and incomplete object reads block the push.
 
 For each non-deleted ref, the hook checks whitespace in the pushed tree range
 and runs the kit's secret detector on introduced blobs, path names, commit
-messages and tag objects, including blobs later removed before the tip. For a new ref the hook
-performs one bounded `git ls-remote` query against the actual push URL for its
-current `main` and
-uses it as a baseline only if present locally and ancestral; otherwise it scans
-the full reachable history. Local remote-tracking refs are never proof of the
+messages and tag objects, including blobs later removed before the tip. For a
+new ref the hook performs one bounded `git ls-remote` query against the actual
+push URL and uses its current `main` as a baseline only if present locally and
+ancestral. When an `insteadOf` rule could rewrite the supplied URL again, or
+the baseline is unavailable, the hook scans the full reachable history. Local
+remote-tracking refs are never proof of the
 server's state. The server can change after the observation, so this is not a
 substitute for server-side secret protection. A missing object or
 more than 50 MB of candidate objects blocks instead of silently skipping the

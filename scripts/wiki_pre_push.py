@@ -6,7 +6,6 @@ import argparse
 import hashlib
 import os
 import re
-import shlex
 import stat
 import subprocess
 import sys
@@ -177,6 +176,30 @@ def verify_worktree(root: Path, expected: str, deadline: float) -> None:
             raise Blocked('tracked file content differs from commit')
 
 
+def remote_url_may_be_rewritten(root: Path, url: str, deadline: float) -> bool:
+    """A second insteadOf rewrite could direct ls-remote to another server."""
+    try:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return True
+        result = subprocess.run(['git', 'config', '--null', '--get-regexp', r'^url\..*\.insteadof$'],
+                                cwd=root, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                timeout=remaining)
+        if result.returncode == 1 and not result.stdout:
+            return False
+        if result.returncode:
+            return True
+        for record in result.stdout.split(b'\0'):
+            if not record:
+                continue
+            _key, separator, prefix = record.partition(b'\n')
+            if not separator or os.fsencode(url).startswith(prefix):
+                return True
+        return False
+    except (OSError, subprocess.TimeoutExpired):
+        return True
+
+
 def check(root: Path, updates: str, deadline: float, push_url: str | None) -> None:
     changes: list[tuple[str, str, str | None]] = []
     for line in updates.splitlines():
@@ -192,7 +215,8 @@ def check(root: Path, updates: str, deadline: float, push_url: str | None) -> No
     # A remote-tracking ref may be stale. For a newly created ref, only an
     # observed live server main can bound the historical inventory.
     remote_main = None
-    if push_url and any(old is None for _, _, old in changes):
+    if (push_url and any(old is None for _, _, old in changes)
+            and not remote_url_may_be_rewritten(root, push_url, deadline)):
         try:
             lines = git(root, deadline, 'ls-remote', '--heads', '--', push_url, 'refs/heads/main').splitlines()
             if len(lines) == 1:
@@ -242,8 +266,11 @@ def install(root: Path) -> None:
     if hook.exists():
         raise Blocked('pre-push hook already exists')
     hook.write_text('#!/bin/sh\nroot=$(git rev-parse --show-toplevel) || exit 1\n'
-                    'exec ' + shlex.quote(sys.executable)
-                    + ' "$root/scripts/wiki_pre_push.py" --root "$root" "$@"\n', encoding='utf-8')
+                    'if [ -x "$root/.venv/bin/python3" ]; then py="$root/.venv/bin/python3"\n'
+                    'elif [ -x "$root/.venv/Scripts/python.exe" ]; then py="$root/.venv/Scripts/python.exe"\n'
+                    'else py=$(command -v python3) || { echo "pre-push blocked: Python unavailable" >&2; exit 1; }; fi\n'
+                    '"$py" -c "import yaml" >/dev/null 2>&1 || { echo "pre-push blocked: Python dependencies unavailable" >&2; exit 1; }\n'
+                    'exec "$py" "$root/scripts/wiki_pre_push.py" --root "$root" "$@"\n', encoding='utf-8')
     hook.chmod(0o755)
     run(root, ['git', 'config', '--local', 'core.hooksPath', str(hookdir)], deadline)
     print('pre-push installed for this repository')

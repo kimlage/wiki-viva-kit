@@ -1,4 +1,6 @@
 import json
+import os
+import shutil
 import subprocess
 import sys
 import time
@@ -7,6 +9,11 @@ from pathlib import Path
 import pytest
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts/wiki_pre_push.py'
+
+
+@pytest.fixture(autouse=True)
+def python_on_path(monkeypatch):
+    monkeypatch.setenv('PATH', str(Path(sys.executable).parent) + os.pathsep + os.environ.get('PATH', ''))
 
 
 def git(root, *args):
@@ -373,7 +380,11 @@ def test_installed_hook_survives_removal_of_installing_worktree(tmp_path):
     other = tmp_path / 'temporary'
     git(root, 'worktree', 'add', '-qb', 'temporary', str(other))
     (other / 'scripts').symlink_to(SCRIPT.parent, target_is_directory=True)
-    subprocess.run([sys.executable, str(SCRIPT), '--root', str(other), '--install'], check=True)
+    python = other / '.venv' / 'bin' / 'python3'
+    python.parent.mkdir(parents=True)
+    python.symlink_to(sys.executable)
+    subprocess.run([str(python), str(SCRIPT), '--root', str(other), '--install'], check=True)
+    shutil.rmtree(other / '.venv')
     (other / 'scripts').unlink()
     git(root, 'worktree', 'remove', str(other))
     push = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/main'], cwd=root,
@@ -397,3 +408,22 @@ def test_consumer_check_rejects_tracked_directory_replaced_by_symlink(tmp_path):
     directory.symlink_to(outside, target_is_directory=True)
     result = hook(root, base, head)
     assert result.returncode != 0 and 'symlink' in result.stderr
+
+
+def test_chained_url_rewrites_cannot_hide_secret_from_push_target(tmp_path):
+    root = repo(tmp_path)
+    target = tmp_path / 'target.git'
+    other = tmp_path / 'other.git'
+    for remote in (target, other):
+        subprocess.run(['git', 'init', '--bare', '-q', str(remote)], check=True)
+    secret = 'sk-proj-' + 'j' * 48
+    commit(root, 'token=' + secret + '\n')
+    git(root, 'push', '-q', str(other), 'HEAD:refs/heads/main')
+    git(root, 'remote', 'add', 'origin', 'alias:')
+    git(root, 'config', f'url.{target}.insteadOf', 'alias:')
+    git(root, 'config', f'url.{other}.insteadOf', str(target))
+    subprocess.run([sys.executable, str(SCRIPT), '--root', str(root), '--install'], check=True)
+    result = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/topic'], cwd=root,
+                            capture_output=True, text=True, timeout=12)
+    assert result.returncode != 0 and 'secret detected' in result.stderr
+    assert secret not in result.stderr
