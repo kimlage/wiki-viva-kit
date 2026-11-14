@@ -551,3 +551,48 @@ def test_folder_request_builder_is_final_for_capture_and_cli_emission(project, t
     emitted = project / capsys.readouterr().out.strip()
     assert json.loads(emitted.read_text()) == cli_observed[-1]
     assert cli_observed[-1]['folder_request_id'] == folder_request_identity(cli_observed[-1])
+
+
+def test_mismatched_folder_request_identity_blocks_before_artifact_writes(project, monkeypatch):
+    from wiki_core.folder_request_identity_v2 import folder_request_identity
+    import wiki_core.ingest.pipeline as pipeline
+
+    sha, selection = setup(project)
+    original = pipeline.build_context_request
+
+    def mismatched(*args, **kwargs):
+        request = original(*args, **kwargs)
+        request['source_id'] = 'synthetic-other-source'
+        request['folder_request_id'] = folder_request_identity(request)
+        return request
+
+    monkeypatch.setattr(pipeline, 'build_context_request', mismatched)
+    result = run(str(project / 'a/source.md'), 'system', project, load_config(project),
+                 approved_revision=sha, folder_selection=selection)
+    assert result.blocked
+    assert not result.request_path
+    assert not FolderWikiPaths(project, load_config(project), 'a').derived_root.exists()
+
+
+def test_folder_request_selection_refuses_mismatched_source_before_open(project, monkeypatch):
+    sha, selection = setup(project)
+    result = run(str(project / 'a/source.md'), 'system', project, load_config(project),
+                 approved_revision=sha, folder_selection=selection)
+    assert not result.blocked and result.request_path
+    target = project / result.request_path
+    request = json.loads(target.read_text())
+    paths = FolderWikiPaths(project, load_config(project), 'a')
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_llm_context_pass.py'
+    spec = importlib.util.spec_from_file_location('folder_request_source_guard', script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module._emitted_requests(paths, source_id=request['source_id'], folder_request=request)
+    original = Path.read_text
+
+    def no_request_open(path, *args, **kwargs):
+        assert path != target, 'mismatched retained request was opened'
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'read_text', no_request_open)
+    assert module._emitted_requests(paths, source_id='synthetic-other-source', folder_request=request) == []
+    assert module._emitted_requests(paths, source_id=None, folder_request=request) == []

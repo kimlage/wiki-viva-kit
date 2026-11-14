@@ -123,6 +123,8 @@ def validate_folder_artifact_paths(root, paths, source_id, *, stream=False, scor
     files = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
              paths.chunks / f'{source_id}.json']
     if request is not None:
+        if not isinstance(request, dict) or request.get('source_id') != source_id:
+            raise ValueError('folder request source identity differs')
         from wiki_core.folder_request_identity_v2 import folder_request_path
         files.append(folder_request_path(paths, request))
     if stream:

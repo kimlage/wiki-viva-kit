@@ -164,6 +164,8 @@ def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id:
     if not paths.extraction_events.exists():
         return requests
     if folder_request is not None:
+        if not isinstance(source_id, str) or not isinstance(folder_request, dict) or folder_request.get('source_id') != source_id:
+            return requests
         from wiki_core.folder_request_identity_v2 import folder_request_path
         exact = folder_request_path(paths, folder_request)
         candidates = [exact] if not exact.is_symlink() and exact.is_file() else []
