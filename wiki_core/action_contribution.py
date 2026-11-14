@@ -117,7 +117,7 @@ def _local_git_probe(root: Path, *argv: str) -> subprocess.CompletedProcess:
     return result
 
 
-def _local_process_environment(*, allow_file: bool = False) -> dict[str, str]:
+def _local_process_environment(root: Path, *, allow_file: bool = False) -> dict[str, str]:
     """Keep non-Git settings and auth while binding local Git to its cwd."""
     from wiki_core.git_env import local_git_executable
     preserved = {"GIT_ASKPASS", "GIT_SSH", "GIT_SSH_COMMAND", "GIT_SSH_VARIANT",
@@ -133,16 +133,18 @@ def _local_process_environment(*, allow_file: bool = False) -> dict[str, str]:
     env["GIT_CONFIG_NOSYSTEM"] = "1"
     overrides = [("core.fsmonitor", "false"), ("core.untrackedCache", "false"),
                  ("core.hooksPath", os.devnull), ("core.useReplaceRefs", "false")]
-    # Preserve the existing caller's explicit diff whitespace policy without
-    # forwarding unrelated injected Git settings, which can select another
-    # repository or execute programs. Git itself validates this value.
-    count = os.environ.get("GIT_CONFIG_COUNT", "0")
-    if count.isascii() and count.isdecimal() and len(count) <= 3 and int(count) <= 128:
-        for index in range(int(count)):
-            if os.environ.get(f"GIT_CONFIG_KEY_{index}", "").casefold() == "core.whitespace":
-                value = os.environ.get(f"GIT_CONFIG_VALUE_{index}")
-                if value is not None and len(value) <= 4096:
-                    overrides.append(("core.whitespace", value))
+    # Retain the operator's effective whitespace policy (local, global or
+    # injected), without forwarding unrelated Git configuration into gates.
+    # That policy may relax checks; it is not a fixed whitespace guarantee.
+    try:
+        config = subprocess.run([local_git_executable(), "config", "--get", "core.whitespace"],
+                                cwd=root, env=_transport_git_environment(root), capture_output=True, timeout=120)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        raise ContributionError("git_whitespace_policy_unavailable") from exc
+    if config.returncode not in (0, 1) or len(config.stdout) > 4096:
+        raise ContributionError("git_whitespace_policy_unavailable")
+    if config.returncode == 0:
+        overrides.append(("core.whitespace", os.fsdecode(config.stdout).removesuffix("\n")))
     env["GIT_CONFIG_COUNT"] = str(len(overrides))
     for index, (key, value) in enumerate(overrides):
         env[f"GIT_CONFIG_KEY_{index}"] = key
@@ -158,10 +160,19 @@ def _local_git_effect(root: Path, *argv: str, allow_file: bool = False) -> str:
     from wiki_core.git_env import local_git_executable
     from wiki_core.git_safety import sanitized_git_argv
     try:
+        if argv and argv[0] == "commit":
+            signing = subprocess.run([local_git_executable(), "config", "--bool", "--get", "commit.gpgsign"],
+                                     cwd=root, env=_transport_git_environment(root), capture_output=True, timeout=120)
+            if signing.returncode not in (0, 1) or len(signing.stdout) > 32:
+                raise ContributionError("git_commit_signing_policy_unavailable")
+            if signing.returncode == 0 and signing.stdout.strip() != b"false":
+                raise ContributionError("git_commit_signing_policy_unsupported")
         command = sanitized_git_argv(argv, executable=local_git_executable(), allow_file_protocol=allow_file)
         command.insert(1, "--no-lazy-fetch")
-        result = subprocess.run(command, cwd=root, env=_local_process_environment(allow_file=allow_file),
+        result = subprocess.run(command, cwd=root, env=_local_process_environment(root, allow_file=allow_file),
                                 capture_output=True, timeout=120)
+    except ContributionError:
+        raise
     except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
         raise ContributionError("local_git_effect_unknown: reconcile before retry") from exc
     if result.returncode:
@@ -174,7 +185,7 @@ def _git_identity(root: Path, field: str) -> str:
     from wiki_core.git_env import local_git_executable
     if field not in {"user.name", "user.email"}:
         raise ContributionError("invalid_git_identity_field")
-    env = _local_process_environment()
+    env = _local_process_environment(root)
     for key in ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_NOSYSTEM"):
         if key in os.environ:
             env[key] = os.environ[key]
@@ -440,7 +451,7 @@ def _gates(root: Path, config: WikiConfig, *, full_checks: bool = False,
     results = []
     for command in [*commands, *extra]:
         try:
-            call = lambda: subprocess.run(command, cwd=root, env=_local_process_environment(),
+            call = lambda: subprocess.run(command, cwd=root, env=_local_process_environment(root),
                                           capture_output=True, timeout=600)
             p = effect_runner(call) if effect_runner else call()
         except (OSError, subprocess.TimeoutExpired) as exc:

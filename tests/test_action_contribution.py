@@ -458,18 +458,38 @@ def test_local_git_observation_does_not_run_configured_fsmonitor(tmp_path):
     assert not marker.exists()
 
 
-def test_local_gate_environment_keeps_whitespace_policy_but_drops_other_injection(monkeypatch):
+def test_local_gate_environment_keeps_whitespace_policy_but_drops_other_injection(tmp_path, monkeypatch):
+    fixture(tmp_path)
     monkeypatch.setenv('GIT_CONFIG_COUNT', '2')
     monkeypatch.setenv('GIT_CONFIG_KEY_0', 'core.whitespace')
     monkeypatch.setenv('GIT_CONFIG_VALUE_0', 'cr-at-eol')
     monkeypatch.setenv('GIT_CONFIG_KEY_1', 'core.fsmonitor')
     monkeypatch.setenv('GIT_CONFIG_VALUE_1', '/tmp/synthetic-hook')
-    env = port._local_process_environment()
+    env = port._local_process_environment(tmp_path)
     pairs = [(env[f'GIT_CONFIG_KEY_{i}'], env[f'GIT_CONFIG_VALUE_{i}'])
              for i in range(int(env['GIT_CONFIG_COUNT']))]
     assert ('core.whitespace', 'cr-at-eol') in pairs
     assert ('core.fsmonitor', '/tmp/synthetic-hook') not in pairs
     assert ('core.fsmonitor', 'false') in pairs
+
+
+@pytest.mark.parametrize('source', ['global', 'local', 'injected'])
+def test_local_gate_environment_preserves_effective_whitespace(tmp_path, monkeypatch, source):
+    fixture(tmp_path)
+    if source == 'global':
+        config = tmp_path.parent / (tmp_path.name + '-gitconfig')
+        config.write_text('[core]\n\twhitespace = cr-at-eol\n')
+        monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(config))
+    elif source == 'local':
+        git(tmp_path, 'config', 'core.whitespace', 'cr-at-eol')
+    else:
+        monkeypatch.setenv('GIT_CONFIG_COUNT', '1')
+        monkeypatch.setenv('GIT_CONFIG_KEY_0', 'core.whitespace')
+        monkeypatch.setenv('GIT_CONFIG_VALUE_0', 'cr-at-eol')
+    env = port._local_process_environment(tmp_path)
+    pairs = [(env[f'GIT_CONFIG_KEY_{i}'], env[f'GIT_CONFIG_VALUE_{i}'])
+             for i in range(int(env['GIT_CONFIG_COUNT']))]
+    assert ('core.whitespace', 'cr-at-eol') in pairs
 
 
 def test_prepare_uses_selected_repo_despite_inherited_git_directory(tmp_path, monkeypatch):
@@ -502,6 +522,17 @@ def test_prepare_preserves_global_identity_without_inherited_repo(tmp_path, monk
     assert result['ok'] and result['status'] == 'prepared', result
     author = port._local_git_bytes(root, 'show', '-s', '--format=%an <%ae>', result['proposal_commit'])
     assert author.strip() == b'Synthetic Global <global@example.test>'
+
+
+def test_prepare_refuses_required_signing_instead_of_silent_unsigned_commit(tmp_path, monkeypatch):
+    _, request = fixture(tmp_path)
+    global_config = tmp_path.parent / (tmp_path.name + '-gitconfig')
+    global_config.write_text('[commit]\n\tgpgSign = true\n')
+    monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(global_config))
+    result = call(tmp_path, 'prepare', request, review=review(request))
+    assert not result['ok']
+    assert result['error'] == 'git_commit_signing_policy_unsupported'
+    assert port._candidate(tmp_path, result['branch']) is None
 
 
 def test_transport_uses_selected_repo_despite_inherited_git_directory(tmp_path, monkeypatch):
