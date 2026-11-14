@@ -114,6 +114,52 @@ afterEach(() => {
 });
 
 describe("SourceDock operational workspace", () => {
+  it("filters the registry by attention and valid recipe while preserving mixed counts", () => {
+    const ready = sourceFixture({ source_id: "synthetic-ready", title: "Synthetic ready", pending_streams: 0 });
+    const invalid = sourceFixture({ source_id: "synthetic-invalid", title: "Synthetic invalid", recipe_ok: false, pending_streams: 0 });
+    const empty = sourceFixture({ source_id: "synthetic-empty", title: "Synthetic empty", streams: [], pending_streams: 0 });
+    const bundle = bundleWith(null);
+    bundle.sourceEntities!.sources = [ready, invalid, empty];
+    render(<SourceWorkspace bundle={bundle} sourceId="synthetic-ready" onNotice={noop} onClose={noop} />);
+    const registry = screen.getByRole("complementary", { name: "Sources (3)" });
+    const filters = within(registry).getByRole("group", { name: "Filter sources" });
+    const all = within(filters).getByRole("button", { name: "All 3" });
+    const attention = within(filters).getByRole("button", { name: "attention 2" });
+    const configured = within(filters).getByRole("button", { name: "valid recipes 2" });
+    expect(all.getAttribute("aria-pressed")).toBe("true");
+    attention.focus();
+    expect(document.activeElement).toBe(attention);
+    fireEvent.click(attention);
+    expect(attention.getAttribute("aria-pressed")).toBe("true");
+    expect(within(registry).queryByText("Synthetic ready")).toBeNull();
+    expect(within(registry).getByText("Synthetic invalid")).toBeTruthy();
+    expect(within(registry).getByText("Synthetic empty")).toBeTruthy();
+    fireEvent.click(configured);
+    expect(within(registry).getByText("Synthetic ready")).toBeTruthy();
+    expect(within(registry).queryByText("Synthetic invalid")).toBeNull();
+    expect(within(registry).getByText("Synthetic empty")).toBeTruthy();
+    fireEvent.change(within(registry).getByPlaceholderText("Search source, platform or locator"), { target: { value: "empty" } });
+    expect(within(registry).queryByText("Synthetic ready")).toBeNull();
+    expect(within(registry).getByText("Synthetic empty")).toBeTruthy();
+  });
+
+  it("clears and disables status filters while organizing groups", () => {
+    const a = sourceFixture({ source_id: "synthetic-a", title: "Synthetic A", pending_streams: 0 });
+    const b = sourceFixture({ source_id: "synthetic-b", title: "Synthetic B", recipe_ok: false, pending_streams: 0 });
+    const bundle = bundleWith(null);
+    bundle.sourceEntities!.sources = [a, b];
+    render(<SourceWorkspace bundle={bundle} sourceId="synthetic-a" onNotice={noop} onClose={noop} />);
+    const registry = screen.getByRole("complementary", { name: "Sources (2)" });
+    const filters = within(registry).getByRole("group", { name: "Filter sources" });
+    fireEvent.click(within(filters).getByRole("button", { name: "attention 1" }));
+    expect(within(registry).queryByText("Synthetic A")).toBeNull();
+    fireEvent.click(within(registry).getByRole("button", { name: "Organize categories and sources" }));
+    expect(within(filters).getByRole("button", { name: "All 2" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(filters).getByRole("button", { name: "attention 1" }).hasAttribute("disabled")).toBe(true);
+    expect(within(registry).getByText("Synthetic A")).toBeTruthy();
+    expect(within(registry).getByText("Synthetic B")).toBeTruthy();
+  });
+
   it.each([
     ["invalid recipe", { recipe_ok: false, pending_streams: 0 }],
     ["no records", { streams: [], pending_streams: 0 }],
@@ -315,13 +361,16 @@ describe("SourceDock operational workspace", () => {
     expect(screen.getByText("Cloud and accounts")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Remote folders/ }));
     expect(screen.queryByText("Research folder")).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText("Search source, platform or locator"), { target: { value: "gmail" } });
     fireEvent.click(screen.getByRole("button", { name: "Organize categories and sources" }));
     fireEvent.change(screen.getByLabelText("Move to"), { target: { value: "remote-folders" } });
     fireEvent.click(screen.getByRole("button", { name: "Save organization" }));
 
     await waitFor(() => expect(apply).toHaveBeenCalled());
     const savedGroups = preview.mock.calls[0]![0];
+    expect(apply.mock.calls[0]![0]).toEqual(savedGroups);
     expect(savedGroups.find((group) => group.id === "remote-folders")?.source_ids).toContain("source-gmail");
+    expect(savedGroups.find((group) => group.id === "remote-folders")?.source_ids).toContain("source-drive");
     expect(savedGroups.find((group) => group.id === "cloud")?.source_ids).not.toContain("source-gmail");
   });
 

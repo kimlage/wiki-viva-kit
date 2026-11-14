@@ -48,6 +48,8 @@ const COLLAPSED_KEY = "wiki-viva.source-registry-collapsed-groups";
 const MIN_WIDTH = 280;
 const DEFAULT_WIDTH = 324;
 
+type RegistryFilter = "all" | "attention" | "configured";
+
 type SourceWorkspaceProps = Omit<ComponentProps<typeof SourceDock>, "embedded"> & {
   onPreviewSourceGroups?: (groups: SourceGroup[]) => Promise<SourceGroupsOperationResult>;
   onApplySourceGroups?: (groups: SourceGroup[], previewToken: string) => Promise<SourceGroupsOperationResult>;
@@ -114,6 +116,7 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
   const incomingGroups = configuredGroups?.length ? configuredGroups : fallbackGroups;
   const incomingSignature = JSON.stringify(incomingGroups);
   const [query, setQuery] = useState("");
+  const [registryFilter, setRegistryFilter] = useState<RegistryFilter>("all");
   const [registryWidth, setRegistryWidth] = useState(initialWidth);
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [groups, setGroups] = useState<SourceGroup[]>(incomingGroups);
@@ -151,8 +154,10 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
         .join(" ")
         .toLocaleLowerCase()
         .includes(normalizedQuery))
+      .filter((source) => organizing || registryFilter === "all" ||
+        (registryFilter === "attention" ? sourceNeedsAttention(source) : source.recipe_ok))
       .sort((a, b) => Number(sourceNeedsAttention(b)) - Number(sourceNeedsAttention(a)) || b.pending_streams - a.pending_streams || a.title.localeCompare(b.title))
-  })).filter((group) => organizing || group.sources.length > 0), [groups, normalizedQuery, organizing, sourceById]);
+  })).filter((group) => organizing || group.sources.length > 0), [groups, normalizedQuery, organizing, sourceById, registryFilter]);
 
   const selectedId = props.sourceId || "";
   const attentionCount = sources.filter(sourceNeedsAttention).length;
@@ -312,11 +317,14 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
                 aria-pressed={organizing}
                 aria-label={t("source.groups.organize")}
                 title={t("source.groups.organize")}
-                onClick={() => setOrganizing((value) => {
-                  const next = !value;
-                  if (next && !groupsPersisted) setDirty(true);
-                  return next;
-                })}
+                onClick={() => {
+                  if (!organizing) setRegistryFilter("all");
+                  setOrganizing((value) => {
+                    const next = !value;
+                    if (next && !groupsPersisted) setDirty(true);
+                    return next;
+                  });
+                }}
               >
                 <Settings2 size={15} aria-hidden />
               </button>
@@ -337,10 +345,10 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
             <Search size={14} aria-hidden />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("source.registry.search")} />
           </label>
-          <div className="sourceRegistryFilters" aria-label={t("source.registry.filters")}>
-            <span className="pill pill-muted">{t("source.registry.all")} {sources.length}</span>
-            <span className="pill pill-warn">{t("source.registry.attention")} {attentionCount}</span>
-            <span className="pill pill-good" title={t("source.registry.recipeHint")}>{t("source.registry.configured")} {sources.filter((source) => source.recipe_ok).length}</span>
+          <div className="sourceRegistryFilters" role="group" aria-label={t("source.registry.filters")}>
+            <button type="button" className="pill pill-muted" aria-pressed={registryFilter === "all"} disabled={organizing} onClick={() => setRegistryFilter("all")}>{t("source.registry.all")} {sources.length}</button>
+            <button type="button" className="pill pill-warn" aria-pressed={registryFilter === "attention"} disabled={organizing} onClick={() => setRegistryFilter("attention")}>{t("source.registry.attention")} {attentionCount}</button>
+            <button type="button" className="pill pill-good" aria-pressed={registryFilter === "configured"} disabled={organizing} title={t("source.registry.recipeHint")} onClick={() => setRegistryFilter("configured")}>{t("source.registry.configured")} {sources.filter((source) => source.recipe_ok).length}</button>
           </div>
 
           <button

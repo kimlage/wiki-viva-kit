@@ -1102,7 +1102,7 @@ export const ES: Record<string, string> = {
   "source.registry.noAttention": "Sin alertas de receta o registros",
   "source.registry.configured": "recetas válidas",
   "source.registry.search": "Buscar fuente, plataforma o localizador",
-  "source.registry.filters": "Resumen del registro fuente",
+  "source.registry.filters": "Filtrar fuentes",
   "source.registry.all": "Todos",
   "source.registry.expand": "Ampliar lista de fuentes",
   "source.registry.collapse": "Contraer lista de fuentes",
