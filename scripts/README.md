@@ -191,6 +191,15 @@ complete capture of the same bytes. The ingestion result exposes index gaps;
 missing prior artifacts are preserved in the incremental index and reported,
 while an explicit rebuild retains its existing orphan-removal policy.
 
+[wiki_gc.py](wiki_gc.py) lists orphaned derived artifacts by default; `--apply`
+removes the selected files and then prunes the index. It refuses deletion when
+no live source is found and retains sources referenced by valid local requests.
+Boundary checks occur at selected stages and before each removal; they are not
+an atomic cleanup transaction or filesystem confinement. If a boundary check
+or removal fails after earlier removals, the command reports how many occurred;
+the index may not have been pruned. An index-prune failure after removals leaves
+its state unconfirmed. Inspect the resulting files and index before retrying.
+
 ## Downstream kit sync
 
 [wiki_sync_from_kit.py](wiki_sync_from_kit.py) is the supported orchestrator:
