@@ -26,6 +26,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | Command | Purpose |
 | --- | --- |
 | [wiki_action_adopt.py](../../../scripts/wiki_action_adopt.py) | Adopt a downstream action baseline |
+| [wiki_action_queue.py](../../../scripts/wiki_action_queue.py) | Read and validate the derived action queue |
 | [wiki_archive.py](../../../scripts/wiki_archive.py) | Archive resolved proposals/events |
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audit contracts, links, secrets and public PII |
 | [wiki_audit_proposal.py](../../../scripts/wiki_audit_proposal.py) | Check authorized changed Git text for secrets without claiming global audit |
