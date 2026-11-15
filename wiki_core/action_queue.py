@@ -1,6 +1,7 @@
 """Read the pending queue from canonical actions, without a shared generated file."""
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -12,6 +13,66 @@ from wiki_core.action_transition import (
 )
 from wiki_core.config import load_config
 from wiki_core.paths import WikiPaths
+
+DERIVED_POINTER = """# Pending actions
+
+<!-- wiki-viva:derived-action-queue -->
+The active queue is derived from action pages.
+Run `python3 scripts/wiki_action_queue.py` or open the action board."""
+
+
+def _materialized_queue_errors(root: Path, paths: WikiPaths, current: dict) -> list[str]:
+    """Check the known legacy queue or require the exact non-materialized pointer.
+
+    Unknown formats fail closed: a marker alone must never hide stale rows.
+    """
+    path = paths.pending_actions_file
+    if not path.exists():
+        return []
+    rel = path.relative_to(root).as_posix()
+    try:
+        fm, body = _parse_document(path.read_text(encoding='utf-8'))
+    except ActionTransitionError:
+        return [f'{rel}: invalid queue frontmatter']
+    collection = fm.get('collection')
+    if body.strip() == DERIVED_POINTER:
+        if isinstance(collection, dict) and any(k in collection for k in ('members', 'member_types')):
+            return [f'{rel}: derived pointer must not materialize collection members']
+        return []
+    heading = '## Fila reconciliada'
+    if body.count(heading) != 1 or not isinstance(collection, dict):
+        return [f'{rel}: unknown materialized queue; cannot verify against actions']
+    order = ('in_progress', 'open', 'blocked', 'waiting_human')
+    labels = {'in_progress': 'em andamento', 'open': 'abertas', 'blocked': 'bloqueadas',
+              'waiting_human': 'em espera humana'}
+    rows = [(key, *value[:2]) for key, value in current.items()]
+    active = sorted((row for row in rows if row[2].get('action_state') in order),
+                    key=lambda row: (order.index(row[2]['action_state']),
+                                     str(row[2].get('title') or '').lower()))
+    members = collection.get('members')
+    if (not isinstance(members, list) or any(not isinstance(x, str) for x in members)
+            or sorted(members) != sorted(row[0] for row in active)):
+        return [f'{rel}: materialized queue members differ from actions']
+    counts = {state: sum(fm.get('action_state') == state for _, _, fm in rows)
+              for state in CANONICAL_ACTION_STATES}
+    by_state = ', '.join(f'{counts[state]} {labels[state]}' for state in order if counts[state])
+    lines = [heading, '',
+             f'**{len(active)} ações ativas de {len(rows)} registros canônicos: {by_state}.**',
+             f"As outras {counts['done']} estão concluídas e {counts['cancelled']} canceladas.",
+             'Seção gerada pelo [comando de ações](../../scripts/wiki_action.py) (`queue --write`) a partir',
+             'de `action_state`; não editar à mão. Estado muda com `transition` do mesmo comando.', '',
+             '| Ação | Estado | Próximo passo canônico |', '| --- | --- | --- |']
+    def cell(value):
+        return ' '.join(str(value or '').split()).replace('|', '\\|')
+    for _, action_path, action in active:
+        link = os.path.relpath(root / action_path, path.parent)
+        lines.append(f"| [{cell(action.get('title'))}]({link}) | {action['action_state']} | {cell(action.get('next_action'))} |")
+    start = body.index(heading)
+    end = body.find('\n## ', start + len(heading))
+    actual = body[start:] if end == -1 else body[start:end]
+    if actual.strip() != '\n'.join(lines):
+        return [f'{rel}: materialized queue differs from actions']
+    return []
 
 
 def _inventory(documents: dict[str, str]) -> tuple[dict[str, tuple[str, dict, str]], list[str]]:
@@ -50,6 +111,7 @@ def read_queue(root: Path, *, base: str | None = None) -> tuple[list[dict], list
     docs = {p.relative_to(root).as_posix(): p.read_text(encoding='utf-8') for p in paths.action_files()}
     current, errors = _inventory(docs)
     if base is not None:
+        errors.extend(_materialized_queue_errors(root, paths, current))
         listing = subprocess.run(['git', 'ls-tree', '-r', '--name-only', '-z', base], cwd=root,
                                  capture_output=True, check=False)
         if listing.returncode:

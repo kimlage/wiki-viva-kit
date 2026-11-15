@@ -11,9 +11,26 @@ checkout being inspected, so fetch or select the intended revision first.
 `python3 scripts/wiki_action_queue.py --check --base origin/main` validates
 canonical state, required lifecycle support, unique IDs and action inventory,
 then compares changed actions with the Git merge base using the canonical
-transition-receipt diagnostics. Missing Git data is an error. This validates
-actions, not freshness of a generated file. Run the other consumer audit gates
-as well. It does not make concurrent changes to the same action mergeable.
+transition-receipt diagnostics. If a pending page exists, the check also accepts
+only the exact pointer below or a current legacy Portuguese `Fila reconciliada`
+section with matching collection members, counts and rows. Any stale or unknown
+materialization fails closed. Missing Git data is an error. Run the other
+consumer audit gates as well. It does not make concurrent changes to the same
+action mergeable.
+
+Keep the existing index frontmatter and identity, remove `collection.members`
+and `collection.member_types`, and replace its entire body with this exact
+pointer. Move any independently useful prose to a separate page; do not add
+rows, counts or action lists to the pointer. The strict body makes a marker
+incapable of masking a stale materialization.
+
+```markdown
+# Pending actions
+
+<!-- wiki-viva:derived-action-queue -->
+The active queue is derived from action pages.
+Run `python3 scripts/wiki_action_queue.py` or open the action board.
+```
 
 ## Migration in a consumer-owned PR
 
@@ -37,6 +54,20 @@ as well. It does not make concurrent changes to the same action mergeable.
    generated index change, and validates again. Thereafter independent action
    changes no longer edit a common queue file. The migration does not remove
    conflicts in unrelated shared files or replace the integrator's review.
+
+For `sargam_controle_pessoal`, make all of these changes in the same downstream
+adoption PR: replace the generated body of `memorias/acoes/pendentes.md` with
+the exact pointer above and remove its `collection.members`; migrate the
+consumer-owned `scripts/wiki_action.py` so `queue --check` delegates to
+`scripts/wiki_action_queue.py --check` and returns its exit code, while queue
+display reads the new CLI (remove the writer mode); update its tests,
+`memorias/AGENTS.md`, command references, hooks and every gate invoking the old
+writer. Replace readers of the generated table, counts, body and membership
+with the derived action inventory or cockpit board, including operation and
+operational-pass consumers where applicable. Compare old and new active IDs
+before replacing the page, run the private gates and negative divergence test,
+and review the complete migration as one change. Sync alone does not make this
+consumer migration and must not be represented as adoption.
 
 This chooses a derived queue over a custom merge driver (which cannot be
 assumed installed on every host) and fragments (which duplicate action state

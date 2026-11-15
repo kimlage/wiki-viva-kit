@@ -1,7 +1,7 @@
 import subprocess
 import sys
 
-from wiki_core.action_queue import read_queue
+from wiki_core.action_queue import DERIVED_POINTER, read_queue
 from wiki_core.action_transition import transition_action_page
 from scripts import wiki_action_queue
 
@@ -22,7 +22,7 @@ def setup_repo(root):
         (action_dir / f'{key}.md').write_text(
             f'---\npage_type: action\npage_id: {key}\ntitle: {key}\n'
             'action_state: open\nnext_action: work\n---\n\n# Action\n', encoding='utf-8')
-    (action_dir / 'pending.md').write_text('---\npage_type: index\n---\n\n# Queue\n', encoding='utf-8')
+    (action_dir / 'pending.md').write_text('---\npage_type: index\n---\n\n' + DERIVED_POINTER + '\n', encoding='utf-8')
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'base')
 
@@ -85,3 +85,33 @@ def test_check_uses_common_base_when_main_advances(tmp_path, monkeypatch):
     monkeypatch.setattr(wiki_action_queue, 'ROOT', tmp_path)
     monkeypatch.setattr(sys, 'argv', ['wiki_action_queue.py', '--check', '--base', 'main'])
     assert wiki_action_queue.main() == 0
+
+
+def test_check_rejects_stale_materialized_queue_and_marker_spoof(tmp_path, monkeypatch, capsys):
+    setup_repo(tmp_path)
+    queue = tmp_path / 'memories/actions/pending.md'
+    queue.write_text('---\npage_type: index\n---\n\n# Queue\n\n| a | done |\n')
+    monkeypatch.setattr(wiki_action_queue, 'ROOT', tmp_path)
+    monkeypatch.setattr(sys, 'argv', ['wiki_action_queue.py', '--check', '--base', 'main'])
+    assert wiki_action_queue.main() == 1
+    assert 'cannot verify' in capsys.readouterr().err
+    queue.write_text('---\npage_type: index\n---\n\n' + DERIVED_POINTER + '\n\n| a | done |\n')
+    assert wiki_action_queue.main() == 1
+    queue.write_text('---\npage_type: index\ncollection:\n  members: [a]\n---\n\n' + DERIVED_POINTER + '\n')
+    assert wiki_action_queue.main() == 1
+
+
+def test_private_legacy_materialization_is_verified_before_migration(tmp_path):
+    setup_repo(tmp_path)
+    queue = tmp_path / 'memories/actions/pending.md'
+    queue.write_text('---\npage_type: index\ncollection:\n  members: [a, b]\n---\n\n'
+        '# Queue\n\n## Fila reconciliada\n\n'
+        '**2 ações ativas de 2 registros canônicos: 2 abertas.**\n'
+        'As outras 0 estão concluídas e 0 canceladas.\n'
+        'Seção gerada pelo [comando de ações](../../scripts/wiki_action.py) (`queue --write`) a partir\n'
+        'de `action_state`; não editar à mão. Estado muda com `transition` do mesmo comando.\n\n'
+        '| Ação | Estado | Próximo passo canônico |\n| --- | --- | --- |\n'
+        '| [a](a.md) | open | work |\n| [b](b.md) | open | work |\n')
+    assert read_queue(tmp_path, base='main')[1] == []
+    queue.write_text(queue.read_text().replace('| [a](a.md) | open |', '| [a](a.md) | done |'))
+    assert any('materialized queue differs' in x for x in read_queue(tmp_path, base='main')[1])
