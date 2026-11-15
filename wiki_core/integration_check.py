@@ -22,7 +22,7 @@ from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.paths import WikiPaths
 
 SHA = re.compile(r"^[0-9a-f]{40,64}$")
-FIELDS = ("number,url,state,author,headRefName,headRefOid,headRepositoryOwner,isCrossRepository,"
+FIELDS = ("number,url,state,createdAt,author,headRefName,headRefOid,headRepositoryOwner,isCrossRepository,"
           "baseRefName,baseRefOid,mergeCommit,isDraft,reviewDecision,statusCheckRollup,"
           "reviews,comments,mergeStateStatus,closedAt,mergedAt")
 
@@ -420,6 +420,8 @@ def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str)
         return {**result, "status": "waiting:action_reconciliation", "event": "repository_reference_ambiguous"}
     if state in TERMINAL_ACTION_STATES:
         return {**result, "status": "terminal", "event": "action_already_terminal"}
+    if pr.get("state") == "OPEN":
+        return {**result, "status": "linked", "event": "action_associated"}
     event = _event_time(pr.get("mergedAt") if pr.get("state") == "MERGED" else pr.get("closedAt"))
     if state not in NON_TERMINAL_ACTION_STATES or event is None:
         return {**result, "status": "waiting:action_reconciliation", "event": "action_state_or_closure_time_unavailable"}
@@ -461,13 +463,13 @@ def _action_findings(root: Path, base: str, prs: list[dict], repository: str) ->
         config = config_from_mapping(yaml.safe_load(_blob(root, base, "wiki.config.yaml")))
         paths = WikiPaths(root, config)
         names = _git(root, "ls-tree", "-r", "--name-only", "-z", base).split("\0")
-        terminal = [p for p in prs if p.get("state") in {"MERGED", "CLOSED"}]
+        considered = [p for p in prs if p.get("state") in {"OPEN", "MERGED", "CLOSED"}]
         findings = []
         for name in names:
             if not name.endswith(".md") or paths.collection_root(root / name, "actions_dirname") is None:
                 continue
             fm, body = parse_frontmatter(_blob(root, base, name))
-            for pr in terminal:
+            for pr in considered:
                 observation = _action_observation(fm, body, pr, repository)
                 if observation is not None:
                     findings.append(observation)
@@ -514,6 +516,22 @@ def _closure_reason_scope(pr: dict, approval: dict, *, residue: bool) -> str:
     if closed is None:
         return "waiting:closure_time"
     return "required" if closed.date() > cutoff else "out_of_scope"
+
+
+def _missing_action_association(pr: dict, approval: dict | None, available: bool) -> dict:
+    """Separate known legacy from new missing bindings and unknown evidence."""
+    result = {"responsible": "integrator"}
+    if not available:
+        return {**result, "status": "waiting:action_reconciliation", "event": "action_source_unavailable"}
+    cutoff = _event_time((approval or {}).get("action_association_adopted_at"))
+    if cutoff is None:
+        return {**result, "status": "waiting:action_reconciliation", "event": "action_association_cutoff_unavailable"}
+    created = _event_time(pr.get("createdAt"))
+    if created is None:
+        return {**result, "status": "waiting:action_reconciliation", "event": "proposal_creation_time_unavailable"}
+    if created <= cutoff:
+        return {**result, "status": "informational", "event": "legacy_without_action_receipt"}
+    return {**result, "status": "fix:action_association_required", "event": "new_proposal_missing_action_association"}
 
 
 def inspect(root: Path, number: int | None = None) -> dict:
@@ -640,12 +658,16 @@ def inspect(root: Path, number: int | None = None) -> dict:
                 if branch != default and branch not in open_heads:
                     hygiene.append({"status": "fix:merged_branch_remaining" if branch in closed_heads else "fix:remote_branch_without_pr", "branch": branch})
         action_findings, action_available = _action_findings(root, base, prs, repo)
-        for observation in proposals:
-            if observation.get("action_reconciliation") == "unverified":
+        for pr, observation, destination_policy in zip(prs, proposals, closure_policies):
+            if pr.get("state") in {"OPEN", "MERGED", "CLOSED"}:
                 related = [f for f in action_findings if f["pr"] == observation["number"]]
-                observation["action_reconciliation"] = (related if related else [{
-                    "status": "waiting:action_reconciliation", "event": "action_association_unavailable" if action_available else "action_source_unavailable",
-                    "responsible": "integrator"}])
+                observation["action_reconciliation"] = (related if related else [
+                    _missing_action_association(pr, destination_policy, action_available)])
+                if (pr.get("state") == "OPEN" and not related
+                        and observation["action_reconciliation"][0]["event"] == "new_proposal_missing_action_association"):
+                    observation.setdefault("pending", []).append("action_association")
+                    if observation["status"] == "integrable":
+                        observation["status"] = "waiting:action_association"
         hygiene.extend(f for f in action_findings if f["status"] == "fix:action_stale")
         for wt in worktrees:
             if wt["dirty"] is None:

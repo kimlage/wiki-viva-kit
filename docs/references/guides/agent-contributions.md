@@ -282,6 +282,26 @@ unreadable or altered receipt is not proof of a relationship; older unrelated
 proposals therefore remain indeterminate until evidence is recorded. A receipt
 hash detects alteration but does not by itself authenticate the author or prove
 that the action was reconciled.
+
+Consumers adopting this association contract set the exact effective adoption
+instant in their own `wiki.config.yaml`, for example:
+
+```yaml
+approval:
+  action_association_adopted_at: "2026-11-15T12:00:00Z" # example only
+```
+
+The cutoff is the configured timezone-aware instant, compared to the PR's
+provider `createdAt`: PRs created at or before it without an association are
+`informational / legacy_without_action_receipt`; PRs created strictly after it
+without an association report `fix:action_association_required` and an explicit
+warning. Open PRs also wait for association before being called integrable.
+Reconcile the new PR with its canonical action before closure. A missing or
+invalid cutoff, creation timestamp, or action source remains a distinct wait;
+none is silently classified as legacy. This is an advisory command, whose zero
+exit code means the observation succeeded, not that every association exists.
+The example is not the private wiki's adoption date: record its real effective
+instant in the consumer migration when that contract is adopted.
 For example, a consumer may set:
 
 ```yaml

@@ -258,6 +258,64 @@ def test_cli_text_exposes_action_reconciliation(monkeypatch, capsys):
     assert 'action reconciliation:' in capsys.readouterr().out
 
 
+@pytest.mark.parametrize(('created', 'expected'), [
+    ('2026-11-15T11:59:59Z', ('informational', 'legacy_without_action_receipt')),
+    ('2026-11-15T12:00:00Z', ('informational', 'legacy_without_action_receipt')),
+    ('2026-11-15T12:00:01Z', ('fix:action_association_required', 'new_proposal_missing_action_association')),
+    (None, ('waiting:action_reconciliation', 'proposal_creation_time_unavailable')),
+])
+def test_missing_association_uses_explicit_adoption_instant(created, expected):
+    result = check._missing_action_association({'createdAt': created},
+        {'action_association_adopted_at': '2026-11-15T12:00:00Z'}, True)
+    assert (result['status'], result['event']) == expected
+
+
+def test_missing_association_never_confuses_unreadable_source_or_cutoff_with_legacy():
+    pr = {'createdAt': '2020-01-01T00:00:00Z'}
+    assert check._missing_action_association(pr, {}, False)['event'] == 'action_source_unavailable'
+    assert check._missing_action_association(pr, {}, True)['event'] == 'action_association_cutoff_unavailable'
+    assert check._missing_action_association(pr, {'action_association_adopted_at': '2026-11-15'}, True)['event'] == 'action_association_cutoff_unavailable'
+
+
+def test_inspect_warns_about_new_open_pr_without_action(monkeypatch, tmp_path):
+    pr = candidate() | {'createdAt': '2026-11-15T12:00:01Z'}
+    monkeypatch.setattr(check, '_repository', lambda root: 'github.com/owner/repo')
+    monkeypatch.setattr(check, '_gh', lambda root, *args: pr)
+    def git(root, *args):
+        if '--symref' in args:
+            return f'ref: refs/heads/main\tHEAD\n{BASE}\tHEAD'
+        if '--heads' in args:
+            return f'{BASE}\trefs/heads/main\n{HEAD}\trefs/heads/wiki/one'
+        return f'main\t{BASE}'
+    monkeypatch.setattr(check, '_git', git)
+    monkeypatch.setattr(check, 'policy', lambda *args: {'action_association_adopted_at': '2026-11-15T12:00:00Z'})
+    monkeypatch.setattr(check, '_worktrees', lambda root: [])
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([], True))
+    monkeypatch.setattr(check, '_ancestry', lambda *args: 'current')
+    proposal = check.inspect(tmp_path, 1)['proposals'][0]
+    assert proposal['status'] == 'waiting:action_association'
+    assert proposal['action_reconciliation'][0]['event'] == 'new_proposal_missing_action_association'
+
+
+def test_open_associated_action_is_not_misclassified_as_missing():
+    pr = candidate()
+    fm = {'page_type': 'action', 'page_id': 'a', 'action_state': 'open', 'next_action': 'PR #1'}
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['event'] == 'action_associated'
+
+
+def test_cli_prominently_warns_when_new_pr_has_no_association(monkeypatch, capsys):
+    import importlib
+    import sys
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / 'scripts'))
+    cli = importlib.import_module('wiki_integration_check')
+    monkeypatch.setattr(cli, 'inspect', lambda *args: {'ok': True, 'proposals': [{
+        'number': 1, 'status': 'waiting:action_association', 'action_reconciliation': [{
+            'event': 'new_proposal_missing_action_association'}]}], 'hygiene': []})
+    monkeypatch.setattr(sys, 'argv', ['wiki_integration_check.py'])
+    assert cli.main() == 0
+    assert 'WARNING: new PR has no action association' in capsys.readouterr().out
+
+
 def test_later_native_review_resolves_rejection_but_reverse_blocks():
     pr = candidate()
     pr['comments'][0]['body'] = f'Head: {HEAD}\nReview: rejected'

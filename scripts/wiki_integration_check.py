@@ -28,6 +28,11 @@ def main() -> int:
                 print('  failed checks: ' + ', '.join(item['ci_failed_checks']))
             if item.get('action_reconciliation'):
                 print('  action reconciliation: ' + json.dumps(item['action_reconciliation'], ensure_ascii=False))
+                if (isinstance(item['action_reconciliation'], list) and any(
+                    isinstance(entry, dict) and entry.get('event') == 'new_proposal_missing_action_association'
+                    for entry in item['action_reconciliation']
+                )):
+                    print('  WARNING: new PR has no action association; reconcile before closure.')
             if item.get('pending'):
                 print('  pending: ' + ', '.join(item['pending']))
             if item.get('required_at_integration'):
