@@ -11,18 +11,20 @@ checkout being inspected, so fetch or select the intended revision first.
 `python3 scripts/wiki_action_queue.py --check --base origin/main` validates
 canonical state, required lifecycle support, unique IDs and action inventory,
 then compares changed actions with the Git merge base using the canonical
-transition-receipt diagnostics. If a pending page exists, the check also accepts
-only the exact pointer below or a current legacy Portuguese `Fila reconciliada`
-section with matching collection members, counts and rows. Any stale or unknown
-materialization fails closed. Missing Git data is an error. Run the other
-consumer audit gates as well. It does not make concurrent changes to the same
-action mergeable.
+transition-receipt diagnostics. If a pending page exists, the check accepts
+only the exact pointer below and its restricted metadata. Every materialized
+queue, including a currently correct legacy section, fails closed. Missing Git
+data is an error. Run the other consumer audit gates as well. It does not make
+concurrent changes to the same action mergeable.
 
-Keep the existing index frontmatter and identity, remove `collection.members`
-and `collection.member_types`, and replace its entire body with this exact
-pointer. Move any independently useful prose to a separate page; do not add
-rows, counts or action lists to the pointer. The strict body makes a marker
-incapable of masking a stale materialization.
+Keep the existing page identity and replace its entire body with this exact
+pointer, including the blank line after frontmatter and one final newline (LF
+or CRLF). The only permitted frontmatter keys are scalar `page_id`, `page_type`,
+`title`, `context`, `visibility`, `updated_at`, `stale_after_days`,
+`sources_policy`, `gate`, `sensitive_data_policy`, `owner`, `moc_parent` and
+`status`. Remove `collection`, `actions` and other keys from this page; move any
+independently useful content to an appropriate separate page. Do not add rows,
+counts, lists, free text, or a second section. A marker alone is insufficient.
 
 ```markdown
 # Pending actions
@@ -35,11 +37,9 @@ Run `python3 scripts/wiki_action_queue.py` or open the action board.
 ## Migration in a consumer-owned PR
 
 1. Sync this kit and inspect the C1/C2 plan. In the consumer's C3 migration,
-   replace the generated section of the existing pending index with stable
-   instructions linking the command and the action board. Remove generated
-   `collection.members` rather than leaving a stale membership list. Retain
-   its page identity and navigation links. Review any consumers of that list
-   or of its body; change them to read actions or the JSON command output.
+   replace the entire generated body and metadata with the strict pointer and
+   allowed identity metadata above. Review any consumers of its old lists or
+   body; change them to read actions or the JSON command output.
 2. Change the consumer's `wiki_action.py queue --check` entry point to invoke
    `scripts/wiki_action_queue.py --check`, propagating its exit code. Replace
    `queue --write` with the read-only queue command and update instructions,
@@ -57,7 +57,8 @@ Run `python3 scripts/wiki_action_queue.py` or open the action board.
 
 For `sargam_controle_pessoal`, make all of these changes in the same downstream
 adoption PR: replace the generated body of `memorias/acoes/pendentes.md` with
-the exact pointer above and remove its `collection.members`; migrate the
+the exact pointer above and reduce its frontmatter to the allowed scalar keys;
+migrate the
 consumer-owned `scripts/wiki_action.py` so `queue --check` delegates to
 `scripts/wiki_action_queue.py --check` and returns its exit code, while queue
 display reads the new CLI (remove the writer mode); update its tests,
