@@ -295,6 +295,11 @@ def test_inspect_warns_about_new_open_pr_without_action(monkeypatch, tmp_path):
     proposal = check.inspect(tmp_path, 1)['proposals'][0]
     assert proposal['status'] == 'waiting:action_association'
     assert proposal['action_reconciliation'][0]['event'] == 'new_proposal_missing_action_association'
+    monkeypatch.setattr(check, '_action_findings', lambda *args: ([{'pr': 1, 'action_id': 'a',
+        'status': 'waiting:action_reconciliation', 'event': 'repository_reference_ambiguous'}], True))
+    proposal = check.inspect(tmp_path, 1)['proposals'][0]
+    assert proposal['status'] == 'waiting:action_association'
+    assert proposal['action_reconciliation'][-1]['event'] == 'new_proposal_missing_action_association'
 
 
 def test_open_associated_action_is_not_misclassified_as_missing():

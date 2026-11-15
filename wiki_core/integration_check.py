@@ -661,10 +661,11 @@ def inspect(root: Path, number: int | None = None) -> dict:
         for pr, observation, destination_policy in zip(prs, proposals, closure_policies):
             if pr.get("state") in {"OPEN", "MERGED", "CLOSED"}:
                 related = [f for f in action_findings if f["pr"] == observation["number"]]
-                observation["action_reconciliation"] = (related if related else [
-                    _missing_action_association(pr, destination_policy, action_available)])
-                if (pr.get("state") == "OPEN" and not related
-                        and observation["action_reconciliation"][0]["event"] == "new_proposal_missing_action_association"):
+                verified = any(f.get("event") != "repository_reference_ambiguous" for f in related)
+                missing = None if verified else _missing_action_association(pr, destination_policy, action_available)
+                observation["action_reconciliation"] = related + ([missing] if missing else [])
+                if (pr.get("state") == "OPEN" and missing
+                        and missing["event"] == "new_proposal_missing_action_association"):
                     observation.setdefault("pending", []).append("action_association")
                     if observation["status"] == "integrable":
                         observation["status"] = "waiting:action_association"
