@@ -14,6 +14,11 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-15] Index derived action queue
+
+The [command reference](wiki/command-reference.md) lists the read-only derived
+queue and its validation. This change does not renew source dates.
+
 ## [2026-11-14] Index optional pre-push checks
 
 The [command reference](wiki/command-reference.md) lists the opt-in local
