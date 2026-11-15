@@ -26,7 +26,7 @@ POINTER_METADATA_KEYS = frozenset({
 })
 
 
-def _pointer_errors(root: Path, paths: WikiPaths) -> list[str]:
+def pointer_errors(root: Path, paths: WikiPaths) -> list[str]:
     """Accept only the complete static pointer, never a materialized queue."""
     path = paths.pending_actions_file
     try:
@@ -101,7 +101,7 @@ def read_queue(root: Path, *, base: str | None = None, config: WikiConfig | None
             for p in paths.action_files() if p != paths.pending_actions_file}
     current, errors = _inventory(docs, allow_legacy=allow_legacy)
     if base is not None:
-        errors.extend(_pointer_errors(root, paths))
+        errors.extend(pointer_errors(root, paths))
         listing = subprocess.run(['git', 'ls-tree', '-r', '--name-only', '-z', base], cwd=root,
                                  capture_output=True, check=False)
         if listing.returncode:

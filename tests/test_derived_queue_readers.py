@@ -91,3 +91,57 @@ def test_legacy_actions_and_materialized_queue_migrate_without_stale_rows(queue_
         assert {line.strip("- `") for line in section.splitlines() if line.startswith("- `")} == expected
         assert set(build_operational_pass_report(root, config).pending_ids) == expected
         assert "action-phantom" not in section
+
+
+def test_pointer_contract_matches_both_full_gates(tmp_path, monkeypatch, capsys):
+    import os
+    import subprocess
+    import sys
+
+    from scripts import wiki_action_queue
+
+    def git(*args):
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    write(tmp_path / "wiki.config.yaml", "repo_id: synthetic\nowner_label: Test\n"
+          "approval:\n  require_log_update: false\naudit:\n  core_pages: []\n")
+    metadata = ("---\npage_id: queue\npage_type: ontology_index\ncontext: system\n"
+                "visibility: private_self\nupdated_at: 2026-11-15\nstale_after_days: 30\n"
+                "sources_policy: test\ngate: github_pr\n"
+                "sensitive_data_policy: private_sensitive_allowed\n")
+    pointer = tmp_path / "memories/actions/pending.md"
+    write(pointer, metadata + "---\n\n" + DERIVED_POINTER + "\n")
+    write(tmp_path / "memories/operations.md", metadata.replace("page_id: queue", "page_id: operations")
+          .replace("page_type: ontology_index", "page_type: dashboard")
+          .replace("stale_after_days: 30", "stale_after_days: 1")
+          + "purpose: synthetic test\n---\n\n# Operations\n")
+    write(tmp_path / "memories/system/ingestion/events/.gitkeep", "")
+    git("add", ".")
+    git("-c", "user.name=Test", "-c", "user.email=test@example.org", "commit", "-qm", "base")
+    monkeypatch.setattr(wiki_action_queue, "ROOT", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["wiki_action_queue.py", "--check", "--base", "main"])
+
+    def both_gates():
+        queue_result = wiki_action_queue.main()
+        capsys.readouterr()
+        env = {**os.environ, "WIKI_INSTALLED_CONTENT_ROOT": str(tmp_path)}
+        result = subprocess.run([sys.executable, str(Path(__file__).resolve().parents[1] /
+                               "scripts/wiki_audit.py"), "--check"], env=env, cwd=tmp_path,
+                                text=True, capture_output=True, check=False)
+        return queue_result, result
+
+    queue_result, audit = both_gates()
+    assert queue_result == 0
+    assert audit.returncode == 0, audit.stdout + audit.stderr
+    for altered in (
+        metadata + "actions: [action-phantom]\n---\n\n" + DERIVED_POINTER + "\n",
+        metadata + "---\n\n" + DERIVED_POINTER + "\nExtra text\n",
+        metadata + "---\n\n" + DERIVED_POINTER + "\n| Action | State |\n| --- | --- |\n| x | open |\n",
+    ):
+        write(pointer, altered)
+        queue_result, audit = both_gates()
+        assert queue_result == 1
+        assert audit.returncode == 1
+        assert "queue must contain only the exact derived pointer" in audit.stdout or \
+               "pointer contains unsupported or materialized metadata" in audit.stdout

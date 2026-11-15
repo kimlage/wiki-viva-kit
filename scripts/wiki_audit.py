@@ -36,6 +36,7 @@ from wiki_core.action_adoption import (
     ACTION_ADOPTION_RECEIPT_PATH,
     verify_action_adoption_git_contract,
 )
+from wiki_core.action_queue import pointer_errors
 from wiki_core.action_state import resolve_action_state
 from wiki_core.action_transition import action_transition_diagnostics
 from wiki_core.detectors import scan_file
@@ -1238,6 +1239,17 @@ def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig
     errors.extend(hub_errors)
     pages = set(str(page) for page in (config.audit.get("core_pages") or ())) | set(hubs)
     pages.update(rel for rel in markdown_files() if ontology_dir_for(rel, config))
+    paths = WikiPaths(ROOT, config)
+    pointer_rel = paths.rel(paths.pending_actions_file)
+    pointer_valid = False
+    if paths.pending_actions_file.exists() or paths.pending_actions_file.is_symlink():
+        try:
+            _guard_audit_path(paths.pending_actions_file)
+            pointer_diagnostics = pointer_errors(ROOT, paths)
+        except AuditPathBoundaryError:
+            pointer_diagnostics = [f"{pointer_rel}: invalid queue path"]
+        errors.extend(pointer_diagnostics)
+        pointer_valid = not pointer_diagnostics
     for rel in sorted(pages):
         path = ROOT / rel
         try:
@@ -1277,7 +1289,8 @@ def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig
 
         directory = ontology_dir_for(rel, config)
         if directory:
-            missing_relations = sorted(RELATION_KEYS - values.keys())
+            missing_relations = ([] if rel == pointer_rel and pointer_valid
+                                 else sorted(RELATION_KEYS - values.keys()))
             if missing_relations:
                 errors.append(f"{rel}: missing relation keys: {', '.join(missing_relations)}")
             # The v1 page-type registry is authoritative whenever present.
