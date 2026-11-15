@@ -715,6 +715,16 @@ The open-source kit itself should stay public-safe: examples, docs and fixtures
 must not contain private downstream references, realistic credentials, personal
 identifiers or individualized authenticated links.
 
+When content is exposed across its intended privacy boundary, remove the
+exposed material from historical refs and retained surfaces under the owner's
+control, preserving legitimate content and coordinating affected checkouts and
+their owners. Ask the provider to purge retained refs, caches and other copies
+where necessary. Verify accessibility of the old objects and derived surfaces;
+record only sanitized evidence and outstanding responsibilities. A rewritten
+branch alone does not prove removal from provider caches, artifacts or external
+clones. Keep the incident open while exposure remains accessible or provider
+confirmation is pending, and report any surfaces that cannot be verified.
+
 ## Default adoption flow
 
 For a new open-source or downstream repo, the default setup is:

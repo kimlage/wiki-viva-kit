@@ -256,15 +256,71 @@ command reads canonical action pages from the observed default-branch commit.
 When an open action cites that proposal in its next action, body or evidence
 references and predates closure, it reports `fix:action_stale` with action ID,
 proposal and responsible owner. A later action update or receipt is current;
-terminal actions do not produce the finding. Date-only evidence whose possible time zones overlap closure, absent
-links, unreadable sources or missing closure timestamps are indeterminate and
+terminal actions do not produce the finding. A date-only `updated_at` on or
+after the proposal's closure date counts as current; an earlier date can still
+be ambiguous when its possible time zones overlap closure. Absent links,
+unreadable sources or missing closure timestamps are indeterminate and
 name the next event and responsible role. `done` describes the proposal only
-and never proves the action is closed. Explicit PR numbers and links to the
-observed repository are supported; other reference formats require reconciliation. This is an advisory snapshot, not an
+and never proves the action is closed. Links and qualified `owner/repo#number`
+references identify their repository. A bare number is not attributed to this
+repository when the action also cites another repository with the same number;
+an explicit link to this repository still identifies it. Common file paths are
+not repo references; where an extensionless path and a repo reference cannot be
+distinguished, the observation waits for reconciliation. This is an advisory snapshot, not an
 approval or authorization. Recheck current head, base, policy and observations
-before an effect. A closed proposal requires an explicit reason comment using
-`Disposition-Reason:`, `Motivo:` or `Reason for closure:`; an unrecognized
-comment leaves `waiting:verify_closure_reason` for an operator to reconcile. An orphan branch or a
+before an effect. For closed, unmerged proposals, an explicit reason comment is
+checked when a branch or worktree remains, or when closure occurred after the
+consumer's optional `approval.closure_reason_after` date (`YYYY-MM-DD`); the
+default is no cutoff and does not inspect historical closures without residue.
+
+For durable PR-to-action association, include the full repository-qualified PR
+URL in the reason of a real action transition or contract update, using the
+canonical action writer. The checker also reads that URL from a hash-intact
+`action_state_history` receipt. Branch names can be reused and commit trailers
+can disappear during squash, so neither is treated as an identity. An absent,
+unreadable or altered receipt is not proof of a relationship; older unrelated
+proposals therefore remain indeterminate until evidence is recorded. A receipt
+hash detects alteration but does not by itself authenticate the author or prove
+that the action was reconciled.
+
+Consumers adopting this association contract set the exact effective adoption
+instant in their own `wiki.config.yaml`, for example:
+
+```yaml
+approval:
+  action_association_adopted_at: "2026-11-15T12:00:00Z" # example only
+```
+
+The cutoff is the configured timezone-aware instant, compared to the PR's
+provider `createdAt`: PRs created at or before it without an association are
+`informational / legacy_without_action_receipt`; PRs created strictly after it
+without an association in the observed default-branch actions report
+`fix:action_association_required` and an explicit warning. Open PRs also wait
+for association before being called integrable. An open PR's candidate action
+may exist only on its head, which this canonical-base observation does not read;
+verify that head and reconcile the new PR with its canonical action before
+closure. A missing or
+invalid cutoff, creation timestamp, or action source remains a distinct wait;
+none is silently classified as legacy. This is an advisory command, whose zero
+exit code means the observation succeeded, not that every association exists.
+The example is not the private wiki's adoption date: record its real effective
+instant in the consumer migration when that contract is adopted.
+For example, a consumer may set:
+
+```yaml
+approval:
+  closure_reason_after: 2026-01-01
+```
+
+The cutoff comes from the proposal's destination branch; if that historical
+branch was deleted, the current default-branch policy is used. An unreadable
+policy on an existing destination produces a named wait. A branch demonstrably
+reused by an open proposal is not treated as residue of the closed proposal.
+With `--pr`, a remaining same-name branch needs a reuse check even when its head
+matches, because the filtered view does not include other proposals.
+Use `Disposition-Reason:`, `Motivo:` or `Reason for closure:`; an unrecognized
+comment leaves `waiting:verify_closure_reason`. An invalid cutoff or unavailable
+closure timestamp produces a named wait. An orphan branch or a
 worktree finding does not authorize deletion.
 
 The GitHub adapter accepts an independent native approval on the exact commit

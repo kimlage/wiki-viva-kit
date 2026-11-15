@@ -15,14 +15,14 @@ from typing import Any
 import yaml
 
 from wiki_core.action_contribution import ContributionError, _blob, _gh, _git, _repository
-from wiki_core.action_transition import ActionTransitionError, _assert_no_secrets
+from wiki_core.action_transition import ActionTransitionError, _assert_no_secrets, _receipt_id
 from wiki_core.action_state import NON_TERMINAL_ACTION_STATES, TERMINAL_ACTION_STATES
 from wiki_core.config import config_from_mapping
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.paths import WikiPaths
 
 SHA = re.compile(r"^[0-9a-f]{40,64}$")
-FIELDS = ("number,url,state,author,headRefName,headRefOid,headRepositoryOwner,isCrossRepository,"
+FIELDS = ("number,url,state,createdAt,author,headRefName,headRefOid,headRepositoryOwner,isCrossRepository,"
           "baseRefName,baseRefOid,mergeCommit,isDraft,reviewDecision,statusCheckRollup,"
           "reviews,comments,mergeStateStatus,closedAt,mergedAt")
 
@@ -132,7 +132,8 @@ def _failed_ci_checks(pr: dict) -> list[str]:
     return failures
 
 
-def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -> dict:
+def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool,
+             closure_reason_required: bool = False) -> dict:
     """Evaluate supplied observations; never execute commands or mutate state."""
     head = pr.get("headRefOid") or ""
     out = {"number": pr.get("number"), "url": pr.get("url"), "head": head,
@@ -143,8 +144,8 @@ def evaluate(pr: dict, approval: dict, *, ancestry: str, human_approved: bool) -
     state = str(pr.get("state", "")).upper()
     if state in {"MERGED", "CLOSED"}:
         out["action_reconciliation"] = "unverified"
-        out["status"] = "done" if state == "MERGED" else "waiting:closure_reason"
-        if state == "CLOSED":
+        out["status"] = "done"
+        if state == "CLOSED" and closure_reason_required:
             reasons = [str(c.get("body") or "") for c in pr.get("comments") or []]
             out["status"] = ("done" if any(re.search(r"(?im)^(?:Disposition-Reason|Motivo(?: do descarte)?|Reason for (?:closure|discard))\s*:\s*\S", b) for b in reasons)
                              else "waiting:verify_closure_reason" if reasons else "fix:closure_reason_missing")
@@ -220,12 +221,164 @@ def _human_review(root: Path, repo: str, pr: dict) -> bool:
     return False
 
 
-def _action_reference(text: str, number: int, repository: str) -> bool:
-    """A local PR number or a URL explicitly belonging to this repository."""
-    host, owner, repo = repository.split("/", 2)
-    url = rf"https?://{re.escape(host)}/{re.escape(owner)}/{re.escape(repo)}/pull/{number}(?=[^0-9]|$)"
-    local = rf"(?i)(?:\b(?:PR|pull\s+request|proposta)\s*#?\s*|(?<![\w/])#){number}(?![0-9])"
-    return bool(re.search(url, text, re.IGNORECASE) or re.search(local, text))
+def _action_reference(text: str, number: int, repository: str, *, numeric: bool = False) -> bool | None:
+    """Prefer repository-qualified evidence; do not resolve a collision locally."""
+    host, owner, repo = repository.lower().split("/", 2)
+    def repo_id(link_host: str, link_owner: str, link_repo: str) -> tuple[str, str, str]:
+        return link_host.lower(), link_owner.lower(), link_repo.lower().removesuffix('.git')
+    target = repo_id(host, owner, repo)
+    explicit: set[tuple[str, str, str]] = set()
+    file_suffixes = ('.md', '.py', '.yaml', '.yml', '.json', '.toml', '.txt', '.sh', '.ts', '.tsx')
+    path_roots = {'docs', 'memories', 'memorias', 'scripts', 'tests', 'src', 'data', 'apps', 'packs',
+                  'tools', 'bin', 'examples', 'assets', 'lib', 'include', 'config', 'resources',
+                  'build', 'templates', 'frontend', 'backend', 'server', 'client', 'acoes', 'decisoes'}
+    ambiguous_path = False
+    urls = re.compile(r"(?<![\w/@.-])(?:https?://)?([^/\s]+)/([^/\s]+)/([^/\s]+)/(pull|pull-requests|issues)/([0-9]+)(?![A-Za-z0-9_])", re.I)
+    for match in urls.finditer(text):
+        if ('.' in match.group(1) or match.group(1).lower() == host) and match.group(5) == str(number):
+            linked_repo = repo_id(*match.group(1, 2, 3))
+            if match.group(4).lower() in {'pull', 'pull-requests'} or linked_repo != target:
+                explicit.add(linked_repo)
+    merge_requests = re.compile(r"https?://([^/\s]+)/([^\s?#]+?)/-/merge_requests/([0-9]+)(?![A-Za-z0-9_])", re.I)
+    for match in merge_requests.finditer(text):
+        if match.group(3) == str(number):
+            parts = match.group(2).split('/')
+            explicit.add(repo_id(match.group(1), '/'.join(parts[:-1]), parts[-1]))
+    hosted = re.compile(r"(?<![\w/@.-])(?:https?://)?([^/\s]+)/([^/\s]+)/([^/\s#]+)#([0-9]+)(?![A-Za-z0-9_])", re.I)
+    for match in hosted.finditer(text):
+        if match.group(4) == str(number):
+            if match.group(1).lower() in {host, 'github.com', 'gitlab.com', 'bitbucket.org'}:
+                explicit.add(repo_id(*match.group(1, 2, 3)))
+            elif '.' in match.group(1):
+                # A fragment on an unknown host could be a Git reference or
+                # a document anchor; do not infer its repository.
+                ambiguous_path = True
+    qualified = re.compile(r"(?<![\w/.:@-])([\w.-]+)/([\w.-]+)#([0-9]+)(?![A-Za-z0-9_])", re.I)
+    for match in qualified.finditer(text):
+        if match.group(3) == str(number):
+            if match.group(1).lower() in path_roots:
+                if not match.group(2).lower().endswith(file_suffixes):
+                    ambiguous_path = True
+                continue
+            explicit.add(repo_id(host, match.group(1), match.group(2)))
+    # Also bind forms such as "repo=owner/repo PR #502" and the reverse.
+    repo_name = (r"(?<![\w/.:@-])(?:(?:repo(?:sitory)?|reposit[oó]rio)[ \t]*[:=]?[ \t]*)?"
+                 r"(?:([\w.-]+\.[A-Za-z]{2,})/)?([\w.-]+)/([\w.-]+)")
+    pr_number = rf"(?:(?:PR|pull[ \t]+request|proposta)[ \t]*[:=]?[ \t]*#?[ \t]*|#){number}(?![A-Za-z0-9_])"
+    def add_separate(match: re.Match, destination: set[tuple[str, str, str]]) -> None:
+        nonlocal ambiguous_path
+        named_host, named_owner, named_repo = match.group(1, 2, 3)
+        labeled = bool(re.search(r"\b(?:repo(?:sitory)?|reposit[oó]rio)[ \t]*[:=]", match.group(0), re.I))
+        if not named_host and not labeled and named_repo.lower().endswith(file_suffixes):
+            return
+        if not named_host and not labeled and named_owner.lower() in path_roots:
+            ambiguous_path = True
+            return
+        destination.add(repo_id(named_host or host, named_owner, named_repo))
+    for pattern in (repo_name + r"[ \t]*[,;:]?[ \t]*\(?[ \t]*" + pr_number,
+                    pr_number + r"[ \t]*\(?[ \t]*(?:(?:do|da|de|of|in|no|na)[ \t]+)?" + repo_name):
+        for match in re.finditer(pattern, text, re.I):
+            add_separate(match, explicit)
+    if target in explicit:
+        return True
+    if explicit:
+        return False
+    # A bare repository and number on one line, or an explicit Repo: label
+    # elsewhere in the action, make the short number repository-qualified.
+    contextual: set[tuple[str, str, str]] = set()
+    root_urls = re.compile(r"(?<![\w/@.-])(?:https?://)?([^/\s]+)/([^/\s]+)/([\w.-]+)/?(?=$|[?#\s)>\]},;])", re.I)
+    ssh_urls = re.compile(r"(?<![\w/@.-])git@([\w.-]+):([\w.-]+)/([\w.-]+)(?=$|[?#\s)\]},;])", re.I)
+    def repository_url(match: re.Match, source: str) -> bool:
+        link_host = match.group(1).lower()
+        known = link_host in {host, 'github.com', 'gitlab.com', 'bitbucket.org'}
+        # An unknown host with a fragment may be an ordinary documentation link.
+        return known or ('.' in link_host and source[match.end():match.end() + 1] != '#')
+    number_pattern = re.compile(r"(?i)(?:\b(?:PR|pull[ \t]+request|proposta)[ \t]*[:=]?[ \t]*#?[ \t]*|(?<![\w/])#)([0-9]+)(?![A-Za-z0-9_])")
+    for line in text.splitlines():
+        for segment in line.split(';'):
+            numbers = {item.group(1) for item in number_pattern.finditer(segment)}
+            if str(number) not in numbers:
+                continue
+            names = list(re.finditer(repo_name, segment, re.I))
+            links = [match for match in root_urls.finditer(segment)
+                     if repository_url(match, segment)]
+            ssh_links = list(ssh_urls.finditer(segment))
+            if len(numbers) > 1 and (names or links or ssh_links):
+                ambiguous_path = True
+                continue
+            for match in names:
+                add_separate(match, contextual)
+            for match in links:
+                contextual.add(repo_id(*match.group(1, 2, 3)))
+            for match in ssh_links:
+                contextual.add(repo_id(*match.group(1, 2, 3)))
+    label = (r"(?i)\b(?:repo(?:sitory)?|reposit[oó]rio)[ \t]*[:=][ \t]*"
+             r"(?:(?:https?://|git@)?([\w.-]+\.[A-Za-z]{2,})(?::|/))?([\w.-]+)/([\w.-]+)")
+    all_labels = list(re.finditer(label, text))
+    all_numbers = {item.group(1) for item in number_pattern.finditer(text)}
+    if numeric:
+        all_numbers.add(str(number))
+    if all_numbers == {str(number)}:
+        hints: set[tuple[str, str, str]] = set()
+        for match in re.finditer(repo_name, text, re.I):
+            add_separate(match, hints)
+        for match in root_urls.finditer(text):
+            if repository_url(match, text):
+                hints.add(repo_id(*match.group(1, 2, 3)))
+        for match in ssh_urls.finditer(text):
+            hints.add(repo_id(*match.group(1, 2, 3)))
+        contextual.update(hints)
+    if len(all_labels) == 1 and all_numbers == {str(number)}:
+        add_separate(all_labels[0], contextual)
+    for block in re.split(r"\n[ \t]*\n", text):
+        labels = list(re.finditer(label, block))
+        for index, match in enumerate(labels):
+            end = labels[index + 1].start() if index + 1 < len(labels) else len(block)
+            following = {item.group(1) for item in number_pattern.finditer(block[match.end():end])}
+            if str(number) in following:
+                add_separate(match, contextual)
+                continue
+            if following:
+                continue
+            start = labels[index - 1].end() if index else 0
+            previous = {item.group(1) for item in number_pattern.finditer(block[start:match.start()])}
+            if previous == {str(number)}:
+                add_separate(match, contextual)
+            elif str(number) in previous:
+                ambiguous_path = True
+    if contextual:
+        return True if contextual == {target} else None if target in contextual else False
+    if ambiguous_path:
+        return None
+    local = rf"(?i)(?:\b(?:PR|pull\s+request|proposta)\s*[:=]?\s*#?\s*|(?<![\w/])#){number}(?![A-Za-z0-9_])"
+    return numeric or bool(re.search(local, text))
+
+
+def _receipt_associates(frontmatter: dict, number: int, repository: str) -> bool:
+    """Accept a qualified PR URL in an intact transition receipt's reason.
+
+    A branch name or an unqualified number is not a durable identity across
+    repositories or branch reuse. An invalid receipt is never association proof.
+    """
+    history = frontmatter.get("action_state_history") or []
+    if not isinstance(history, list):
+        return False
+    expected = re.compile(r"(?<![\w/])https?://" + re.escape(repository)
+                          + r"/pull/" + str(number) + r"(?![\w/.-])", re.I)
+    for entry in history:
+        if (not isinstance(entry, dict) or not isinstance(entry.get("reason"), str)
+                or entry.get("page_id") != frontmatter.get("page_id")
+                or entry.get("reason_recorded") is not True):
+            continue
+        if not expected.search(entry["reason"]):
+            continue
+        try:
+            intact = entry.get("receipt_id") == _receipt_id(entry)
+        except (TypeError, ValueError):
+            intact = False
+        if intact:
+            return True
+    return False
 
 
 def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str) -> dict | None:
@@ -241,15 +394,18 @@ def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str)
     number = pr.get("number")
     if not isinstance(number, int):
         return None
-    cited = "\n".join((str(frontmatter.get("next_action") or ""),
-                        str(frontmatter.get("evidence_refs") or ""), body))
     references = frontmatter.get("evidence_refs") or []
     if not isinstance(references, list):
         references = [references]
+    cited = "\n".join((str(frontmatter.get("next_action") or ""),
+                        *(str(ref) for ref in references), body))
     numeric_reference = any(str(ref).strip() == str(number) for ref in references)
     numeric_next = str(frontmatter.get("next_action") or "").strip() == str(number)
     numeric_body = body.strip() == str(number)
-    if not numeric_reference and not numeric_next and not numeric_body and not _action_reference(cited, number, repository):
+    association = _action_reference(cited, number, repository, numeric=numeric_reference or numeric_next or numeric_body)
+    if _receipt_associates(frontmatter, number, repository):
+        association = True
+    if association is False:
         return None
     state = frontmatter.get("action_state")
     responsible = str(frontmatter.get("owner_ref") or frontmatter.get("owner") or "action_owner")
@@ -260,8 +416,12 @@ def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str)
     except ActionTransitionError:
         responsible = "action_owner"
     result = {"action_id": action_id, "pr": number, "responsible": responsible}
+    if association is None:
+        return {**result, "status": "waiting:action_reconciliation", "event": "repository_reference_ambiguous"}
     if state in TERMINAL_ACTION_STATES:
         return {**result, "status": "terminal", "event": "action_already_terminal"}
+    if pr.get("state") == "OPEN":
+        return {**result, "status": "linked", "event": "action_associated"}
     event = _event_time(pr.get("mergedAt") if pr.get("state") == "MERGED" else pr.get("closedAt"))
     if state not in NON_TERMINAL_ACTION_STATES or event is None:
         return {**result, "status": "waiting:action_reconciliation", "event": "action_state_or_closure_time_unavailable"}
@@ -272,6 +432,8 @@ def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str)
         updated_date = date.fromisoformat(updated_str) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", updated_str) else None
     except ValueError:
         updated_date = None
+    if updated_date and updated_date >= event.date():
+        return {**result, "status": "current", "event": "action_updated_after_proposal"}
     history = frontmatter.get("action_state_history") or []
     if not isinstance(history, list) or (history and not isinstance(history[-1], dict)):
         return {**result, "status": "waiting:action_reconciliation", "event": "receipt_time_unavailable"}
@@ -301,13 +463,13 @@ def _action_findings(root: Path, base: str, prs: list[dict], repository: str) ->
         config = config_from_mapping(yaml.safe_load(_blob(root, base, "wiki.config.yaml")))
         paths = WikiPaths(root, config)
         names = _git(root, "ls-tree", "-r", "--name-only", "-z", base).split("\0")
-        terminal = [p for p in prs if p.get("state") in {"MERGED", "CLOSED"}]
+        considered = [p for p in prs if p.get("state") in {"OPEN", "MERGED", "CLOSED"}]
         findings = []
         for name in names:
             if not name.endswith(".md") or paths.collection_root(root / name, "actions_dirname") is None:
                 continue
             fm, body = parse_frontmatter(_blob(root, base, name))
-            for pr in terminal:
+            for pr in considered:
                 observation = _action_observation(fm, body, pr, repository)
                 if observation is not None:
                     findings.append(observation)
@@ -333,6 +495,44 @@ def _worktrees(root: Path) -> list[dict]:
             dirty = None
         result.append({"path": path, "branch": branch or None, "head": fields.get("HEAD"), "dirty": dirty})
     return result
+
+
+def _closure_reason_scope(pr: dict, approval: dict, *, residue: bool) -> str:
+    """Check only recent closed PRs or ones with observable Git residue."""
+    if residue:
+        return "required"
+    raw = approval.get("closure_reason_after")
+    if raw is None or raw == "":
+        return "out_of_scope"
+    try:
+        if isinstance(raw, datetime):
+            raise ValueError
+        cutoff = raw if isinstance(raw, date) else date.fromisoformat(str(raw))
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(raw)):
+            raise ValueError
+    except ValueError:
+        return "waiting:closure_reason_policy"
+    closed = _event_time(pr.get("closedAt"))
+    if closed is None:
+        return "waiting:closure_time"
+    return "required" if closed.date() > cutoff else "out_of_scope"
+
+
+def _missing_action_association(pr: dict, approval: dict | None, available: bool) -> dict:
+    """Separate known legacy from new missing bindings and unknown evidence."""
+    result = {"responsible": "integrator"}
+    if not available:
+        return {**result, "status": "waiting:action_reconciliation", "event": "action_source_unavailable"}
+    cutoff = _event_time((approval or {}).get("action_association_adopted_at"))
+    if cutoff is None:
+        return {**result, "status": "waiting:action_reconciliation", "event": "action_association_cutoff_unavailable"}
+    created = _event_time(pr.get("createdAt"))
+    if created is None:
+        return {**result, "status": "waiting:action_reconciliation", "event": "proposal_creation_time_unavailable"}
+    if created <= cutoff:
+        return {**result, "status": "informational", "event": "legacy_without_action_receipt"}
+    return {**result, "status": "fix:action_association_required", "event": "new_proposal_missing_action_association",
+            "scope": "observed_default_branch"}
 
 
 def inspect(root: Path, number: int | None = None) -> dict:
@@ -363,9 +563,13 @@ def inspect(root: Path, number: int | None = None) -> dict:
         own = lambda p: (p.get("isCrossRepository") is False
                          and str((p.get("headRepositoryOwner") or {}).get("login") or "").lower() == owner)
         proposals = []
+        closure_policies = []
         for pr in prs:
             target_base = remote.get(str(pr.get("baseRefName") or ""), "")
             approval = policy(root, target_base) if SHA.fullmatch(target_base) else None
+            # A deleted historical target falls back to the current default
+            # branch; an existing but unreadable target remains unknown.
+            closure_policies.append(approval if SHA.fullmatch(target_base) else default_policy)
             if pr.get("state") in {"MERGED", "CLOSED"}:
                 proposals.append(evaluate(pr, {}, ancestry="unknown", human_approved=False))
                 continue
@@ -395,12 +599,51 @@ def inspect(root: Path, number: int | None = None) -> dict:
                 ancestry = _ancestry(root, target_base, str(pr.get("headRefOid") or ""))
             proposals.append(evaluate(pr, approval, ancestry=ancestry,
                                       human_approved=_human_review(root, repo, pr) if approval.get("require_human_review") is True else False))
-        local = _git(root, "for-each-ref", "--format=%(refname:short)", "refs/heads/").splitlines()
+        local_lines = _git(root, "for-each-ref", "--format=%(refname:short)%09%(objectname)", "refs/heads/").splitlines()
+        local_heads = {line.split("\t", 1)[0]: line.split("\t", 1)[1]
+                       for line in local_lines if "\t" in line}
+        local = [line.split("\t", 1)[0] for line in local_lines]
         worktrees = _worktrees(root)
         open_heads = {p.get("headRefName") for p in prs if p.get("state") == "OPEN" and own(p)}
+        open_refs = {(p.get("headRefName"), p.get("headRefOid")) for p in prs if p.get("state") == "OPEN" and own(p)}
         closed_heads = {p.get("headRefName") for p in prs if p.get("state") == "MERGED" and own(p)} - open_heads
         present = set(local) | set(remote) | {w["branch"] for w in worktrees}
-        for pr, observation in zip(prs, proposals):
+        for pr, observation, destination_policy in zip(prs, proposals, closure_policies):
+            if pr.get("state") == "CLOSED" and not pr.get("mergedAt"):
+                branch = pr.get("headRefName")
+                head = pr.get("headRefOid")
+                possible_branch = bool(branch and branch != default and branch in present)
+                unknown_owner = bool(possible_branch and not own(pr) and pr.get("isCrossRepository") is not True)
+                branch_present = bool(own(pr) and branch and branch != default and branch in present)
+                residue = bool(own(pr) and branch and branch != default and head and
+                               (branch, head) not in open_refs and
+                               (remote.get(branch) == head or local_heads.get(branch) == head))
+                detached = bool(head and any(w.get("head") == head and w.get("branch") is None
+                                             for w in worktrees))
+                residue |= bool(own(pr) and head and any(w.get("head") == head and
+                                w.get("branch") == branch and branch != default and
+                                (branch, head) not in open_refs for w in worktrees))
+                uncertain_reuse = bool(number is not None and (branch_present or residue))
+                if number is not None:
+                    # A filtered view cannot tell whether another open PR uses
+                    # the same branch and SHA, even when they still exist.
+                    residue = False
+                if number is None and branch_present and branch not in open_heads:
+                    residue = True
+                scope = (_closure_reason_scope(pr, destination_policy, residue=residue)
+                         if destination_policy is not None else
+                         "required" if residue else "waiting:destination_policy")
+                if scope == "required":
+                    observation["status"] = evaluate(pr, {}, ancestry="unknown", human_approved=False,
+                                                     closure_reason_required=True)["status"]
+                elif scope.startswith("waiting:"):
+                    observation["status"] = scope
+                elif unknown_owner:
+                    observation["status"] = "waiting:head_repository"
+                elif uncertain_reuse:
+                    observation["status"] = "waiting:verify_branch_reuse"
+                elif detached:
+                    observation["status"] = "waiting:verify_detached_worktree"
             if pr.get("state") == "MERGED" and own(pr) and pr.get("headRefName") in closed_heads & present:
                 observation["status"] = ("waiting:verify_branch_reuse" if number is not None
                                          else "fix:merged_branch_or_worktree_remaining")
@@ -416,12 +659,17 @@ def inspect(root: Path, number: int | None = None) -> dict:
                 if branch != default and branch not in open_heads:
                     hygiene.append({"status": "fix:merged_branch_remaining" if branch in closed_heads else "fix:remote_branch_without_pr", "branch": branch})
         action_findings, action_available = _action_findings(root, base, prs, repo)
-        for observation in proposals:
-            if observation.get("action_reconciliation") == "unverified":
+        for pr, observation, destination_policy in zip(prs, proposals, closure_policies):
+            if pr.get("state") in {"OPEN", "MERGED", "CLOSED"}:
                 related = [f for f in action_findings if f["pr"] == observation["number"]]
-                observation["action_reconciliation"] = (related if related else [{
-                    "status": "waiting:action_reconciliation", "event": "action_association_unavailable" if action_available else "action_source_unavailable",
-                    "responsible": "integrator"}])
+                verified = any(f.get("event") != "repository_reference_ambiguous" for f in related)
+                missing = None if verified else _missing_action_association(pr, destination_policy, action_available)
+                observation["action_reconciliation"] = related + ([missing] if missing else [])
+                if (pr.get("state") == "OPEN" and missing
+                        and missing["event"] == "new_proposal_missing_action_association"):
+                    observation.setdefault("pending", []).append("action_association")
+                    if observation["status"] == "integrable":
+                        observation["status"] = "waiting:action_association"
         hygiene.extend(f for f in action_findings if f["status"] == "fix:action_stale")
         for wt in worktrees:
             if wt["dirty"] is None:
