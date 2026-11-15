@@ -531,7 +531,8 @@ def _missing_action_association(pr: dict, approval: dict | None, available: bool
         return {**result, "status": "waiting:action_reconciliation", "event": "proposal_creation_time_unavailable"}
     if created <= cutoff:
         return {**result, "status": "informational", "event": "legacy_without_action_receipt"}
-    return {**result, "status": "fix:action_association_required", "event": "new_proposal_missing_action_association"}
+    return {**result, "status": "fix:action_association_required", "event": "new_proposal_missing_action_association",
+            "scope": "observed_default_branch"}
 
 
 def inspect(root: Path, number: int | None = None) -> dict:

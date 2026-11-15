@@ -32,7 +32,7 @@ def main() -> int:
                     isinstance(entry, dict) and entry.get('event') == 'new_proposal_missing_action_association'
                     for entry in item['action_reconciliation']
                 )):
-                    print('  WARNING: new PR has no action association; reconcile before closure.')
+                    print('  WARNING: no action association observed on the default branch; verify the PR head and reconcile before closure.')
             if item.get('pending'):
                 print('  pending: ' + ', '.join(item['pending']))
             if item.get('required_at_integration'):

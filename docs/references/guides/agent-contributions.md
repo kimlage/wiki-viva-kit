@@ -294,9 +294,12 @@ approval:
 The cutoff is the configured timezone-aware instant, compared to the PR's
 provider `createdAt`: PRs created at or before it without an association are
 `informational / legacy_without_action_receipt`; PRs created strictly after it
-without an association report `fix:action_association_required` and an explicit
-warning. Open PRs also wait for association before being called integrable.
-Reconcile the new PR with its canonical action before closure. A missing or
+without an association in the observed default-branch actions report
+`fix:action_association_required` and an explicit warning. Open PRs also wait
+for association before being called integrable. An open PR's candidate action
+may exist only on its head, which this canonical-base observation does not read;
+verify that head and reconcile the new PR with its canonical action before
+closure. A missing or
 invalid cutoff, creation timestamp, or action source remains a distinct wait;
 none is silently classified as legacy. This is an advisory command, whose zero
 exit code means the observation succeeded, not that every association exists.

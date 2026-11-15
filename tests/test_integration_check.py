@@ -318,7 +318,7 @@ def test_cli_prominently_warns_when_new_pr_has_no_association(monkeypatch, capsy
             'event': 'new_proposal_missing_action_association'}]}], 'hygiene': []})
     monkeypatch.setattr(sys, 'argv', ['wiki_integration_check.py'])
     assert cli.main() == 0
-    assert 'WARNING: new PR has no action association' in capsys.readouterr().out
+    assert 'WARNING: no action association observed on the default branch' in capsys.readouterr().out
 
 
 def test_later_native_review_resolves_rejection_but_reverse_blocks():
