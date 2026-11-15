@@ -292,7 +292,7 @@ def test_canonical_action_state_controls_inclusion_despite_editorial_status(
         minimal_repo / "memories" / "actions" / "canonical-done.md",
         (
             "---\npage_id: action-canonical-done\npage_type: action\ncontext: sistema\n"
-            "action_state: done\nstatus: open\ncompletion_receipt: receipt:test\n"
+            "action_state: done\nstatus: open\ncompletion_receipt: receipt:test\ncompleted_at: 2026-06-08\n"
             "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 30\n"
             "sources_policy: contrato\ngate: github_pr\n"
             "sensitive_data_policy: private_sensitive_allowed\n---\n\n"
@@ -303,7 +303,7 @@ def test_canonical_action_state_controls_inclusion_despite_editorial_status(
         minimal_repo / "memories" / "actions" / "canonical-open.md",
         (
             "---\npage_id: action-canonical-open\npage_type: action\ncontext: sistema\n"
-            "action_state: open\nstatus: completed\n"
+            "action_state: open\nnext_action: work\nstatus: completed\n"
             "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 30\n"
             "sources_policy: contrato\ngate: github_pr\n"
             "sensitive_data_policy: private_sensitive_allowed\n---\n\n"
@@ -375,10 +375,10 @@ def test_build_page_lists_pending_action_ids(compile_mod, config, minimal_repo):
     page = compile_mod.build_page(minimal_repo, config)
     assert "`acao-primeira`" in page
     assert "`acao-segunda`" in page
-    assert "`action-terceira`" in page
+    assert "`action-terceira`" not in page
     # The queue intro links the CONFIGURED pending file (placeholder filled
     # relative to the cockpit page's directory), not a hardcoded pt path.
-    assert "[actions/pending.md](actions/pending.md)" in page
+    assert "[fila](actions/pending.md)" in page
     assert "acoes/pendentes.md" not in page
 
 
@@ -757,7 +757,7 @@ def test_build_page_with_pt_pinned_layout(compile_mod, tmp_path):
     assert "context: sistema" in head
     assert "decisoes/alfa.md" in page
     assert "acoes/primeira.md" in page
-    assert "[acoes/pendentes.md](acoes/pendentes.md):" in page
+    assert "[fila](acoes/pendentes.md)" in page
     assert "- Wiki: [memorias/index.md](index.md)" in page
     assert "- Log: [memorias/sistema/log.md](sistema/log.md)" in page
     assert (

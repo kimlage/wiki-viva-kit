@@ -8,7 +8,7 @@ personal content:
 - repo_id / owner_label come from `wiki.config.yaml` (via `load_config`);
 - decisions come from `<memory_root>/<decisions_dirname>/*.md` (one per file);
 - actions come from configured action directories under memory (legacy root
-  and nested contexts), plus the legacy pending queue file;
+  and nested contexts); the queue is derived from those action pages;
 - context vitality is derived from `updated_at` + `stale_after_days` of the
   context hubs (`<memory_root>/**/index.md`, including the root hub);
 - Git state is intentionally not persisted in the versioned cockpit because it
@@ -34,6 +34,7 @@ CODE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CODE_ROOT))
 from scripts._common import ROOT
 
+from wiki_core.action_queue import read_queue
 from wiki_core.action_state import (
     legacy_action_state_from_body,
     resolve_action_state,
@@ -58,8 +59,6 @@ H1_RE = re.compile(r"^#\s+(.*\S)\s*$")
 # Bilingual: H1 titles may carry "Decisao - " / "Decision - " / "Acao - " /
 # "Action - " prefixes; the cockpit tables list the bare title.
 TITLE_PREFIX_RE = re.compile(r"^(?:Decisao|Decision|Acao|Action)\s*-\s*")
-LIST_ITEM_RE = re.compile(r"^\s*-\s+(.+?)\s*$")
-ACTION_ID_RE = re.compile(r"`([^`]+)`|\b((?:acao|action)-[A-Za-z0-9_.:-]+)\b")
 
 # Deterministic sections derived from the memory-tree content (independent of
 # date/git state): fine granularity, still used by per-section drift tests.
@@ -107,7 +106,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "th_actions": "| Acción | Contexto | Estado | Fuente |",
         "empty_actions": "| No hay acciones abiertas del responsable registradas. | - | - | - |",
         "h_queue": "## Cola de acciones pendientes",
-        "queue_listed": "Identificadores enumerados en [{pending_path}]({pending_path}):",
+        "queue_listed": "Identificadores derivados de las páginas de acción ([cola]({pending_path})):",
         "empty_queue": "No hay acciones pendientes registradas.",
         "consolidation_pending": "- Fuentes pendientes de consolidación: {count} — consulte [scripts/wiki_consolidate.py]({script}).",
         "consolidation_unavailable": "- Fuentes pendientes de consolidación: no disponible — consulte [scripts/wiki_consolidate.py]({script}).",
@@ -162,7 +161,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "th_actions": "| Acao | Contexto | Estado | Fonte |",
         "empty_actions": "| Sem acoes abertas registradas. | - | - | - |",
         "h_queue": "## Fila de acoes pendentes",
-        "queue_listed": "Identificadores listados em [{pending_path}]({pending_path}):",
+        "queue_listed": "Identificadores derivados das páginas de ação ([fila]({pending_path})):",
         "empty_queue": "Sem acoes pendentes registradas.",
         "consolidation_pending": "- Fontes aguardando consolidacao: {count} — ver [scripts/wiki_consolidate.py]({script}).",
         "consolidation_unavailable": "- Fontes aguardando consolidacao: indisponivel — ver [scripts/wiki_consolidate.py]({script}).",
@@ -213,7 +212,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "th_actions": "| Action | Context | State | Source |",
         "empty_actions": "| No open owner actions recorded. | - | - | - |",
         "h_queue": "## Pending action queue",
-        "queue_listed": "Identifiers listed in [{pending_path}]({pending_path}):",
+        "queue_listed": "Identifiers derived from action pages ([queue]({pending_path})):",
         "empty_queue": "No pending actions recorded.",
         "consolidation_pending": "- Sources awaiting consolidation: {count} — see [scripts/wiki_consolidate.py]({script}).",
         "consolidation_unavailable": "- Sources awaiting consolidation: unavailable — see [scripts/wiki_consolidate.py]({script}).",
@@ -526,24 +525,10 @@ def collect_actions(paths: WikiPaths) -> list[Action]:
 
 
 def pending_action_ids(paths: WikiPaths) -> list[str]:
-    pending_file = paths.pending_actions_file
-    if not pending_file.exists():
-        return []
-    ids: list[str] = []
-    body_started = False
-    for line in pending_file.read_text(encoding="utf-8").splitlines():
-        if line.startswith("# "):
-            body_started = True
-            continue
-        if not body_started:
-            continue
-        match = LIST_ITEM_RE.match(line)
-        if not match:
-            continue
-        id_match = ACTION_ID_RE.search(match.group(1))
-        if id_match:
-            ids.append((id_match.group(1) or id_match.group(2)).strip())
-    return ids
+    rows, errors = read_queue(paths.root, config=paths.config, allow_legacy=True)
+    if errors:
+        raise ValueError("Invalid action queue: " + "; ".join(errors))
+    return [row["page_id"] for row in rows]
 
 
 @dataclass(frozen=True)
@@ -704,7 +689,10 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
             {'page_types':['action'],**paths.collection_selector('actions_dirname'),
              'exclude_names':sorted(NON_ITEM_BASENAMES|{paths.pending_actions_file.name,'pendentes.md','pending.md'}),
              'fields':['status'],'missing_fields':['action_state']},
-            *([{'paths':[paths.rel(paths.pending_actions_file)],'fields':['body']}] if paths.pending_actions_file.is_file() else []),
+            {'page_types':['action'], **paths.collection_selector('actions_dirname'),
+             'fields':['page_id','page_type','title','action_state','state','status','body',
+                       'next_action','blocker_reason','blocked_by','completed_at',
+                       'completion_receipt','cancellation_receipt']},
             {'page_types':['source'],**paths.collection_selector('sources_dirname'),
              'fields':['page_id','ingestion_state']},
             {'page_types':[],'path_prefix':paths.rel(paths.ingest_events_dir),
