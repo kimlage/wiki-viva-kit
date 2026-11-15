@@ -272,6 +272,16 @@ before an effect. For closed, unmerged proposals, an explicit reason comment is
 checked when a branch or worktree remains, or when closure occurred after the
 consumer's optional `approval.closure_reason_after` date (`YYYY-MM-DD`); the
 default is no cutoff and does not inspect historical closures without residue.
+
+For durable PR-to-action association, include the full repository-qualified PR
+URL in the reason of a real action transition or contract update, using the
+canonical action writer. The checker also reads that URL from a hash-intact
+`action_state_history` receipt. Branch names can be reused and commit trailers
+can disappear during squash, so neither is treated as an identity. An absent,
+unreadable or altered receipt is not proof of a relationship; older unrelated
+proposals therefore remain indeterminate until evidence is recorded. A receipt
+hash detects alteration but does not by itself authenticate the author or prove
+that the action was reconciled.
 For example, a consumer may set:
 
 ```yaml

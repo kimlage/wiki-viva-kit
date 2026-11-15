@@ -350,6 +350,41 @@ def test_action_reference_in_body_and_evidence():
     assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'fix:action_stale'
 
 
+def test_transition_receipt_qualifies_association_without_guessing_branch():
+    pr = candidate() | {'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    receipt = {'at': '2026-11-14T13:00:00Z', 'page_id': 'action-demo', 'reason_recorded': True,
+               'reason': 'Integrated https://github.com/owner/repo/pull/1'}
+    receipt['receipt_id'] = check._receipt_id(receipt)
+    fm = {'page_type': 'action', 'page_id': 'action-demo', 'action_state': 'open',
+          'action_state_history': [receipt]}
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo')['status'] == 'current'
+    assert check._action_observation(fm, '', pr, 'github.com/other/repo') is None
+    receipt['reason'] += ' changed after receipt'
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo') is None
+    receipt['reason'] = 'Integrated PR #1'
+    receipt['receipt_id'] = check._receipt_id(receipt)
+    assert check._action_observation(fm, '', pr, 'github.com/owner/repo') is None
+
+
+def test_ambiguous_reference_does_not_become_terminal_association():
+    pr = candidate() | {'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    fm = {'page_type': 'action', 'page_id': 'action-demo', 'action_state': 'done'}
+    result = check._action_observation(fm, 'Repo: owner/repo\nRepo: other/repo\nPR #1', pr, 'github.com/owner/repo')
+    assert result['status'] == 'waiting:action_reconciliation'
+
+
+def test_real_transition_writer_receipt_is_readable(tmp_path):
+    from wiki_core.action_transition import transition_action_page
+    path = tmp_path / 'action.md'
+    path.write_text('---\npage_type: action\npage_id: action-demo\naction_state: open\n'
+                    'next_action: work\n---\n\n# Action\n', encoding='utf-8')
+    transition_action_page(tmp_path, 'action.md', 'in_progress',
+                           reason='Integrate https://github.com/owner/repo/pull/1')
+    fm, body = check.parse_frontmatter(path)
+    pr = candidate() | {'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
+    assert check._action_observation(fm, body, pr, 'github.com/owner/repo') is not None
+
+
 def test_short_number_collision_does_not_associate_a_different_repository():
     pr = candidate() | {'number': 502, 'state': 'MERGED', 'mergedAt': '2026-11-14T12:00:00Z'}
     fm = {'page_type': 'action', 'page_id': 'action-demo', 'action_state': 'open',

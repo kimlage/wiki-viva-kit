@@ -15,7 +15,7 @@ from typing import Any
 import yaml
 
 from wiki_core.action_contribution import ContributionError, _blob, _gh, _git, _repository
-from wiki_core.action_transition import ActionTransitionError, _assert_no_secrets
+from wiki_core.action_transition import ActionTransitionError, _assert_no_secrets, _receipt_id
 from wiki_core.action_state import NON_TERMINAL_ACTION_STATES, TERMINAL_ACTION_STATES
 from wiki_core.config import config_from_mapping
 from wiki_core.frontmatter import parse_frontmatter
@@ -354,6 +354,33 @@ def _action_reference(text: str, number: int, repository: str, *, numeric: bool 
     return numeric or bool(re.search(local, text))
 
 
+def _receipt_associates(frontmatter: dict, number: int, repository: str) -> bool:
+    """Accept a qualified PR URL in an intact transition receipt's reason.
+
+    A branch name or an unqualified number is not a durable identity across
+    repositories or branch reuse. An invalid receipt is never association proof.
+    """
+    history = frontmatter.get("action_state_history") or []
+    if not isinstance(history, list):
+        return False
+    expected = re.compile(r"(?<![\w/])https?://" + re.escape(repository)
+                          + r"/pull/" + str(number) + r"(?![\w/.-])", re.I)
+    for entry in history:
+        if (not isinstance(entry, dict) or not isinstance(entry.get("reason"), str)
+                or entry.get("page_id") != frontmatter.get("page_id")
+                or entry.get("reason_recorded") is not True):
+            continue
+        if not expected.search(entry["reason"]):
+            continue
+        try:
+            intact = entry.get("receipt_id") == _receipt_id(entry)
+        except (TypeError, ValueError):
+            intact = False
+        if intact:
+            return True
+    return False
+
+
 def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str) -> dict | None:
     if frontmatter.get("page_type") != "action":
         return None
@@ -376,6 +403,8 @@ def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str)
     numeric_next = str(frontmatter.get("next_action") or "").strip() == str(number)
     numeric_body = body.strip() == str(number)
     association = _action_reference(cited, number, repository, numeric=numeric_reference or numeric_next or numeric_body)
+    if _receipt_associates(frontmatter, number, repository):
+        association = True
     if association is False:
         return None
     state = frontmatter.get("action_state")
@@ -387,10 +416,10 @@ def _action_observation(frontmatter: dict, body: str, pr: dict, repository: str)
     except ActionTransitionError:
         responsible = "action_owner"
     result = {"action_id": action_id, "pr": number, "responsible": responsible}
-    if state in TERMINAL_ACTION_STATES:
-        return {**result, "status": "terminal", "event": "action_already_terminal"}
     if association is None:
         return {**result, "status": "waiting:action_reconciliation", "event": "repository_reference_ambiguous"}
+    if state in TERMINAL_ACTION_STATES:
+        return {**result, "status": "terminal", "event": "action_already_terminal"}
     event = _event_time(pr.get("mergedAt") if pr.get("state") == "MERGED" else pr.get("closedAt"))
     if state not in NON_TERMINAL_ACTION_STATES or event is None:
         return {**result, "status": "waiting:action_reconciliation", "event": "action_state_or_closure_time_unavailable"}
