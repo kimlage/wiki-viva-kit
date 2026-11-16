@@ -136,8 +136,11 @@ def handoff_problems(message: Any) -> list[str]:
         # not a hook shape; it is recorded on the proposal.
         for line in message.splitlines():
             proof = re.match(r'(?i)^\s*equivalence\s*:\s*identical\s+commits=[1-9][0-9]*\s+replay=clean\s.*'
-                             r'\breviewed=([0-9a-f]{40}|[0-9a-f]{64})\b.*\brebased=([0-9a-f]{40}|[0-9a-f]{64})\b', line)
-            if proof and proof.group(2).lower() == head and proof.group(1).lower() in review.lower():
+                             r'\breviewed=([0-9a-f]{40}|[0-9a-f]{64})\b.*\brebased=([0-9a-f]{40}|[0-9a-f]{64})\b'
+                             r'.*\bonto=([0-9a-f]{40}|[0-9a-f]{64})\b', line)
+            # The proof is bound to the proposal: its new base must be Base.
+            if (proof and proof.group(2).lower() == head and proof.group(1).lower() in review.lower()
+                    and proof.group(3).lower() == fields.get('base', '').lower()):
                 reviewed_here = True
     if review and (not re.search(r'(?i)(?:https?://|t3-thread://|review:)[^\s]+', review)
                    or not reviewed_here):

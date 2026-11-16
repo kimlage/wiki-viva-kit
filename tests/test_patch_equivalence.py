@@ -196,6 +196,26 @@ def test_unsupported_replay_is_not_provable(module, repo, monkeypatch):
     assert module.compare(root, reviewed, rebased)["verdict"] == "not_provable"
 
 
+def test_same_hunk_in_another_duplicated_block_is_different(module, tmp_path):
+    """Round-2 review of #526: patch identity does not see where a hunk applies."""
+    root = tmp_path / "dup"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    git(root, "config", "user.email", "test@example.invalid")
+    git(root, "config", "user.name", "Synthetic Test")
+    head = "steps:\n"  # the only line that can become a hunk header
+    block = "# --\n    step()\n    prepare()\n    finish()\n"
+    changed = block.replace("    finish()\n", "    check()\n    finish()\n")
+    base = write_commit(root, "job.txt", head + block * 3 + "# --\n", "identical blocks")
+    git(root, "switch", "-qc", "reviewed")
+    reviewed = write_commit(root, "job.txt", head + changed + block * 2 + "# --\n", "check in a block")
+    git(root, "switch", "-qc", "candidate", base)
+    candidate = write_commit(root, "job.txt", head + block + changed + block + "# --\n", "check in a block")
+    result = module.compare(root, reviewed, candidate, old_base=base, new_base=base)
+    assert result["per_commit_patch_id"] is True and result["range_diff_unchanged"] is True
+    assert result["replay"] == "differs" and result["verdict"] == "different"
+
+
 def test_cli_exit_codes(module, repo, capsys):
     root, _, reviewed, new_base, rebased = repo
     r = ["--root", str(root)]
@@ -235,6 +255,7 @@ def test_handoff_keeps_review_only_with_identical_per_commit_proof():
     for bad in (proof.replace("identical", "different"),
                 proof.replace("commits=2", "commits=2->1"),
                 proof.replace("replay=clean", "replay=conflict"),
+                proof.replace(f"onto={BASE}", f"onto={'d' * 40}"),
                 proof.replace(f"rebased={REBASED}", f"rebased={'f' * 40}"),
                 proof.replace(f"reviewed={REVIEWED}", f"reviewed={'f' * 40}")):
         assert "review" in hook.handoff_problems(_handoff(bad))
@@ -255,10 +276,17 @@ def test_merge_condition_text_keeps_its_limits():
         "New content outside those findings requires a new independent review",
         "If the coordinator's brief chose between alternatives or drafted the fix",
         "the delta goes back to the reviewer of the last round",
+        "A delta review records the SHA range and cites the findings it fixes",
+        "shown by a clean replay of each covered commit onto the new base to exactly the rebased commit's tree",
+        "Equal patch-ids or an all-`=` range-diff are not proof without the replay",
+        "re-runs with `--onto` set to the proposal's current target base, which must equal the recorded `onto=`",
     ):
         assert clause in guide, clause
     assert "--stable` alone ignores whitespace and is not proof" in brief
-    for clause in ("only fixes findings already recorded by the reviewers",
+    for clause in ("The delta review records the SHA range and cites the findings it fixes",
+                   "Equal patch-ids or an all-`=` range-diff are not proof without the replay",
+                   "re-runs with `--onto` set to the proposal's current target base",
+                   "only fixes findings already recorded by the reviewers",
                    "New content requires a new independent review",
                    "the delta goes back to the reviewer of the last round",
                    "no conflict and no new commit"):

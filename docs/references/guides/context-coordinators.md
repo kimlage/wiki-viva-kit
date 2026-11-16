@@ -204,7 +204,8 @@ final SHA:
 
 1. an independent review of the final SHA itself;
 2. a clean rebase of an already covered head: no conflict and no new commit,
-   with `git range-diff <old-base>..<old-head> <new-base>..<new-head>` showing
+   shown by a clean replay of each covered commit onto the new base to exactly
+   the rebased commit's tree, with `git range-diff <old-base>..<old-head> <new-base>..<new-head>` showing
    every commit as `=`, or with the `git patch-id --verbatim` of each commit
    equal to that of the covered head (compare
    `git log -p --reverse <base>..<head> | git patch-id --verbatim` on both
@@ -232,13 +233,18 @@ and can equate commits whose behavior differs.
 - Unchanged commits: `range-diff` all `=` at the same position, or equal
   per-commit `patch-id --verbatim`.
 
+Equal patch-ids or an all-`=` range-diff are not proof without the replay: they
+ignore where a hunk applies, binary content and files marked `-diff`.
+
 [`python3 -m wiki_core.patch_equivalence`](../../../wiki_core/patch_equivalence.py)
 checks both from local objects (the replay uses `git merge-tree --write-tree`
 into a temporary object directory, without touching the repository) and prints
 the `Equivalence:` line and the per-commit pairs to record on the proposal. It
 reports a squash, a new, dropped or reordered commit, a whitespace change or a
 conflicting replay as different, and a merge commit or a Git without replay
-support as not provable. The integrator runs the gates on the final SHA and
+support as not provable. The integrator fetches and re-runs with `--onto` set
+to the proposal's current target base, which must equal the recorded `onto=`.
+The integrator runs the gates on the final SHA and
 integrates without a new review. A real conflict, a new commit or a changed
 commit returns to the executor. The integrator does not hold the queue for one
 proposal: it records the blocker on that proposal and moves to the next.
