@@ -266,12 +266,22 @@ declares itself with `git worktree lock --reason "owner=<thread reference>"`,
 and after pushing removes the worktree at the end of its turn; the PR keeps the
 work. An ended thread holds no folder. The read-only
 [integration check](../../../scripts/wiki_integration_check.py) lists each
-worktree's state: `warn:worktree_without_active_owner` for a clean, unlocked
-worktree of an open proposal, `warn:worktree_owner_unidentified` for a lock
-without an owner reference, `observe:worktree_owner` with the declared owner
-for the host to confirm that the thread is still active, and
-`fix:prunable_worktree` for a registered worktree whose folder is gone. The
-check never removes a worktree.
+non-main worktree of an open proposal:
+
+- `warn:worktree_owner_undeclared`: clean and unlocked. This is declaration
+  status, not proof that no process uses the folder.
+- `warn:worktree_owner_unidentified`: locked without an owner reference.
+- Locked with an owner, classified by a host observation passed as
+  `--owner-activity <file>`, a JSON object `{"<owner reference>": "active" |
+  "ended"}` exported read-only by the host's thread interface:
+  `fix:worktree_owner_ended` when the owner ended without releasing the folder,
+  `observe:worktree_owner_active` when it is active, and
+  `waiting:verify_worktree_owner` with `owner_activity: unknown` when the owner
+  is not in the observation or no observation was supplied. The check never
+  infers activity from Git.
+- `fix:prunable_worktree`: a registered worktree whose folder is gone.
+
+The check never removes a worktree.
 
 For a process failure, record its cause and the applicable rule or source on
 the existing action, issue, PR or log. If the rule was adequate, fix its

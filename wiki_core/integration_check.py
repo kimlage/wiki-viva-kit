@@ -487,6 +487,56 @@ def _worktree_owner(reason: str | None) -> str | None:
     return _thread_ref(match.group(1)) if match else None
 
 
+OWNER_ACTIVITY_STATES = ("active", "ended")
+_OWNER_ACTIVITY_MAX_BYTES = 64 * 1024
+
+
+def owner_activity_from_mapping(data: Any) -> dict[str, str]:
+    """Host observation `{owner reference: "active" | "ended"}`, bounded and filtered.
+
+    Only owner references that pass the thread-reference filter and the two
+    known states are kept; anything else is dropped, so it stays unknown.
+    """
+    if not isinstance(data, dict) or len(data) > 1000:
+        raise ValueError("owner activity must be an object of at most 1000 entries")
+    activity = {}
+    for key, value in data.items():
+        owner = _thread_ref(key) if isinstance(key, str) else None
+        state = value.strip().lower() if isinstance(value, str) else ""
+        if owner and state in OWNER_ACTIVITY_STATES:
+            activity[owner] = state
+    return activity
+
+
+def load_owner_activity(path: Path) -> dict[str, str]:
+    """Read a host-exported owner-activity JSON file; ValueError when unusable."""
+    try:
+        raw = Path(path).read_bytes()
+    except OSError as exc:
+        raise ValueError("owner activity unreadable") from exc
+    if len(raw) > _OWNER_ACTIVITY_MAX_BYTES:
+        raise ValueError("owner activity too large")
+    try:
+        return owner_activity_from_mapping(json.loads(raw.decode("utf-8")))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("owner activity is not JSON") from exc
+
+
+def _owner_finding(wt: dict, activity: dict[str, str] | None) -> dict:
+    """Classify a worktree owner declaration against the host observation."""
+    if not wt.get("locked"):
+        # Declaration status only: an unlocked worktree may still be in use.
+        return {"status": "warn:worktree_owner_undeclared", **wt}
+    if not wt.get("owner"):
+        return {"status": "warn:worktree_owner_unidentified", **wt}
+    state = (activity or {}).get(wt["owner"], "unknown")
+    if state == "ended":
+        return {"status": "fix:worktree_owner_ended", "owner_activity": state, **wt}
+    if state == "active":
+        return {"status": "observe:worktree_owner_active", "owner_activity": state, **wt}
+    return {"status": "waiting:verify_worktree_owner", "owner_activity": "unknown", **wt}
+
+
 def _worktrees(root: Path) -> list[dict]:
     records = _git(root, "worktree", "list", "--porcelain").split("\n\n")
     result = []
@@ -555,8 +605,13 @@ def _missing_action_association(pr: dict, approval: dict | None, available: bool
             "scope": "observed_default_branch"}
 
 
-def inspect(root: Path, number: int | None = None) -> dict:
-    """Read Git and GitHub state. No fetch, checkout, gate execution or writes."""
+def inspect(root: Path, number: int | None = None, owner_activity: dict[str, str] | None = None) -> dict:
+    """Read Git and GitHub state. No fetch, checkout, gate execution or writes.
+
+    `owner_activity` is an optional host observation of worktree owner threads
+    (`owner_activity_from_mapping`). Without it every declared owner stays
+    `unknown`: the check never infers that a thread is active or ended.
+    """
     root = root.resolve()
     try:
         repo = _repository(root)
@@ -707,16 +762,10 @@ def inspect(root: Path, number: int | None = None) -> dict:
             elif number is None and not wt.get("main") and wt["branch"] != default:
                 # An executor's worktree lives only while its owner is active:
                 # it declares itself with `git worktree lock --reason
-                # "owner=<thread>"` and removes the worktree after push. A clean,
-                # unlocked worktree for an open proposal is held by nobody; the
-                # PR keeps the work. Whether a declared owner thread is still
-                # active is a host observation; the owner is listed for it.
-                if not wt.get("locked"):
-                    hygiene.append({"status": "warn:worktree_without_active_owner", **wt})
-                elif not wt.get("owner"):
-                    hygiene.append({"status": "warn:worktree_owner_unidentified", **wt})
-                else:
-                    hygiene.append({"status": "observe:worktree_owner", **wt})
+                # "owner=<thread>"` and removes the worktree after push. Whether
+                # that thread is active or ended comes only from the host's
+                # observation; without one, the owner stays unknown.
+                hygiene.append(_owner_finding(wt, owner_activity))
         return {"ok": True, "repository": repo, "base": base, "proposals": proposals, "hygiene": hygiene}
     except (ContributionError, OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         return {"ok": False, "status": "waiting:observation_unavailable"}
