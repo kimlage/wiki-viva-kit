@@ -72,7 +72,7 @@ _PATTERNS: list[tuple[str, str, re.Pattern[str]]] = [
         "critico",
         re.compile(r"\bsk_(?:live|test)_[0-9A-Za-z]{16,}"),
     ),
-    # Credential embedded in a connection URL: scheme://user:password@host (finding 8).
+    # Credential embedded in a connection URL: a user and password before the "@" (finding 8).
     (
         "connection_string_credential",
         "critico",
@@ -264,6 +264,141 @@ def _scan_credential_file_shape(text: str) -> list[Finding]:
     return findings
 
 
+# --------------------------------------------------------------------------- #
+# Short-lived access codes and hash-configuration secrets (issue #524).
+#
+# Invite codes, verification/one-time codes and pairing codes grant access even
+# though they are short and low-entropy, so the generic entropy rule misses
+# them. Identity-provider hash configurations (for example an auth project's
+# `hashConfig`) carry a signer key and salt separator that let an attacker
+# verify exported password hashes. Every excerpt here is fully masked: a short
+# code would otherwise survive `redact`'s visible edges.
+# --------------------------------------------------------------------------- #
+
+_CODE_VALUE = r"(?P<value>[A-Za-z0-9][A-Za-z0-9_\-]{3,127})"
+_ACCESS_CODE_ASSIGNMENT_RE = re.compile(
+    r"""(?ix)
+    (?<![A-Za-z0-9])
+    ['"]?(?P<name>
+        (?:invit(?:e|ation)|verif(?:y|ication)|confirm(?:ation)?|pairing|one[_-]?time|otp|mfa|2fa)
+        [_-]?(?:code|token|pin|key)
+      | otp
+    )['"]?
+    \s*[:=]\s*['"]?""" + _CODE_VALUE
+)
+# Prose forms in the languages the kit ships (en/pt/es): an English
+# "verification code" phrase, a Portuguese "código de verificação" phrase or a
+# Spanish "código de invitación" phrase followed by the code itself.
+_ACCESS_CODE_PROSE_RE = re.compile(
+    r"""(?ix)
+    \b(?:
+        (?:invite|invitation|verification|confirmation|pairing|one[- ]time|sign[- ]in|login)\s+code
+      | c[oó]digo\s+de\s+(?:verifica[cç][aã]o|verificaci[oó]n|convite|invitaci[oó]n|confirma[cç][aã]o|confirmaci[oó]n|pareamento|acesso|acceso)
+    )
+    \s*(?:is|é|es|[:=#-])?\s*['"`]?""" + _CODE_VALUE
+)
+# Individualized invite/verification links: a path segment or query value that
+# carries the code itself.
+_ACCESS_CODE_URL_RE = re.compile(
+    r"""(?ix)
+    https?://[^\s<>"')\]]*?
+    (?:
+        /(?:invite|invites|invitation|invitations|join|verify|verification|confirm)/(?P<path>[A-Za-z0-9_\-]{8,})
+      | [?&](?:invite(?:_code)?|invitation|invite_token|verification_code|otp|code)=(?P<query>[A-Za-z0-9_\-]{6,})
+    )
+    """
+)
+# Hash-configuration secret fields (JSON, YAML or assignment form).
+_HASH_CONFIG_FIELD_RE = re.compile(
+    r"""(?ix)
+    ['"]?(?P<name>signer[_-]?key|salt[_-]?separator|base64[_-]?signer[_-]?key|base64[_-]?salt[_-]?separator)['"]?
+    \s*[:=]\s*['"]?(?P<value>[A-Za-z0-9+/_\-]{2,}={0,2})
+    """
+)
+
+
+# Values that name a setting or stand in for a code, never an issued code.
+_CODE_PLACEHOLDERS = {
+    "none", "null", "nil", "empty", "redacted", "example", "sample", "placeholder", "dummy",
+    "changeme", "secret", "tbd", "todo", "pending", "unknown", "required", "optional",
+    "enabled", "disabled", "true", "false", "change_me", "replace_me", "totp", "hotp", "yubikey",
+}
+
+
+def _code_like(value: str, *, prose: bool = False) -> bool:
+    """Could this be an issued code? Decide "not a code" first, then the shape.
+
+    1. Not a code, whatever digits it holds: placeholder words (`TBD`,
+       `change_me`, `totp`, ...), `your_*` values, masks made only of
+       `x`/`*`/`-`/`_`, and identifiers: a value that starts with a letter,
+       contains `_` and has letters of a single case (`INVITE_CODE_V2`,
+       `OTP_CODE_1`, `otp_code_2`), such as an environment-variable name.
+    2. Code shape. In prose, ordinary words follow these phrases, so only a
+       value with a digit counts. After a strongly identified name (`otp:`,
+       `invite_code=`), a value with a digit (including all zeros), an
+       uppercase value or a mixed-case value counts; a lowercase-only word
+       reads as a setting (`otp: enabled`).
+    """
+    lowered = value.lower()
+    letters = [c for c in value if c.isalpha()]
+    if lowered in _CODE_PLACEHOLDERS or lowered.startswith("your_"):
+        return False
+    if set(value) <= {"x", "X", "*", "-", "_"}:
+        return False
+    if ("_" in value and value[0].isalpha()
+            and (all(c.isupper() for c in letters) or all(c.islower() for c in letters))):
+        return False
+    has_digit = any(c.isdigit() for c in value)
+    if prose or has_digit:
+        return has_digit
+    return bool(letters) and not all(c.islower() for c in letters)
+
+
+def _hash_config_value(value: str) -> bool:
+    """Base64 material: padded, or long and random; never a bare word."""
+    if value.lower() in {"none", "null", "redacted", "example", "placeholder"}:
+        return False
+    if value.endswith("=") and len(value) >= 4:
+        return True
+    return len(value) >= 16 and _shannon_entropy(value) > _MIN_ENTROPY_BITS_PER_CHAR
+
+
+def _masked(kind: str, value: str) -> str:
+    return f"{kind}:{'*' * min(len(value), 12)}"
+
+
+def _scan_access_codes(text: str) -> list[Finding]:
+    findings: list[Finding] = []
+    seen: set[int] = set()
+
+    def add(kind: str, severity: str, start: int, value: str) -> None:
+        if start in seen:
+            return
+        seen.add(start)
+        findings.append(Finding(kind=kind, category=_CATEGORY, severity=severity,
+                                line=line_of(text, start), excerpt=_masked(kind, value),
+                                detector=_DETECTOR))
+
+    for match in _ACCESS_CODE_ASSIGNMENT_RE.finditer(text):
+        if _code_like(match.group("value")):
+            add("access_code", "alto", match.start("value"), match.group("value"))
+    # Prose is followed by ordinary capitalized words ("access code DocuSign"):
+    # only a value with a digit counts there.
+    for match in _ACCESS_CODE_PROSE_RE.finditer(text):
+        value = match.group("value")
+        if _code_like(value, prose=True):
+            add("access_code", "alto", match.start("value"), value)
+    for match in _ACCESS_CODE_URL_RE.finditer(text):
+        group = "path" if match.group("path") else "query"
+        value = match.group(group)
+        if _code_like(value):
+            add("individualized_access_link", "alto", match.start(group), value)
+    for match in _HASH_CONFIG_FIELD_RE.finditer(text):
+        if _hash_config_value(match.group("value")):
+            add("hash_config_secret", "critico", match.start("value"), match.group("value"))
+    return findings
+
+
 def scan_secrets(text: str) -> list[Finding]:
     """Detect credential-shaped secrets in ``text``."""
     findings: list[Finding] = []
@@ -302,6 +437,7 @@ def scan_secrets(text: str) -> list[Finding]:
         )
 
     findings.extend(_scan_credential_file_shape(text))
+    findings.extend(_scan_access_codes(text))
 
     return findings
 
