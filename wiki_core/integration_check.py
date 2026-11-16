@@ -478,22 +478,92 @@ def _action_findings(root: Path, base: str, prs: list[dict], repository: str) ->
         return [], False
 
 
+_WORKTREE_OWNER = re.compile(r"(?:^|\s)owner=(\S+)")
+
+
+def _worktree_owner(reason: str | None) -> str | None:
+    """A lock reason `owner=<thread reference>` declares the active owner."""
+    match = _WORKTREE_OWNER.search(reason or "")
+    return _thread_ref(match.group(1)) if match else None
+
+
+OWNER_ACTIVITY_STATES = ("active", "ended")
+_OWNER_ACTIVITY_MAX_BYTES = 64 * 1024
+
+
+def owner_activity_from_mapping(data: Any) -> dict[str, str]:
+    """Host observation `{owner reference: "active" | "ended"}`, bounded and filtered.
+
+    Only owner references that pass the thread-reference filter and the two
+    known states are kept; anything else is dropped, so it stays unknown.
+    """
+    if not isinstance(data, dict) or len(data) > 1000:
+        raise ValueError("owner activity must be an object of at most 1000 entries")
+    activity = {}
+    for key, value in data.items():
+        owner = _thread_ref(key) if isinstance(key, str) else None
+        state = value.strip().lower() if isinstance(value, str) else ""
+        if owner and state in OWNER_ACTIVITY_STATES:
+            activity[owner] = state
+    return activity
+
+
+def load_owner_activity(path: Path) -> dict[str, str]:
+    """Read a host-exported owner-activity JSON file; ValueError when unusable."""
+    try:
+        raw = Path(path).read_bytes()
+    except OSError as exc:
+        raise ValueError("owner activity unreadable") from exc
+    if len(raw) > _OWNER_ACTIVITY_MAX_BYTES:
+        raise ValueError("owner activity too large")
+    try:
+        return owner_activity_from_mapping(json.loads(raw.decode("utf-8")))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("owner activity is not JSON") from exc
+
+
+def _owner_finding(wt: dict, activity: dict[str, str] | None) -> dict:
+    """Classify a worktree owner declaration against the host observation."""
+    if not wt.get("locked"):
+        # Declaration status only: an unlocked worktree may still be in use.
+        return {"status": "warn:worktree_owner_undeclared", **wt}
+    if not wt.get("owner"):
+        return {"status": "warn:worktree_owner_unidentified", **wt}
+    state = (activity or {}).get(wt["owner"], "unknown")
+    if state == "ended":
+        return {"status": "fix:worktree_owner_ended", "owner_activity": state, **wt}
+    if state == "active":
+        return {"status": "observe:worktree_owner_active", "owner_activity": state, **wt}
+    return {"status": "waiting:verify_worktree_owner", "owner_activity": "unknown", **wt}
+
+
 def _worktrees(root: Path) -> list[dict]:
     records = _git(root, "worktree", "list", "--porcelain").split("\n\n")
     result = []
-    for record in records:
-        fields = dict(line.split(" ", 1) for line in record.splitlines() if " " in line)
+    for index, record in enumerate(records):
+        lines = record.splitlines()
+        fields = dict(line.split(" ", 1) for line in lines if " " in line)
+        flags = {line for line in lines if " " not in line}
         path = fields.get("worktree")
         if not path:
             continue
         branch = fields.get("branch", "").removeprefix("refs/heads/")
-        try:
-            p = subprocess.run(["git", "--no-optional-locks", "status", "--porcelain", "--untracked-files=normal"],
-                               cwd=path, text=True, capture_output=True)
-            dirty = bool(p.stdout) if p.returncode == 0 else None
-        except OSError:
-            dirty = None
-        result.append({"path": path, "branch": branch or None, "head": fields.get("HEAD"), "dirty": dirty})
+        prunable = "prunable" in flags or "prunable" in fields
+        locked = "locked" in flags or "locked" in fields
+        dirty = None
+        if not prunable:
+            try:
+                p = subprocess.run(["git", "--no-optional-locks", "status", "--porcelain", "--untracked-files=normal"],
+                                   cwd=path, text=True, capture_output=True)
+                dirty = bool(p.stdout) if p.returncode == 0 else None
+            except OSError:
+                dirty = None
+        item = {"path": path, "branch": branch or None, "head": fields.get("HEAD"), "dirty": dirty,
+                "main": index == 0, "locked": locked, "prunable": prunable}
+        owner = _worktree_owner(fields.get("locked")) if locked else None
+        if owner:
+            item["owner"] = owner
+        result.append(item)
     return result
 
 
@@ -535,8 +605,13 @@ def _missing_action_association(pr: dict, approval: dict | None, available: bool
             "scope": "observed_default_branch"}
 
 
-def inspect(root: Path, number: int | None = None) -> dict:
-    """Read Git and GitHub state. No fetch, checkout, gate execution or writes."""
+def inspect(root: Path, number: int | None = None, owner_activity: dict[str, str] | None = None) -> dict:
+    """Read Git and GitHub state. No fetch, checkout, gate execution or writes.
+
+    `owner_activity` is an optional host observation of worktree owner threads
+    (`owner_activity_from_mapping`). Without it every declared owner stays
+    `unknown`: the check never infers that a thread is active or ended.
+    """
     root = root.resolve()
     try:
         repo = _repository(root)
@@ -672,6 +747,9 @@ def inspect(root: Path, number: int | None = None) -> dict:
                         observation["status"] = "waiting:action_association"
         hygiene.extend(f for f in action_findings if f["status"] == "fix:action_stale")
         for wt in worktrees:
+            if wt.get("prunable"):
+                hygiene.append({"status": "fix:prunable_worktree", **wt})
+                continue
             if wt["dirty"] is None:
                 hygiene.append({"status": "waiting:worktree_status", **wt})
             elif wt["dirty"]:
@@ -681,6 +759,13 @@ def inspect(root: Path, number: int | None = None) -> dict:
                                 else "fix:merged_worktree_remaining", **wt})
             elif number is None and wt["branch"] != default and wt["branch"] not in open_heads:
                 hygiene.append({"status": "fix:worktree_without_pr", **wt})
+            elif number is None and not wt.get("main") and wt["branch"] != default:
+                # An executor's worktree lives only while its owner is active:
+                # it declares itself with `git worktree lock --reason
+                # "owner=<thread>"` and removes the worktree after push. Whether
+                # that thread is active or ended comes only from the host's
+                # observation; without one, the owner stays unknown.
+                hygiene.append(_owner_finding(wt, owner_activity))
         return {"ok": True, "repository": repo, "base": base, "proposals": proposals, "hygiene": hygiene}
     except (ContributionError, OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         return {"ok": False, "status": "waiting:observation_unavailable"}
