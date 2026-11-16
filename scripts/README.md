@@ -290,11 +290,12 @@ for the supported GitHub adapter, exact-head handoff and local-gate limitations.
 
 ### Rebase equivalence
 
-[patch_equivalence](../wiki_core/patch_equivalence.py) proves whether a rebased
-head carries the reviewed patch, from local Git objects only:
+[patch_equivalence](../wiki_core/patch_equivalence.py) proves, commit by
+commit, whether a rebased head kept every reviewed commit with no new commit,
+from local Git objects only:
 `python3 -m wiki_core.patch_equivalence --reviewed <sha> --rebased <sha> [--onto <ref>]`.
-It prints the `Equivalence:` line for the integration handoff and exits 0 only
-for an identical patch; see the
+It prints the `Equivalence:` line and the per-commit pairs for the proposal and
+exits 0 only when every commit is unchanged; see the
 [integration contract](../docs/references/guides/context-coordinators.md#integration-by-destination).
 
 ### Optional session hook

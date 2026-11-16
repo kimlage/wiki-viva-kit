@@ -1,6 +1,8 @@
-"""Issue #522: a clean rebase with a proven-identical patch.
+"""Issues #522/#523: merge-condition case 2, a clean rebase of a covered head.
 
-Synthetic repository only; local Git objects, no fetch or provider call.
+Every commit must be unchanged (`range-diff` all `=` at the same position, or
+equal per-commit `git patch-id --stable`) with no new commit. Synthetic
+repository only; local Git objects, no fetch or provider call.
 """
 from __future__ import annotations
 
@@ -55,41 +57,72 @@ def repo(tmp_path: Path):
     return root, old_base, reviewed, new_base, rebased
 
 
-def test_clean_rebase_is_proven_identical(module, repo):
+def test_clean_rebase_keeps_every_commit(module, repo):
     root, old_base, reviewed, new_base, rebased = repo
     result = module.compare(root, reviewed, rebased)
     assert result["verdict"] == "identical"
+    assert result["commits"] == (2, 2)
+    assert result["per_commit_patch_id"] is True and result["range_diff_unchanged"] is True
     assert result["old_base"] == old_base and result["new_base"] == new_base
-    assert result["range_diff_unchanged"] is True
     line = module.proof_line(result)
-    assert line.startswith("Equivalence: identical patch-id=")
-    assert f"reviewed={reviewed}" in line and f"rebased={rebased}" in line and "range-diff=unchanged" in line
+    assert line.startswith("Equivalence: identical commits=2 patch-id=per-commit-match range-diff=all-equal ")
+    assert f"reviewed={reviewed}" in line and f"rebased={rebased}" in line
+    details = module.proof_details(result)
+    assert len(details) == 2 and all(" = " in row for row in details)
 
 
-def test_squash_keeps_patch_identity_but_range_diff_changes(module, repo):
-    root, old_base, reviewed, new_base, _ = repo
+def test_squash_is_a_different_commit_set(module, repo):
+    root, _, reviewed, new_base, _ = repo
     git(root, "switch", "-qc", "wiki/squashed", new_base)
     git(root, "merge", "-q", "--squash", reviewed)
     git(root, "commit", "-qm", "squashed")
     result = module.compare(root, reviewed, git(root, "rev-parse", "HEAD"))
-    assert result["verdict"] == "identical"
-    assert result["range_diff_unchanged"] is False
+    assert result["verdict"] == "different"
+    assert result["commits"] == (2, 1)
+    assert "commits=2->1" in module.proof_line(result)
 
 
-def test_conflict_resolution_or_new_change_is_different(module, repo):
-    root, _, reviewed, _, rebased = repo
+def test_new_commit_in_the_rebase_is_different(module, repo):
+    root, _, reviewed, _, _ = repo
     git(root, "switch", "-q", "wiki/rebased")
     changed = write_commit(root, "action.md", "# Action\n\nresult changed after review\n", "new change")
     result = module.compare(root, reviewed, changed)
+    assert result["verdict"] == "different" and result["commits"] == (2, 3)
+
+
+def test_changed_commit_content_is_different(module, repo):
+    root, _, reviewed, new_base, _ = repo
+    git(root, "switch", "-qc", "wiki/amended", new_base)
+    write_commit(root, "action.md", "# Action\n\nresult, reworded\n", "proposal part 1")
+    amended = write_commit(root, "page.md", "# Page\n\nline one\nline two\n", "proposal part 2")
+    result = module.compare(root, reviewed, amended)
     assert result["verdict"] == "different"
-    assert result["patch_id"] is None
+    assert result["per_commit_patch_id"] is False and result["range_diff_unchanged"] is False
 
 
-def test_cli_exit_codes(module, repo, monkeypatch, capsys):
+def test_reordered_commits_are_different(module, repo):
+    root, _, reviewed, new_base, _ = repo
+    git(root, "switch", "-qc", "wiki/reordered", new_base)
+    write_commit(root, "page.md", "# Page\n\nline one\nline two\n", "proposal part 2")
+    reordered = write_commit(root, "action.md", "# Action\n\nresult\n", "proposal part 1")
+    result = module.compare(root, reviewed, reordered)
+    assert result["verdict"] == "different"
+
+
+def test_merge_commit_is_not_provable(module, repo):
+    root, _, reviewed, new_base, _ = repo
+    git(root, "switch", "-qc", "wiki/merged", reviewed)
+    git(root, "merge", "-q", "--no-edit", new_base)
+    result = module.compare(root, reviewed, git(root, "rev-parse", "HEAD"))
+    assert result["verdict"] == "not_provable"
+
+
+def test_cli_exit_codes(module, repo, capsys):
     root, _, reviewed, new_base, rebased = repo
     r = ["--root", str(root)]
     assert module.main([*r, "--reviewed", reviewed, "--rebased", rebased]) == 0
-    assert capsys.readouterr().out.startswith("Equivalence: identical")
+    out = capsys.readouterr().out.splitlines()
+    assert out[0].startswith("Equivalence: identical commits=2") and len(out) == 3
     assert module.main([*r, "--reviewed", reviewed, "--rebased", reviewed]) == 2  # not on the new base
     assert module.main([*r, "--reviewed=-bad", "--rebased", rebased]) == 2
     assert module.main([*r, "--reviewed", new_base, "--rebased", new_base]) == 1  # empty patch
@@ -105,7 +138,7 @@ def _hook():
     return loaded
 
 
-REVIEWED, REBASED, BASE, PATCH = "a" * 40, "c" * 40, "b" * 40, "d" * 40
+REVIEWED, REBASED, BASE = "a" * 40, "c" * 40, "b" * 40
 
 
 def _handoff(extra: str = "") -> str:
@@ -114,12 +147,36 @@ def _handoff(extra: str = "") -> str:
             f"Responsible-Thread: thread:sample{extra}")
 
 
-def test_handoff_keeps_review_only_with_identical_equivalence_proof():
+def test_handoff_keeps_review_only_with_identical_per_commit_proof():
     hook = _hook()
     assert "review" in hook.handoff_problems(_handoff())
-    proof = (f"\nEquivalence: identical patch-id={PATCH} reviewed={REVIEWED} base={'e' * 40} "
-             f"rebased={REBASED} onto={BASE} range-diff=unchanged")
+    proof = (f"\nEquivalence: identical commits=2 patch-id=per-commit-match range-diff=all-equal "
+             f"reviewed={REVIEWED} base={'e' * 40} rebased={REBASED} onto={BASE}")
     assert hook.handoff_problems(_handoff(proof)) == []
-    assert "review" in hook.handoff_problems(_handoff(proof.replace("identical", "different")))
-    assert "review" in hook.handoff_problems(_handoff(proof.replace(f"rebased={REBASED}", f"rebased={'f' * 40}")))
-    assert "review" in hook.handoff_problems(_handoff(proof.replace(f"reviewed={REVIEWED}", f"reviewed={'f' * 40}")))
+    for bad in (proof.replace("identical", "different"),
+                proof.replace("commits=2", "commits=2->1"),
+                proof.replace(f"rebased={REBASED}", f"rebased={'f' * 40}"),
+                proof.replace(f"reviewed={REVIEWED}", f"reviewed={'f' * 40}")):
+        assert "review" in hook.handoff_problems(_handoff(bad))
+
+
+def test_merge_condition_text_keeps_its_limits():
+    root = Path(__file__).resolve().parents[1]
+    guide = " ".join((root / "docs/references/guides/context-coordinators.md").read_text(encoding="utf-8").split())
+    brief = " ".join((root / "docs/references/templates/wiki/subagent-brief.md").read_text(encoding="utf-8").split())
+    for clause in (
+        "Only three cases cover the final SHA",
+        "no conflict and no new commit",
+        "the `git patch-id --stable` of each commit equal to that of the covered head",
+        "a coordinator who did not make the delta's commits checks the range `<reviewed SHA>..<final SHA>`",
+        "which only fixes findings already recorded by the reviewers",
+        "New content outside those findings requires a new independent review",
+        "If the coordinator's brief chose between alternatives or drafted the fix",
+        "the delta goes back to the reviewer of the last round",
+    ):
+        assert clause in guide, clause
+    for clause in ("only fixes findings already recorded by the reviewers",
+                   "New content requires a new independent review",
+                   "the delta goes back to the reviewer of the last round",
+                   "no conflict and no new commit"):
+        assert clause in brief, clause

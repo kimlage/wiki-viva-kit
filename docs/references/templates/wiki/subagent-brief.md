@@ -121,30 +121,37 @@ Gates: <gate=passed, gate=pending>
 CI: <head SHA, state and evidence; or not applicable>
 Pending: <items and wait events, or none>
 Responsible-Thread: <executor thread reference>
-Equivalence: <optional; after a clean rebase, the line printed by python3 -m wiki_core.patch_equivalence>
+Equivalence: <optional; after a clean rebase, the first line printed by python3 -m wiki_core.patch_equivalence>
 ```
 
 Integrator recipient: <destination integrator>
 
-After a clean rebase, `Review` may keep the reviewed SHA when `Equivalence`
-proves an identical patch from that SHA to `Head`; the integrator re-runs the
-comparison before relying on it, and a different patch needs a new review.
+After a clean rebase, `Review` may keep the covered SHA when `Equivalence`
+proves every commit unchanged, with no new commit, from that SHA to `Head`; the
+integrator re-runs the comparison before relying on it. A new or changed commit
+needs a new review.
 The optional hook checks only its listed fields and does not verify the `CI`
 field. The integrator checks destination policy and does not infer approval from this
 handoff. Update it if the head or base changes.
 
 ## Independent review
 
-- Review the exact head against each acceptance criterion and record findings
-  and their resolution.
-- A proposal gets at most two independent review rounds. After the second, a
-  non-author coordinator reviews only the delta of the fixes; that counts as
-  the review of the final SHA.
+- Review the exact head against each acceptance criterion and record findings,
+  each with the proposed fix, and their resolution.
+- A proposal gets at most two independent review rounds. After them, the final
+  SHA is covered only by a coordinator delta or a new independent review; see
+  the [merge condition](../../guides/context-coordinators.md#integration-by-destination).
+- A coordinator delta: the coordinator did not make the delta's commits, checks
+  the range `<reviewed SHA>..<final SHA>`, and the delta only fixes findings
+  already recorded by the reviewers. New content requires a new independent
+  review. If the coordinator's brief chose between alternatives or drafted the
+  fix, the delta goes back to the reviewer of the last round.
 - Do not block on evidence that exists only after applying the change (for
   example a production apply or a real send); name it as a post-apply
   verification on the action instead.
-- A clean rebase with a proven-identical patch keeps this review; see the
-  [integration contract](../../guides/context-coordinators.md#integration-by-destination).
+- A clean rebase keeps this review only with no conflict and no new commit,
+  every commit `=` in `git range-diff` or each commit's `git patch-id --stable`
+  equal, and the proof recorded on the proposal.
 
 ## Blocker and bounded recovery
 
