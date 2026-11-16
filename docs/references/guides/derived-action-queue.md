@@ -1,6 +1,6 @@
 # Derived action queue and consumer migration
 
-The canonical action pages are the queue. `python3 scripts/wiki_action_queue.py`
+The canonical action pages are the queue. `python3 -m scripts.wiki_action_queue`
 lists active actions from all configured action collections; `--json` emits the
 same inventory for a reader. No shared generated queue is written or committed.
 The cockpit action board already reads action pages. A static pending index may
@@ -8,7 +8,7 @@ point to the command and board, so its URL remains stable; it must not display
 an authored count or claim to contain the live members. The command reads the
 checkout being inspected, so fetch or select the intended revision first.
 
-`python3 scripts/wiki_action_queue.py --check --base origin/main` validates
+`python3 -m scripts.wiki_action_queue --check --base origin/main` validates
 canonical state, required lifecycle support, unique IDs and action inventory,
 then compares changed actions with the Git merge base using the canonical
 transition-receipt diagnostics. If a pending page exists, the check accepts
@@ -31,7 +31,7 @@ counts, lists, free text, or a second section. A marker alone is insufficient.
 
 <!-- wiki-viva:derived-action-queue -->
 The active queue is derived from action pages.
-Run `python3 scripts/wiki_action_queue.py` or open the action board.
+Run `python3 -m scripts.wiki_action_queue` or open the action board.
 ```
 
 ## Migration in a consumer-owned PR

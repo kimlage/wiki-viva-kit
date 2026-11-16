@@ -18,7 +18,7 @@ DERIVED_POINTER = """# Pending actions
 
 <!-- wiki-viva:derived-action-queue -->
 The active queue is derived from action pages.
-Run `python3 scripts/wiki_action_queue.py` or open the action board."""
+Run `python3 -m scripts.wiki_action_queue` or open the action board."""
 POINTER_METADATA_KEYS = frozenset({
     'page_id', 'page_type', 'title', 'context', 'visibility', 'updated_at',
     'stale_after_days', 'sources_policy', 'gate', 'sensitive_data_policy',
