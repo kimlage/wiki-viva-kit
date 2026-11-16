@@ -4,7 +4,7 @@ The wiki's claims about freshness, coverage and traceability require evidence,
 not prose alone. For this kit, [AGENTS.md](../../../AGENTS.md) defines the
 mandatory local privacy and integrity audits and diff check. Select additional
 local tests and deterministic checks for the actual change; normal public CI
-runs the configured suites in [.github/workflows/wiki.yml](../../../.github/workflows/wiki.yml).
+runs the configured suites in the kit's [CI workflow](https://github.com/kimlage/wiki-viva-kit/blob/main/.github/workflows/wiki.yml).
 Consumers retain their own applicable gate and review policies.
 
 ## The honesty gates

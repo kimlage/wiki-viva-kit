@@ -181,5 +181,5 @@ and final-gate order in the existing [delegation contract](../../guides/context-
 
 ## Related
 
-- MOC: [obsidian-conventions.md](obsidian-conventions.md)
-- Page contract: [page-contract.md](page-contract.md)
+- MOC: [obsidian-conventions.md](https://github.com/kimlage/wiki-viva-kit/blob/main/docs/references/templates/wiki/obsidian-conventions.md)
+- Page contract: [page-contract.md](https://github.com/kimlage/wiki-viva-kit/blob/main/docs/references/templates/wiki/page-contract.md)

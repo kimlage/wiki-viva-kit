@@ -43,6 +43,7 @@ list and defaults. The essentials:
 | `paths` | Repo layout (English defaults; pin to localize — step 4) |
 | `coverage` | Methodology-coverage gate targets |
 | `audit.core_pages` | Pages the audit requires to exist |
+| `audit.legacy_docs_prefixes` | Retired docs-layout prefixes the audit rejects; absent keeps the kit default. Declare the list (or `[]`) when legitimate sources live under a default prefix |
 | `llm` | Chunking, model profile, prompt versions, `required_context_pass` |
 | `audit` | `freshness_budget`, link/secret/frontmatter switches |
 
