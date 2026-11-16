@@ -34,6 +34,27 @@ The active queue is derived from action pages.
 Run `python3 -m scripts.wiki_action_queue` or open the action board.
 ```
 
+## Preserving historical consolidation provenance
+
+If immutable ingestion events name the old queue page in `consolidated_into`,
+retain their historical content on one regular wiki page and bind it explicitly
+in the consumer's `wiki.config.yaml`:
+
+```yaml
+action_queue:
+  history_page: memories/actions/queue-history.md
+```
+
+Use the consumer's configured memory root and an existing repository-relative
+Markdown path. The history must be distinct from the pointer and ingestion
+events, have valid ordinary frontmatter (not a source or ingestion-event page),
+and contain `source_refs` that intersect the references of each event. The consolidation audit follows
+this binding only for the configured queue page after validating its exact
+pointer; missing, unsafe, symlinked or invalid history, an altered pointer, or
+a missing per-event source match fails the audit. It does not change historical
+events or transfer this exception to other targets. A matching source reference
+is traceability evidence, not a substitute for reviewing the historical content.
+
 ## Migration in a consumer-owned PR
 
 1. Sync this kit and inspect the C1/C2 plan. In the consumer's C3 migration,

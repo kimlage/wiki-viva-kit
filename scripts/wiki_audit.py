@@ -2548,6 +2548,38 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
                 errors.append(f"{rel}: consolidated_into path does not exist: `{target}`")
                 continue
             target_values, _ = parse_frontmatter(target_path)
+            if target == paths.rel(paths.pending_actions_file):
+                # Historical events are immutable: an explicit, repository-local
+                # history binding supplies the reverse source references, but
+                # only for the exact derived pointer, never a materialized queue.
+                history_rel = config.action_queue.get("history_page") if isinstance(config.action_queue, dict) else None
+                try:
+                    from wiki_core.context_policy import safe_path
+                    if pointer_errors(ROOT, paths):
+                        raise ValueError("invalid pointer")
+                    history_rel = safe_path(history_rel)
+                    memory_rel = safe_path(config.paths["memory_root"])
+                    events_rel = paths.rel(paths.ingest_events_dir)
+                    if (not history_rel.startswith(memory_rel + "/") or
+                            not history_rel.endswith(".md") or history_rel == target or
+                            history_rel.startswith(events_rel + "/")):
+                        raise ValueError("invalid history binding")
+                    history_path = _guard_audit_path(ROOT / history_rel)
+                    if not history_path.is_file():
+                        raise ValueError("history unavailable")
+                    history_values, history_errors = parse_frontmatter(history_path)
+                    if history_errors or str(history_values.get("page_type") or "") in {"source", "ingestion_event"}:
+                        raise ValueError("invalid history page")
+                    if not source_refs:
+                        raise ValueError("event source references missing")
+                except (ValueError, OSError, TypeError):
+                    errors.append(f"{rel}: queue history provenance unavailable or invalid")
+                    continue
+                non_source_targets += 1
+                history_refs = set(list_values(history_values, "source_refs"))
+                if not history_refs.intersection(source_refs):
+                    errors.append(f"{rel}: queue history does not reference the source back")
+                continue
             # A source page is provenance identity, not a derivative of
             # itself or of every peer named by a multi-source event.
             # Requiring source_refs here creates the exact cycles the
