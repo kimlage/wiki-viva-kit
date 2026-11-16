@@ -52,16 +52,33 @@ projection_inputs:
   - memories/system/operational-pass.md
 - page_types:
   - claim
-  - action
   contexts: []
   fields:
   - body
   - title
   - context
   - status
+  - actions
+  - responsibilities
+- page_types:
+  - action
+  contexts: []
+  fields:
+  - title
+  - context
+  - status
   - action_state
   - actions
   - responsibilities
+  title_fallback: true
+- page_types:
+  - action
+  contexts: []
+  fields:
+  - body
+  action_state_excludes:
+  - done
+  - cancelled
 - page_types:
   - decision
   contexts: []

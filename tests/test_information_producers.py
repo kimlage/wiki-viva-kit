@@ -7,7 +7,7 @@ from wiki_core.config import WikiConfig
 from wiki_core.information_relations import authored_graph,dependency_edges
 from wiki_core.information_impact import evaluate_information_impact
 from wiki_core.input_stage import compile_input_stage,render_input_stage_markdown
-from wiki_core.operational_pass import build_operational_pass_page
+from wiki_core.operational_pass import build_operational_pass_page, build_operational_pass_report, report_to_dict
 
 
 TODAY=dt.date(2026,10,30)
@@ -199,3 +199,76 @@ def test_operational_pass_consumes_action_inventory_not_queue_body(tmp_path):
     assert build_operational_pass_page(tmp_path,config,updated_at='2026-10-30')!=before
     report=evaluate_information_impact(authored_graph(tmp_path,config),base,{paths.rel(source)},today=TODAY)
     assert paths.rel(target) in {row['path'] for row in report['included']}
+
+
+@pytest.mark.parametrize('state', ['open', 'waiting_human'])
+def test_operational_pass_tracks_active_canonical_body_and_state(tmp_path, state):
+    from wiki_core.paths import WikiPaths
+    config = WikiConfig(); paths = WikiPaths(tmp_path, config)
+    action = paths.actions_dir / 'candidate.md'; action.parent.mkdir(parents=True)
+    action.write_text('---\npage_id: candidate\npage_type: action\ncontext: system\n'
+                      f'title: Work item\naction_state: {state}\nnext_action: work\n'
+                      '---\n\n# Work item\n\nA routine observation.\n')
+    target = paths.operational_pass_page; target.parent.mkdir(parents=True, exist_ok=True)
+    before = build_operational_pass_page(tmp_path, config, updated_at='2026-10-30')
+    target.write_text(before); base = authored_graph(tmp_path, config)
+    action.write_text(action.read_text().replace('routine observation', 'pending observation'))
+    assert build_operational_pass_page(tmp_path, config, updated_at='2026-10-30') != before
+    impact = evaluate_information_impact(authored_graph(tmp_path, config), base, {paths.rel(action)}, today=TODAY)
+    assert paths.rel(target) in {row['path'] for row in impact['included']}
+    action.write_text(action.read_text().replace(f'action_state: {state}',
+                      'action_state: waiting_human' if state == 'open' else 'action_state: open'))
+    impact = evaluate_information_impact(authored_graph(tmp_path, config), base, {paths.rel(action)}, today=TODAY)
+    assert paths.rel(target) in {row['path'] for row in impact['included']}
+
+
+@pytest.mark.parametrize('state,receipt', [('done', 'completion_receipt'), ('cancelled', 'cancellation_receipt')])
+def test_operational_pass_terminal_body_is_not_consumed_but_reopening_is(tmp_path, state, receipt):
+    from wiki_core.paths import WikiPaths
+    config = WikiConfig(); paths = WikiPaths(tmp_path, config)
+    action = paths.actions_dir / 'candidate.md'; action.parent.mkdir(parents=True)
+    action.write_text('---\npage_id: candidate\npage_type: action\ncontext: system\n'
+                      f'title: Work item\naction_state: {state}\ncompleted_at: 2026-10-30\n{receipt}: test\n'
+                      '---\n\n# Work item\n\nA routine observation.\n')
+    target = paths.operational_pass_page; target.parent.mkdir(parents=True, exist_ok=True)
+    before = build_operational_pass_page(tmp_path, config, updated_at='2026-10-30')
+    target.write_text(before); base = authored_graph(tmp_path, config)
+    action.write_text(action.read_text().replace('routine observation', 'pending observation'))
+    assert build_operational_pass_page(tmp_path, config, updated_at='2026-10-30') == before
+    impact = evaluate_information_impact(authored_graph(tmp_path, config), base, {paths.rel(action)}, today=TODAY)
+    assert paths.rel(target) not in {row['path'] for row in impact['included']}
+    action.write_text(action.read_text().replace(f'action_state: {state}', 'action_state: open')
+                      .replace('completed_at: 2026-10-30\n', '')
+                      .replace(f'{receipt}: test\n', 'next_action: work\n'))
+    assert build_operational_pass_page(tmp_path, config, updated_at='2026-10-30') != before
+    impact = evaluate_information_impact(authored_graph(tmp_path, config), base, {paths.rel(action)}, today=TODAY)
+    assert paths.rel(target) in {row['path'] for row in impact['included']}
+
+
+def test_terminal_action_title_fallback_remains_a_body_dependency(tmp_path):
+    from wiki_core.paths import WikiPaths
+    config = WikiConfig(); paths = WikiPaths(tmp_path, config)
+    action = paths.actions_dir / 'candidate.md'; action.parent.mkdir(parents=True)
+    action.write_text('---\npage_id: candidate\npage_type: action\ncontext: system\n'
+                      'action_state: done\ncompleted_at: 2026-10-30\ncompletion_receipt: test\n'
+                      '---\n\n# Original title\n\nHistorical detail.\n')
+    target = paths.operational_pass_page; target.parent.mkdir(parents=True, exist_ok=True)
+    before = build_operational_pass_page(tmp_path, config, updated_at='2026-10-30')
+    target.write_text(before); base = authored_graph(tmp_path, config)
+    action.write_text(action.read_text().replace('# Original title', '# Updated title'))
+    assert build_operational_pass_page(tmp_path, config, updated_at='2026-10-30') != before
+    impact = evaluate_information_impact(authored_graph(tmp_path, config), base, {paths.rel(action)}, today=TODAY)
+    assert paths.rel(target) in {row['path'] for row in impact['included']}
+
+
+def test_canonical_terminal_json_does_not_derive_status_from_body(tmp_path):
+    from wiki_core.paths import WikiPaths
+    config = WikiConfig(); paths = WikiPaths(tmp_path, config)
+    action = paths.actions_dir / 'candidate.md'; action.parent.mkdir(parents=True)
+    action.write_text('---\npage_id: candidate\npage_type: action\ncontext: system\n'
+                      'title: Work item\naction_state: done\ncompleted_at: 2026-10-30\n'
+                      'completion_receipt: test\n---\n\n# Work item\n\nState: `pending`.\n')
+    payload = report_to_dict(build_operational_pass_report(tmp_path, config))
+    assert payload['actions'][0]['status'] == ''
+    action.write_text(action.read_text().replace('State: `pending`.', 'State: `blocked`.'))
+    assert report_to_dict(build_operational_pass_report(tmp_path, config)) == payload

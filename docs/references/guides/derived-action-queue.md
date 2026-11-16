@@ -8,6 +8,14 @@ point to the command and board, so its URL remains stable; it must not display
 an authored count or claim to contain the live members. The command reads the
 checkout being inspected, so fetch or select the intended revision first.
 
+The operational pass no longer marks canonical `done` or `cancelled` actions
+as needing attention because of words in their historical body or editorial
+status. Their `action_state` controls closure, and canonical actions no longer
+infer editorial status from a body `State:` line in the JSON report. Active
+actions retain body-based attention and next-step extraction, and legacy actions retain their existing
+state and body heuristics. The impact graph reflects those inputs; a terminal
+action's body can still supply its title when no title is declared.
+
 `python3 -m scripts.wiki_action_queue --check --base origin/main` validates
 canonical state, required lifecycle support, unique IDs and action inventory,
 then compares changed actions with the Git merge base using the canonical
