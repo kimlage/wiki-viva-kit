@@ -175,11 +175,16 @@ own gates, at minimum:
 
 ```sh
 python3 scripts/wiki_audit.py --check
-python3 -m pytest tests/
-npm --prefix apps/wiki-cockpit test
+python3 -m pytest tests/        # the consumer's own suite, not the kit's
+npm --prefix apps/wiki-cockpit run check:architecture
+npm --prefix apps/wiki-cockpit run check:assets
 npm --prefix apps/wiki-cockpit exec -- tsc -p apps/wiki-cockpit/tsconfig.json --noEmit
 npm --prefix apps/wiki-cockpit run build
 ```
+
+The generic cockpit `test` and `test:gates` suites are not synced; they run in
+the kit CI at the pinned revision. See the
+[minimum consumer-owned tests](../../../.skills/wiki-viva/reference/setup.md#minimum-consumer-owned-tests).
 
 Start the local operator and visually read back the affected flows using real
 consumer data. Keep screenshots and console/network evidence private and

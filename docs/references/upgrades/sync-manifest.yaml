@@ -37,6 +37,7 @@ portable:
     - docs/references/templates/wiki/context-instructions.md
     - docs/references/templates/wiki/context-instructions.yaml
     - docs/references/templates/wiki/modular-example/**
+    - docs/references/templates/consumer/**
     - docs/references/schemas/**
   block:
     - apps/wiki-cockpit/src/*.test.*

@@ -114,6 +114,11 @@ operator has not authorized publication.
 
 ## Core gates
 
+In the kit, run all of these. A consumer runs the `wiki_*` gates and its own
+tests; the kit suites (`pytest tests/` here, cockpit `test` and `test:gates`)
+are not synced and run in the kit CI at the revision pinned in `kit.lock`. See
+the [minimum consumer-owned tests](reference/setup.md#minimum-consumer-owned-tests).
+
 ```sh
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_audit.py --public-export --check
