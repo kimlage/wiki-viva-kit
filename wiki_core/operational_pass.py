@@ -502,9 +502,11 @@ def build_operational_pass_page(
         *yaml.safe_dump({'projection_inputs':[
             *([{'paths':['wiki.config.yaml'],'fields':['body']}] if (root/'wiki.config.yaml').is_file() else []),
             {'page_types':['action'], **paths.collection_selector('actions_dirname'),
-             'fields':['page_id','page_type','title','action_state','state','status','body',
+             'fields':['page_id','page_type','title','action_state','state','status',
                        'next_action','blocker_reason','blocked_by','completed_at',
                        'completion_receipt','cancellation_receipt']},
+            {'page_types':['action'], **paths.collection_selector('actions_dirname'),
+             'fields':['body'], 'missing_fields':['action_state']},
             {'page_types':[],'contexts':list(contexts),'fields':['page_id','context','title','updated_at'], 'title_fallback':True,'exclude_paths':[paths.rel(paths.operational_pass_page)]},
             {'page_types':['claim','action'],'contexts':list(contexts),
              'fields':['body','title','context','status','action_state','actions','responsibilities']},

@@ -151,14 +151,14 @@ def test_operation_candidate_selection_and_terminal_body_precision(tmp_path,kind
         source=paths.decisions_dir/'candidate.md';content='page_type: decision\n'
         body='# Candidate\n\nEstado: completed\n'
     else:
-        source=paths.actions_dir/'candidate.md';content='page_type: action\naction_state: done\n'
+        source=paths.actions_dir/'candidate.md';content='page_type: action\naction_state: done\ncompleted_at: 2026-10-30\ncompletion_receipt: test\n'
         body='# Candidate\n\nA complete observation.\n'
     source.parent.mkdir(parents=True);source.write_text('---\npage_id: candidate\ncontext: system\n'+content+'---\n'+body)
     target=paths.operation_page;target.parent.mkdir(parents=True,exist_ok=True)
     now=dt.datetime(2026,10,30)
     rendered=build_page(tmp_path,config,generated_at=now);target.write_text(rendered)
     base=authored_graph(tmp_path,config)
-    source.write_text(source.read_text().replace('completed','pending').replace('A complete observation.','A pending observation.'))
+    source.write_text(source.read_text().replace('Estado: completed','Estado: pending').replace('A complete observation.','A pending observation.'))
     changed=build_page(tmp_path,config,generated_at=now)!=rendered
     report=evaluate_information_impact(authored_graph(tmp_path,config),base,{paths.rel(source)},today=TODAY)
     included=paths.rel(target) in {row['path'] for row in report['included']}
@@ -180,14 +180,22 @@ def test_explicit_config_input_is_not_a_memory_page_or_permission(tmp_path):
 
 
 
-def test_operational_pass_pending_order_is_a_consumed_input(tmp_path):
+def test_operational_pass_consumes_action_inventory_not_queue_body(tmp_path):
+    from wiki_core.action_queue import DERIVED_POINTER
     from wiki_core.paths import WikiPaths
     config=WikiConfig();paths=WikiPaths(tmp_path,config)
     queue=paths.pending_actions_file;queue.parent.mkdir(parents=True)
-    queue.write_text('---\npage_id: queue\npage_type: ontology_index\ntitle: Queue\ncontext: system\n---\n# Queue\n- `a`\n- `b`\n')
+    queue.write_text('---\npage_id: queue\npage_type: ontology_index\ntitle: Queue\ncontext: system\n---\n\n'+DERIVED_POINTER+'\n')
+    source=paths.actions_dir/'candidate.md'
+    source.write_text('---\npage_id: candidate\npage_type: action\ncontext: system\ntitle: Original title\naction_state: open\nnext_action: work\n---\n\n# Candidate\n')
     target=paths.operational_pass_page;target.parent.mkdir(parents=True,exist_ok=True)
-    target.write_text(build_operational_pass_page(tmp_path,config,updated_at='2026-10-30'))
+    before=build_operational_pass_page(tmp_path,config,updated_at='2026-10-30')
+    target.write_text(before)
     base=authored_graph(tmp_path,config)
-    queue.write_text(queue.read_text().replace('- `a`\n- `b`','- `b`\n- `a`'))
+    queue.write_text(queue.read_text()+'\n- `phantom`\n')
     report=evaluate_information_impact(authored_graph(tmp_path,config),base,{paths.rel(queue)},today=TODAY)
+    assert paths.rel(target) not in {row['path'] for row in report['included']}
+    source.write_text(source.read_text().replace('Original title','Changed title'))
+    assert build_operational_pass_page(tmp_path,config,updated_at='2026-10-30')!=before
+    report=evaluate_information_impact(authored_graph(tmp_path,config),base,{paths.rel(source)},today=TODAY)
     assert paths.rel(target) in {row['path'] for row in report['included']}
