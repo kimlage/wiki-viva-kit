@@ -321,7 +321,7 @@ _HASH_CONFIG_FIELD_RE = re.compile(
 _CODE_PLACEHOLDERS = {
     "none", "null", "nil", "empty", "redacted", "example", "sample", "placeholder", "dummy",
     "changeme", "secret", "tbd", "todo", "pending", "unknown", "required", "optional",
-    "enabled", "disabled", "true", "false",
+    "enabled", "disabled", "true", "false", "change_me", "replace_me", "totp", "hotp", "yubikey",
 }
 
 
@@ -331,16 +331,21 @@ def _code_like(value: str, *, prose: bool = False) -> bool:
     After a strongly identified name (`otp:`, `invite_code=`), digits-only codes
     (including all zeros), uppercase codes and mixed-case codes count; a
     lowercase-only word reads as a setting value (`otp: enabled`, `mfa_code:
-    totp`). In prose, ordinary capitalized words follow these phrases, so only a
+    totp`). Uppercase identifiers with `_` (`CHANGE_ME`, an environment-variable
+    name) and `your_*` values are placeholders. In prose, ordinary capitalized
+    words follow these phrases, so only a
     value with a digit counts there. Masks such as `XXXXXX` or `****` never do.
     """
-    if value.lower() in _CODE_PLACEHOLDERS or set(value) <= {"x", "X", "*", "-", "_"}:
+    if (value.lower() in _CODE_PLACEHOLDERS or value.lower().startswith("your_")
+            or set(value) <= {"x", "X", "*", "-", "_"}):
         return False
     if any(c.isdigit() for c in value):
         return True
     if prose:
         return False
     letters = [c for c in value if c.isalpha()]
+    if "_" in value and all(c.isupper() for c in letters):
+        return False  # an identifier such as an environment-variable name
     return bool(letters) and not all(c.islower() for c in letters)
 
 

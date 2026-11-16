@@ -66,6 +66,14 @@ NEGATIVES = [
     "invite_code: TBD",
     "invite_code: ****",
     "Verification code: NOT RECEIVED",
+    # Round-2 review of #528: typical .env.example and configuration lines.
+    "INVITE_CODE=" + "CHANGE_ME",
+    "INVITE_CODE=" + "YOUR_CODE_HERE",
+    "OTP=" + "REPLACE_ME",
+    "invite_code: " + "INVITE_CODE",
+    "otp: " + "TOTP",
+    "mfa_code: " + "HOTP",
+    "mfa_key: " + "YUBIKEY",
 ]
 
 
