@@ -7,24 +7,49 @@ code. Names below are the English defaults; if you pin a localized layout
 
 ## 1. Bring the kit in
 
-Copy the kit into the repo (or start the repo from it) — the deterministic core,
-the CLIs, the tests, the templates, the method pages, the skills and the profile:
+Adopt the kit with the sync, as one reviewable PR in the consumer repo:
 
-```text
-wiki_core/                         # deterministic core
-scripts/                           # wiki_* CLIs
-tests/                             # the core's test suite
-docs/references/templates/wiki/    # page contracts and templates
-memories/system/                   # method pages (process, contract, coverage, log)
-.skills/                           # portable agent skills (this one included)
-.github/workflows/wiki.yml         # the gates in CI
-wiki.config.yaml  wiki.targets.yaml  requirements.txt  pytest.ini  .gitignore  AGENTS.md  README.md
+```sh
+python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
+  --kit /path/to/wiki-viva-kit --consumer . --dry-run      # B0: read-only plan
+python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
+  --kit /path/to/wiki-viva-kit --consumer .                # C1 copy, C2 generators
 ```
+
+The sync copies only the kit-owned paths listed in the
+[sync manifest](https://github.com/kimlage/wiki-viva-kit/blob/main/docs/references/upgrades/sync-manifest.yaml)
+(the deterministic core, the `wiki_*` CLIs, the cockpit runtime, the skills,
+packs and shared guides, schemas and templates) and records them in `kit.lock`.
+Those paths change only through a later sync; a defect in them is a kit issue.
+
+The sync does **not** copy the kit's test suites, demo fixtures or CI workflow.
+The generic Python and cockpit suites run once in the kit CI at the revision
+recorded in `kit.lock`; a second copy in the consumer would drift from that pin.
+Enabling CI in the consumer is the consumer's own decision.
+
+The consumer creates and owns the rest, starting from the kit's examples where
+they help: `wiki.config.yaml`, `wiki.targets.yaml`, its root
+[AGENTS.md](../../../AGENTS.md) and `README.md`, a skills index, `requirements.txt`,
+`pytest.ini`, `.gitignore`, its memory pages (the hubs and the method pages under `<memory_root>/system/`) and the
+page templates it uses. Never copy a path that the B0 plan lists as kit-owned:
+an unmanaged copy blocks the sync as a conflict.
 
 ```sh
 pip install -r requirements.txt   # PyYAML is the only runtime dependency
-python3 -m pytest tests/ -q       # sanity: the kit's own suite must pass
 ```
+
+### Minimum consumer-owned tests
+
+A new consumer starts with its own `tests/`, never the kit's:
+
+1. Copy the [kit-lock contract](../../../docs/references/templates/consumer/kit_lock_contract.py)
+   once to `tests/test_kit_lock.py`. It fails when a kit-managed file differs
+   from `kit.lock`, so core changes keep arriving only through the sync.
+2. Add a synthetic test for every consumer-owned script, adapter and C3
+   migration command, and for any domain invariant that the generic gates do
+   not cover.
+3. Keep the step 6 gates in the consumer's own validation (local checks, a
+   pre-push hook or its own CI); they are not pytest tests.
 
 ## 2. Configure the repo profile — [wiki.config.yaml](../../../wiki.config.yaml)
 
@@ -142,7 +167,7 @@ python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_input_stage.py --check
-python3 -m pytest tests/ -q
+python3 -m pytest tests/ -q      # the consumer's own suite (step 1)
 ```
 
 If `wiki_audit` complains about a missing core page, you renamed/omitted one of
