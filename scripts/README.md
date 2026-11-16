@@ -288,6 +288,17 @@ readiness and Git lifecycle hygiene without mutation:
 See [integration observation](../docs/references/guides/agent-contributions.md#read-only-integration-observation)
 for the supported GitHub adapter, exact-head handoff and local-gate limitations.
 
+### Rebase equivalence
+
+[patch_equivalence](../wiki_core/patch_equivalence.py) proves, commit by
+commit, whether a rebased head kept every reviewed commit: a conflict-free
+replay onto the new base with no new commit, and whitespace-sensitive patch
+identity, from local Git objects only:
+`python3 -m wiki_core.patch_equivalence --reviewed <sha> --rebased <sha> [--onto <ref>]`.
+It prints the `Equivalence:` line and the per-commit pairs for the proposal and
+exits 0 only when every commit is unchanged; see the
+[integration contract](../docs/references/guides/context-coordinators.md#integration-by-destination).
+
 ### Optional session hook
 
 [wiki_session_hook.py](wiki_session_hook.py) adapts provider lifecycle JSON to

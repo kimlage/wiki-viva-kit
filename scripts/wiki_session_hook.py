@@ -125,8 +125,25 @@ def handoff_problems(message: Any) -> list[str]:
     if proposal and (not target or not (url or (numbered and repository))):
         problems.add('proposal')
     review = fields.get('review', '')
+    head = fields.get('head', '').lower()
+    reviewed_here = bool(head) and head in review.lower()
+    if review and head and not reviewed_here:
+        # Merge-condition case 2: a clean rebase keeps the review when an
+        # optional Equivalence line (python3 -m wiki_core.patch_equivalence)
+        # proves a clean replay and every commit unchanged, with no new commit,
+        # from the reviewed SHA named in Review to this Head. Shape only: the integrator re-runs
+        # the comparison before relying on it. A coordinator delta (case 3) is
+        # not a hook shape; it is recorded on the proposal.
+        for line in message.splitlines():
+            proof = re.match(r'(?i)^\s*equivalence\s*:\s*identical\s+commits=[1-9][0-9]*\s+replay=clean\s.*'
+                             r'\breviewed=([0-9a-f]{40}|[0-9a-f]{64})\b.*\brebased=([0-9a-f]{40}|[0-9a-f]{64})\b'
+                             r'.*\bonto=([0-9a-f]{40}|[0-9a-f]{64})\b', line)
+            # The proof is bound to the proposal: its new base must be Base.
+            if (proof and proof.group(2).lower() == head and proof.group(1).lower() in review.lower()
+                    and proof.group(3).lower() == fields.get('base', '').lower()):
+                reviewed_here = True
     if review and (not re.search(r'(?i)(?:https?://|t3-thread://|review:)[^\s]+', review)
-                   or not fields.get('head') or fields['head'].lower() not in review.lower()):
+                   or not reviewed_here):
         problems.add('review')
     gates_value = fields.get('gates', '')
     gates = [gate.strip() for gate in gates_value.split(',')] if gates_value else []

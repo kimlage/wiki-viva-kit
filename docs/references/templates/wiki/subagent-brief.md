@@ -121,13 +121,44 @@ Gates: <gate=passed, gate=pending>
 CI: <head SHA, state and evidence; or not applicable>
 Pending: <items and wait events, or none>
 Responsible-Thread: <executor thread reference>
+Equivalence: <optional; after a clean rebase, the first line printed by python3 -m wiki_core.patch_equivalence>
 ```
 
 Integrator recipient: <destination integrator>
 
+After a clean rebase, `Review` may keep the covered SHA when `Equivalence`
+shows `replay=clean` and every commit unchanged, with no new commit, from that
+SHA to `Head`, and its `onto=` equals `Base`. The integrator fetches and
+re-runs with `--onto` set to the proposal's current target base, which must
+equal the recorded `onto=`. A conflict, a new or a changed commit needs a new
+review.
 The optional hook checks only its listed fields and does not verify the `CI`
 field. The integrator checks destination policy and does not infer approval from this
 handoff. Update it if the head or base changes.
+
+## Independent review
+
+- Review the exact head against each acceptance criterion and record findings,
+  each with the proposed fix, and their resolution.
+- A proposal gets at most two independent review rounds. After them, the final
+  SHA is covered only by a coordinator delta or a new independent review; see
+  the [merge condition](../../guides/context-coordinators.md#integration-by-destination).
+- A coordinator delta: the coordinator did not make the delta's commits, checks
+  the range `<reviewed SHA>..<final SHA>`, and the delta only fixes findings
+  already recorded by the reviewers. New content requires a new independent
+  review. If the coordinator's brief chose between alternatives or drafted the
+  fix, the delta goes back to the reviewer of the last round. The delta review
+  records the SHA range and cites the findings it fixes.
+- Do not block on evidence that exists only after applying the change (for
+  example a production apply or a real send); name it as a post-apply
+  verification on the action instead.
+- A clean rebase keeps this review only with no conflict and no new commit
+  (each commit replays onto the new base to the rebased commit's tree), every
+  commit `=` in `git range-diff` or each commit's `git patch-id --verbatim`
+  equal, and the proof recorded on the proposal. `--stable` alone ignores
+  whitespace and is not proof. Equal patch-ids or an all-`=` range-diff are not
+  proof without the replay: they ignore where a hunk applies, binary content
+  and files marked `-diff`.
 
 ## Blocker and bounded recovery
 

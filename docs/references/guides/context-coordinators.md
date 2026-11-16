@@ -190,6 +190,71 @@ destination and the consumer can adjust it. A new proposal must serve the
 action's acceptance criteria; record an out-of-scope finding on the action or
 in an issue instead of creating a proposal.
 
+Each canonical action has one writer per round: at most one open proposal per
+action and destination. A new result for the same action is added as a commit
+to the open proposal or waits for its merge; the coordinator does not dispatch a
+second executor to an action that already has an open proposal. The
+[PR summary](../../../scripts/wiki_pr_summary.py) warns when another observed
+proposal branch changes the same action file; it reads local remote-tracking
+branches, so fetch first.
+
+**Merge condition.** A merge depends only on this: the gates pass on the final
+SHA, and an independent review covers that SHA. Only three cases cover the
+final SHA:
+
+1. an independent review of the final SHA itself;
+2. a clean rebase of an already covered head: no conflict and no new commit,
+   shown by a clean replay of each covered commit onto the new base to exactly
+   the rebased commit's tree, with `git range-diff <old-base>..<old-head> <new-base>..<new-head>` showing
+   every commit as `=`, or with the `git patch-id --verbatim` of each commit
+   equal to that of the covered head (compare
+   `git log -p --reverse <base>..<head> | git patch-id --verbatim` on both
+   sides), and the proof recorded on the proposal;
+3. a coordinator delta: after two independent review rounds, a coordinator who
+   did not make the delta's commits checks the range `<reviewed SHA>..<final SHA>`,
+   which only fixes findings already recorded by the reviewers.
+
+New content outside those findings requires a new independent review. The
+delta follows the reviewer's proposed fix. If the coordinator's brief chose
+between alternatives or drafted the fix, the coordinator is an author of that
+fix: the delta goes back to the reviewer of the last round. A delta review
+records the SHA range and cites the findings it fixes.
+
+A rebase without conflicts belongs to the integrator. The proof has two
+separate parts, because equal patches alone do not show that a rebase was
+conflict-free: a conflict resolved by hand or a recreated commit can produce
+them. `git patch-id --stable` alone is not proof either: it ignores whitespace
+and can equate commits whose behavior differs.
+
+- No conflict and no new commit: each covered commit, replayed in order onto the
+  new base, applies without conflict and yields exactly the tree of the
+  corresponding rebased commit, on a linear chain with the same number of
+  commits.
+- Unchanged commits: `range-diff` all `=` at the same position, or equal
+  per-commit `patch-id --verbatim`.
+
+Equal patch-ids or an all-`=` range-diff are not proof without the replay: they
+ignore where a hunk applies, binary content and files marked `-diff`.
+
+[`python3 -m wiki_core.patch_equivalence`](../../../wiki_core/patch_equivalence.py)
+checks both from local objects (the replay uses `git merge-tree --write-tree`
+into a temporary object directory, without touching the repository) and prints
+the `Equivalence:` line and the per-commit pairs to record on the proposal. It
+reports a squash, a new, dropped or reordered commit, a whitespace change or a
+conflicting replay as different, and a merge commit or a Git without replay
+support as not provable. The integrator fetches and re-runs with `--onto` set
+to the proposal's current target base, which must equal the recorded `onto=`.
+The integrator runs the gates on the final SHA and
+integrates without a new review. A real conflict, a new commit or a changed
+commit returns to the executor. The integrator does not hold the queue for one
+proposal: it records the blocker on that proposal and moves to the next.
+
+Each proposal gets at most two independent review rounds; after them, only
+case 3 or a new independent review covers the final SHA. A reviewer does not
+block on evidence that exists only after applying the change, such as a
+production apply or a real send: it becomes a post-apply verification recorded
+on the action, checked after integration.
+
 Read policy from the destination's `wiki.config.yaml` `approval:` block, or
 from its AGENTS or equivalent repository rules if it has no wiki. If
 `require_human_review: true`, prepare all other work, wait for human approval
@@ -256,8 +321,9 @@ commits remain available through `refs/pull/<n>/head`; other adapters have their
 retention behavior. Enable automatic deletion of merged branches
 where authorized, and still verify local and remote state. Read back branches,
 worktrees and PRs, and record the result with the existing delivery. Retain valid
-review and test evidence for unchanged work; new changes or concerns receive the
-applicable validation. Keep incomplete work in its PR rather than a new queue.
+review and test evidence for unchanged work, as the
+[merge condition](#integration-by-destination) defines it; new changes or
+concerns receive the applicable validation. Keep incomplete work in its PR rather than a new queue.
 
 Executor worktrees live only while their owner is active. An executor whose
 work is in another repository gets no worktree in the wiki. A wiki executor
