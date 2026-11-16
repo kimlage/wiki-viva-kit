@@ -2,6 +2,11 @@
 
 ## 9.2.4 — release preparation
 
+- Prevent historical body text or editorial status from marking a canonical
+  terminal action as needing attention in the operational pass. Canonical
+  action status in the JSON report no longer falls back to body text. Preserve body
+  signals and next steps for active actions and legacy compatibility.
+
 - Add opt-in `context_discovery.exclude` folder prefixes to keep explicitly
   selected documentary trees from becoming automatic context owners. Default
   discovery is unchanged. Root exclusion, malformed configuration and conflicts

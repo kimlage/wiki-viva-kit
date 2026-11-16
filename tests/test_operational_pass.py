@@ -982,7 +982,7 @@ def test_operational_pass_uses_canonical_action_state_over_status_and_body(
         mem / "actions" / "done.md",
         (
             "---\npage_id: action-done\npage_type: action\ncontext: fin\n"
-            "action_state: done\nstatus: blocked\ncompletion_receipt: receipt:test\n"
+            "action_state: done\nstatus: blocked\ncompletion_receipt: receipt:test\ncompleted_at: 2026-06-08\n"
             "visibility: private_self\nupdated_at: 2026-06-12\nstale_after_days: 30\n"
             "sources_policy: x\ngate: github_pr\n---\n\n"
             "# Action - Canonical done\n\nState: `pending`.\n"
@@ -992,7 +992,7 @@ def test_operational_pass_uses_canonical_action_state_over_status_and_body(
         mem / "actions" / "open.md",
         (
             "---\npage_id: action-open\npage_type: action\ncontext: fin\n"
-            "action_state: open\nstatus: completed\n"
+            "action_state: open\nnext_action: work\nstatus: completed\n"
             "visibility: private_self\nupdated_at: 2026-06-12\nstale_after_days: 30\n"
             "sources_policy: x\ngate: github_pr\n---\n\n"
             "# Action - Canonical open\n\nState: `done`.\n"

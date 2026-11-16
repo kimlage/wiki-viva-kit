@@ -128,6 +128,31 @@ projection_inputs:
   missing_fields:
   - action_state
 - page_types:
+  - action
+  path_prefix: memories
+  path_directory: actions
+  fields:
+  - page_id
+  - page_type
+  - title
+  - action_state
+  - state
+  - status
+  - next_action
+  - blocker_reason
+  - blocked_by
+  - completed_at
+  - completion_receipt
+  - cancellation_receipt
+- page_types:
+  - action
+  path_prefix: memories
+  path_directory: actions
+  fields:
+  - body
+  missing_fields:
+  - action_state
+- page_types:
   - source
   path_prefix: memories
   path_directory: sources

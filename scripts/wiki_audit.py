@@ -36,6 +36,7 @@ from wiki_core.action_adoption import (
     ACTION_ADOPTION_RECEIPT_PATH,
     verify_action_adoption_git_contract,
 )
+from wiki_core.action_queue import pointer_errors
 from wiki_core.action_state import resolve_action_state
 from wiki_core.action_transition import action_transition_diagnostics
 from wiki_core.detectors import scan_file
@@ -1238,6 +1239,17 @@ def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig
     errors.extend(hub_errors)
     pages = set(str(page) for page in (config.audit.get("core_pages") or ())) | set(hubs)
     pages.update(rel for rel in markdown_files() if ontology_dir_for(rel, config))
+    paths = WikiPaths(ROOT, config)
+    pointer_rel = paths.rel(paths.pending_actions_file)
+    pointer_valid = False
+    if paths.pending_actions_file.exists() or paths.pending_actions_file.is_symlink():
+        try:
+            _guard_audit_path(paths.pending_actions_file)
+            pointer_diagnostics = pointer_errors(ROOT, paths)
+        except AuditPathBoundaryError:
+            pointer_diagnostics = [f"{pointer_rel}: invalid queue path"]
+        errors.extend(pointer_diagnostics)
+        pointer_valid = not pointer_diagnostics
     for rel in sorted(pages):
         path = ROOT / rel
         try:
@@ -1277,7 +1289,8 @@ def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig
 
         directory = ontology_dir_for(rel, config)
         if directory:
-            missing_relations = sorted(RELATION_KEYS - values.keys())
+            missing_relations = ([] if rel == pointer_rel and pointer_valid
+                                 else sorted(RELATION_KEYS - values.keys()))
             if missing_relations:
                 errors.append(f"{rel}: missing relation keys: {', '.join(missing_relations)}")
             # The v1 page-type registry is authoritative whenever present.
@@ -2535,6 +2548,42 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
                 errors.append(f"{rel}: consolidated_into path does not exist: `{target}`")
                 continue
             target_values, _ = parse_frontmatter(target_path)
+            if target == paths.rel(paths.pending_actions_file):
+                # Historical events are immutable: an explicit, repository-local
+                # history binding supplies the reverse source references, but
+                # only for the exact derived pointer, never a materialized queue.
+                history_rel = config.action_queue.get("history_page") if isinstance(config.action_queue, dict) else None
+                try:
+                    from wiki_core.context_policy import safe_path
+                    if pointer_errors(ROOT, paths):
+                        raise ValueError("invalid pointer")
+                    history_rel = safe_path(history_rel)
+                    memory_rel = safe_path(config.paths["memory_root"])
+                    events_rel = paths.rel(paths.ingest_events_dir)
+                    if (not history_rel.startswith(memory_rel + "/") or
+                            not history_rel.endswith(".md") or history_rel == target or
+                            history_rel.startswith(events_rel + "/")):
+                        raise ValueError("invalid history binding")
+                    history_path = _guard_audit_path(ROOT / history_rel)
+                    if not history_path.is_file():
+                        raise ValueError("history unavailable")
+                    history_values, history_errors = parse_frontmatter(history_path)
+                    structured_history = parse_yaml_frontmatter(history_path)
+                    history_refs = structured_history.get("source_refs")
+                    if (history_errors or str(history_values.get("page_type") or "") in {"source", "ingestion_event"}
+                            or structured_history.get("page_type") != history_values.get("page_type")
+                            or not isinstance(history_refs, list)
+                            or any(not isinstance(ref, str) or not ref.strip() for ref in history_refs)):
+                        raise ValueError("invalid history page")
+                    if not source_refs:
+                        raise ValueError("event source references missing")
+                except (ValueError, OSError, TypeError):
+                    errors.append(f"{rel}: queue history provenance unavailable or invalid")
+                    continue
+                non_source_targets += 1
+                if not set(history_refs).intersection(source_refs):
+                    errors.append(f"{rel}: queue history does not reference the source back")
+                continue
             # A source page is provenance identity, not a derivative of
             # itself or of every peer named by a multi-source event.
             # Requiring source_refs here creates the exact cycles the

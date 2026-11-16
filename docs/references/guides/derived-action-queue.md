@@ -1,6 +1,6 @@
 # Derived action queue and consumer migration
 
-The canonical action pages are the queue. `python3 scripts/wiki_action_queue.py`
+The canonical action pages are the queue. `python3 -m scripts.wiki_action_queue`
 lists active actions from all configured action collections; `--json` emits the
 same inventory for a reader. No shared generated queue is written or committed.
 The cockpit action board already reads action pages. A static pending index may
@@ -8,7 +8,15 @@ point to the command and board, so its URL remains stable; it must not display
 an authored count or claim to contain the live members. The command reads the
 checkout being inspected, so fetch or select the intended revision first.
 
-`python3 scripts/wiki_action_queue.py --check --base origin/main` validates
+The operational pass no longer marks canonical `done` or `cancelled` actions
+as needing attention because of words in their historical body or editorial
+status. Their `action_state` controls closure, and canonical actions no longer
+infer editorial status from a body `State:` line in the JSON report. Active
+actions retain body-based attention and next-step extraction, and legacy actions retain their existing
+state and body heuristics. The impact graph reflects those inputs; a terminal
+action's body can still supply its title when no title is declared.
+
+`python3 -m scripts.wiki_action_queue --check --base origin/main` validates
 canonical state, required lifecycle support, unique IDs and action inventory,
 then compares changed actions with the Git merge base using the canonical
 transition-receipt diagnostics. If a pending page exists, the check accepts
@@ -31,8 +39,30 @@ counts, lists, free text, or a second section. A marker alone is insufficient.
 
 <!-- wiki-viva:derived-action-queue -->
 The active queue is derived from action pages.
-Run `python3 scripts/wiki_action_queue.py` or open the action board.
+Run `python3 -m scripts.wiki_action_queue` or open the action board.
 ```
+
+## Preserving historical consolidation provenance
+
+If immutable ingestion events name the old queue page in `consolidated_into`,
+retain their historical content on one regular wiki page and bind it explicitly
+in the consumer's `wiki.config.yaml`:
+
+```yaml
+action_queue:
+  history_page: memories/actions/queue-history.md
+```
+
+Use the consumer's configured memory root and an existing repository-relative
+Markdown path. The history must be distinct from the pointer and ingestion
+events, have valid ordinary frontmatter (not a source or ingestion-event page),
+and contain a YAML list of nonempty `source_refs` that intersects the references
+of each event. The consolidation audit follows
+this binding only for the configured queue page after validating its exact
+pointer; missing, unsafe, symlinked or invalid history, an altered pointer, or
+a missing per-event source match fails the audit. It does not change historical
+events or transfer this exception to other targets. A matching source reference
+is traceability evidence, not a substitute for reviewing the historical content.
 
 ## Migration in a consumer-owned PR
 

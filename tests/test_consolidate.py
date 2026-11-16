@@ -501,3 +501,78 @@ def test_contextual_aggregation_rejects_missing_or_invalid_source_hash(repo, bad
                   'block_context_package': {'documents': []}}
     with pytest.raises(ValueError, match='local source hash unavailable'):
         aggregate_results(contextual, paths.llm_cache)
+
+
+def test_derived_queue_history_preserves_each_event_provenance(tmp_path, monkeypatch):
+    from dataclasses import replace
+    from wiki_core.action_queue import DERIVED_POINTER
+
+    audit = _load_audit()
+    cfg = WikiConfig()
+    history_rel = 'memories/actions/queue-history.md'
+    cfg_with_history = replace(cfg, action_queue={'history_page': history_rel})
+    events = tmp_path / 'memories/system/ingestion/events'
+    events.mkdir(parents=True)
+    queue = tmp_path / 'memories/actions/pending.md'
+    queue.parent.mkdir(parents=True)
+    metadata = ('---\npage_id: queue-history\npage_type: ontology_index\ncontext: system\n'
+                'visibility: private_self\nupdated_at: 2026-10-30\nstale_after_days: 30\n'
+                'sources_policy: memory\ngate: github_pr\n'
+                'sensitive_data_policy: private_sensitive_allowed\n')
+    queue.write_text(metadata.replace('page_id: queue-history', 'page_id: queue') +
+                     '---\n\n' + DERIVED_POINTER + '\n')
+    history = tmp_path / history_rel
+    history.write_text(metadata + 'source_refs:\n  - source-test\n  - source-other\n---\n\n# History\n')
+    event_text = _event_text('consolidated_into:\n  - memories/actions/pending.md\n'
+                             'sem_claim: historical synthesis')
+    (events / 'one.md').write_text(event_text)
+    (events / 'two.md').write_text(event_text.replace('source-test', 'source-other'))
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+
+    def check(config):
+        audit.parse_frontmatter.cache_clear()
+        errors = []
+        audit.audit_consolidation(errors, [], config)
+        return errors
+
+    assert check(cfg_with_history) == []
+    assert any('queue history provenance unavailable or invalid' in x for x in check(cfg))
+    history.write_text(metadata + 'source_refs:\n  - source-test\n---\n\n# History\n')
+    errors = check(cfg_with_history)
+    assert len([x for x in errors if 'queue history does not reference' in x]) == 1
+    history.write_text(metadata + 'source_refs:\n  - source-test\n  - source-other\n---\n\n# History\n')
+    (events / 'one.md').write_text(event_text.replace('source_ref: source-test\n', ''))
+    assert any('queue history provenance unavailable or invalid' in x for x in check(cfg_with_history))
+    (events / 'one.md').write_text(event_text)
+    for invalid_refs in ('source_refs: source-test\n', 'source_refs: [source-test,\n',
+                         'source_refs: [source-test, null]\n'):
+        history.write_text(metadata + invalid_refs + '---\n\n# History\n')
+        assert any('queue history provenance unavailable or invalid' in x for x in check(cfg_with_history))
+    history.write_text(metadata + 'source_refs: [source-test, source-other]\n---\n\n# History\n')
+    assert check(cfg_with_history) == []
+    history.write_text(metadata.replace('page_type: ontology_index', 'page_type: source') +
+                       'source_refs:\n  - source-test\n  - source-other\n---\n\n# History\n')
+    assert any('queue history provenance unavailable or invalid' in x for x in check(cfg_with_history))
+    history.write_text(metadata + 'source_refs:\n  - source-test\n  - source-other\n---\n\n# History\n')
+    queue.write_text(queue.read_text() + '\n- materialized\n')
+    assert any('queue history provenance unavailable or invalid' in x for x in check(cfg_with_history))
+    queue.write_text(metadata.replace('page_id: queue-history', 'page_id: queue') +
+                     '---\n\n' + DERIVED_POINTER + '\n')
+    history.unlink()
+    assert any('queue history provenance unavailable or invalid' in x for x in check(cfg_with_history))
+    history.symlink_to(queue)
+    assert any('queue history provenance unavailable or invalid' in x for x in check(cfg_with_history))
+    for invalid in ('../outside.md', 'memories/actions/pending.md', 'docs/history.md',
+                    'memories/system/ingestion/events/one.md'):
+        bad_cfg = replace(cfg, action_queue={'history_page': invalid})
+        assert any('queue history provenance unavailable or invalid' in x for x in check(bad_cfg))
+
+
+def test_action_queue_history_config_rejects_unsafe_binding():
+    from wiki_core.config import config_from_mapping
+    assert config_from_mapping({'action_queue': {'history_page': 'memories/actions/history.md'}}).action_queue == {
+        'history_page': 'memories/actions/history.md'}
+    for value in ('not-a-map', {'history_page': '../outside.md'}, {'history_page': 'history.txt'},
+                  {'history_page': ['history.md']}, {'unexpected': 'history.md'}):
+        with pytest.raises(ValueError, match='action_queue'):
+            config_from_mapping({'action_queue': value})

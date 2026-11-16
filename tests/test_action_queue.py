@@ -131,3 +131,22 @@ def test_pointer_refuses_symlink_even_if_target_has_pointer(tmp_path):
     queue.unlink()
     queue.symlink_to(target)
     assert 'pending queue path contains a symlink' in read_queue(tmp_path, base='main')[1]
+
+
+def test_pointer_module_command_runs_from_consumer_checkout(tmp_path):
+    import shutil
+    from pathlib import Path
+
+    kit_root = Path(__file__).resolve().parents[1]
+    setup_repo(tmp_path)
+    scripts = tmp_path / 'scripts'
+    scripts.mkdir()
+    shutil.copy2(kit_root / 'scripts/wiki_action_queue.py', scripts / 'wiki_action_queue.py')
+    shutil.copytree(kit_root / 'wiki_core', tmp_path / 'wiki_core',
+                    ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+    assert not (scripts / '__init__.py').exists()
+    result = subprocess.run([sys.executable, '-m', 'scripts.wiki_action_queue', '--check',
+                             '--base', 'main'], cwd=tmp_path, text=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    assert result.returncode == 0, result.stderr
+    assert 'action queue valid: 2 active action(s)' in result.stdout

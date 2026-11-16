@@ -259,6 +259,25 @@ def _validated_features(raw_value: Any) -> dict[str, bool]:
     return features
 
 
+def _validated_action_queue(raw_value: Any) -> dict[str, str]:
+    """Accept only a safe explicit history-page binding for the derived queue."""
+    from wiki_core.context_policy import safe_path
+
+    if raw_value is None:
+        return {}
+    if not isinstance(raw_value, dict) or set(raw_value) - {"history_page"}:
+        raise ValueError("config: invalid action_queue section")
+    if "history_page" not in raw_value:
+        return {}
+    try:
+        path = safe_path(raw_value["history_page"])
+    except ValueError:
+        raise ValueError("config: invalid action_queue.history_page") from None
+    if not path.endswith(".md"):
+        raise ValueError("config: invalid action_queue.history_page")
+    return {"history_page": path}
+
+
 @dataclass(frozen=True)
 class WikiConfig:
     repo_id: str = "wiki-repo"
@@ -299,6 +318,7 @@ class WikiConfig:
             "source_registry_page": "memories/system/source-registry.md",
         }
     )
+    action_queue: dict[str, str] = field(default_factory=dict)
     # Methodology-coverage gate targets (wiki_check_methodology_coverage.py).
     # required_templates are filenames under <references_root>/templates/wiki.
     coverage: dict[str, Any] = field(
@@ -496,6 +516,7 @@ def config_from_mapping(raw: dict[str, Any]) -> WikiConfig:
         contexts=contexts,
         default_context=default_context,
         paths={**WikiConfig().paths, **dict(raw.get("paths", {}))},
+        action_queue=_validated_action_queue(raw.get("action_queue")),
         approval={**WikiConfig().approval, **dict(raw.get("approval", {}))},
         llm={**WikiConfig().llm, **dict(raw.get("llm", {}))},
         coverage={**WikiConfig().coverage, **dict(raw.get("coverage", {}))},

@@ -5,19 +5,20 @@ import re
 import subprocess
 from pathlib import Path
 
-from wiki_core.action_state import CANONICAL_ACTION_STATES, NON_TERMINAL_ACTION_STATES
+from wiki_core.action_state import (CANONICAL_ACTION_STATES, NON_TERMINAL_ACTION_STATES,
+                                    legacy_action_state_from_body, resolve_action_state)
 from wiki_core.action_transition import (
     ActionTransitionError, _lifecycle_contract_error, _parse_document,
     action_transition_diagnostics,
 )
-from wiki_core.config import load_config
+from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
 
 DERIVED_POINTER = """# Pending actions
 
 <!-- wiki-viva:derived-action-queue -->
 The active queue is derived from action pages.
-Run `python3 scripts/wiki_action_queue.py` or open the action board."""
+Run `python3 -m scripts.wiki_action_queue` or open the action board."""
 POINTER_METADATA_KEYS = frozenset({
     'page_id', 'page_type', 'title', 'context', 'visibility', 'updated_at',
     'stale_after_days', 'sources_policy', 'gate', 'sensitive_data_policy',
@@ -25,7 +26,7 @@ POINTER_METADATA_KEYS = frozenset({
 })
 
 
-def _pointer_errors(root: Path, paths: WikiPaths) -> list[str]:
+def pointer_errors(root: Path, paths: WikiPaths) -> list[str]:
     """Accept only the complete static pointer, never a materialized queue."""
     path = paths.pending_actions_file
     try:
@@ -55,12 +56,12 @@ def _pointer_errors(root: Path, paths: WikiPaths) -> list[str]:
     return []
 
 
-def _inventory(documents: dict[str, str]) -> tuple[dict[str, tuple[str, dict, str]], list[str]]:
+def _inventory(documents: dict[str, str], *, allow_legacy: bool = False) -> tuple[dict[str, tuple[str, dict, str]], list[str]]:
     actions = {}
     errors = []
     for path, text in sorted(documents.items()):
         try:
-            fm, _ = _parse_document(text)
+            fm, body = _parse_document(text)
         except ActionTransitionError:
             errors.append(f'{path}: invalid frontmatter')
             continue
@@ -68,6 +69,13 @@ def _inventory(documents: dict[str, str]) -> tuple[dict[str, tuple[str, dict, st
             continue
         page_id = fm.get('page_id')
         state = fm.get('action_state')
+        if allow_legacy and 'action_state' not in fm:
+            fm = dict(fm)
+            state = resolve_action_state(fm, legacy_state=legacy_action_state_from_body(body)).state
+            fm['action_state'] = state
+            legacy = True
+        else:
+            legacy = False
         if not isinstance(page_id, str) or not re.fullmatch(r'[A-Za-z0-9_.-]{1,160}', page_id):
             errors.append(f'{path}: invalid page_id')
             continue
@@ -76,7 +84,7 @@ def _inventory(documents: dict[str, str]) -> tuple[dict[str, tuple[str, dict, st
             continue
         if state not in CANONICAL_ACTION_STATES:
             errors.append(f'{path}: invalid action_state')
-        else:
+        elif not legacy:
             error = _lifecycle_contract_error(fm, state)
             if error:
                 errors.append(f'{path}: {error}')
@@ -84,14 +92,16 @@ def _inventory(documents: dict[str, str]) -> tuple[dict[str, tuple[str, dict, st
     return actions, errors
 
 
-def read_queue(root: Path, *, base: str | None = None) -> tuple[list[dict], list[str]]:
+def read_queue(root: Path, *, base: str | None = None, config: WikiConfig | None = None,
+               allow_legacy: bool = False) -> tuple[list[dict], list[str]]:
     """Read all configured action collections; optionally audit against a Git base."""
     root = root.resolve()
-    paths = WikiPaths(root, load_config(root))
-    docs = {p.relative_to(root).as_posix(): p.read_text(encoding='utf-8') for p in paths.action_files()}
-    current, errors = _inventory(docs)
+    paths = WikiPaths(root, config or load_config(root))
+    docs = {p.relative_to(root).as_posix(): p.read_text(encoding='utf-8')
+            for p in paths.action_files() if p != paths.pending_actions_file}
+    current, errors = _inventory(docs, allow_legacy=allow_legacy)
     if base is not None:
-        errors.extend(_pointer_errors(root, paths))
+        errors.extend(pointer_errors(root, paths))
         listing = subprocess.run(['git', 'ls-tree', '-r', '--name-only', '-z', base], cwd=root,
                                  capture_output=True, check=False)
         if listing.returncode:

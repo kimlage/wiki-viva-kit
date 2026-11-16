@@ -11,6 +11,7 @@ from typing import Any, Callable
 import yaml
 
 from wiki_core.traversal import wiki_markdown_files
+from .action_queue import read_queue
 from .action_state import (
     TERMINAL_ACTION_STATES,
     legacy_action_state_from_body,
@@ -282,7 +283,6 @@ def read_markdown_page(path: Path, root: Path, default_context: str) -> PageReco
     page_type = str(frontmatter.get("page_type") or "")
     title = _clean_title(str(frontmatter.get("title") or first_h1(body) or path.stem))
     context = str(frontmatter.get("context") or default_context)
-    status = str(frontmatter.get("status") or first_state(body) or "").strip()
     action_resolution = (
         resolve_action_state(
             frontmatter,
@@ -291,6 +291,9 @@ def read_markdown_page(path: Path, root: Path, default_context: str) -> PageReco
         if page_type == "action"
         else None
     )
+    # Canonical actions never infer editorial status from historical body text.
+    body_status = "" if action_resolution and not action_resolution.compatibility else first_state(body)
+    status = str(frontmatter.get("status") or body_status or "").strip()
     return PageRecord(
         path=path,
         rel=rel,
@@ -331,20 +334,10 @@ def collect_pages(root: Path, config: WikiConfig) -> tuple[PageRecord, ...]:
 
 
 def pending_action_ids(paths: WikiPaths) -> tuple[str, ...]:
-    if not paths.pending_actions_file.exists():
-        return ()
-    ids: list[str] = []
-    body_started = False
-    for line in paths.pending_actions_file.read_text(encoding="utf-8").splitlines():
-        if line.startswith("# "):
-            body_started = True
-            continue
-        if not body_started:
-            continue
-        match = re.match(r"^\s*-\s+`?([^`\s)]+)`?", line)
-        if match:
-            ids.append(match.group(1).strip())
-    return tuple(ids)
+    rows, errors = read_queue(paths.root, config=paths.config, allow_legacy=True)
+    if errors:
+        raise ValueError("Invalid action queue: " + "; ".join(errors))
+    return tuple(row["page_id"] for row in rows)
 
 
 def build_operational_pass_report(
@@ -510,10 +503,20 @@ def build_operational_pass_page(
         f"moc_parent: {config.paths['memory_root']}/index.md",
         *yaml.safe_dump({'projection_inputs':[
             *([{'paths':['wiki.config.yaml'],'fields':['body']}] if (root/'wiki.config.yaml').is_file() else []),
-            *([{'paths':[paths.rel(paths.pending_actions_file)],'fields':['body']}] if paths.pending_actions_file.is_file() else []),
+            {'page_types':['action'], **paths.collection_selector('actions_dirname'),
+             'fields':['page_id','page_type','title','action_state','state','status',
+                       'next_action','blocker_reason','blocked_by','completed_at',
+                       'completion_receipt','cancellation_receipt']},
+            {'page_types':['action'], **paths.collection_selector('actions_dirname'),
+             'fields':['body'], 'missing_fields':['action_state']},
             {'page_types':[],'contexts':list(contexts),'fields':['page_id','context','title','updated_at'], 'title_fallback':True,'exclude_paths':[paths.rel(paths.operational_pass_page)]},
-            {'page_types':['claim','action'],'contexts':list(contexts),
-             'fields':['body','title','context','status','action_state','actions','responsibilities']},
+            {'page_types':['claim'],'contexts':list(contexts),
+             'fields':['body','title','context','status','actions','responsibilities']},
+            {'page_types':['action'],'contexts':list(contexts),
+             'fields':['title','context','status','action_state','actions','responsibilities'],
+             'title_fallback':True},
+            {'page_types':['action'],'contexts':list(contexts),
+             'fields':['body'], 'action_state_excludes':['done','cancelled']},
             {'page_types':['decision'],'contexts':list(contexts),'fields':['context','status','actions']},
             {'page_types':['decision'],'contexts':list(contexts),'fields':['body'],
              'status_excludes':sorted(NON_PENDING_DECISION_STATUS_SLUGS),
@@ -1333,6 +1336,10 @@ def _attention_rows(
 
 
 def _attention_reason(page: PageRecord) -> str:
+    # Canonical terminal actions are closed even when their historical body
+    # or editorial status contains words such as "pending" or "blocked".
+    if page.page_type == "action" and page.action_state_source == "action_state" and _action_is_closed(page):
+        return ""
     if _page_needs_attention(page):
         if page.page_type == "action" and page.action_state:
             return f"Action state: `{_action_display_state(page)}`."
@@ -1774,6 +1781,10 @@ def _page_link(page: PageRecord | None, page_dir: Path, *, consumes: list[str] |
         return "-"
     from .markdown_link_roles import declare_projection
     fields=['page_id','page_type','title',*(consumes or [])]
+    # Closed canonical actions do not contribute body-derived attention or
+    # next steps. Retain the body only when it supplies the displayed title.
+    if page.page_type == 'action' and page.action_state_source == 'action_state' and _action_is_closed(page):
+        fields = [field for field in fields if field != 'body']
     if not page.frontmatter.get('title'):fields.append('body')
     return declare_projection(f"[{_escape(page.title or page.page_id)}]({_rel(page.path, page_dir)})",consumes=fields)
 
