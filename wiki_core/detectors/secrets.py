@@ -317,15 +317,31 @@ _HASH_CONFIG_FIELD_RE = re.compile(
 )
 
 
-def _code_like(value: str) -> bool:
-    """A real code mixes digits, or cases, and is not a placeholder word."""
-    if value.lower() in {"none", "null", "redacted", "example", "placeholder", "xxxx", "xxxxxx"}:
+# Values that name a setting or stand in for a code, never an issued code.
+_CODE_PLACEHOLDERS = {
+    "none", "null", "nil", "empty", "redacted", "example", "sample", "placeholder", "dummy",
+    "changeme", "secret", "tbd", "todo", "pending", "unknown", "required", "optional",
+    "enabled", "disabled", "true", "false",
+}
+
+
+def _code_like(value: str, *, prose: bool = False) -> bool:
+    """Could this be an issued code? Placeholders and setting words are not.
+
+    After a strongly identified name (`otp:`, `invite_code=`), digits-only codes
+    (including all zeros), uppercase codes and mixed-case codes count; a
+    lowercase-only word reads as a setting value (`otp: enabled`, `mfa_code:
+    totp`). In prose, ordinary capitalized words follow these phrases, so only a
+    value with a digit counts there. Masks such as `XXXXXX` or `****` never do.
+    """
+    if value.lower() in _CODE_PLACEHOLDERS or set(value) <= {"x", "X", "*", "-", "_"}:
         return False
-    if set(value) <= {"x", "X", "*", "-", "_", "0"}:
+    if any(c.isdigit() for c in value):
+        return True
+    if prose:
         return False
-    has_digit = any(c.isdigit() for c in value)
-    mixed_case = any(c.islower() for c in value) and any(c.isupper() for c in value)
-    return has_digit or mixed_case
+    letters = [c for c in value if c.isalpha()]
+    return bool(letters) and not all(c.islower() for c in letters)
 
 
 def _hash_config_value(value: str) -> bool:
@@ -360,7 +376,7 @@ def _scan_access_codes(text: str) -> list[Finding]:
     # only a value with a digit counts there.
     for match in _ACCESS_CODE_PROSE_RE.finditer(text):
         value = match.group("value")
-        if _code_like(value) and any(c.isdigit() for c in value):
+        if _code_like(value, prose=True):
             add("access_code", "alto", match.start("value"), value)
     for match in _ACCESS_CODE_URL_RE.finditer(text):
         group = "path" if match.group("path") else "query"

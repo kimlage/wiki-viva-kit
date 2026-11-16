@@ -36,6 +36,13 @@ POSITIVE_PARTS = [
     ('"hashConfig": {"signerKey": "', SIGNER, '"}', "hash_config_secret"),
     ('saltSeparator: "', SALT, '"', "hash_config_secret"),
     ("base64_signer_key=", SIGNER, "", "hash_config_secret"),
+    # Review of #528: all-zero and uppercase-only codes are issued codes too.
+    ("otp: ", "000" + "000", "", "access_code"),
+    ("Your verification code is ", "000" + "000", "", "access_code"),
+    ("invite_code: ", "ABC" + "DEF", "", "access_code"),
+    ("INVITE_CODE=", "QKZ" + "TWM", "", "access_code"),
+    ('{"pairingPin": "', "00" + "00", '"}', "access_code"),
+    ("verification_code = ", "ABC" + "-DEF", "", "access_code"),
 ]
 POSITIVES = [(prefix + value + suffix, kind, value) for prefix, value, suffix, kind in POSITIVE_PARTS]
 
@@ -53,6 +60,12 @@ NEGATIVES = [
     "https://github.com/example/repo/issues/524",
     "https://example.test/verify/email",
     "Code review: 2 rounds",
+    "otp: enabled",
+    "mfa_code: totp",
+    "verification_code: required",
+    "invite_code: TBD",
+    "invite_code: ****",
+    "Verification code: NOT RECEIVED",
 ]
 
 
