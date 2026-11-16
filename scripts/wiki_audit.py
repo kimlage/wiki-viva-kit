@@ -2568,7 +2568,12 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
                     if not history_path.is_file():
                         raise ValueError("history unavailable")
                     history_values, history_errors = parse_frontmatter(history_path)
-                    if history_errors or str(history_values.get("page_type") or "") in {"source", "ingestion_event"}:
+                    structured_history = parse_yaml_frontmatter(history_path)
+                    history_refs = structured_history.get("source_refs")
+                    if (history_errors or str(history_values.get("page_type") or "") in {"source", "ingestion_event"}
+                            or structured_history.get("page_type") != history_values.get("page_type")
+                            or not isinstance(history_refs, list)
+                            or any(not isinstance(ref, str) or not ref.strip() for ref in history_refs)):
                         raise ValueError("invalid history page")
                     if not source_refs:
                         raise ValueError("event source references missing")
@@ -2576,8 +2581,7 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
                     errors.append(f"{rel}: queue history provenance unavailable or invalid")
                     continue
                 non_source_targets += 1
-                history_refs = set(list_values(history_values, "source_refs"))
-                if not history_refs.intersection(source_refs):
+                if not set(history_refs).intersection(source_refs):
                     errors.append(f"{rel}: queue history does not reference the source back")
                 continue
             # A source page is provenance identity, not a derivative of

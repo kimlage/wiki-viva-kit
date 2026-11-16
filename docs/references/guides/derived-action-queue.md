@@ -48,7 +48,8 @@ action_queue:
 Use the consumer's configured memory root and an existing repository-relative
 Markdown path. The history must be distinct from the pointer and ingestion
 events, have valid ordinary frontmatter (not a source or ingestion-event page),
-and contain `source_refs` that intersect the references of each event. The consolidation audit follows
+and contain a YAML list of nonempty `source_refs` that intersects the references
+of each event. The consolidation audit follows
 this binding only for the configured queue page after validating its exact
 pointer; missing, unsafe, symlinked or invalid history, an altered pointer, or
 a missing per-event source match fails the audit. It does not change historical

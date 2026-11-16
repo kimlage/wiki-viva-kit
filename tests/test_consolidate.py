@@ -544,6 +544,12 @@ def test_derived_queue_history_preserves_each_event_provenance(tmp_path, monkeyp
     (events / 'one.md').write_text(event_text.replace('source_ref: source-test\n', ''))
     assert any('queue history provenance unavailable or invalid' in x for x in check(cfg_with_history))
     (events / 'one.md').write_text(event_text)
+    for invalid_refs in ('source_refs: source-test\n', 'source_refs: [source-test,\n',
+                         'source_refs: [source-test, null]\n'):
+        history.write_text(metadata + invalid_refs + '---\n\n# History\n')
+        assert any('queue history provenance unavailable or invalid' in x for x in check(cfg_with_history))
+    history.write_text(metadata + 'source_refs: [source-test, source-other]\n---\n\n# History\n')
+    assert check(cfg_with_history) == []
     history.write_text(metadata.replace('page_type: ontology_index', 'page_type: source') +
                        'source_refs:\n  - source-test\n  - source-other\n---\n\n# History\n')
     assert any('queue history provenance unavailable or invalid' in x for x in check(cfg_with_history))
