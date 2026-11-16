@@ -127,9 +127,9 @@ Equivalence: <optional; after a clean rebase, the first line printed by python3 
 Integrator recipient: <destination integrator>
 
 After a clean rebase, `Review` may keep the covered SHA when `Equivalence`
-proves every commit unchanged, with no new commit, from that SHA to `Head`; the
-integrator re-runs the comparison before relying on it. A new or changed commit
-needs a new review.
+shows `replay=clean` and every commit unchanged, with no new commit, from that
+SHA to `Head`; the integrator re-runs the comparison before relying on it. A
+conflict, a new or a changed commit needs a new review.
 The optional hook checks only its listed fields and does not verify the `CI`
 field. The integrator checks destination policy and does not infer approval from this
 handoff. Update it if the head or base changes.
@@ -149,9 +149,11 @@ handoff. Update it if the head or base changes.
 - Do not block on evidence that exists only after applying the change (for
   example a production apply or a real send); name it as a post-apply
   verification on the action instead.
-- A clean rebase keeps this review only with no conflict and no new commit,
-  every commit `=` in `git range-diff` or each commit's `git patch-id --stable`
-  equal, and the proof recorded on the proposal.
+- A clean rebase keeps this review only with no conflict and no new commit
+  (each commit replays onto the new base to the rebased commit's tree), every
+  commit `=` in `git range-diff` or each commit's `git patch-id --verbatim`
+  equal, and the proof recorded on the proposal. `--stable` alone ignores
+  whitespace and is not proof.
 
 ## Blocker and bounded recovery
 

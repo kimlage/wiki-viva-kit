@@ -1,8 +1,10 @@
 """Issues #522/#523: merge-condition case 2, a clean rebase of a covered head.
 
-Every commit must be unchanged (`range-diff` all `=` at the same position, or
-equal per-commit `git patch-id --stable`) with no new commit. Synthetic
-repository only; local Git objects, no fetch or provider call.
+Each covered commit must replay onto the new base without conflict to exactly
+the rebased commit's tree (no conflict, no new commit), and every commit must be
+unchanged (`range-diff` all `=` at the same position, or equal per-commit
+`git patch-id --verbatim`). Synthetic repository only; local Git objects, no
+fetch or provider call.
 """
 from __future__ import annotations
 
@@ -63,9 +65,10 @@ def test_clean_rebase_keeps_every_commit(module, repo):
     assert result["verdict"] == "identical"
     assert result["commits"] == (2, 2)
     assert result["per_commit_patch_id"] is True and result["range_diff_unchanged"] is True
+    assert result["replay"] == "clean"
     assert result["old_base"] == old_base and result["new_base"] == new_base
     line = module.proof_line(result)
-    assert line.startswith("Equivalence: identical commits=2 patch-id=per-commit-match range-diff=all-equal ")
+    assert line.startswith("Equivalence: identical commits=2 replay=clean patch-id=verbatim-match range-diff=all-equal ")
     assert f"reviewed={reviewed}" in line and f"rebased={rebased}" in line
     details = module.proof_details(result)
     assert len(details) == 2 and all(" = " in row for row in details)
@@ -117,6 +120,82 @@ def test_merge_commit_is_not_provable(module, repo):
     assert result["verdict"] == "not_provable"
 
 
+def test_whitespace_change_is_not_identical(module, tmp_path):
+    """Review of #526 (P1): `--stable` ignores whitespace and equated these."""
+    root = tmp_path / "ws"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    git(root, "config", "user.email", "test@example.invalid")
+    git(root, "config", "user.name", "Synthetic Test")
+    base = write_commit(root, "job.py", "ready = True\n", "base")
+    git(root, "switch", "-qc", "reviewed")
+    reviewed = write_commit(root, "job.py", "ready = True\nif ready:\n    execute()\n    audit()\n", "guarded")
+    git(root, "switch", "-qc", "candidate", base)
+    candidate = write_commit(root, "job.py", "ready = True\nif ready:\n    execute()\naudit()\n", "guarded")
+    git(root, "update-ref", "refs/remotes/origin/main", base)
+    stable = [git(root, "-c", "core.pager=cat", "show", sha).encode() for sha in (reviewed, candidate)]
+    ids = [subprocess.run(["git", "patch-id", "--stable"], cwd=root, input=patch, capture_output=True).stdout.split()[0]
+           for patch in stable]
+    assert ids[0] == ids[1], "precondition: --stable alone cannot tell these apart"
+    result = module.compare(root, reviewed, candidate, old_base=base, new_base=base)
+    assert result["verdict"] == "different"
+    assert result["per_commit_patch_id"] is False and result["range_diff_unchanged"] is False
+    assert result["replay"] == "differs"
+
+
+def _conflicting_rebase(tmp_path):
+    root = tmp_path / "conflict"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    git(root, "config", "user.email", "test@example.invalid")
+    git(root, "config", "user.name", "Synthetic Test")
+    write_commit(root, "f.txt", "a\nb\nc\nd\ne\n", "base")
+    git(root, "switch", "-qc", "reviewed")
+    reviewed = write_commit(root, "f.txt", "a\nb\nc\nX\ne\n", "change")
+    git(root, "switch", "-q", "main")
+    new_base = write_commit(root, "f.txt", "a\nb\nC\nd\ne\n", "adjacent change")
+    git(root, "update-ref", "refs/remotes/origin/main", new_base)
+    git(root, "switch", "-qc", "resolved", new_base)
+    resolved = write_commit(root, "f.txt", "a\nb\nC\nX\ne\n", "change")
+    return root, reviewed, new_base, resolved
+
+
+def test_replay_reports_a_conflicting_rebase(module, tmp_path):
+    """Review of #526 (P2): a hand-resolved conflict is not a clean rebase."""
+    root, reviewed, new_base, resolved = _conflicting_rebase(tmp_path)
+    assert module.replay(root, [reviewed], new_base, [resolved]) == "conflict"
+    assert module.compare(root, reviewed, resolved)["verdict"] == "different"
+
+
+def test_identical_requires_a_clean_replay_even_when_patches_match(module, repo, monkeypatch):
+    root, _, reviewed, _, rebased = repo
+    for outcome, verdict in (("conflict", "different"), ("differs", "different"), ("unavailable", "not_provable")):
+        monkeypatch.setattr(module, "replay", lambda *args, _o=outcome: _o)
+        result = module.compare(root, reviewed, rebased)
+        assert result["per_commit_patch_id"] is True and result["range_diff_unchanged"] is True
+        assert (result["verdict"], result["replay"]) == (verdict, outcome)
+
+
+def test_replay_writes_no_object_into_the_repository(module, repo):
+    root, _, reviewed, _, rebased = repo
+    before = git(root, "count-objects", "-v")
+    assert module.compare(root, reviewed, rebased)["replay"] == "clean"
+    assert git(root, "count-objects", "-v") == before
+
+
+def test_unsupported_replay_is_not_provable(module, repo, monkeypatch):
+    root, _, reviewed, _, rebased = repo
+    original = module._run
+
+    def old_git(root_, args, **kwargs):
+        if args and args[0] == "merge-tree":
+            return subprocess.CompletedProcess(args, 129, b"", b"")
+        return original(root_, args, **kwargs)
+
+    monkeypatch.setattr(module, "_run", old_git)
+    assert module.compare(root, reviewed, rebased)["verdict"] == "not_provable"
+
+
 def test_cli_exit_codes(module, repo, capsys):
     root, _, reviewed, new_base, rebased = repo
     r = ["--root", str(root)]
@@ -150,11 +229,12 @@ def _handoff(extra: str = "") -> str:
 def test_handoff_keeps_review_only_with_identical_per_commit_proof():
     hook = _hook()
     assert "review" in hook.handoff_problems(_handoff())
-    proof = (f"\nEquivalence: identical commits=2 patch-id=per-commit-match range-diff=all-equal "
+    proof = (f"\nEquivalence: identical commits=2 replay=clean patch-id=verbatim-match range-diff=all-equal "
              f"reviewed={REVIEWED} base={'e' * 40} rebased={REBASED} onto={BASE}")
     assert hook.handoff_problems(_handoff(proof)) == []
     for bad in (proof.replace("identical", "different"),
                 proof.replace("commits=2", "commits=2->1"),
+                proof.replace("replay=clean", "replay=conflict"),
                 proof.replace(f"rebased={REBASED}", f"rebased={'f' * 40}"),
                 proof.replace(f"reviewed={REVIEWED}", f"reviewed={'f' * 40}")):
         assert "review" in hook.handoff_problems(_handoff(bad))
@@ -167,7 +247,9 @@ def test_merge_condition_text_keeps_its_limits():
     for clause in (
         "Only three cases cover the final SHA",
         "no conflict and no new commit",
-        "the `git patch-id --stable` of each commit equal to that of the covered head",
+        "the `git patch-id --verbatim` of each commit equal to that of the covered head",
+        "`git patch-id --stable` alone is not proof either",
+        "No conflict and no new commit: each covered commit, replayed in order onto the new base",
         "a coordinator who did not make the delta's commits checks the range `<reviewed SHA>..<final SHA>`",
         "which only fixes findings already recorded by the reviewers",
         "New content outside those findings requires a new independent review",
@@ -175,6 +257,7 @@ def test_merge_condition_text_keeps_its_limits():
         "the delta goes back to the reviewer of the last round",
     ):
         assert clause in guide, clause
+    assert "--stable` alone ignores whitespace and is not proof" in brief
     for clause in ("only fixes findings already recorded by the reviewers",
                    "New content requires a new independent review",
                    "the delta goes back to the reviewer of the last round",

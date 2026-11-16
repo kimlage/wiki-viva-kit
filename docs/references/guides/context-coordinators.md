@@ -205,10 +205,10 @@ final SHA:
 1. an independent review of the final SHA itself;
 2. a clean rebase of an already covered head: no conflict and no new commit,
    with `git range-diff <old-base>..<old-head> <new-base>..<new-head>` showing
-   every commit as `=`, or with the `git patch-id --stable` of each commit equal
-   to that of the covered head (compare
-   `git log -p --reverse <base>..<head> | git patch-id --stable` on both sides),
-   and the proof recorded on the proposal;
+   every commit as `=`, or with the `git patch-id --verbatim` of each commit
+   equal to that of the covered head (compare
+   `git log -p --reverse <base>..<head> | git patch-id --verbatim` on both
+   sides), and the proof recorded on the proposal;
 3. a coordinator delta: after two independent review rounds, a coordinator who
    did not make the delta's commits checks the range `<reviewed SHA>..<final SHA>`,
    which only fixes findings already recorded by the reviewers.
@@ -219,15 +219,29 @@ between alternatives or drafted the fix, the coordinator is an author of that
 fix: the delta goes back to the reviewer of the last round. A delta review
 records the SHA range and cites the findings it fixes.
 
-A rebase without conflicts belongs to the integrator.
+A rebase without conflicts belongs to the integrator. The proof has two
+separate parts, because equal patches alone do not show that a rebase was
+conflict-free: a conflict resolved by hand or a recreated commit can produce
+them. `git patch-id --stable` alone is not proof either: it ignores whitespace
+and can equate commits whose behavior differs.
+
+- No conflict and no new commit: each covered commit, replayed in order onto the
+  new base, applies without conflict and yields exactly the tree of the
+  corresponding rebased commit, on a linear chain with the same number of
+  commits.
+- Unchanged commits: `range-diff` all `=` at the same position, or equal
+  per-commit `patch-id --verbatim`.
+
 [`python3 -m wiki_core.patch_equivalence`](../../../wiki_core/patch_equivalence.py)
-checks case 2 commit by commit and prints the `Equivalence:` line and the
-per-commit pairs to record on the proposal; it reports a squash, a new, dropped
-or reordered commit or any changed content as different. The integrator runs
-the gates on the final SHA and integrates without a new review. A real
-conflict, a new commit or a changed commit returns to the executor. The
-integrator does not hold the queue for one proposal: it records the blocker on
-that proposal and moves to the next.
+checks both from local objects (the replay uses `git merge-tree --write-tree`
+into a temporary object directory, without touching the repository) and prints
+the `Equivalence:` line and the per-commit pairs to record on the proposal. It
+reports a squash, a new, dropped or reordered commit, a whitespace change or a
+conflicting replay as different, and a merge commit or a Git without replay
+support as not provable. The integrator runs the gates on the final SHA and
+integrates without a new review. A real conflict, a new commit or a changed
+commit returns to the executor. The integrator does not hold the queue for one
+proposal: it records the blocker on that proposal and moves to the next.
 
 Each proposal gets at most two independent review rounds; after them, only
 case 3 or a new independent review covers the final SHA. A reviewer does not

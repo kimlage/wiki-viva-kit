@@ -130,12 +130,12 @@ def handoff_problems(message: Any) -> list[str]:
     if review and head and not reviewed_here:
         # Merge-condition case 2: a clean rebase keeps the review when an
         # optional Equivalence line (python3 -m wiki_core.patch_equivalence)
-        # proves every commit unchanged, with no new commit, from the reviewed
-        # SHA named in Review to this Head. Shape only: the integrator re-runs
+        # proves a clean replay and every commit unchanged, with no new commit,
+        # from the reviewed SHA named in Review to this Head. Shape only: the integrator re-runs
         # the comparison before relying on it. A coordinator delta (case 3) is
         # not a hook shape; it is recorded on the proposal.
         for line in message.splitlines():
-            proof = re.match(r'(?i)^\s*equivalence\s*:\s*identical\s+commits=[1-9][0-9]*\s.*'
+            proof = re.match(r'(?i)^\s*equivalence\s*:\s*identical\s+commits=[1-9][0-9]*\s+replay=clean\s.*'
                              r'\breviewed=([0-9a-f]{40}|[0-9a-f]{64})\b.*\brebased=([0-9a-f]{40}|[0-9a-f]{64})\b', line)
             if proof and proof.group(2).lower() == head and proof.group(1).lower() in review.lower():
                 reviewed_here = True
