@@ -155,6 +155,7 @@ and final-gate order in the existing [delegation contract](../../guides/context-
 - Do not revert changes made by other agents.
 - Do not write outside the agreed scope.
 - Do not persist tokens, cookies, passwords, access codes, credentials, or individualized secure links.
+- Do not print a whole API or CLI response: select the needed fields first, never fetch a full configuration object, and treat invite, verification and one-time codes and hash-configuration fields as secrets.
 
 ## Response format
 
