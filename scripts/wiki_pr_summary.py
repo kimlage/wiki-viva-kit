@@ -22,6 +22,7 @@ except ModuleNotFoundError:
 
 from wiki_core.config import load_config
 from wiki_core.git_env import local_git_environment, local_git_executable
+from wiki_core.paths import WikiPaths
 
 CONFIG = load_config(ROOT)
 _MEMORY_ROOT = CONFIG.paths["memory_root"]
@@ -316,6 +317,57 @@ def entity_for(path: str) -> str:
     return "other"
 
 
+# One writer per action per round (issue #521). Other open proposals are
+# observed through local remote-tracking branches only: no fetch and no
+# provider call, so the result is as current as the operator's last fetch.
+MAX_OBSERVED_PROPOSALS = 200
+_ACTION_INDEX_NAMES = {"index.md", "README.md"}
+
+
+def action_paths(paths: list[str]) -> list[str]:
+    """Changed canonical action pages (collection indexes excluded)."""
+    layout = WikiPaths(ROOT, CONFIG)
+    found = []
+    for path in paths:
+        if (path.endswith(".md") and path.rsplit("/", 1)[-1] not in _ACTION_INDEX_NAMES
+                and layout.collection_root(ROOT / path, "actions_dirname") is not None):
+            found.append(path)
+    return sorted(set(found))
+
+
+def _is_ancestor(ancestor: str, descendant: str) -> bool:
+    return _git(["merge-base", "--is-ancestor", ancestor, descendant], missing_ref_ok=True) is not None
+
+
+def concurrent_action_writers(selected: str, head: str, actions: list[str]) -> tuple[dict[str, list[str]], bool]:
+    """Map each changed action to other proposal branches that change it too.
+
+    A proposal branch is any `refs/remotes/origin/*` ref other than the
+    default branch and this proposal's own pushed history (an ancestor of
+    HEAD). Branches already contained in the base are integrated, not open.
+    """
+    if not actions:
+        return {}, False
+    wanted = set(actions)
+    raw = _git(["for-each-ref", "--format=%(refname)%00%(objectname)", "refs/remotes/origin/"])
+    assert raw is not None
+    refs = []
+    for line in os.fsdecode(raw).splitlines():
+        name, _, sha = line.partition("\0")
+        if name in {"refs/remotes/origin/HEAD", "refs/remotes/origin/main"} or not sha:
+            continue
+        refs.append((name.removeprefix("refs/remotes/"), sha))
+    truncated = len(refs) > MAX_OBSERVED_PROPOSALS
+    found: dict[str, list[str]] = defaultdict(list)
+    for name, sha in sorted(refs)[:MAX_OBSERVED_PROPOSALS]:
+        if sha in {selected, head} or _is_ancestor(sha, head) or _is_ancestor(sha, selected):
+            continue
+        for _, path in _name_status([f"{selected}...{sha}"]):
+            if path in wanted and name not in found[path]:
+                found[path].append(name)
+    return {path: names for path, names in found.items() if names}, truncated
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", help="explicit local base ref or commit; no fetch is performed")
@@ -363,6 +415,25 @@ def main(argv: list[str] | None = None) -> int:
         print(f"### {entity}")
         print()
         print("\n".join(by_entity[entity]))
+        print()
+    actions = action_paths([path for _, path in rows])
+    if actions:
+        print("## Concurrent writers on actions")
+        print()
+        try:
+            writers, truncated = concurrent_action_writers(selected, head, actions)
+        except SummaryError as exc:
+            print(f"WARNING: concurrent-writer observation unavailable: {exc}.")
+        else:
+            for path in sorted(writers):
+                print(f"WARNING: `{path}` is also changed by "
+                      + ", ".join(f"`{name}`" for name in writers[path])
+                      + "; one writer per action per round: add this result to that proposal or wait for its merge.")
+            if not writers:
+                print("No other observed proposal branch changes these action files.")
+            if truncated:
+                print(f"WARNING: only the first {MAX_OBSERVED_PROPOSALS} remote-tracking branches were compared.")
+            print("Observed from local remote-tracking branches; fetch first for a current view.")
         print()
     print("## Privacy review hints")
     print()

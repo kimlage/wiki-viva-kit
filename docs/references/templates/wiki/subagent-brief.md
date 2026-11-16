@@ -121,13 +121,30 @@ Gates: <gate=passed, gate=pending>
 CI: <head SHA, state and evidence; or not applicable>
 Pending: <items and wait events, or none>
 Responsible-Thread: <executor thread reference>
+Equivalence: <optional; after a clean rebase, the line printed by python3 -m wiki_core.patch_equivalence>
 ```
 
 Integrator recipient: <destination integrator>
 
+After a clean rebase, `Review` may keep the reviewed SHA when `Equivalence`
+proves an identical patch from that SHA to `Head`; the integrator re-runs the
+comparison before relying on it, and a different patch needs a new review.
 The optional hook checks only its listed fields and does not verify the `CI`
 field. The integrator checks destination policy and does not infer approval from this
 handoff. Update it if the head or base changes.
+
+## Independent review
+
+- Review the exact head against each acceptance criterion and record findings
+  and their resolution.
+- A proposal gets at most two independent review rounds. After the second, a
+  non-author coordinator reviews only the delta of the fixes; that counts as
+  the review of the final SHA.
+- Do not block on evidence that exists only after applying the change (for
+  example a production apply or a real send); name it as a post-apply
+  verification on the action instead.
+- A clean rebase with a proven-identical patch keeps this review; see the
+  [integration contract](../../guides/context-coordinators.md#integration-by-destination).
 
 ## Blocker and bounded recovery
 

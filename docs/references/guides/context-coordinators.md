@@ -190,6 +190,32 @@ destination and the consumer can adjust it. A new proposal must serve the
 action's acceptance criteria; record an out-of-scope finding on the action or
 in an issue instead of creating a proposal.
 
+Each canonical action has one writer per round: at most one open proposal per
+action and destination. A new result for the same action is added as a commit
+to the open proposal or waits for its merge; the coordinator does not dispatch a
+second executor to an action that already has an open proposal. The
+[PR summary](../../../scripts/wiki_pr_summary.py) warns when another observed
+proposal branch changes the same action file; it reads local remote-tracking
+branches, so fetch first.
+
+A rebase without conflicts belongs to the integrator. The patch is unchanged
+when `git range-diff <old-base>..<old-head> <new-base>..<new-head>` shows no
+differences or `git patch-id --stable` of the cumulative patch matches;
+[`python3 -m wiki_core.patch_equivalence`](../../../wiki_core/patch_equivalence.py) prints
+that verdict as an `Equivalence:` line. The integrator records the proof on the
+proposal, runs the gates on the final SHA and integrates without a new review:
+the independent review of the reviewed SHA still covers the identical patch.
+Only a real conflict or a different patch returns to the executor and needs
+review again. The integrator does not hold the queue for one proposal: it
+records the blocker on that proposal and moves to the next.
+
+Each proposal gets at most two independent review rounds. After the second, a
+coordinator who is not the author reviews only the delta of the fixes, and that
+delta review counts as the review of the final SHA. A reviewer does not block
+on evidence that exists only after applying the change, such as a production
+apply or a real send: it becomes a post-apply verification recorded on the
+action, checked after integration.
+
 Read policy from the destination's `wiki.config.yaml` `approval:` block, or
 from its AGENTS or equivalent repository rules if it has no wiki. If
 `require_human_review: true`, prepare all other work, wait for human approval
@@ -256,8 +282,9 @@ commits remain available through `refs/pull/<n>/head`; other adapters have their
 retention behavior. Enable automatic deletion of merged branches
 where authorized, and still verify local and remote state. Read back branches,
 worktrees and PRs, and record the result with the existing delivery. Retain valid
-review and test evidence for unchanged work; new changes or concerns receive the
-applicable validation. Keep incomplete work in its PR rather than a new queue.
+review and test evidence for unchanged work, including a clean rebase with a
+proven-identical patch; new changes or concerns receive the applicable
+validation. Keep incomplete work in its PR rather than a new queue.
 
 Executor worktrees live only while their owner is active. An executor whose
 work is in another repository gets no worktree in the wiki. A wiki executor
