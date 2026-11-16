@@ -1705,17 +1705,56 @@ def audit_relations(errors: list[str], config: WikiConfig) -> None:
                     )
 
 
-# Retired pre-wiki layout of this project family: a denylist, not a layout key.
-# `docs/memories/` is the English twin of `docs/memorias/` — superset so one
-# shared codebase guards localized (pt) repos and the English defaults alike.
+# Retired pre-wiki layout of this project family. `docs/memories/` is the
+# English twin of `docs/memorias/` — superset so one shared codebase guards
+# localized (pt) repos and the English defaults alike. This is the DEFAULT for a
+# consumer that does not declare its own layout: a repo that never had this
+# layout and keeps legitimate sources under one of these paths (for example a
+# year folder `docs/2026/`) declares `audit.legacy_docs_prefixes` explicitly.
 LEGACY_DOCS_PREFIXES = ("docs/2026/", "docs/memorias/", "docs/memories/")
-LEGACY_DOCS_MARKERS = ("docs/2026", "docs/memorias", "docs/memories")
+LEGACY_DOCS_MARKERS = tuple(prefix.rstrip("/") for prefix in LEGACY_DOCS_PREFIXES)
+_LEGACY_PREFIX_KEY = "audit.legacy_docs_prefixes"
+
+
+def legacy_docs_prefixes(config: WikiConfig, errors: list[str] | None = None) -> tuple[str, ...]:
+    """Retired docs prefixes for this consumer; fail closed to the default.
+
+    Absent key -> kit default (consumers that migrated keep full protection).
+    A declared list replaces the default: each entry is a relative POSIX
+    directory prefix; an empty list declares that the repo has no retired docs
+    layout. Any malformed value is reported and the default stays in force.
+    """
+    if "legacy_docs_prefixes" not in config.audit:
+        return LEGACY_DOCS_PREFIXES
+    raw = config.audit.get("legacy_docs_prefixes")
+    invalid = not isinstance(raw, list)
+    prefixes: list[str] = []
+    for item in raw if isinstance(raw, list) else ():
+        value = item.strip() if isinstance(item, str) else ""
+        parts = value.rstrip("/").split("/")
+        if (not value or value.startswith("/") or "\\" in value
+                or any(part in {"", ".", ".."} for part in parts)):
+            invalid = True
+            break
+        prefixes.append(value.rstrip("/") + "/")
+    if invalid:
+        if errors is not None:
+            errors.append(
+                f"wiki.config.yaml: {_LEGACY_PREFIX_KEY} must be a list of relative "
+                "directory prefixes; using the kit default"
+            )
+        return LEGACY_DOCS_PREFIXES
+    return tuple(dict.fromkeys(prefixes))
 
 
 def audit_old_paths(errors: list[str], config: WikiConfig) -> None:
     allowed = {str(rel) for rel in (config.audit.get("allowed_old_path_references") or ())}
+    prefixes = legacy_docs_prefixes(config, errors)
+    markers = tuple(prefix.rstrip("/") for prefix in prefixes)
+    if not prefixes:
+        return
     for rel in tracked_files():
-        if rel.startswith(LEGACY_DOCS_PREFIXES):
+        if rel.startswith(prefixes):
             errors.append(f"{rel}: old docs path is still tracked")
         if not rel.endswith(".md"):
             continue
@@ -1723,7 +1762,7 @@ def audit_old_paths(errors: list[str], config: WikiConfig) -> None:
         if is_in_nested_git(path, wiki_root=ROOT):
             continue
         text = _audit_read_text(path, encoding="utf-8", errors="replace")
-        if any(marker in text for marker in LEGACY_DOCS_MARKERS) and rel not in allowed:
+        if any(marker in text for marker in markers) and rel not in allowed:
             errors.append(f"{rel}: old docs path reference outside migration history")
 
 
