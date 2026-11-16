@@ -38,7 +38,10 @@ def main() -> int:
             if item.get('required_at_integration'):
                 print('  required at integration: ' + ', '.join(item['required_at_integration']))
         for item in result['hygiene']:
-            print(f"{item['status']}: {item.get('action_id') or item.get('branch') or item.get('path')}" + (f" PR {item['pr']}" if item.get('pr') else ''))
+            print(f"{item['status']}: {item.get('action_id') or item.get('branch') or item.get('path')}"
+                  + (f" PR {item['pr']}" if item.get('pr') else '')
+                  + (f" at {item['path']}" if item.get('branch') and 'worktree' in str(item['status']) else '')
+                  + (f" owner {item['owner']}" if item.get('owner') else ''))
     return 0 if result['ok'] else 1
 
 

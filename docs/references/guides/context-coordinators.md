@@ -259,6 +259,20 @@ worktrees and PRs, and record the result with the existing delivery. Retain vali
 review and test evidence for unchanged work; new changes or concerns receive the
 applicable validation. Keep incomplete work in its PR rather than a new queue.
 
+Executor worktrees live only while their owner is active. An executor whose
+work is in another repository gets no worktree in the wiki. A wiki executor
+creates its worktree in a temporary location from the current `origin/main`,
+declares itself with `git worktree lock --reason "owner=<thread reference>"`,
+and after pushing removes the worktree at the end of its turn; the PR keeps the
+work. An ended thread holds no folder. The read-only
+[integration check](../../../scripts/wiki_integration_check.py) lists each
+worktree's state: `warn:worktree_without_active_owner` for a clean, unlocked
+worktree of an open proposal, `warn:worktree_owner_unidentified` for a lock
+without an owner reference, `observe:worktree_owner` with the declared owner
+for the host to confirm that the thread is still active, and
+`fix:prunable_worktree` for a registered worktree whose folder is gone. The
+check never removes a worktree.
+
 For a process failure, record its cause and the applicable rule or source on
 the existing action, issue, PR or log. If the rule was adequate, fix its
 implementation or application; if ambiguous or wrong, edit or remove the
