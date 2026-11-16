@@ -326,26 +326,31 @@ _CODE_PLACEHOLDERS = {
 
 
 def _code_like(value: str, *, prose: bool = False) -> bool:
-    """Could this be an issued code? Placeholders and setting words are not.
+    """Could this be an issued code? Decide "not a code" first, then the shape.
 
-    After a strongly identified name (`otp:`, `invite_code=`), digits-only codes
-    (including all zeros), uppercase codes and mixed-case codes count; a
-    lowercase-only word reads as a setting value (`otp: enabled`, `mfa_code:
-    totp`). Uppercase identifiers with `_` (`CHANGE_ME`, an environment-variable
-    name) and `your_*` values are placeholders. In prose, ordinary capitalized
-    words follow these phrases, so only a
-    value with a digit counts there. Masks such as `XXXXXX` or `****` never do.
+    1. Not a code, whatever digits it holds: placeholder words (`TBD`,
+       `change_me`, `totp`, ...), `your_*` values, masks made only of
+       `x`/`*`/`-`/`_`, and identifiers: a value that starts with a letter,
+       contains `_` and has letters of a single case (`INVITE_CODE_V2`,
+       `OTP_CODE_1`, `otp_code_2`), such as an environment-variable name.
+    2. Code shape. In prose, ordinary words follow these phrases, so only a
+       value with a digit counts. After a strongly identified name (`otp:`,
+       `invite_code=`), a value with a digit (including all zeros), an
+       uppercase value or a mixed-case value counts; a lowercase-only word
+       reads as a setting (`otp: enabled`).
     """
-    if (value.lower() in _CODE_PLACEHOLDERS or value.lower().startswith("your_")
-            or set(value) <= {"x", "X", "*", "-", "_"}):
-        return False
-    if any(c.isdigit() for c in value):
-        return True
-    if prose:
-        return False
+    lowered = value.lower()
     letters = [c for c in value if c.isalpha()]
-    if "_" in value and all(c.isupper() for c in letters):
-        return False  # an identifier such as an environment-variable name
+    if lowered in _CODE_PLACEHOLDERS or lowered.startswith("your_"):
+        return False
+    if set(value) <= {"x", "X", "*", "-", "_"}:
+        return False
+    if ("_" in value and value[0].isalpha()
+            and (all(c.isupper() for c in letters) or all(c.islower() for c in letters))):
+        return False
+    has_digit = any(c.isdigit() for c in value)
+    if prose or has_digit:
+        return has_digit
     return bool(letters) and not all(c.islower() for c in letters)
 
 

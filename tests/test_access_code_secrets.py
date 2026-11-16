@@ -74,6 +74,31 @@ NEGATIVES = [
     "otp: " + "TOTP",
     "mfa_code: " + "HOTP",
     "mfa_key: " + "YUBIKEY",
+    # Round 3 (automated review): numbered identifiers are names, not codes.
+    "INVITE_CODE=" + "INVITE_CODE_V2",
+    "OTP=" + "OTP_CODE_1",
+    "otp: " + "otp_code_2",
+    "invite_code: " + "invite_code_v2",
+    "VERIFICATION_CODE=" + "CHANGE_ME_2",
+    "PAIRING_PIN=" + "YOUR_PIN_1234",
+    "Verification code: " + "OTP_CODE_1",
+]
+
+# Real codes stay detected next to the identifier rule (round 3).
+REAL_CODES = [
+    ("INVITE_CODE=", "X7K2" + "Q9"),
+    ("otp: ", "4829" + "13"),
+    ("invite_code: ", "AB-12" + "-CD"),
+    ("verification_code=", "1234" + "_5678"),
+    ("INVITE_CODE=", "Ab3k" + "_Z9qL"),
+    ("Your verification code is ", "A1B2" + "C3"),
+]
+
+# What the identifier rule lets through, on purpose: a code that starts with a
+# letter, contains "_" and has letters of one case reads as an identifier.
+IDENTIFIER_SHAPED_CODES = [
+    ("invite_code: ", "AB_12" + "CD"),
+    ("otp: ", "k7_x9" + "q2"),
 ]
 
 
@@ -116,3 +141,14 @@ def test_full_hash_config_response_is_blocked_by_the_audit(tmp_path, monkeypatch
     assert sum("hash_config_secret" in e for e in errors) == 2
     joined = "\n".join(errors)
     assert SIGNER not in joined and CODE not in joined and SALT not in joined
+
+
+@pytest.mark.parametrize(("prefix", "value"), REAL_CODES)
+def test_real_codes_stay_detected_next_to_identifiers(prefix, value):
+    findings = [f for f in scan_secrets(prefix + value) if f.kind == "access_code"]
+    assert findings and all(value not in f.excerpt for f in findings)
+
+
+@pytest.mark.parametrize(("prefix", "value"), IDENTIFIER_SHAPED_CODES)
+def test_identifier_shaped_codes_are_a_documented_blind_spot(prefix, value):
+    assert [f for f in scan_secrets(prefix + value) if f.kind == "access_code"] == []
