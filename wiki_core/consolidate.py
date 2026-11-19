@@ -26,6 +26,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import re
+from collections import defaultdict
 from pathlib import Path
 
 from wiki_core.traversal import wiki_markdown_files
@@ -1066,18 +1067,63 @@ def find_event_for_source(paths: WikiPaths, source_id: str, *, root: Path | None
     return found
 
 
+def _working_tree_refresh_key(request: dict) -> str | None:
+    """Match the same local interpretation recipe across folder document changes."""
+    from hashlib import sha256
+
+    from wiki_core.llm.context_pass import canonical_request_text, is_local_folder_request
+
+    if not is_local_folder_request(request) or not request.get('folder_request_id'):
+        return None
+    package = request.get('block_context_package')
+    documents = package.get('documents') if isinstance(package, dict) else None
+    if (not isinstance(documents, list) or not documents
+            or any(not isinstance(doc, dict) or doc.get('origin') != 'working_tree' for doc in documents)):
+        return None
+    envelope = {k: v for k, v in request.items() if k not in (
+        'folder_request_id', 'byte_accounting', 'pending_llm_calls', 'cached_calls', 'chunks')}
+    envelope['block_context_package'] = {k: v for k, v in package.items() if k != 'documents'}
+    envelope['chunks'] = [
+        {k: v for k, v in row.items() if k not in (
+            'context_sha256', 'cache_key', 'result_exists', 'result_source_id', 'result_chunk_id')}
+        for row in request['chunks']
+    ]
+    return sha256(canonical_request_text(envelope).encode('utf-8')).hexdigest()
+
+
+def _has_current_local_replacement(root: Path, request: dict, candidates: list[dict]) -> bool:
+    from wiki_core.llm.context_pass import _folder_documents
+
+    package = request['block_context_package']
+    limits = request.get('request_limits')
+    budget = limits.get('context_max_bytes') if isinstance(limits, dict) else None
+    if type(budget) is not int or not 1 <= budget <= 2_000_000:
+        return False
+    try:
+        current = _folder_documents(root, package.get('entry_folder'), package.get('entry_index'), budget)
+    except (OSError, ValueError):
+        return False  # An unavailable or unsafe selection cannot retire pending work.
+    return current != package['documents'] and any(
+        current == candidate['block_context_package']['documents'] for candidate in candidates)
+
+
 def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, object]]:
     """Sources with a COMPLETE deep read whose consolidation is not closed.
 
     States reported: missing_event (no event references the source_id) and
     missing_consolidated_into (event exists but integration not closed).
+    An eventless local request may be historical if the same interpretation
+    recipe has a closed event for the current folder documents.
     """
+    from wiki_core.llm.context_pass import is_local_folder_request
+
     paths = WikiPaths(root, config)
     cache_dir = paths.llm_cache
     out: list[dict[str, object]] = []
+    missing_local = {}
+    closed_local = defaultdict(list)
     for request in load_requests(paths, root=root):
         source_id = str(request.get("source_id"))
-        from wiki_core.llm.context_pass import is_local_folder_request
         if is_local_folder_request(request) and not request.get('folder_request_id'):
             out.append({'source_id': source_id, 'state': 'local_request_requires_reemit'})
             continue
@@ -1087,6 +1133,8 @@ def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, obj
         event = find_event_for_source(paths, source_id, root=root, request_id=request_id)
         if event is None:
             out.append({"source_id": source_id, **({'folder_request_id': request_id} if request_id else {}), "state": "missing_event"})
+            if is_local_folder_request(request):
+                missing_local[request_id] = request
             continue
         fm = _read_frontmatter(event)
         consolidated = fm.get("consolidated_into")
@@ -1099,4 +1147,16 @@ def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, obj
                     "event": event.relative_to(root).as_posix(),
                 }
             )
-    return out
+        elif (is_local_folder_request(request) and fm.get('page_type') == 'ingestion_event'
+              and fm.get('source_hash_sha256') == request.get('source_hash_sha256')
+              and fm.get('context') == request.get('source_context')):
+            key = _working_tree_refresh_key(request)
+            if key is not None:
+                closed_local[key].append(request)
+
+    resolved = set()
+    for request_id, request in missing_local.items():
+        candidates = closed_local.get(_working_tree_refresh_key(request))
+        if candidates and _has_current_local_replacement(root, request, candidates):
+            resolved.add(request_id)
+    return [row for row in out if row.get('folder_request_id') not in resolved]

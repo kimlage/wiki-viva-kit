@@ -30,6 +30,64 @@ def result_for(request, row):
         **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')}}
 
 
+def test_closed_current_folder_read_resolves_only_eventless_stale_reads(approved, monkeypatch):
+    import datetime as dt
+
+    from wiki_core.consolidate import find_event_for_source, pending_consolidations
+    from wiki_core.llm.context_pass import write_result
+
+    root, source, _, _ = approved
+    source.write_text('Synthetic source content.')
+    config = load_config(root)
+    paths = WikiPaths(root, config)
+    paths.ingest_events_dir.mkdir(parents=True)
+    for folder in ('area', 'other'):
+        (root / folder).mkdir()
+        (root / folder / 'AGENTS.md').write_text('Synthetic guidance')
+        (root / folder / 'index.md').write_text('Synthetic first index')
+    index = root / 'area/index.md'
+
+    def prepare(folder):
+        outcome = run(str(source), 'system', root, config, entry_folder=folder, record_score=False)
+        assert not outcome.blocked
+        request_path = root / outcome.request_path
+        request = json.loads(request_path.read_text())
+        for row in request['chunks']:
+            write_result(paths.llm_cache, result_for(request, row), request=request,
+                         preserve_existing=True, before_write=lambda: None)
+        return outcome, request, request_path.read_bytes()
+
+    first, stale, retained = prepare('area')
+    unrelated, separate, _ = prepare('other')
+    assert unrelated.source_id == first.source_id
+    index.write_text('Synthetic second index')
+    cli = module('wiki_consolidate')
+    monkeypatch.setattr(cli, 'ROOT', root)
+    args = dict(emit_event=True, packet=False, source_page=None, source_ref='source-synthetic',
+                context='system', date=dt.date(2026, 1, 1), force=False)
+    assert cli.consolidate_one(first.source_id, request_path=first.request_path, **args) == 1
+    second, current, _ = prepare('area')
+    assert cli.consolidate_one(second.source_id, request_path=second.request_path, **args) == 0
+
+    def pending_states():
+        return {row['folder_request_id']: row['state'] for row in pending_consolidations(root, config)}
+
+    stale_id = stale['folder_request_id']
+    current_id = current['folder_request_id']
+    separate_id = separate['folder_request_id']
+    assert pending_states() == {stale_id: 'missing_event', separate_id: 'missing_event',
+                                current_id: 'missing_consolidated_into'}
+    event = find_event_for_source(paths, second.source_id, root=root, request_id=current_id)
+    event.write_text(event.read_text().replace('consolidated_into: []', 'consolidated_into:\n  - area/index.md'))
+    assert pending_states() == {separate_id: 'missing_event'}
+    assert (root / first.request_path).read_bytes() == retained
+    assert read_matching_result(paths.llm_cache, stale, stale['chunks'][0], root=root) is not None
+
+    # If the older context becomes current again, its missing event still matters.
+    index.write_text('Synthetic first index')
+    assert pending_states() == {stale_id: 'missing_event', separate_id: 'missing_event'}
+
+
 def retained_v1_request(approved):
     """Restore a static synthetic v1 envelope without running retired ingestion."""
     from wiki_core.source_manifest import build_manifest
