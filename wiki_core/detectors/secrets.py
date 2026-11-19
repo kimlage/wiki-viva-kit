@@ -422,8 +422,11 @@ def _scan_transcript_passwords(text: str) -> list[Finding]:
 
     Blank separators and bracketed timestamps are allowed. This heuristic
     covers explicit en/pt/es questions and single tokens with letters and
-    digits. Unlabelled turns, wrapped replies and word-only passphrases
-    require other detection or review.
+    digits. SRT and WebVTT cue numbers and timing lines interrupt the turn
+    sequence. Markdown speaker labels (bold or list items), unbracketed
+    timestamps, and questions or answers with a conversational preamble
+    are outside this rule, as are unlabelled turns, wrapped replies and
+    word-only passphrases.
     """
     if '?' not in text:
         return []
