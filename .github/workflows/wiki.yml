@@ -155,18 +155,23 @@ jobs:
         run: |
           npm install --global npm@10.9.8
           npm ci
+      - name: Install Playwright system dependencies
+        working-directory: apps/wiki-cockpit
+        timeout-minutes: 10
+        # Do not restart apt from the browser download retry loop.
+        run: npx playwright install-deps chromium firefox webkit
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/wiki-cockpit/package-lock.json') }}
-      - name: Install browsers and system dependencies
+      - name: Install Playwright browsers
         working-directory: apps/wiki-cockpit
         timeout-minutes: 10
         run: |
-          # Install still runs on cache hits to verify binaries and OS deps.
+          # Install still runs on cache hits to verify the browser binaries.
           for attempt in 1 2 3; do
-            if timeout --kill-after=10s 180s npx playwright install --with-deps chromium firefox webkit; then
+            if timeout --kill-after=10s 180s npx playwright install chromium firefox webkit; then
               exit 0
             fi
             if [ "$attempt" -eq 3 ]; then exit 1; fi
