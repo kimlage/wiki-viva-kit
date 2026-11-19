@@ -399,6 +399,61 @@ def _scan_access_codes(text: str) -> list[Finding]:
     return findings
 
 
+_TRANSCRIPT_TURN_RE = re.compile(
+    r"(?:\[(?:\d{1,2}:)?\d{2}:\d{2}\][ \t]+)?"
+    r"(?P<speaker>[^\W\d_][\w .'-]{0,47}):[ \t]+(?P<utterance>.+)"
+)
+_PASSWORD_QUESTION_RE = re.compile(
+    r"(?:what(?:\s+is|['’]s)\s+(?:the|your|my|our|its|their|his|her)\s+"
+    r"(?:[\w-]+\s+){0,3}(?:password|passcode)(?:\s+for(?:\s+[\w-]+){1,6})?"
+    r"|qual\s+[ée]\s+a\s+senha(?:\s+(?:da|do|de|para)(?:\s+[\w-]+){1,6})?"
+    r"|¿?cu[aá]l\s+es\s+(?:la\s+contrase[nñ]a|la\s+clave)(?:\s+(?:del?|para)(?:\s+[\w-]+){1,6})?)\s*\?",
+    re.IGNORECASE,
+)
+_PASSWORD_REPLY_RE = re.compile(
+    r"(?:(?:it(?:\s+is|['’]s)|[éÉ]|es)\s+)?"
+    r"""(?P<quote>['"]?)(?P<value>[a-z0-9][a-z0-9_!@#$%&*+=-]{5,127})(?P=quote)[.!]?""",
+    re.IGNORECASE | re.ASCII,
+)
+
+
+def _scan_transcript_passwords(text: str) -> list[Finding]:
+    """Detect a value-shaped answer on the next labelled speaker line.
+
+    Blank separators and bracketed timestamps are allowed. This heuristic
+    covers explicit en/pt/es questions and single tokens with letters and
+    digits. SRT and WebVTT cue numbers and timing lines interrupt the turn
+    sequence. Markdown speaker labels (bold or list items), unbracketed
+    timestamps, and questions or answers with a conversational preamble
+    are outside this rule, as are unlabelled turns, wrapped replies and
+    word-only passphrases.
+    """
+    if '?' not in text:
+        return []
+    findings = []
+    question_speaker = None
+    for line, raw in enumerate(text.split('\n'), 1):
+        raw = raw.strip()
+        if not raw:
+            continue
+        turn = _TRANSCRIPT_TURN_RE.fullmatch(raw) if len(raw) <= 512 else None
+        if turn is None:
+            question_speaker = None
+            continue
+        speaker = turn['speaker'].strip().casefold()
+        utterance = turn['utterance']
+        if question_speaker is not None and speaker != question_speaker:
+            answer = _PASSWORD_REPLY_RE.fullmatch(utterance)
+            if answer is not None:
+                value = answer['value']
+                if any(c.isdigit() for c in value) and any(c.isalpha() for c in value):
+                    findings.append(Finding(kind='transcript_password', category=_CATEGORY,
+                                            severity='alto', line=line,
+                                            excerpt=_masked('transcript_password', value), detector=_DETECTOR))
+        question_speaker = speaker if _PASSWORD_QUESTION_RE.fullmatch(utterance) else None
+    return findings
+
+
 def scan_secrets(text: str) -> list[Finding]:
     """Detect credential-shaped secrets in ``text``."""
     findings: list[Finding] = []
@@ -438,6 +493,7 @@ def scan_secrets(text: str) -> list[Finding]:
 
     findings.extend(_scan_credential_file_shape(text))
     findings.extend(_scan_access_codes(text))
+    findings.extend(_scan_transcript_passwords(text))
 
     return findings
 
