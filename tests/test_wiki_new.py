@@ -122,3 +122,65 @@ def test_wiki_new_meeting_accepts_template_inline_list_comments(
     for field in ("participants", "source_refs", "decisions", "actions"):
         assert flat[field] == structured[field] == []
     assert flat["stale_after_days"] == str(structured["stale_after_days"])
+
+
+@pytest.fixture
+def initiative_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    root = _authoring_repo(tmp_path, "initiative")
+    with (root / "wiki.page-types.yaml").open("a", encoding="utf-8") as registry:
+        registry.write(
+            "\n  initiative:\n"
+            "    template: docs/references/templates/wiki/initiative.md\n"
+            "    allowed_dirs: [memories/initiatives]\n"
+            "    required_frontmatter: *relation_required\n"
+            "    field_types: *relation_field_types\n"
+        )
+    monkeypatch.setattr(wiki_new, "ROOT", root)
+    return root
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+@pytest.mark.parametrize("parent", ["project-synthetic", "memories/projects/{{title}}: parent #1.md"])
+def test_wiki_new_initiative_accepts_a_relation_parent(
+    initiative_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    dry_run: bool,
+    parent: str,
+) -> None:
+    output = initiative_repo / "memories/initiatives/synthetic-example.md"
+    argv = ["wiki_new.py", "--type", "initiative", "--title", "Synthetic example",
+            "--context", "system", "--moc-parent", parent]
+    if dry_run:
+        argv.append("--dry-run")
+    monkeypatch.setattr(sys, "argv", argv)
+
+    assert wiki_new.main() == 0
+    if dry_run:
+        rendered = capsys.readouterr().out
+        assert not output.exists()
+    else:
+        rendered = output.read_text(encoding="utf-8")
+    flat, errors = parse_frontmatter_flat_with_errors(rendered)
+    structured, _body = parse_frontmatter(rendered)
+    assert errors == []
+    assert flat["moc_parent"] == structured["moc_parent"] == parent
+    assert flat["page_type"] == structured["page_type"] == "initiative"
+
+
+@pytest.mark.parametrize("parent", [None, "  ", "project-synthetic\nvisibility: public"])
+def test_wiki_new_initiative_refuses_an_invalid_relation_parent(
+    initiative_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    parent: str | None,
+) -> None:
+    argv = ["wiki_new.py", "--type", "initiative", "--title", "Synthetic example", "--context", "system"]
+    if parent is not None:
+        argv.extend(["--moc-parent", parent])
+    monkeypatch.setattr(sys, "argv", argv)
+
+    assert wiki_new.main() == 2
+    report = capsys.readouterr()
+    assert "moc_parent" in report.err
+    assert not (initiative_repo / "memories/initiatives").exists()

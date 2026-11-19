@@ -21,6 +21,9 @@ def main() -> int:
     parser.add_argument("--title", required=True)
     parser.add_argument("--context")
     parser.add_argument(
+        "--moc-parent", help="navigation parent page ID or path for a type that declares moc_parent",
+    )
+    parser.add_argument(
         "--output",
         help="repo-relative destination; defaults to first allowed_dir/<slug>.md; required for context instructions",
     )
@@ -30,7 +33,8 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        output, text = prepare_page(ROOT, args.page_type, args.title, args.context, args.output)
+        output, text = prepare_page(ROOT, args.page_type, args.title, args.context, args.output,
+                                    moc_parent=args.moc_parent)
     except (FileNotFoundError, OSError, PackError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

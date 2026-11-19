@@ -67,6 +67,7 @@ def _render_errors(
     page_type: str,
     title: str,
     context: str,
+    moc_parent: str | None = None,
 ) -> list[str]:
     flat, structural = parse_frontmatter_flat_with_errors(
         text,
@@ -103,6 +104,8 @@ def _render_errors(
         actual = flat.get(field)
         if (str(actual) if actual is not None else "") != expected:
             errors.append(f"{output}: rendered `{field}` does not match the request")
+    if moc_parent is not None and (flat.get("moc_parent") != moc_parent or structured.get("moc_parent") != moc_parent):
+        errors.append(f"{output}: rendered `moc_parent` does not match the request")
     return errors
 
 
@@ -129,7 +132,7 @@ def _atomic_create(path: Path, text: str) -> None:
 
 
 def prepare_page(root: Path, page_type: str, title: str, context: str | None = None,
-                 output: str | None = None) -> tuple[str, str]:
+                 output: str | None = None, *, moc_parent: str | None = None) -> tuple[str, str]:
     if not isinstance(title, str) or not title.strip() or any(ord(c) < 32 for c in title):
         raise ValueError("rendered `title` does not match the single-line title contract")
     config = load_config(root)
@@ -137,8 +140,22 @@ def prepare_page(root: Path, page_type: str, title: str, context: str | None = N
     if registry is None:
         raise ValueError("wiki.page-types.yaml not found")
     resolved = resolve_template(root, config, registry, page_type)
+    shape = registry.page_types[page_type]
+    if moc_parent is not None:
+        required = shape.get("required_frontmatter") or ()
+        field_types = shape.get("field_types") or {}
+        if "moc_parent" not in required and "moc_parent" not in field_types:
+            raise ValueError("page type does not declare moc_parent")
+        if (
+            not isinstance(moc_parent, str)
+            or not moc_parent.strip()
+            or moc_parent.splitlines() != [moc_parent]
+            or any(ord(c) < 32 or ord(c) == 127 for c in moc_parent)
+        ):
+            raise ValueError("moc_parent must be a non-empty, single-line page reference")
+        moc_parent = moc_parent.strip()
     context = context or config.default_context
-    text = instantiate_template(resolved, title=title, context=context, config=config)
+    text = instantiate_template(resolved, title=title, context=context, config=config, moc_parent=moc_parent)
     if page_type == "action":
         from datetime import date
         from wiki_core.action_transition import _parse_document, _render_document
@@ -156,8 +173,8 @@ def prepare_page(root: Path, page_type: str, title: str, context: str | None = N
     output, _ = _safe_output_path(root, str(config.paths["memory_root"]),
                                 output or default_output_path(registry, page_type, title),
                                 instructions=instructions)
-    errors = _render_errors(root, output, text, registry.page_types[page_type],
-                           page_type=page_type, title=title, context=context)
+    errors = _render_errors(root, output, text, shape, page_type=page_type,
+                           title=title, context=context, moc_parent=moc_parent)
     if errors:
         raise ValueError("; ".join(errors))
     return output, text
