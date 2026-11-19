@@ -5,6 +5,7 @@ import datetime as dt
 import hashlib
 import json
 import subprocess
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -761,6 +762,9 @@ def test_review_requires_evidence_changed_in_this_proposal(repo):
 def test_review_preserves_one_age_warning_and_global_rejects_option(repo, monkeypatch):
     base, review = reviewed_fixture(repo)
     monkeypatch.setattr(audit, 'ROOT', repo)
+    monkeypatch.setattr(
+        'wiki_core.freshness_impact.repository_report', partial(repository_report, today=TODAY)
+    )
     cfg = load_config(repo)
     errors, warnings = [], ['memories/archive.md: stale page']
     audit.audit_freshness_budget(errors, warnings, cfg, base_ref=base, freshness_reviews=review)
