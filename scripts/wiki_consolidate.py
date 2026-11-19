@@ -14,6 +14,9 @@ for the agent to close during integration. --packet emits the integration packet
 claim/entity. --check fails (rc 1) while any deep-read-complete source lacks an
 event or has an event whose consolidated_into is empty — ingestion is only done
 when the wiki's concepts reflect the new information.
+
+Resolution by a closed working-tree replacement is recomputed on each check,
+so the older request can return as missing_event after a later folder change.
 """
 
 from __future__ import annotations

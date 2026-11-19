@@ -1092,6 +1092,8 @@ def _working_tree_refresh_key(request: dict) -> str | None:
 
 
 def _has_current_local_replacement(root: Path, request: dict, candidates: list[dict]) -> bool:
+    # This intentionally depends on the preparation reader so both paths use
+    # the same folder selectors, document boundaries and byte budget.
     from wiki_core.llm.context_pass import _folder_documents
 
     package = request['block_context_package']
