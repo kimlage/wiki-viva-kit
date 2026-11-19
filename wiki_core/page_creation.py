@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 from wiki_core.config import load_config
@@ -154,6 +154,18 @@ def prepare_page(root: Path, page_type: str, title: str, context: str | None = N
         ):
             raise ValueError("moc_parent must be a non-empty, single-line page reference")
         moc_parent = moc_parent.strip()
+        reference_path = PurePosixPath(moc_parent)
+        if (
+            reference_path.is_absolute()
+            or ".." in reference_path.parts
+            or "\\" in moc_parent
+            or PureWindowsPath(moc_parent).drive
+        ):
+            raise ValueError("moc_parent must be a page ID or repo-relative Markdown path without traversal")
+        from wiki_core.graph.page_graph import resolve_existing_page_reference
+
+        if resolve_existing_page_reference(root, config, moc_parent) is None:
+            raise ValueError("moc_parent must resolve to an existing page in the configured memory root")
     context = context or config.default_context
     text = instantiate_template(resolved, title=title, context=context, config=config, moc_parent=moc_parent)
     if page_type == "action":

@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 
 import scripts.wiki_new as wiki_new
+from wiki_core.config import load_config
 from wiki_core.frontmatter import parse_frontmatter, parse_frontmatter_flat_with_errors
+from wiki_core.graph.page_graph import build_page_graph
 
 
 KIT_ROOT = Path(__file__).resolve().parents[1]
@@ -135,12 +137,16 @@ def initiative_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
             "    required_frontmatter: *relation_required\n"
             "    field_types: *relation_field_types\n"
         )
+    parent = root / "memories/projects/{{title}} parent #1.md"
+    parent.parent.mkdir(parents=True)
+    parent.write_text("---\npage_id: project-synthetic\n---\n# Synthetic parent\n", encoding="utf-8")
+    (root / "outside.md").write_text("---\npage_id: outside-synthetic\n---\n# Outside memory\n", encoding="utf-8")
     monkeypatch.setattr(wiki_new, "ROOT", root)
     return root
 
 
 @pytest.mark.parametrize("dry_run", [False, True])
-@pytest.mark.parametrize("parent", ["project-synthetic", "memories/projects/{{title}}: parent #1.md"])
+@pytest.mark.parametrize("parent", ["project-synthetic", "memories/projects/{{title}} parent #1.md"])
 def test_wiki_new_initiative_accepts_a_relation_parent(
     initiative_repo: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -161,6 +167,9 @@ def test_wiki_new_initiative_accepts_a_relation_parent(
         assert not output.exists()
     else:
         rendered = output.read_text(encoding="utf-8")
+        graph = build_page_graph(initiative_repo, load_config(initiative_repo))
+        node = graph.nodes[output.relative_to(initiative_repo).as_posix()]
+        assert node.outbound_frontmatter_refs == ("memories/projects/{{title}} parent #1.md",)
     flat, errors = parse_frontmatter_flat_with_errors(rendered)
     structured, _body = parse_frontmatter(rendered)
     assert errors == []
@@ -168,7 +177,18 @@ def test_wiki_new_initiative_accepts_a_relation_parent(
     assert flat["page_type"] == structured["page_type"] == "initiative"
 
 
-@pytest.mark.parametrize("parent", [None, "  ", "project-synthetic\nvisibility: public"])
+@pytest.mark.parametrize("parent", [
+    None,
+    "  ",
+    "project-synthetic\nvisibility: public",
+    "no-such-page",
+    "../../../etc/hosts",
+    "/etc/hosts",
+    "memories/projects/missing.md",
+    "outside.md",
+    "outside-synthetic",
+    r"C:\synthetic\parent.md",
+])
 def test_wiki_new_initiative_refuses_an_invalid_relation_parent(
     initiative_repo: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -180,7 +200,8 @@ def test_wiki_new_initiative_refuses_an_invalid_relation_parent(
         argv.extend(["--moc-parent", parent])
     monkeypatch.setattr(sys, "argv", argv)
 
-    assert wiki_new.main() == 2
+    status = wiki_new.main()
+    assert (status, (initiative_repo / "memories/initiatives/synthetic-example.md").exists()) == (2, False)
     report = capsys.readouterr()
     assert "moc_parent" in report.err
     assert not (initiative_repo / "memories/initiatives").exists()

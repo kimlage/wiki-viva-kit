@@ -21,7 +21,7 @@ def main() -> int:
     parser.add_argument("--title", required=True)
     parser.add_argument("--context")
     parser.add_argument(
-        "--moc-parent", help="navigation parent page ID or path for a type that declares moc_parent",
+        "--moc-parent", help="existing navigation parent page ID or Markdown path under the memory root",
     )
     parser.add_argument(
         "--output",
