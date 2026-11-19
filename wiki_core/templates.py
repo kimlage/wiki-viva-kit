@@ -166,6 +166,7 @@ def instantiate_template(
     context: str,
     config: WikiConfig,
     today: dt.date | None = None,
+    moc_parent: str | None = None,
 ) -> str:
     today = today or dt.date.today()
     page_id = f"{resolved.page_type}-{slugify(title)}"
@@ -198,6 +199,9 @@ def instantiate_template(
         quoted_keys.update({"template_id", "template_version"})
     scalar_values = {key: scalar(value) if key in quoted_keys else value
                      for key, value in replacements.items()}
+    if moc_parent is not None:
+        # Keep braces in the supplied reference literal during template interpolation.
+        scalar_values["moc_parent"] = json.dumps(moc_parent, ensure_ascii=False).replace("{", r"\u007b")
     text = resolved.text
     lines = text.splitlines()
     if lines and lines[0] == "---":
@@ -206,20 +210,22 @@ def instantiate_template(
         except ValueError:
             end = -1
         if end > 0:
-            fm = lines[:end]
             body = lines[end:]
-            present = {line.split(":", 1)[0].strip() for line in fm if ":" in line}
-            override_keys = set(replacements)
-            fm = [
-                f"{line.split(':', 1)[0].strip()}: {scalar_values[line.split(':', 1)[0].strip()]}"
-                if ":" in line and line.split(":", 1)[0].strip() in override_keys
-                else line
-                for line in fm
-            ]
+            fm = []
+            present = set()
+            for line in lines[:end]:
+                name, separator, _ = line.partition(":")
+                key = name.strip()
+                # The navigation parent is a top-level field.
+                if not separator or (key == "moc_parent" and name != name.lstrip()):
+                    fm.append(line)
+                    continue
+                present.add(key)
+                fm.append(f"{key}: {scalar_values[key]}" if key in scalar_values else line)
             additions = []
-            for key, value in replacements.items():
+            for key, value in scalar_values.items():
                 if key not in present:
-                    additions.append(f"{key}: {scalar_values[key]}")
+                    additions.append(f"{key}: {value}")
             if "template_ref" not in present:
                 additions.append(f"template_ref: {resolved.template_path}")
             if resolved.overlay_path and "template_overlay" not in present:

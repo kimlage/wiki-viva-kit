@@ -180,15 +180,22 @@ def _frontmatter_refs(values: dict[str, Any], page_id_to_rel: dict[str, str]) ->
     out: set[str] = set()
     for field_name in FRONTMATTER_REF_FIELDS:
         for raw in _list_values(values.get(field_name)):
-            if raw in page_id_to_rel:
-                out.add(page_id_to_rel[raw])
-            elif raw.endswith(".md"):
-                out.add(raw)
-            elif "/" in raw and not raw.startswith(("http://", "https://")):
-                target = raw.rstrip("/")
-                if target.endswith(".md"):
-                    out.add(target)
+            target = _frontmatter_ref_target(raw, page_id_to_rel)
+            if target is not None:
+                out.add(target)
     return tuple(sorted(out))
+
+
+def _frontmatter_ref_target(raw: str, page_id_to_rel: dict[str, str]) -> str | None:
+    if raw in page_id_to_rel:
+        return page_id_to_rel[raw]
+    if raw.endswith(".md"):
+        return raw
+    if "/" in raw and not raw.startswith(("http://", "https://")):
+        target = raw.rstrip("/")
+        if target.endswith(".md"):
+            return target
+    return None
 
 
 def _aliases(values: dict[str, Any]) -> tuple[str, ...]:
@@ -199,10 +206,9 @@ def _aliases(values: dict[str, Any]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(aliases))
 
 
-def build_page_graph(root: Path, config: WikiConfig) -> PageGraph:
-    memory_root = _memory_prefix(config)
-    files = _markdown_files(root, memory_root)
-
+def _frontmatter_index(
+    root: Path, files: list[Path],
+) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     frontmatter_by_rel: dict[str, dict[str, Any]] = {}
     page_id_to_rel: dict[str, str] = {}
     for path in files:
@@ -212,6 +218,21 @@ def build_page_graph(root: Path, config: WikiConfig) -> PageGraph:
         page_id = str(values.get("page_id") or "").strip()
         if page_id:
             page_id_to_rel.setdefault(page_id, rel)
+    return frontmatter_by_rel, page_id_to_rel
+
+
+def resolve_existing_page_reference(root: Path, config: WikiConfig, reference: str) -> str | None:
+    """Resolve an ID or Markdown path in the same memory inventory as the graph."""
+    files = _markdown_files(root, _memory_prefix(config))
+    frontmatter, page_id_to_rel = _frontmatter_index(root, files)
+    target = _frontmatter_ref_target(reference, page_id_to_rel)
+    return target if target in frontmatter else None
+
+
+def build_page_graph(root: Path, config: WikiConfig) -> PageGraph:
+    memory_root = _memory_prefix(config)
+    files = _markdown_files(root, memory_root)
+    frontmatter_by_rel, page_id_to_rel = _frontmatter_index(root, files)
 
     outbound_body: dict[str, tuple[str, ...]] = {}
     outbound_refs: dict[str, tuple[str, ...]] = {}

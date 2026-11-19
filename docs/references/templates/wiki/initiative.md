@@ -1,5 +1,10 @@
 # Template - initiative
 
+When registering this template with the relation-page contract, pass the
+initiative's navigation parent to `wiki_new.py` with `--moc-parent PAGE_ID_OR_PATH`.
+The reference must resolve to an existing page in the configured memory root.
+For manual creation, add the same reference as `moc_parent` in the frontmatter.
+
 ```yaml
 ---
 page_id: initiative-example
